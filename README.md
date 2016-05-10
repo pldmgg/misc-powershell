@@ -16,6 +16,8 @@ At first glance, it may seem that more recent PowerShell cmdlets (and even just 
 This script/function also provides the ability to create hashtables and PSObjects based on Disk/Partition for easier extensibility.
     
 This script/function is compatible with ***all*** versions of PowerShell, since, ultimately, it is all based on diskpart output.
-    
-2) XXXXXXXX
+
+
+
+2) XXXXXXXX.ps1
 
