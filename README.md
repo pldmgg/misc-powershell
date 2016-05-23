@@ -19,5 +19,5 @@ This script/function is compatible with ***all*** versions of PowerShell, since,
 
 
 
-2) XXXXXX.ps1
+2) X.ps1
 
