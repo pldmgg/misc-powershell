@@ -1,7 +1,6 @@
 # misc-powershell
 Miscellaneous PowerShell Scripts
-###
-###
+
 Contents:
 
 1) Get-AllDiskInfo.ps1
@@ -20,5 +19,5 @@ This script/function is compatible with ***all*** versions of PowerShell, since,
 
 
 
-2) X.ps1
+2) XXX.ps1
 
