@@ -1,7 +1,9 @@
-﻿# Generate-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
+﻿# Decrypt-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
 # Other Prerequisites: 
-# 1) Must have a .pfx Certificate (tested with a .pfx that contains both public and private keys...but just public key/cert should work - but this has not been tested)
-# 2) Aforementioned .pfx must have been password protected at the time it was created (although this should work even if the .pfx wasn't password protected - but this has not been tested)
+# 1) The Encrypted Password File must have been generated using Generate-EncryptedPwdFile.ps1 (See: https://github.com/pldmgg/misc-powershell.git)
+# 2) Must have the .pfx Certificate used to originally generate the encrypted file 
+# 3) The .pfx used to decrypt the encrypted password file must contain private key (tested with a .pfx that contained both public AND private keys...but just private key should work)
+# 4) Aforementioned .pfx must have been password protected at the time it was created (although this should work even if the .pfx wasn't password protected - but this has not been tested)
 
 function Get-PfxCertificateBetter {
     [CmdletBinding(DefaultParameterSetName='ByPath')]
@@ -33,7 +35,7 @@ function Get-PfxCertificateBetter {
     return $cert
 }
 
-function Generate-EncryptedPwdFile {
+function Decrypt-EncryptedPwdFile {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
@@ -43,16 +45,14 @@ function Generate-EncryptedPwdFile {
         $PathToCertInStore = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -like "*Scripting*"}),
 
         [Parameter(Mandatory=$False)]
-        $FileToOutput
+        $EncryptedPwdFileInput
     )
 
     Process {
+        # $PathToCertFile = R:\zero\ZeroCode.pfx
 
-        $PasswordToEncryptPrep = Read-Host -Prompt 'Password to Encrypt' -AsSecureString
-        $PasswordToEncrypt = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordToEncryptPrep))
-        
-        if ($FileToOutput -eq $null) {
-            $FileToOutput = Read-Host -Prompt 'Please enter a full path and filename to output [Example: C:\encryptedpwd.txt]'
+        if ($EncryptedPwdFileInput -eq $null) {
+            $EncryptedPwdFileInput = Read-Host -Prompt 'Please enter the full path to the encrypted password file [Example: C:\encryptedpwd.txt]'
         }
 
         if ($PathToCertFile -ne $null) {
@@ -65,19 +65,20 @@ function Generate-EncryptedPwdFile {
                 }
             }
             if (Test-Path $PathToCertFile) {
-                $PasswordPrep1 = Read-Host -Prompt 'Please enter the password for the certificate being used to encrypt the above password' -AsSecureString
-                $CertFilePwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep1))
-                $Cert1 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd1
-                $EncodedPwd1 = [system.text.encoding]::UTF8.GetBytes($PasswordToEncrypt)
-                $EncryptedBytes1 = $Cert1.PublicKey.Key.Encrypt($EncodedPwd1, $true)
-                $EncryptedPwd1 = [System.Convert]::ToBase64String($EncryptedBytes1)
-                $EncryptedPwd1 | Out-File $FileToOutput
+                $PasswordPrep2 = Read-Host -Prompt 'Please enter the password for the certificate being used to decrypt the encrypted file' -AsSecureString
+                $CertFilePwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep2))
+                $Cert2 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd2
+                $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
+                $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
+                $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
+                $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
+                $DecryptedPwd2
             }
         }
 
         if ($PathToCertFile -eq $null -and $PathToCertInStore -eq $null) {
             $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been `
-            `n loaded in the certificate Store? [Type either File or Store]"
+            `nloaded in the certificate Store in order to decrypt the password? [Type either File or Store]"
             if ($FileOrStoreSwitch -ne "File" -or $FileOrStoreSwitch -ne "Store") {
                 Write-Host "The string entered did not match either 'File' or 'Store'. Please type either File or Store"
                 $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been loaded in the certificate Store? [File,Store]"
@@ -99,13 +100,14 @@ function Generate-EncryptedPwdFile {
                     }
                 }
                 if ($PathToCertFile -ne $null -and (Test-Path $PathToCertFile)) {
-                    $PasswordPrep1 = Read-Host -Prompt 'Please enter the password for the certificate being used to encrypt the above password' -AsSecureString
-                    $CertFilePwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep1))
-                    $Cert1 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd1
-                    $EncodedPwd1 = [system.text.encoding]::UTF8.GetBytes($PasswordToEncrypt)
-                    $EncryptedBytes1 = $Cert1.PublicKey.Key.Encrypt($EncodedPwd1, $true)
-                    $EncryptedPwd1 = [System.Convert]::ToBase64String($EncryptedBytes1)
-                    $EncryptedPwd1 | Out-File $FileToOutput
+                    $PasswordPrep2 = Read-Host -Prompt 'Please enter the password for the certificate being used to decrypt the encrypted file' -AsSecureString
+                    $CertFilePwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep2))
+                    $Cert2 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd2
+                    $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
+                    $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
+                    $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
+                    $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
+                    $DecryptedPwd2
                 }
             }
             if ($FileOrStoreSwitch -eq "Store") {
@@ -115,21 +117,23 @@ function Generate-EncryptedPwdFile {
                     exit
                 }
                 if ($PathToCertInStore -ne $null) {
-                    $Cert = $PathToCertInStore
-                    $EncodedPwd = [system.text.encoding]::UTF8.GetBytes($PasswordToEncrypt)
-                    $EncryptedBytes = $Cert.PublicKey.Key.Encrypt($EncodedPwd, $true)
-                    $EncryptedPwd = [System.Convert]::ToBase64String($EncryptedBytes)
-                    $EncryptedPwd | Out-File $FileToOutput
+                    $Cert2 = $PathToCertInStore
+                    $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
+                    $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
+                    $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
+                    $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
+                    $DecryptedPwd2
                 }
             }  
         }
 
         if ($PathToCertFile -eq $null -and $PathToCertInStore -ne $null) {
-            $Cert = $PathToCertInStore
-            $EncodedPwd = [system.text.encoding]::UTF8.GetBytes($PasswordToEncrypt)
-            $EncryptedBytes = $Cert.PublicKey.Key.Encrypt($EncodedPwd, $true)
-            $EncryptedPwd = [System.Convert]::ToBase64String($EncryptedBytes)
-            $EncryptedPwd | Out-File $FileToOutput
+            $Cert2 = $PathToCertInStore
+            $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
+            $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
+            $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
+            $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
+            $DecryptedPwd2
         }
     }
 }
@@ -137,8 +141,8 @@ function Generate-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUz02UGexU6BB2Qw8p/Nuz+u5Z
-# SQCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6L+qcfNrhstNQ2TrX6AEpo/g
+# X06gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -193,11 +197,11 @@ function Generate-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSPproefOIV
-# GyKpRtPRH0SLlc8kMzANBgkqhkiG9w0BAQEFAASCAQAnM3qBvEG3hRDx9E+m2ZV5
-# 25s4q1zm90n6kBHM625jRyBDMPT8QkfUZmjNwmcSiOsmSGESDAsxKlQiQM4WeKqz
-# Jg7pR3SlHx/XnGTIh/2oqPtsQfI+dmb7m1TGD211ycTO2Cy1zC4g+3UBuLIEbXA3
-# rwjbx87gK4pNEEsqkm7e+hxSFqveCmtgwd5LkZeffP+elXENBzhOP7A63kk1EBlY
-# hXzNZMJXX+nWzVjlRTQiEk2RZ1ikC0KvIIBTBhL6lMIW3YNLx4A2eIfOhxb3pwQ2
-# K0lAnm0q6dFxDlbx6Mta/X/IKYRTbKAuZBIVVRqFJbp5nzHbqOOHoKRG/26bbQWF
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQVhOSSetua
+# sRVdfA+thixufd7mvzANBgkqhkiG9w0BAQEFAASCAQBbjlHYrDipXvsjp0rFJH72
+# YIbBPQseFw+Ak3AYpTjpEoZ5SY0oJCnUNGdNQZ+IvNuLC7DOOvOAOgNphF62hRW8
+# tQl9AybSGvDBz4t6zyFXkxzPtlbFUJ9DDFxohCYpMb1Kttvce/1ygA6+cdmfLV6t
+# uNTbyem0RnTPEHGYk3X+FFfkHIkYBCuolWKhGDIanPqBMrxz7/M935OSBI9hbyge
+# rqlU7u1b+0XE39XgSSFvXGL+45aOuSV2J2rwfvFBMH9yxAe5gJvgW5m0qALr+gdD
+# mt/S8kVCJgfIWr4Dinc+z2ipMdqU0+TjhrcDD+wQZL5C+ko71lXu4l4TbLh9rJhn
 # SIG # End signature block
