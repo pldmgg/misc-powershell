@@ -7,8 +7,8 @@
     This can be run as a script by uncommenting the very last line calling the Generate-CertTemplate function, or by simply loading the
     entire function into your current PowerShell shell and then calling it.
 
-    IMPORTANT NOTE1: By running the function without any parameters, the user will be walked through several prompts. This is the recommended way to use
-    this function until the user feels comfortable with parameters mentioned below.
+    IMPORTANT NOTE1: By running the function without any parameters, the user will be walked through several prompts. 
+    This is the recommended way to use this function until the user feels comfortable with parameters mentioned below.
 
 .DESCRIPTION
     This function/script is split into the following sections (ctl-f to jump to each of these sections)
@@ -46,7 +46,7 @@
     ...HOWEVER, right-click the object (use adsiedit) and observe the Attribute "displayName".  The Value "Code Signing" DOES CONTAIN a space.
 
     IMPORTANT NOTE5: Sometimes LDAP objects have a completely different "displayName" attribute than one would expect. For example, the displayName for the LDAP object
-    CN=Machine,CN=CodeSigning,CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=[domain prefix],DC=[domain suffix]
+    CN=Machine,CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=[domain prefix],DC=[domain suffix]
     ...is "Computer" NOT "Machine"
 
     3) $cnForBasisTemplate - This variable can be set to any "cn" value (like "Machine" or "CodeSigning") found under the properties of
