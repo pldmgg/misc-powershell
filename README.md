@@ -3,43 +3,7 @@ Miscellaneous PowerShell Scripts
 
 Contents:
 
-1) Get-AllDiskInfo.ps1
-
-SYNOPSIS
-    
-This script along with the Get-AllDiskInfo function (at the end) attempts to provide all disk information for the localhost in a way that ties Disk, Partition, and Volume information together ***in one output***.
-
-DESCRIPTION
-    
-At first glance, it may seem that more recent PowerShell cmdlets (and even just diskpart) already fulfill this need.  However, all newer PowerShell cmdlets that I have explored fail to tie Disk, Partition, and Volume information together ***in the same output***
-    
-This script/function also provides the ability to create hashtables and PSObjects based on Disk/Partition for easier extensibility.
-    
-This script/function is compatible with ***all*** versions of PowerShell, since, ultimately, it is all based on diskpart output.
-
-
-
-2) Generate-EncryptedPwdFile.ps1
-
-SYNOPSIS
-
-This script/function prompts the user for a password, which is then encrypted via a certificate (in .pfx format), converted to base64, and then written to a file on the filesystem in a location provided by the user.
-
-The resulting file containing the encrypted password can be decrypted using the Decrypt-EncryptedPwdFile.ps1 script/function in this repository.
-
-
-
-3) Decrypt-EncryptedPwdFile.ps1
-
-SYNOPSIS
-
-This script/function will decrypt an encrypted password written using the Generate-EncryptedPwdFile.ps1 script/function in this repository.  
-
-WARNING: The decrypted password will be written to STDOUT.
-
-
-
-4) Generate-CertTemplate.ps1
+1) Generate-CertTemplate.ps1
 
 SYNOPSIS
 
@@ -52,4 +16,44 @@ IMPORTANT NOTE: By running the function without any parameters, the user will be
 This script/function depends on the PSPKI Module found here: http://pspki.codeplex.com/
 
 For more details, see the SYNOPSIS and DESCRIPTION sections within the script itself.
+
+
+
+2) Get-AllDiskInfo.ps1
+
+SYNOPSIS
+    
+This script/function attempts to provide all disk information for the localhost in a way that ties Disk, Partition, and Volume information together ***in one output***.
+
+DESCRIPTION
+    
+At first glance, it may seem that more recent PowerShell cmdlets (and even just diskpart) already fulfill this need.  However, all newer PowerShell cmdlets that I have explored fail to tie Disk, Partition, and Volume information together ***in the same output***
+    
+This script/function also provides the ability to create hashtables and PSObjects based on Disk/Partition for easier extensibility.
+    
+This script/function is compatible with ***all*** versions of PowerShell, since, ultimately, it is all based on diskpart output.
+
+
+
+3) Generate-EncryptedPwdFile.ps1
+
+SYNOPSIS
+
+This script/function prompts the user for a password, which is then encrypted via a certificate (in .pfx format), converted to base64, and then written to a file on the filesystem in a location provided by the user.
+
+The resulting file containing the encrypted password can be decrypted using the Decrypt-EncryptedPwdFile.ps1 script/function in this repository.
+
+
+
+4) Decrypt-EncryptedPwdFile.ps1
+
+SYNOPSIS
+
+This script/function will decrypt an encrypted password written using the Generate-EncryptedPwdFile.ps1 script/function in this repository.  
+
+WARNING: The decrypted password will be written to STDOUT.
+
+
+
+
 
