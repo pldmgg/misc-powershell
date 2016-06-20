@@ -1,9 +1,4 @@
 ﻿# Decrypt-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
-# Other Prerequisites: 
-# 1) The Encrypted Password File must have been generated using Generate-EncryptedPwdFile.ps1 (See: https://github.com/pldmgg/misc-powershell.git)
-# 2) Must have the .pfx Certificate used to originally generate the encrypted file 
-# 3) The .pfx used to decrypt the encrypted password file must contain private key (tested with a .pfx that contained both public AND private keys...but just private key should work)
-# 4) Aforementioned .pfx must have been password protected at the time it was created (although this should work even if the .pfx wasn't password protected - but this has not been tested)
 
 function Get-PfxCertificateBetter {
     [CmdletBinding(DefaultParameterSetName='ByPath')]
@@ -53,6 +48,10 @@ function Decrypt-EncryptedPwdFile {
 
         if ($EncryptedPwdFileInput -eq $null) {
             $EncryptedPwdFileInput = Read-Host -Prompt 'Please enter the full path to the encrypted password file [Example: C:\encryptedpwd.txt]'
+        }
+        if (! (Test-Path $EncryptedPwdFileInput)) {
+            Write-Host "Cannot find EncryptedPwdFile at the path specified. Please ensure it is present and try again"
+            exit
         }
 
         if ($PathToCertFile -ne $null) {
