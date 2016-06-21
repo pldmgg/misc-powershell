@@ -145,7 +145,7 @@
     AND
     https://msdn.microsoft.com/en-us/library/windows/desktop/aa378155(v=vs.85).aspx
 
-.DEPENDENCIES: 
+.DEPENDENCIES
     1) PSPKI Module (See: https://pspki.codeplex.com/)
     2) Remote Server Administration Tools (RSAT), specifically:
         - Role Administration Tools
