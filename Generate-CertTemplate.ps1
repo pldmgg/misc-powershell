@@ -200,7 +200,7 @@ Param(
     This name must be able to be resolved via DNS"),
 
     [Parameter(Mandatory=$False)]
-    $AttributesFile = "BasisTemplate_Attributes.txt",
+    $AttributesFile = "NewCertTemplate_Attributes.txt",
 
     [Parameter(Mandatory=$False)]
     $CustomExpirationPeriodInYears = $(Read-Host -Prompt "Please enter the Expiration Period for certificates generated from your New Certificate Template.
@@ -1166,6 +1166,9 @@ Get-PSPKICertificationAuthority -Name $IssuingCertAuth | Get-PSPKICATemplate | A
 # If you prefer NOT using the PSPKI Module, and PowerShell version 4 or higher is available, uncomment the below Add-CATemplate command #
 # HOWEVER, this requires a manual step of publishing the template via the Certificate Templates Console GUI so that is appears in crtsrv #
 #Add-CATemplate -Name $NewTemplName -Force
+
+# Output all attributes for your new Certificate Template to a text file
+Get-ADObject $NewADObject -Properties * | Out-File $CertGenWorking\$AttributesFile
 
 ##### END Creating the New Certificate Template #####
 
