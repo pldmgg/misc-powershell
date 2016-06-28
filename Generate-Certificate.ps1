@@ -627,7 +627,7 @@ else {
 $CertificateTemplateLDAPObject = "CN=$cnForBasisTemplate,CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
 $AllCertificateTemplateProperties = Get-ADObject $CertificateTemplateLDAPObject -Properties *
 
-Write-Host "Writing all Certificate Template default attributes for user awareness/reference"
+Write-Host "Writing all attributes of Certificate Template that this New Certificate is Based On for user awareness/reference"
 Sleep 2
 $AllCertificateTemplateProperties
 Sleep 2
