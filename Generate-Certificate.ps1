@@ -176,7 +176,7 @@ Param(
     $Country = $(Read-Host -Prompt "Please enter the Country where your Company is located"),
 
     <#
-    # ValidityPeriod is contolled by the Certificate Template and cannot be modified at the time of certificate request
+    # ValidityPeriod is controlled by the Certificate Template and cannot be modified at the time of certificate request
     # (Unless it is a special circumstance where "RequestType = Cert" resulting in a self-signed cert where no request
     # is actually submitted)
     [Parameter(Mandatory=$False)]
@@ -188,13 +188,13 @@ Param(
     $KeyLengthOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $KeyLength,
+    $KeyLength = "2048",
 
     [Parameter(Mandatory=$False)]
     $HashAlgorithmOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $HashAlgorithmValue,
+    $HashAlgorithmValue = "sha256",
 
     <#
     # KeyAlgorithm should be determined by ProviderName. Run "certutil -csplist" to see which Providers use which Key Algorithms
@@ -209,25 +209,25 @@ Param(
     $EncryptionAlgorithmOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $EncryptionAlgorithmValue,
+    $EncryptionAlgorithmValue = "AES",
 
     [Parameter(Mandatory=$False)]
     $PrivateKeyExportableOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $PrivateKeyExportableValue,  # Default is that Private Key IS Exportable
+    $PrivateKeyExportableValue = "TRUE",
 
     [Parameter(Mandatory=$False)]
     $KeySpecOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $KeySpecValue,
+    $KeySpecValue = "1",
 
     [Parameter(Mandatory=$False)]
     $KeyUsageOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $KeyUsageValue,
+    $KeyUsageValue = "0xa0",
     
     [Parameter(Mandatory=$False)]
     $MachineKeySet = $(Read-Host -Prompt "Please enter TRUE if you are using this certificate for a service that runs in the Computer's
@@ -245,19 +245,19 @@ Param(
     $ProviderNameOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $ProviderNameValue,
+    $ProviderNameValue = "`"Microsoft RSA SChannel Cryptographic Provider`"",
 
     [Parameter(Mandatory=$False)]
     $RequestTypeOverride = "No",
 
     [Parameter(Mandatory=$False)]
-    $RequestTypeValue,
+    $RequestTypeValue = "PKCS10",
 
     [Parameter(Mandatory=$False)]
     $UseOpenSSL = $(Read-Host -Prompt "Would you like to use Win32 OpenSSL to extract public cert and private key from the Microsoft .pfx file? [Yes/No]"),
 
     [Parameter(Mandatory=$False)]
-    $PathToWin32OpenSSL,
+    $PathToWin32OpenSSL = "C:\openssl-0.9.8r-i386-win32-rev2",
 
     [Parameter(Mandatory=$False)]
     $AllPublicKeysInChainOut = "NewCertificate_$CertificateCN"+"_all_public_keys_in_chain_"+".pem",
@@ -652,13 +652,7 @@ if ($KeyLengthOverride -eq "Yes" -or $KeyLengthOverride -eq "y") {
     Add-Content -Value "KeyLength = $KeyLength" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 else {
-    if ($KeyLength -ne $null) {
-        Add-Content -Value "KeyLength = $KeyLength" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $KeyLength = "2048"
-        Add-Content -Value "KeyLength = $KeyLength" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "KeyLength = $KeyLength" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 if ($HashAlgorithmOverride -eq "Yes" -or $HashAlgorithmOverride -eq "y") {
     Write-Host ""
@@ -671,13 +665,7 @@ if ($HashAlgorithmOverride -eq "Yes" -or $HashAlgorithmOverride -eq "y") {
     Add-Content -Value "HashAlgorithm = $HashAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 else {
-    if ($HashAlgorithmValue -ne $null) {
-        Add-Content -Value "HashAlgorithm = $HashAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $HashAlgorithmValue = "sha256"
-        Add-Content -Value "HashAlgorithm = $HashAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "HashAlgorithm = $HashAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 <#
 # # KeyAlgorithm should be determined by ProviderName. Run "certutil -csplist" to see which Providers use which Key Algorithms
@@ -712,13 +700,7 @@ if ($EncryptionAlgorithmOverride -eq "Yes" -or $EncryptionAlgorithmOverride -eq 
     Add-Content -Value "EncryptionAlgorithm = $EncryptionAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 else {
-    if ($EncryptionAlgorithmValue -ne $null) {
-        Add-Content -Value "EncryptionAlgorithm = $EncryptionAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $EncryptionAlgorithmValue = "AES"
-        Add-Content -Value "EncryptionAlgorithm = $EncryptionAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "EncryptionAlgorithm = $EncryptionAlgorithmValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 if ($PrivateKeyExportableOverride -eq "Yes" -or $PrivateKeyExportableOverride -eq "y") {
     $PrivKeyBool = Read-Host -Prompt "Would you like the private key to be exportable? [Yes/No]"
@@ -742,13 +724,7 @@ if ($PrivateKeyExportableOverride -eq "Yes" -or $PrivateKeyExportableOverride -e
     }
 }
 else {
-    if ($PrivateKeyExportableValue -ne $null) {
-        Add-Content -Value "Exportable = $PrivateKeyExportableValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $PrivateKeyExportableValue = "TRUE"
-        Add-Content -Value "Exportable = $PrivateKeyExportableValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "Exportable = $PrivateKeyExportableValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 if ($KeySpecOverride -eq "Yes" -or $KeySpecOverride -eq "y") {
     $KeySpecValue = Read-Host -Prompt "Please enter the KeySpec value you would like to use.
@@ -765,13 +741,7 @@ if ($KeySpecOverride -eq "Yes" -or $KeySpecOverride -eq "y") {
     }
 }
 else {
-    if ($KeySpecValue -ne $null) {
-        Add-Content -Value "KeySpec = $KeySpecValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $KeySpecValue = "1"
-        Add-Content -Value "KeySpec = $KeySpecValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "KeySpec = $KeySpecValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 if ($KeyUsageOverride -eq "Yes" -or $KeyUsageOverride -eq "y") {
     $KeyUsageHexValue = Read-Host -Prompt "Please enter the KeyUsage hexadecimal value you would like to use.
@@ -798,13 +768,7 @@ if ($KeyUsageOverride -eq "Yes" -or $KeyUsageOverride -eq "y") {
     }
 }
 else {
-    if ($KeyUsageValue -ne $null) {
-        Add-Content -Value "KeyUsage = $KeyUsageValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $KeyUsageValue = "0xa0"
-        Add-Content -Value "KeyUsage = $KeyUsageValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "KeyUsage = $KeyUsageValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 
 # MachineKeySet = TRUE/FALSE. You must set this key to TRUE if you are creating requests for domain controllers,
@@ -891,18 +855,10 @@ if ($ProviderNameOverride -eq "Yes" -or $ProviderNameOverride -eq "y") {
     Add-Content -Value "ProviderType = `"$ProviderTypeValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 else {
-    if ($ProviderNameValue -ne $null) {
-        Add-Content -Value "ProviderName = $ProviderNameValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-        $ProviderTypeValuePrep = certutil -csplist | Select-String $ProviderNameValue -Context 0,1
-        $ProviderTypeValue = $ProviderTypePrep.Context.PostContext | Select-String -Pattern '[0-9]{1,2}' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-        Add-Content -Value "ProviderType = `"$ProviderTypeValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $ProviderNameValue = "`"Microsoft RSA SChannel Cryptographic Provider`""
-        Add-Content -Value "ProviderName = $ProviderNameValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-        $ProviderTypeValue = "12"
-        Add-Content -Value "ProviderType = $ProviderTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "ProviderName = $ProviderNameValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+    $ProviderTypeValuePrep = certutil -csplist | Select-String $ProviderNameValue -Context 0,1
+    $ProviderTypeValue = $ProviderTypePrep.Context.PostContext | Select-String -Pattern '[0-9]{1,2}' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+    Add-Content -Value "ProviderType = `"$ProviderTypeValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 
 if ($RequestTypeOverride -eq "Yes" -or $RequestTypeOverride -eq "y") {
@@ -927,13 +883,7 @@ if ($RequestTypeOverride -eq "Yes" -or $RequestTypeOverride -eq "y") {
     Add-Content -Value "RequestType = $RequestTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 else {
-    if ($RequestTypeValue -ne $null) {
-        Add-Content -Value "RequestType = $RequestTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
-    else {
-        $RequestTypeValue = "PKCS10"
-        Add-Content -Value "RequestType = $RequestTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    }
+    Add-Content -Value "RequestType = $RequestTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 }
 <#
 TODO: Logic for self-signed and/or self-issued certificates that DO NOT generate a CSR and DO NOT submit to Certificate Authority
