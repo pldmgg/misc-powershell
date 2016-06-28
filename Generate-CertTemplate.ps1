@@ -7,13 +7,13 @@
     This can be run as a script by uncommenting the very last line calling the Generate-CertTemplate function, or by simply loading the
     entire function into your current PowerShell shell and then calling it.
 
-    IMPORTANT NOTE1: By running the function without any parameters, the user will be walked through several prompts. 
+    IMPORTANT NOTE 1: By running the function without any parameters, the user will be walked through several prompts. 
     This is the recommended way to use this function until the user feels comfortable with parameters mentioned below.
 
 .DESCRIPTION
     This function/script is split into the following sections (ctl-f to jump to each of these sections)
     - Helper Functions
-    - Variable Validation
+    - Variable Definition and Validation
     - Additional High-Level Variable Prep
     - $IntendedPurposeValues / $ExtKeyUse Adjudication
     - $KeyUsageValues / $AppPol Adjudication
@@ -21,8 +21,7 @@
     - Creating the New Certificate Template
     - Important Note to User
 
-
-    IMPORTANT NOTE2: Please note that after the script/function concludes, when you review the values found in the 'Intended Purpose' column
+    IMPORTANT NOTE 2: Please note that after the script/function concludes, when you review the values found in the 'Intended Purpose' column
     of the certsrv GUI or the Certificate Template Console GUI, these values reflect ALL of the purposes that you could potentially use 
     the certificates generated from your New Certificate Template for.  These purposes are based on a combination of 3 variables provided
     to the script by the user:
@@ -30,7 +29,7 @@
     2) The Intended Purpose value(s) that you provided to the script (derived from $IntendedPurposeValuesPrep)
     3) The Key Usage value(s) that you provided to the script (derived from $KeyUsageValuesPrep)
 
-    IMPORTANT NOTE3: Please review the explanation for each of the variables/parameters that can/should be changed below.
+    IMPORTANT NOTE 3: Please review the explanation for each of the variables/parameters that can/should be changed below.
 
     1) $ADObject - The LDAP object that the new Cert Template is based on. To view all LDAP objects that this new template can be based on, launch
     ADSI Edit (simply type "adsiedit" in cmd prompt and Connect To "Configuration") and navigate to:
@@ -41,7 +40,7 @@
     2) $displayNameForBasisTemplate - This variable can be set to any "displayName" value (like "Computer" or "Code Signing") found under the properties of
     any LDAP object under CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=[domain prefix],DC=[domain suffix]
 
-    IMPORTANT NOTE4: This variable must be a "displayName" value. For example, there is NO SPACE in the string "CodeSigning" on the following LDAP attribute:
+    IMPORTANT NOTE 4: This variable must be a "displayName" value. For example, there is NO SPACE in the string "CodeSigning" on the following LDAP attribute:
     CN=CodeSigning,CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=[domain prefix],DC=[domain suffix]
     ...HOWEVER, right-click the object (use adsiedit) and observe the Attribute "displayName".  The Value "Code Signing" DOES CONTAIN a space.
 
@@ -69,9 +68,7 @@
      - Under the new LDAP Object's "cn" attribute
      NOTE: This script ensures that "displayName" AND "cn" attributes of the new LDAP object match in order to reduce future confusion.
 
-    6) $IssuingCertAuth - Name of Server that acts as Certificate Authority that actually issues certificates.  This can be a Subordinate CA, Intermediate CA,
-    or both depending on your setup (it can also be a Root CA, but this should only be the case if you are creating you first Subordinate CA). 
-    IMPORTANT: The Name of the Server must be able to be resolved via DNS, and it CANNOT be an IP Address.
+    6) $IssuingCertAuth - Name of Server that acts as Certificate Authority that actually issues certificates.  This must be an Enterprise Subordinate CA.
 
     7) $AttributesFile - All attributes assigned to the new Certificate Template will be written to the file specified in the variable. 
     The contents of this file are used almost immediately after creation in this script.  It is left on the filesystem under $CertGenWorking for later review by personnel.
@@ -147,12 +144,24 @@
 
 .DEPENDENCIES
     1) PSPKI Module (See: https://pspki.codeplex.com/)
+    IMPORTANT NOTE: The main reason that the PSPKI module is needed it to automate the step of publishing the new 
+    Certificate Template via the Certificate Templates Console GUI so that is appears in crtsrv.
+    The PowerShell 5.0 cmdlet Add-CATempplate only adds the new Certificate Template to the Certificate Templates Console GUI. It does NOT
+    publish it so that it appears in crtsrv.
+
     2) Remote Server Administration Tools (RSAT), specifically:
         - Role Administration Tools
         - AD DS and ADLDS Tools
         - Active Directory Administrative Center
         - AD DS Snap-Ins and Command-Line Tools
         - AD LDS Snap-Ins and Command-Line Tools
+    
+    3) Your Issuing Certificate Authority server must be:
+        - Online; and
+        - An "Enterprise Subordinate CA"  
+        For details, see: https://technet.microsoft.com/en-us/library/cc732368(v=ws.11).aspx
+        - The only Enterprise Subordinate CA in the current domain
+
 
     IMPORTANT NOTE ABOUT PSPKI MODULE: Some PSPKI functions, such as Get-CATemplate and Add-CATemplate have the EXACT SAME NAME as CMDLETS found in
     the ADCSAdministration Module. To view conflicts for a particular function/cmdlet, run the following command after both modules are loaded:
@@ -184,20 +193,19 @@ Function Generate-CertTemplate {
 [CmdletBinding()]
 Param(
     [Parameter(Mandatory=$False)]
-    $displayNameForBasisTemplate,
-
+    $CertGenWorking = $(Read-Host -Prompt "Please enter a full path to a directory that output files will be saved to"),
+    
     [Parameter(Mandatory=$False)]
-    $cnForBasisTemplate,
-
-    [Parameter(Mandatory=$False)]
-    $CertGenWorking = $(Read-Host -Prompt "Please enter a full path to a temporary working directory for this script"),
+    $BasisTemplate = $(Read-Host -Prompt "Please enter the name of an existing Certificate Template that you would like your New Certificate Template
+    to be based on"),
 
     [Parameter(Mandatory=$False)]
     $NewTemplName = $(Read-Host -Prompt "Please enter a name for your New Certificate Template"),
 
-    [Parameter(Mandatory=$False)]
-    $IssuingCertAuth = $(Read-Host -Prompt "Please enter the name of the server that acts as your Issuing Certificate Authority.
-    This name must be able to be resolved via DNS"),
+    # We can determine this automatically using certutil
+    #[Parameter(Mandatory=$False)]
+    #$IssuingCertAuth = $(Read-Host -Prompt "Please enter the name of the server that acts as your Issuing Certificate Authority.
+    #This name must be able to be resolved via DNS"),
 
     [Parameter(Mandatory=$False)]
     $AttributesFile = "NewCertTemplate_Attributes.txt",
@@ -214,411 +222,95 @@ Param(
     $IntendedPurposeValuesPrep,
 
     [Parameter(Mandatory=$False)]
-    $KeyUsageValuesPrep
+    $KeyUsageValuesPrep,
+
+    [Parameter(Mandatory=$False)]
+    $LimitCryptographicProviders = $(Read-Host -Prompt "Would you like to limit the Cryptographic Providers available for a Certificate Request  [Yes,No]")
 )
 
 
 ##### BEGIN Helper Functions #####
 
-# The following "Find-LDAPObject" and "Get-RootDSE" functions were taken from:
-# https://gallery.technet.microsoft.com/scriptcenter/Using-SystemDirectoryServic-0adf7ef5
-
-Add-Type @'
-public enum EncryptionType
-{
-    None=0,
-    Kerberos,
-    SSL
-}
-'@
-Add-Type -AssemblyName System.DirectoryServices.Protocols
-
-Function Find-LdapObject {
-    Param (
-        [parameter(Mandatory = $true)]
-        [String] 
-            #Search filter in LDAP syntax
-        $searchFilter,
-        
-        [parameter(Mandatory = $true, ValueFromPipeline=$true)]
-        [Object] 
-            #DN of container where to search
-        $searchBase,
-        
-        [parameter(Mandatory = $false)]
-        [String] 
-            #LDAP server name
-            #Default: Domain Controller of current domain
-        $LdapServer=[String]::Empty,
-        
-        [parameter(Mandatory = $false)]
-        [Int32] 
-            #LDAP server port
-            #Default: 389
-        $Port=389,
-        
-        [parameter(Mandatory = $false)]
-        [System.DirectoryServices.Protocols.LdapConnection]
-            #existing LDAPConnection object.
-            #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
-            #Default: $null, which means that connection is created automatically using information in LdapServer and Port parameters
-        $LdapConnection,
-        
-        [parameter(Mandatory = $false)]
-        [System.DirectoryServices.Protocols.SearchScope]
-            #Search scope
-            #Default: Subtree
-        $searchScope="Subtree",
-        
-        [parameter(Mandatory = $false)]
-        [String[]]
-            #List of properties we want to return for objects we find.
-            #Default: empty array, meaning no properties are returned
-        $PropertiesToLoad=@(),
-        
-        [parameter(Mandatory = $false)]
-        [String]
-            #Name of attribute for ASQ search. Note that searchScope must be set to Base for this type of seach
-            #Default: empty string
-        $ASQ,
-        
-        [parameter(Mandatory = $false)]
-        [UInt32]
-            #Page size for paged search. Zero means that paging is disabled
-            #Default: 100
-        $PageSize=100,
-        
-        [parameter(Mandatory = $false)]
-        [String[]]
-            #List of properties that we want to load as byte stream.
-            #Note: Those properties must also be present in PropertiesToLoad parameter. Properties not listed here are loaded as strings
-            #Default: empty list, which means that all properties are loaded as strings
-        $BinaryProperties=@(),
-
-        [parameter(Mandatory = $false)]
-        [UInt32]
-            #Number of seconds before connection times out.
-            #Default: 120 seconds
-        $TimeoutSeconds = 120,
-
-        [parameter(Mandatory = $false)]
-        [EncryptionType]
-            #Type of encryption to use.
-            #Applies only when existing connection is not passed
-        $EncryptionType="None",
-
-        [parameter(Mandatory = $false)]
-        [System.Net.NetworkCredential]
-            #Use different credentials when connecting
-        $Credential=$null
-    )
-
-    Process {
-        #we want dispose LdapConnection we create
-        [Boolean]$bDisposeConnection=$false
-        #range size for ranged attribute retrieval
-        #Note that default in query policy is 1500; we set to 1000
-        $rangeSize=1000
-
-        try {
-            if($LdapConnection -eq $null) {
-                if($Credential -ne $null) {
-                    $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection((new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port)), $Credential)
-                } else {
-        	        $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection(new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port))
-                }
-                $bDisposeConnection=$true
-                switch($EncryptionType) {
-                    "None" {break}
-                    "SSL" {
-                        $options=$LdapConnection.SessionOptions
-                        $options.ProtocolVersion=3
-                        $options.StartTransportLayerSecurity($null)
-                        break               
-                    }
-                    "Kerberos" {
-                        $LdapConnection.SessionOptions.Sealing=$true
-                        $LdapConnection.SessionOptions.Signing=$true
-                        break
-                    }
-                }
-            }
-            if($pageSize -gt 0) {
-                #paged search silently fails when chasing referrals
-                $LdapConnection.SessionOptions.ReferralChasing="None"
-            }
-
-            #build request
-            $rq=new-object System.DirectoryServices.Protocols.SearchRequest
-            
-            #search base
-            switch($searchBase.GetType().Name) {
-                "String" 
-                {
-                    $rq.DistinguishedName=$searchBase
-                }
-                default 
-                {
-                    if($searchBase.distinguishedName -ne $null) 
-                    {
-                        $rq.DistinguishedName=$searchBase.distinguishedName
-                    }
-                    else
-                    {
-                        return
-                    }
-                }
-            }
-
-            #search filter in LDAP syntax
-            $rq.Filter=$searchFilter
-
-            #search scope
-            $rq.Scope=$searchScope
-
-            #attributes we want to return - nothing now, and then use ranged retrieval for the propsToLoad
-            $rq.Attributes.Add("1.1") | Out-Null
-
-            #paged search control for paged search
-            if($pageSize -gt 0) {
-                [System.DirectoryServices.Protocols.PageResultRequestControl]$pagedRqc = new-object System.DirectoryServices.Protocols.PageResultRequestControl($pageSize)
-                $rq.Controls.Add($pagedRqc) | Out-Null
-            }
-
-            #server side timeout
-            $rq.TimeLimit=(new-object System.Timespan(0,0,$TimeoutSeconds))
-
-            if(-not [String]::IsNullOrEmpty($asq)) {
-                [System.DirectoryServices.Protocols.AsqRequestControl]$asqRqc=new-object System.DirectoryServices.Protocols.AsqRequestControl($ASQ)
-                $rq.Controls.Add($asqRqc) | Out-Null
-            }
-            
-            #initialize output objects via hashtable --> faster than add-member
-            #create default initializer beforehand
-            $propDef=@{}
-            #we always return at least distinguishedName
-            #so add it explicitly to object template and remove from propsToLoad if specified
-            $propDef.Add("distinguishedName","")
-            $PropertiesToLoad=@($propertiesToLoad | where-object {$_ -ne "distinguishedName"})
-                        
-            #prepare template for output object
-            foreach($prop in $PropertiesToLoad) {
-               $propDef.Add($prop,@())
-            }
-
-            #process paged search in cycle or go through the processing at least once for non-paged search
-            while ($true)
-            {
-                $rsp = $LdapConnection.SendRequest($rq, (new-object System.Timespan(0,0,$TimeoutSeconds))) -as [System.DirectoryServices.Protocols.SearchResponse];
-                
-                #for paged search, the response for paged search result control - we will need a cookie from result later
-                if($pageSize -gt 0) {
-                    [System.DirectoryServices.Protocols.PageResultResponseControl] $prrc=$null;
-                    if ($rsp.Controls.Length -gt 0)
-                    {
-                        foreach ($ctrl in $rsp.Controls)
-                        {
-                            if ($ctrl -is [System.DirectoryServices.Protocols.PageResultResponseControl])
-                            {
-                                $prrc = $ctrl;
-                                break;
-                            }
-                        }
-                    }
-                    if($prrc -eq $null) {
-                        #server was unable to process paged search
-                        throw "Find-LdapObject: Server failed to return paged response for request $SearchFilter"
-                    }
-                }
-                #now process the returned list of distinguishedNames and fetch required properties using ranged retrieval
-                foreach ($sr in $rsp.Entries)
-                {
-                    $dn=$sr.DistinguishedName
-                    #we return results as powershell custom objects to pipeline
-                    #initialize members of result object (server response does not contain empty attributes, so classes would not have the same layout
-                    #create empty custom object for result, including only distinguishedName as a default
-                    $data=new-object PSObject -Property $propDef
-                    $data.distinguishedName=$dn
-                    
-                    #load properties of custom object, if requested, using ranged retrieval
-                    foreach ($attrName in $PropertiesToLoad) {
-                        $rqAttr=new-object System.DirectoryServices.Protocols.SearchRequest
-                        $rqAttr.DistinguishedName=$dn
-                        $rqAttr.Scope="Base"
-                        
-                        $start=-$rangeSize
-                        $lastRange=$false
-                        while ($lastRange -eq $false) {
-                            $start += $rangeSize
-                            $rng = "$($attrName.ToLower());range=$start`-$($start+$rangeSize-1)"
-                            $rqAttr.Attributes.Clear() | Out-Null
-                            $rqAttr.Attributes.Add($rng) | Out-Null
-                            $rspAttr = $LdapConnection.SendRequest($rqAttr)
-                            foreach ($sr in $rspAttr.Entries) {
-                                if($sr.Attributes.AttributeNames -ne $null) {
-                                    #LDAP server changes upper bound to * on last chunk
-                                    $returnedAttrName=$($sr.Attributes.AttributeNames)
-                                    #load binary properties as byte stream, other properties as strings
-                                    if($BinaryProperties -contains $attrName) {
-                                        $vals=$sr.Attributes[$returnedAttrName].GetValues([byte[]])
-                                    } else {
-                                        $vals = $sr.Attributes[$returnedAttrName].GetValues(([string])) # -as [string[]];
-                                    }
-                                    $data.$attrName+=$vals
-                                    if($returnedAttrName.EndsWith("-*") -or $returnedAttrName -eq $attrName) {
-                                        #last chunk arrived
-                                        $lastRange = $true
-                                    }
-                                } else {
-                                    #nothing was found
-                                    $lastRange = $true
-                                }
-                            }
-                        }
-
-                        #return single value as value, multiple values as array, empty value as null
-                        switch($data.$attrName.Count) {
-                            0 {
-                                $data.$attrName=$null
-                                break;
-                            }
-                            1 {
-                                $data.$attrName = $data.$attrName[0]
-                                break;
-                            }
-                            default {
-                                break;
-                            }
-                        }
-                    }
-                    #return result to pipeline
-                    $data
-                }
-                if($pageSize -gt 0) {
-                    if ($prrc.Cookie.Length -eq 0) {
-                        #last page --> we're done
-                        break;
-                    }
-                    #pass the search cookie back to server in next paged request
-                    $pagedRqc.Cookie = $prrc.Cookie;
-                } else {
-                    #exit the processing for non-paged search
-                    break;
-                }
-            }
-        }
-        finally {
-            if($bDisposeConnection) {
-                #if we created the connection, dispose it here
-                $LdapConnection.Dispose()
-            }
-        }
-    }
-}
-
-Function Get-RootDSE {
-    Param (
-        [parameter(Mandatory = $false)]
-        [String] 
-            #LDAP server name
-            #Default: closest DC
-        $LdapServer=[String]::Empty,
-        
-        [parameter(Mandatory = $false)]
-        [Int32] 
-            #LDAP server port
-            #Default: 389
-        $Port=389,
-        [parameter(Mandatory = $false)]
-        [System.DirectoryServices.Protocols.LdapConnection]
-            #existing LDAPConnection object.
-            #When we perform many searches, it is more effective to use the same conbnection rather than create new connection for each search request.
-            #Default: $null, which means that connection is created automatically using information in LdapServer and Port parameters
-        $LdapConnection,
-        
-        [parameter(Mandatory = $false)]
-        [System.Net.NetworkCredential]
-            #Use different credentials when connecting
-        $Credential=$null
-
-    )
-    
-    Process {
-        #we want dispose LdapConnection we create
-        [Boolean]$bDisposeConnection=$false
-
-        try {
-            if($LdapConnection -eq $null) {
-                if($Credential -ne $null) {
-                    $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection((new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port)), $Credential)
-                } else {
-        	        $LdapConnection=new-object System.DirectoryServices.Protocols.LdapConnection(new-object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($LdapServer, $Port))
-                }
-                $bDisposeConnection=$true
-            }
-            
-			#initialize output objects via hashtable --> faster than add-member
-            #create default initializer beforehand
-            # $PropertiesToLoad=@("rootDomainNamingContext", "configurationNamingContext", "schemaNamingContext","defaultNamingContext","dnsHostName")
-            $propDef=@{"rootDomainNamingContext"=@(); "configurationNamingContext"=@(); "schemaNamingContext"=@();"defaultNamingContext"=@();"dnsHostName"=@()}
-            #foreach($prop in $PropertiesToLoad) {
-            #     $propDef.Add($prop,@())
-            #}
-            #build request
-            $rq=new-object System.DirectoryServices.Protocols.SearchRequest
-            $rq.Scope = "Base"
-            $rq.Attributes.AddRange($propDef.Keys) | Out-Null
-            [System.DirectoryServices.Protocols.ExtendedDNControl]$exRqc = new-object System.DirectoryServices.Protocols.ExtendedDNControl("StandardString")
-            $rq.Controls.Add($exRqc) | Out-Null
-            
-            $rsp=$LdapConnection.SendRequest($rq)
-            
-            $data=new-object PSObject -Property $propDef
-            
-            $data.configurationNamingContext = (($rsp.Entries[0].Attributes["configurationNamingContext"].GetValues([string]))[0]).Split(';')[1];
-            $data.schemaNamingContext = (($rsp.Entries[0].Attributes["schemaNamingContext"].GetValues([string]))[0]).Split(';')[1];
-            $data.rootDomainNamingContext = (($rsp.Entries[0].Attributes["rootDomainNamingContext"].GetValues([string]))[0]).Split(';')[2];
-            $data.defaultNamingContext = (($rsp.Entries[0].Attributes["defaultNamingContext"].GetValues([string]))[0]).Split(';')[2];
-            $data.dnsHostName = ($rsp.Entries[0].Attributes["dnsHostName"].GetValues([string]))[0]
-            $data
-        }
-        finally {
-            if($bDisposeConnection) {
-                #if we created the connection, dispose it here
-                $LdapConnection.Dispose()
-            }
-        }
-    }
-}
+#Import-Module PSPKI -Prefix PSPKI
 
 ##### END Helper Functions #####
 
 
-##### BEGIN Variable Validation #####
+##### BEGIN Variable Definition and Validation #####
 $DomainPrefix = ((gwmi Win32_ComputerSystem).Domain).Split(".") | Select-Object -Index 0
 $DomainSuffix = ((gwmi Win32_ComputerSystem).Domain).Split(".") | Select-Object -Index 1
+$Hostname = (gwmi Win32_ComputerSystem).Name
+$HostFQDN = $Hostname+'.'+$DomainPrefix+'.'+$DomainSuffix
+$AvailableCertificateAuthorities = (((certutil | Select-String -Pattern "Config:") -replace "Config:[\s]{1,32}``") -replace "'","").trim()
+$IssuingCertAuth = foreach ($obj1 in $AvailableCertificateAuthorities) {
+    $obj2 = certutil -config $obj1 -CAInfo type | Select-String -Pattern "Enterprise Subordinate CA" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+    if ($obj2 -eq "Enterprise Subordinate CA") {
+        $obj1
+    }
+}
+$IssuingCertAuthFQDN = $IssuingCertAuth.Split("\") | Select-Object -Index 0
+$IssuingCertAuthHostname = $IssuingCertAuth.Split("\") | Select-Object -Index 1
+certutil -config $IssuingCertAuth -ping
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Successfully contacted the server acting as the Issuing Certificate Authority"
+}
+else {
+    Write-Host "Cannot contact the Issuing Certificate Authority. Halting!"
+    exit
+}
 $LDAPSearchBase = "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
-$AllCertificateTemplateLDAPObjects = Find-LdapObject -SearchFilter:"(distinguishedName=*)" -SearchBase:$LDAPSearchBase
-
-$ValidDisplayNames = foreach ($obj1 in $AllCertificateTemplateLDAPObjects) {
-    $obj2 = $obj1 | Select-Object -ExpandProperty distinguishedName
-    Get-ADObject $obj2 -Properties displayName | Select-Object -ExpandProperty DisplayName
+# $AllAvailableCertificateTemplates Using PSPKI
+# $AllAvailableCertificateTemplates = Get-PSPKICertificateTemplate
+# Using certutil
+$AllAvailableCertificateTemplatesPrep = certutil -ADTemplate
+# Determine valid CN using PSPKI
+# $ValidCertificateTemplatesByCN = $AllAvailableCertificateTemplatesPrep.Name
+# Determine valid displayNames using certutil
+$ValidCertificateTemplatesByCN = foreach ($obj1 in $AllAvailableCertificateTemplatesPrep) {
+    $obj2 = $obj1 | Select-String -Pattern "[\w]{1,32}:[\s][\w]" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+    $obj3 = $obj2 -replace ':[\s][\w]',''
+    $obj3
 }
-$ValidDisplayNamesAsStringPrep = foreach ($obj1 in $ValidDisplayNames) {
-    $obj1+','
-}
-$ValidDisplayNamesAsString = [string]$ValidDisplayNamesAsStringPrep
-
-$ValidCNNames = foreach ($obj1 in $AllCertificateTemplateLDAPObjects) {
-    $obj2 = $obj1 | Select-Object -ExpandProperty distinguishedName
-    Get-ADObject $obj2 -Properties Name | Select-Object -ExpandProperty Name
-}
-$ValidCNNamesAsStringPrep = foreach ($obj1 in $ValidCNNames) {
-    $obj1+','
+$ValidCNNamesAsStringPrep = foreach ($obj1 in $ValidCertificateTemplatesByCN) {
+    $obj1.Trim()+','
 }
 $ValidCNNamesAsString = [string]$ValidCNNamesAsStringPrep
 
-if ($displayNameForBasisTemplate -eq $null -and $cnForBasisTemplate -eq $null) {
+# Determine valid displayNames using PSPKI
+# $ValidCertificateTemplatesByDisplayName = $AllAvailableCertificateTemplatesPrep.DisplayName
+# Determine valid displayNames using certutil
+$ValidCertificateTemplatesByDisplayName = foreach ($obj1 in $AllAvailableCertificateTemplatesPrep) {
+    $obj2 = $obj1 | Select-String -Pattern "\:(.*)\-\-" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+    $obj3 = ($obj2 -replace ": ","") -replace " --",""
+    $obj3
+}
+$ValidDisplayNamesAsStringPrep = foreach ($obj1 in $ValidCertificateTemplatesByDisplayName) {
+    $obj1.Trim()+','
+}
+$ValidDisplayNamesAsString = [string]$ValidDisplayNamesAsStringPrep
+
+# Set displayName and CN Values for user-provided $BasisTemplate
+if ($ValidCertificateTemplatesByCN -contains $BasisTemplate) {
+    $cnForBasisTemplate = $BasisTemplate
+}
+if ($ValidCertificateTemplatesByDisplayName -contains $BasisTemplate) {
+    $displayNameForBasisTemplate = $BasisTemplate
+}
+
+if ($cnForBasisTemplate -eq $null -and $displayNameForBasisTemplate -ne $null) {
+    $cnForBasisTemplatePrep1 = $AllAvailableCertificateTemplatesPrep | Select-String -Pattern $displayNameForBasisTemplate | Select-Object -ExpandProperty Line
+    $cnForBasisTemplatePrep2 = $cnForBasisTemplatePrep1 | Select-String -Pattern "[\w]{1,32}:[\s][\w]" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+    $cnForBasisTemplate = $cnForBasisTemplatePrep2 -replace ':[\s][\w]',''
+}
+if ($cnForBasisTemplate -ne $null -and $displayNameForBasisTemplate -eq $null) {
+    $displayNameForBasisTemplatePrep1 = $AllAvailableCertificateTemplatesPrep | Select-String -Pattern $cnForBasisTemplate | Select-Object -ExpandProperty Line
+    $displayNameForBasisTemplatePrep2 = $displayNameForBasisTemplatePrep1 | Select-String -Pattern "\:(.*)\-\-" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+    $displayNameForBasisTemplate = ($displayNameForBasisTemplatePrep2 -replace ": ","") -replace " --",""
+}
+
+# ---------
+
+if ($ValidCertificateTemplatesByCN -notcontains $BasisTemplate -and $ValidCertificateTemplatesByDisplayName -notcontains $BasisTemplate) {
     Write-Host ""
     Write-Host ""
     Write-Host "You must base your New Certificate Template on an existing Certificate Template."
@@ -634,39 +326,21 @@ if ($displayNameForBasisTemplate -eq $null -and $cnForBasisTemplate -eq $null) {
     $ValidCNNamesAsString
     Write-Host""
 
-    $displayNameOrCNSwitch = Read-Host -Prompt "Would you like to use a displayName or CN value in order to choose an existing Certificate Template? [displayName,CN]"
-    if ($displayNameOrCNSwitch -eq "displayName") {
-        $displayNameForBasisTemplate = Read-Host -Prompt "Please enter the displayName of the Certificate Template you would like to use as your base"
+    $BasisTemplate = Read-Host -Prompt "Please enter the displayName or CN of the Certificate Template you would like to use as your base"
+    # Set displayName and CN Values for user-provided $BasisTemplate
+    if ($ValidCertificateTemplatesByCN -contains $BasisTemplate) {
+        $cnForBasisTemplate = $BasisTemplate
     }
-    if ($displayNameOrCNSwitch -eq "CN") {
-        $cnForBasisTemplate = Read-Host -Prompt "Please enter the CN of the Certificate Template you would like to use as your base"
+    if ($ValidCertificateTemplatesByDisplayName -contains $BasisTemplate) {
+        $displayNameForBasisTemplate = $BasisTemplate
     }
-}
-
-if ($displayNameForBasisTemplate -ne $null) {
-    # First validate the user-provided displayName
-    if ($ValidDisplayNames -notcontains $displayNameForBasisTemplate) {
-        Write-Host “$($displayNameForBasisTemplate) is not a valid displayName for an existing certificate template."
-        Write-Host "Valid displayNames for existing certificate templates are as follows:”
-        Write-Host $ValidDisplayNames
+    if ($ValidCertificateTemplatesByCN -notcontains $BasisTemplate -and $ValidCertificateTemplatesByDisplayName -notcontains $BasisTemplate) {
+        Write-Host ""
+        Write-Host ""
+        Write-Host "You must base your New Certificate Template on an existing Certificate Template."
+        Write-Host "To do so, please enter either the displayName or CN of the Certificate Template you would like to use as your base. Halting!"
         exit
     }
-    # Then get the CN of the LDAP Object based on the displayName
-    $cnForBasisTemplatePrep = Find-LdapObject -SearchFilter:"(displayName=$displayNameForBasisTemplate)" -SearchBase:$LDAPSearchBase | Select-Object -ExpandProperty distinguishedName
-    $cnForBasisTemplate = Get-ADObject $cnForBasisTemplatePrep -Properties Name | Select-Object -ExpandProperty Name
-}
-
-if ($cnForBasisTemplate -ne $null) {
-    # First validate the user-provided CN
-    if ($ValidCNNames -notcontains $cnForBasisTemplate) {
-        Write-Host “$($cnForBasisTemplate) is not a valid displayName for an existing certificate template."
-        Write-Host "Valid displayNames for existing certificate templates are as follows:”
-        Write-Host $ValidCNNames
-        exit
-    }
-    # Then get the displayName of the LDAP Object based on the CN
-    $displayNameForBasisTemplatePrep = Find-LdapObject -SearchFilter:"(Name=$cnForBasisTemplate)" -SearchBase:$LDAPSearchBase | Select-Object -ExpandProperty distinguishedName
-    $displayNameForBasisTemplate = Get-ADObject $displayNameForBasisTemplatePrep -Properties displayName | Select-Object -ExpandProperty displayName
 }
 
 $ValidIntendedPurposeValues = @("Code Signing","Client Authentication","Server Authentication","Private Key Archival","Key Recovery Agent","Directory Service Email Replication",`
@@ -724,14 +398,6 @@ else {
     mkdir $CertGenWorking
 }
 
-if (Test-Connection $IssuingCertAuth) {
-    Write-Host "Successfully contacted the server acting as the Issuing Certificate Authority"
-}
-else {
-    Write-Host "Cannot contact the server acting as the Issuing Certificate Authority. Halting!"
-    exit
-}
-
 if ($CustomExpirationPeriodInYears -eq "1" -or $CustomExpirationPeriodInYears -eq "2") {
     Write-Host "CustomExpirationPeriodInYears is valid...Continuing..."
 }
@@ -746,7 +412,7 @@ else {
     Write-Host "Value for variable AllowPrivateKeyExport can only be 'Yes' or 'No'.  Please adjust the value and try again."
 }
 
-##### END Variable Validation #####
+##### END Variable Definition and Validation #####
 
 
 ##### BEGIN Additional High-Level Variable Prep #####
@@ -969,6 +635,7 @@ foreach ($obj1 in $KeyUsageValues) {
         # For additional options and more detail, see: https://msdn.microsoft.com/en-us/library/windows/desktop/aa378132(v=vs.85).aspx
         $AppPol.Add("1.3.6.1.5.5.7.3.3") # Allows cert to be used to sign code
         $AppPol.Add("1.3.6.1.4.1.311.10.3.12") # Allows cert to be used to sign documents
+        $ExtKeyUse.Add("1.3.6.1.4.1.311.10.3.12")
     }
     if ($obj1 -eq "Encryption") {
         # There are several different OIDs for allowing Encryption for different purposes.
@@ -976,6 +643,11 @@ foreach ($obj1 in $KeyUsageValues) {
         $AppPol.Add("1.3.6.1.4.1.311.10.3.4") # Allows cert tobe used to encrypt files by using the Encrypting File System (EFS).
         $AppPol.Add("1.3.6.1.4.1.311.10.3.4.1") # Allows cert to be used to decrypt files encrypted using EFS
         $AppPol.Add("1.3.6.1.5.5.7.3.4") # Allows cert to be used to encrypt email messages
+        if ($IntendedPurposeValues -notcontains "Key Usage") {
+            $ExtKeyUse.Add("1.3.6.1.4.1.311.10.3.4")
+            $ExtKeyUse.Add("1.3.6.1.4.1.311.10.3.4.1")
+            $ExtKeyUse.Add("1.3.6.1.5.5.7.3.4")
+        }
     }
     if ($obj1 -eq "CRL Signing") {
         # There are a lot of different OIDs for different types of Digital Signatures
@@ -1053,7 +725,7 @@ $NewTempl.put("pKICriticalExtensions",$pkiCritExt)
 #--------------
 
 $NewTempl.put("msPKI-RA-Signature","0")
-$NewTempl.put("msPKI-Enrollment-Flag","0")
+$NewTempl.put("msPKI-Enrollment-Flag","8")  # Value of "8" publishes template to AD
 if ($AllowPrivateKeyExport -eq "Yes" -or $AllowPrivateKeyExport -eq "y") {
     # Allow Private Key Export
     $NewTempl.put("msPKI-Private-Key-Flag","50659344")
@@ -1119,13 +791,40 @@ if ($CustomExpirationPeriodInYears -eq "2") {
 }
 
 # For Microsoft Base Cryptographic Provider v1.0 and Microsoft Enhanced Cryptographic Provider v1.0, Copy from User Template
-$UserTempl = $ADSI.psbase.children | where {$_.displayName -contains "User"}
-if (Compare-Object -ReferenceObject $NewTempl.pKIDefaultCSPs -DifferenceObject $UserTempl.pKIDefaultCSPs) {
-    Write-Host "There are differences between NewTempl.pKIDefaultCSPs and UserTempl.pKIDefaultCSPs. Setting NewTempl equal to UserTempl"
-    $NewTempl.pKIDefaultCSPs = $UserTempl.pKIDefaultCSPs
+if ($LimitCryptographicProviders -eq "Yes" -or $LimitCryptographicProviders -eq "y") {
+    Write-Host ""
+    Write-Host "All available Cryptographic Providers (CSPs) are as follows:"
+    Write-Host ""
+    $PossibleProvidersPrep = certutil -csplist | Select-String "Provider Name" -Context 0,1
+    $PossibleProviders = foreach ($obj1 in $PossibleProvidersPrep) {
+        $obj2 = $obj1.Context.PostContext | Select-String 'FAIL' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
+        $obj3 = $obj1.Context.PostContext | Select-String 'not ready' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
+        if ($obj2 -ne "True" -and $obj3 -ne "True") {
+            $obj1.Line -replace "Provider Name: ",""
+        }
+    }
+    $PossibleProviders
+    $CSPPrep = Read-Host -Prompt "Please enter one or more CSPs from the above list, separated by commas"
+    [array]$CSPPrep2 = $CSPPrep.Split(",").Trim()
+    $CSPs = foreach ($obj1 in $CSPPrep2) {
+        $obj2 = [array]::indexof($CSPPrep2,$obj1)
+        $obj3 = "$($obj2+1)"+","+"$obj1"
+        $obj3
+    }
+    $NewTempl.pKIDefaultCSPs = $CSPs
 }
 else {
-    Write-Host "NewTempl.pKIDefaultCSPs already matches UserTempl.pKIDefaultCSPs...No action taken"
+    # Not setting pkiDefaultCSPs attribute means that ALL CSPs are available for Certificate Requests using this New Certificate Template
+    Write-Host "No need to limit CSPs...Continuing..."
+    
+    #$UserTempl = $ADSI.psbase.children | where {$_.displayName -contains "User"}
+    #if (Compare-Object -ReferenceObject $NewTempl.pKIDefaultCSPs -DifferenceObject $UserTempl.pKIDefaultCSPs) {
+    #    Write-Host "There are differences between NewTempl.pKIDefaultCSPs and UserTempl.pKIDefaultCSPs. Setting NewTempl equal to UserTempl"
+    #    $NewTempl.pKIDefaultCSPs = $UserTempl.pKIDefaultCSPs
+    #}
+    #else {
+    #    Write-Host "NewTempl.pKIDefaultCSPs already matches UserTempl.pKIDefaultCSPs...No action taken"
+    #}
 }
 
 # Get pKIOverlapPeriod from $BasisTemplateLDAPObjectDirectoryEntry and add it to $NewTempl
@@ -1157,18 +856,24 @@ $ACE = New-Object System.DirectoryServices.ActiveDirectoryAccessRule($identity,$
 $NewTempl.psbase.ObjectSecurity.SetAccessRule($ACE)
 $NewTempl.psbase.commitchanges()
 
-# Add New Cert Template to List of Cert Templates to Issue
+## Add New Cert Template to List of Cert Templates to Issue ##
+
 # If you are using the PSPKI Module #
 Import-Module PSPKI -Prefix PSPKI
 $GetNewTemplate = Get-PSPKICertificateTemplate -Name $NewTemplName
-Get-PSPKICertificationAuthority -Name $IssuingCertAuth | Get-PSPKICATemplate | Add-PSPKICATemplate -Template $GetNewTemplate | Set-PSPKICATemplate
+Get-PSPKICertificationAuthority -ComputerName $IssuingCertAuthFQDN | Get-PSPKICATemplate | Add-PSPKICATemplate -Template $GetNewTemplate | Set-PSPKICATemplate
 
-# If you prefer NOT using the PSPKI Module, and PowerShell version 4 or higher is available, uncomment the below Add-CATemplate command #
-# HOWEVER, this requires a manual step of publishing the template via the Certificate Templates Console GUI so that is appears in crtsrv #
-#Add-CATemplate -Name $NewTemplName -Force
+# If you prefer NOT using the PSPKI Module, and the ADCSAdministration PowerShell Module is available, uncomment the below Add-CATemplate command
+# HOWEVER, for SOME UNKNOWN REASON, this command will fail unless you:
+# 1) Wait 15 minutes; or
+# 2) At least "*look at*" the New Certificate Template in the Certificate Templates Console GUI. The Certificate Templates Console GUI is launched by navigating Server Manager-->Tools-->Certificate Authority-->right-click the folder "Certificate Templates"-->
+# --> select "Manage". From the Certificate Templates Console GUI, "look at" the New Certificate Template by double-clicking on it and then clicking either "OK" or "Cancel" buttons.
+# Now the following command will succeed:
+# Add-CATemplate -Name $NewTemplName -Force
+
 
 # Output all attributes for your new Certificate Template to a text file
-Get-ADObject $NewADObject -Properties * | Out-File $CertGenWorking\$AttributesFile
+Get-ADObject $NewADObject -Properties * | Out-File "$CertGenWorking\$AttributesFile"
 
 ##### END Creating the New Certificate Template #####
 
@@ -1185,4 +890,4 @@ Write-Host "3) The Key Usage value(s) that you provided to the script"
 
 }
 
-# Generate-CertTemplate
+Generate-CertTemplate
