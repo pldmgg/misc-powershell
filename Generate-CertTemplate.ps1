@@ -144,10 +144,20 @@
 
 .DEPENDENCIES
     1) PSPKI Module (See: https://pspki.codeplex.com/)
-    IMPORTANT NOTE: The main reason that the PSPKI module is needed it to automate the step of publishing the new 
-    Certificate Template via the Certificate Templates Console GUI so that is appears in crtsrv.
-    The PowerShell 5.0 cmdlet Add-CATempplate only adds the new Certificate Template to the Certificate Templates Console GUI. It does NOT
-    publish it so that it appears in crtsrv.
+        IMPORTANT NOTE: The main reason that the PSPKI module is needed it to automate the step of publishing the New 
+        Certificate Template via the Certificate Templates Console GUI so that is appears in crtsrv.
+        
+        There is  a cmdlet "Add-CATemplate" available from Microsoft via the ADCSAdministration Module, however, if 
+        "Add-CATemplate -Name $NewTemplName -Forc" is used immediately after creating the initial LDAP Object for your 
+        New Certificate Template, it will FAIL unless you:
+        - Wait 15 minutes for some sort of cache to update; or
+        - At least "*look at*" the New Certificate Template in the Certificate Templates Console GUI. By "*look at*" I mean 
+        navigate Server Manager-->Tools-->Certificate Authority-->right-click the folder "Certificate Templates"--> select "Manage"-->
+        double-click on the New Certificate Template--> click either "OK" or "Cancel" buttons.
+        
+        If either of these conditions is met, the command "Add-CATemplate -Name $NewTemplName -Force" will be successful. However, this
+        effectively destroys one of the goals of this script/function, which is to be able to be used with automation.
+
 
     2) Remote Server Administration Tools (RSAT), specifically:
         - Role Administration Tools
