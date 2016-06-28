@@ -957,7 +957,7 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
     # certutil -exportPFX -p "$PFXPwdPlainText" my $ThumbprintOfCertToExport "$CertGenWorking\$PFXFileOut"
 
     if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
-        if ($PathToWin32OpenSSL -eq $null) {
+        if (! (Test-Path $PathToWin32OpenSSL)) {
             $PathToWin32OpenSSL = Read-Host -Prompt "Please enter the path to the Win32 OpenSSL binary directory"
             if (Test-Path $PathToWin32OpenSSL) {
                 Write-Host "Path to Win32 OpenSSL directory is valid...Continuing..."
@@ -973,6 +973,9 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
                     exit
                 }
             }
+            cd $PathToWin32OpenSSL
+        }
+        else {
             cd $PathToWin32OpenSSL
         }
 
