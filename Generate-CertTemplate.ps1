@@ -12,8 +12,6 @@
     IMPORTANT NOTE 1: By running the function without any parameters, the user will be walked through several prompts. 
     This is the recommended way to use this function until the user feels comfortable with parameters mentioned below.
 
-    IMPORTANT NOTE 2: If feel like you need a walkthrough on some parameters in particular, set their respective "Override" parameter to "Yes". An "Override" parameter is a parameter with the word "Override" in it that can be assigned a value of either "Yes" or "No"
-
 .DESCRIPTION
     This function/script is split into the following sections (ctl-f to jump to each of these sections)
     - Libraries and Helper Functions  (~Lines 287-1056)
@@ -26,7 +24,7 @@
         - Set Permissions on the new Certificate Template LDAP Object (~Lines 2316-2352)
         - Add New Cert Template to List of Cert Templates to Issue (~Lines 2356-2396)
 
-    IMPORTANT NOTE 3: Default values for ALL parameters are already provided, and running the Generate-CertTemplate script/
+    IMPORTANT NOTE 2: Default values for ALL parameters are already provided, and running the Generate-CertTemplate script/
     function will generate a New Certificate Template with these default values, however, the resulting New Certificate Template
     may not satisfy all of your needs depending on your circumstances.
 
@@ -118,7 +116,7 @@
     23) $CertTemplLDAPObjectSecurityRightsPrep - Sets access rights for EACH ACCOUNT LISTED IN $CertTemplLDAPObjectSecurityPrincipalIdentityPrep. Valid values include (but are not limited to GenericWrite, ExtendedRight,
     etc. See $ValidSecurityRights for a complete list of acceptable values (use ctl+f).
 
-    IMPORTANT NOTE 4: EACH ACCOUNT LISTED IN $CertTemplLDAPObjectSecurityPrincipalIdentityPrep will be assigned the SAME
+    IMPORTANT NOTE 3: EACH ACCOUNT LISTED IN $CertTemplLDAPObjectSecurityPrincipalIdentityPrep will be assigned the SAME
     permissions! Currently, this script does NOT contain logic to assign different permissions to different accounts.
 
     24) CertTemplLDAPObjectSecurityType - Either "Allow" or "Deny" AD accounts defined by $CertTemplLDAPObjectSecurityPrincipalIdentityPrep the rights defined by $CertTemplLDAPObjectSecurityRightsPrep
@@ -284,7 +282,6 @@
     -CertTemplLDAPObjectSecurityPrincipalIdentityPrep "Domain Computers, Domain Controllers, zeroadmin" `
     -CertTemplLDAPObjectSecurityRightsPrep $CertTemplLDAPObjectSecurityRightsCmd `
     -CertTemplLDAPObjectSecurityType "Allow"
-
 
 #>
 
