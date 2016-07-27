@@ -489,7 +489,31 @@ Param(
     $UnProtectedPrivateKeyOut = "NewCertificate_$CertificateCN"+"_unprotected_private_key_"+".key",
 
     [Parameter(Mandatory=$False)]
-    $StripPrivateKeyOfPassword = "No"
+    $StripPrivateKeyOfPassword = "No",
+
+    [Parameter(Mandatory=$False)]
+    $AddSAN = "No",
+
+    [Parameter(Mandatory=$False)]
+    $TypesofSANObjectsToAdd,
+
+    [Parameter(Mandatory=$False)]
+    $DNSSANObjects,
+
+    [Parameter(Mandatory=$False)]
+    $DistinguishedNameSANObjects,
+
+    [Parameter(Mandatory=$False)]
+    $URLSANObjects,
+
+    [Parameter(Mandatory=$False)]
+    $IPAddressSANObjects,
+
+    [Parameter(Mandatory=$False)]
+    $UPNSANObjects,
+
+    [Parameter(Mandatory=$False)]
+    $GUIDSANObjects
 )
 
 ##### BEGIN Libraries and Helper Functions #####
@@ -2361,6 +2385,100 @@ else {
     }
 }
 
+if ($AddSAN -eq "Yes" -or $AddSAN -eq "y") {
+    Add-Content -Value '2.5.29.17 = "{text}"' -Path "$CertGenWorking\$CertificateRequestConfigFile"
+    
+    $ValidSANObjectTypes = @("DNS","Distinguished Name","URL","IP Address","Email","UPN","GUID")
+    $ValidSANObjectTypesAsStringPrep = foreach ($obj1 in $ValidSANObjectTypes) {
+        $obj1.Trim()+','
+    }
+    $ValidSANObjectTypesAsString = [string]$ValidSANObjectTypesAsStringPrep
+
+    if ($TypesofSANObjectsToAdd -eq $null) {
+        Write-Host "Please specify the types of SAN Objects that you would like to add to the New Certificate."
+        Write-Host "Valid options are as follows:"
+        $ValidSANObjectTypesAsString
+
+        $TypesofSANObjectsToAdd = Read-Host -Prompt "Which types of SAN Objects would you like to add?
+        For multiple types, simply separate with a comma. Example: DNS, IP Address, Email"
+    }
+
+    $TypesofSANObjectsToAddArray = $TypesofSANObjectsToAdd.Split(",").Trim()
+
+    foreach ($obj1 in $TypesofSANObjectsToAddArray) {
+        if ($obj1 -eq "DNS") {
+            if ($DNSSANObjects -eq $null) {
+                $DNSSANObjects = Read-Host -Prompt "Please enter one or more DNS SAN objects separated by commas
+                Example: www.fabrikam.com, www.contoso.org"
+            }
+            $DNSSANObjectsArray = $DNSSANObjects.Split(",").Trim()
+            foreach ($obj2 in $DNSSANObjectsArray) {
+                Add-Content -Value "_continue_ = `"dns=$obj2&`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+            }
+        }
+        if ($obj1 -eq "Distinguished Name") {
+            if ($DistinguishedNameSANObjects -eq $null) {
+                $DistinguishedNameSANObjects = Read-Host -Prompt "Please enter one or more Distinguished Name SAN objects ***separated by semi-colons***
+                Example: CN=www01,OU=Web Servers,DC=fabrikam,DC=com; CN=www01,OU=Load Balancers,DC=fabrikam,DC=com"
+            }
+            $DistinguishedNameSANObjectsArray = $DistinguishedNameSANObjects.Split(";").Trim()
+            foreach ($obj2 in $DistinguishedNameSANObjectsArray) {
+                Add-Content -Value "_continue_ = `"dn=$obj2&`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+            }
+        }
+        if ($obj1 -eq "URL") {
+            if ($URLSANObjects -eq $null) {
+                $URLSANObjects = Read-Host -Prompt "Please enter one or more URL SAN objects separated by commas
+                Example: http://www.fabrikam.com, http://www.contoso.com"
+            }
+            $URLSANObjectsArray = $URLSANObjects.Split(",").Trim()
+            foreach ($obj2 in $URLSANObjectsArray) {
+                Add-Content -Value "_continue_ = `"url=$obj2&`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+            }
+        }
+        if ($obj1 -eq "IP Address") {
+            if ($IPAddressSANObjects -eq $null) {
+                $IPAddressSANObjects = Read-Host -Prompt "Please enter one or more IP Address SAN objects separated by commas
+                Example: 172.31.10.13, 192.168.2.125"
+            }
+            $IPAddressSANObjectsArray = $IPAddressSANObjects.Split(",").Trim()
+            foreach ($obj2 in $IPAddressSANObjectsArray) {
+                Add-Content -Value "_continue_ = `"ipaddress=$obj2&`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+            }
+        }
+        if ($obj1 -eq "Email") {
+            if ($EmailSANObjects -eq $null) {
+                $EmailSANObjects = Read-Host -Prompt "Please enter one or more Email SAN objects separated by commas
+                Example: mike@fabrikam.com, hazem@fabrikam.com"
+            }
+            $EmailSANObjectsArray = $EmailSANObjects.Split(",").Trim()
+            foreach ($obj2 in $EmailSANObjectsArray) {
+                Add-Content -Value "_continue_ = `"email=$obj2&`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+            }
+        }
+        if ($obj1 -eq "UPN") {
+            if ($UPNSANObjects -eq $null) {
+                $UPNSANObjects = Read-Host -Prompt "Please enter one or more UPN SAN objects separated by commas
+                Example: mike@fabrikam.com, hazem@fabrikam.com"
+            }
+            $UPNSANObjectsArray = $UPNSANObjects.Split(",").Trim()
+            foreach ($obj2 in $UPNSANObjectsArray) {
+                Add-Content -Value "_continue_ = `"upn=$obj2&`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+            }
+        }
+        if ($obj1 -eq "GUID") {
+            if ($GUIDSANObjects -eq $null) {
+                $GUIDSANObjects = Read-Host -Prompt "Please enter one or more GUID SAN objects separated by commas
+                Example: f7c3ac41-b8ce-4fb4-aa58-3d1dc0e36b39, g8D4ac41-b8ce-4fb4-aa58-3d1dc0e47c48"
+            }
+            $GUIDSANObjectsArray = $GUIDSANObjects.Split(",").Trim()
+            foreach ($obj2 in $GUIDSANObjectsArray) {
+                Add-Content -Value "_continue_ = `"guid=$obj2&`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+            }
+        }
+    }
+}
+
 ## End Writing Config File ##
 
 ##### END Additional Variable Definition and Config File Creation #####
@@ -2402,77 +2520,90 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
     # certreq -accept -user "$CertGenWorking\$CertFileOut"
 
     # Then, export cert with private key in the form of a .pfx file
-    $LocationOfCertInStore = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.FriendlyName -like "*$CertificateCN*"}) | Select-Object -ExpandProperty PSPath
-    Export-PfxCertificate -Cert $LocationOfCertInStore -FilePath "$CertGenWorking\$PFXFileOut" -Password $PFXPwdAsSecureString
-    # Equivalent of above using certutil
-    # $ThumbprintOfCertToExport = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -like "*$CertificateCN*"}) | Select-Object -ExpandProperty Thumbprint
-    # certutil -exportPFX -p "$PFXPwdPlainText" my $ThumbprintOfCertToExport "$CertGenWorking\$PFXFileOut"
+    if ($MachineKeySet -eq "FALSE") {
+        Sleep 5
+        $LocationOfCertInStore = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -like "*CN=$CertificateCN*"}) | Select-Object -ExpandProperty PSPath
+        if ($LocationOfCertInStore.Count -gt 1) {
+            Write-Host ""
+            Write-Host "Writing LocationofCertInStore"
+            Write-Host ""
+            $LocationOfCertInStore
+            Write-Host ""
+            Write-Host "You have more than one certificate in your Certificate Store under Cert:\CurrentUser\My with the same Common Name (CN). Please correct this and try again."
+            return
+        }
+        Sleep 5
+        Export-PfxCertificate -Cert $LocationOfCertInStore -FilePath "$CertGenWorking\$PFXFileOut" -Password $PFXPwdAsSecureString
+        # Equivalent of above using certutil
+        # $ThumbprintOfCertToExport = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -like "*$CertificateCN*"}) | Select-Object -ExpandProperty Thumbprint
+        # certutil -exportPFX -p "$PFXPwdPlainText" my $ThumbprintOfCertToExport "$CertGenWorking\$PFXFileOut"
 
-    if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
-        if (! (Test-Path $PathToWin32OpenSSL)) {
-            $PathToWin32OpenSSL = Read-Host -Prompt "Please enter the path to the Win32 OpenSSL binary directory"
-            if (Test-Path $PathToWin32OpenSSL) {
-                Write-Host "Path to Win32 OpenSSL directory is valid...Continuing..."
-            }
-            else {
-                Write-Host "Win32 OpenSSL binary directory not found"
+        if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
+            if (! (Test-Path $PathToWin32OpenSSL)) {
                 $PathToWin32OpenSSL = Read-Host -Prompt "Please enter the path to the Win32 OpenSSL binary directory"
                 if (Test-Path $PathToWin32OpenSSL) {
-                    cd $PathToWin32OpenSSL
+                    Write-Host "Path to Win32 OpenSSL directory is valid...Continuing..."
                 }
                 else {
-                    Write-Host "Win32 OpenSSL binary directory not found. Halting!"
-                    return
+                    Write-Host "Win32 OpenSSL binary directory not found"
+                    $PathToWin32OpenSSL = Read-Host -Prompt "Please enter the path to the Win32 OpenSSL binary directory"
+                    if (Test-Path $PathToWin32OpenSSL) {
+                        cd $PathToWin32OpenSSL
+                    }
+                    else {
+                        Write-Host "Win32 OpenSSL binary directory not found. Halting!"
+                        return
+                    }
                 }
-            }
-            cd $PathToWin32OpenSSL
-        }
-        else {
-            cd $PathToWin32OpenSSL
-        }
-
-        # OpenSSL can't handle PowerShell SecureStrings, so need to convert it back into Plain Text
-        $PwdForPFXOpenSSL = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PFXPwdAsSecureString))
-
-        # Extract Private Key and Keep It Password Protected
-        openssl pkcs12 -in "$CertGenWorking\$PFXFileOut" -nocerts -out "$CertGenWorking\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2> null
-
-        # The .pfx File Contains ALL Public Certificates in Chain 
-        # The below extracts ALL Public Certificates in Chain
-        openssl pkcs12 -in "$CertGenWorking\$PFXFileOut" -nokeys -out "$CertGenWorking\$AllPublicKeysInChainOut" -password pass:$PwdForPFXOpenSSL 2> null
-
-        # Extract the Public Certificate specific to the New Certificate that was just made (i.e. NOT the entire chain)
-        # This file should have the EXACT SAME CONTENT as the .cer file generated earlier
-        $PublicKeySansChainPrep1 = (Get-Content "$CertGenWorking\$AllPublicKeysInChainOut") -join "`n"
-        $PublicKeySansChainPrep2 = $PublicKeySansChainPrep1 | Select-String -Pattern '\-----BEGIN CERTIFICATE-----([\s\S]*)\-----END CERTIFICATE-----' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-        $PublicKeySansChain = $PublicKeySansChainPrep2.Substring(0, $PublicKeySansChainPrep2.IndexOf('Bag'))
-        $PublicKeySansChain | Out-File "$CertGenWorking\$PublicKeySansChainOutFile" -Encoding ascii
-
-        # Determine if we should remove the password from the private key (i.e. $ProtectedPrivateKeyOut)
-        if ($StripPrivateKeyOfPassword -eq $null) {
-            $StripPrivateKeyOfPassword = Read-Host -Prompt "Would you like to remove password protection from the private key? [Yes/No]"
-            if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y" -or $StripPrivateKeyOfPassword -eq "No" -or $StripPrivateKeyOfPassword -eq "n") {
-                Write-Host "The value for StripPrivateKeyOfPassword is valid...continuing"
+                cd $PathToWin32OpenSSL
             }
             else {
-                Write-Host "The value for StripPrivateKeyOfPassword is not valid. Please enter either 'Yes', 'y', 'No', or 'n'."
+                cd $PathToWin32OpenSSL
+            }
+
+            # OpenSSL can't handle PowerShell SecureStrings, so need to convert it back into Plain Text
+            $PwdForPFXOpenSSL = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PFXPwdAsSecureString))
+
+            # Extract Private Key and Keep It Password Protected
+            openssl pkcs12 -in "$CertGenWorking\$PFXFileOut" -nocerts -out "$CertGenWorking\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2> null
+
+            # The .pfx File Contains ALL Public Certificates in Chain 
+            # The below extracts ALL Public Certificates in Chain
+            openssl pkcs12 -in "$CertGenWorking\$PFXFileOut" -nokeys -out "$CertGenWorking\$AllPublicKeysInChainOut" -password pass:$PwdForPFXOpenSSL 2> null
+
+            # Extract the Public Certificate specific to the New Certificate that was just made (i.e. NOT the entire chain)
+            # This file should have the EXACT SAME CONTENT as the .cer file generated earlier
+            $PublicKeySansChainPrep1 = (Get-Content "$CertGenWorking\$AllPublicKeysInChainOut") -join "`n"
+            $PublicKeySansChainPrep2 = $PublicKeySansChainPrep1 | Select-String -Pattern '\-----BEGIN CERTIFICATE-----([\s\S]*)\-----END CERTIFICATE-----' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+            $PublicKeySansChain = $PublicKeySansChainPrep2.Substring(0, $PublicKeySansChainPrep2.IndexOf('Bag'))
+            $PublicKeySansChain | Out-File "$CertGenWorking\$PublicKeySansChainOutFile" -Encoding ascii
+
+            # Determine if we should remove the password from the private key (i.e. $ProtectedPrivateKeyOut)
+            if ($StripPrivateKeyOfPassword -eq $null) {
                 $StripPrivateKeyOfPassword = Read-Host -Prompt "Would you like to remove password protection from the private key? [Yes/No]"
                 if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y" -or $StripPrivateKeyOfPassword -eq "No" -or $StripPrivateKeyOfPassword -eq "n") {
                     Write-Host "The value for StripPrivateKeyOfPassword is valid...continuing"
                 }
                 else {
-                    Write-Host "The value for StripPrivateKeyOfPassword is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
-                    return
+                    Write-Host "The value for StripPrivateKeyOfPassword is not valid. Please enter either 'Yes', 'y', 'No', or 'n'."
+                    $StripPrivateKeyOfPassword = Read-Host -Prompt "Would you like to remove password protection from the private key? [Yes/No]"
+                    if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y" -or $StripPrivateKeyOfPassword -eq "No" -or $StripPrivateKeyOfPassword -eq "n") {
+                        Write-Host "The value for StripPrivateKeyOfPassword is valid...continuing"
+                    }
+                    else {
+                        Write-Host "The value for StripPrivateKeyOfPassword is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+                        return
+                    }
+                }
+                if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
+                    # Strip Private Key of Password
+                    openssl rsa -in "$CertGenWorking\$ProtectedPrivateKeyOut" -out "$CertGenWorking\$UnProtectedPrivateKeyOut" 2> null
                 }
             }
             if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
                 # Strip Private Key of Password
                 openssl rsa -in "$CertGenWorking\$ProtectedPrivateKeyOut" -out "$CertGenWorking\$UnProtectedPrivateKeyOut" 2> null
             }
-        }
-        if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
-            # Strip Private Key of Password
-            openssl rsa -in "$CertGenWorking\$ProtectedPrivateKeyOut" -out "$CertGenWorking\$UnProtectedPrivateKeyOut" 2> null
         }
     }
 }
