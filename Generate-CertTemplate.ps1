@@ -24,6 +24,7 @@
         - Set Permissions on the new Certificate Template LDAP Object (~Lines 2316-2352)
         - Add New Cert Template to List of Cert Templates to Issue (~Lines 2356-2396)
 
+.PARAMETERS
     IMPORTANT NOTE 2: Default values for ALL parameters are already provided, and running the Generate-CertTemplate script/
     function will generate a New Certificate Template with these default values, however, the resulting New Certificate Template
     may not satisfy all of your needs depending on your circumstances.
@@ -988,7 +989,7 @@ $OIDHashTable = @{
 # pKIPeriod Arrays
 [array]$3years = @("00","C0","AB","95","8B","A3","FC","FF")
 [array]$2years = @("00","80","72","0E","5D","C2","FD","FF")
-[array]$1years = @("00","40","39","87","2E","E1","FE","FF")
+[array]$1year = @("00","40","39","87","2E","E1","FE","FF")
 [array]$12months = @("00","00","4A","5B","1C","E5","FE","FF")
 [array]$9months = @("00","80","77","44","D5","2B","FF","FF")
 [array]$6months = @("00","00","A5","2D","8E","72","FF","FF")
@@ -1557,18 +1558,16 @@ if (($CertTemplLDAPObjectSecurityRightsPrep.GetType().BaseType.Name) -eq "Array"
     $CertTemplLDAPObjectSecurityRights = $CertTemplLDAPObjectSecurityRightsPrep
 }
 
+$CombinedADUserComputerGroupArray = $ValidUserAccounts + $ValidComputerAccounts + $ValidGroups
+
 # Validation Check on $CertTemplLDAPObjectSecurityPrincipalIdentity...
-if ((Compare-Arrays -LargerArray $ValidUserAccounts -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity) -or `
-(Compare-Arrays -LargerArray $ValidComputerAccounts -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity) -or `
-(Compare-Arrays -LargerArray $ValidGroups -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity)) {
+if (Compare-Arrays -LargerArray $CombinedADUserComputerGroupArray -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity) {
      Write-Host "$CertTemplLDAPObjectSecurityPrincipalIdentity is(are) valid AD user/computer/group account(s). Continuing..."
 }
 else {
     Write-Host "$CertTemplLDAPObjectSecurityPrincipalIdentity is(are) NOT valid AD user/computer/group account(s)."
     $CertTemplLDAPObjectSecurityPrincipalIdentity = Read-Host -Prompt "Please enter a valid AD user, computer, or group account"
-    if ((Compare-Arrays -LargerArray $ValidUserAccounts -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity) -or `
-    (Compare-Arrays -LargerArray $ValidComputerAccounts -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity) -or `
-    (Compare-Arrays -LargerArray $ValidGroups -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity)) {
+    if (Compare-Arrays -LargerArray $CombinedADUserComputerGroupArray -SmallerArray $CertTemplLDAPObjectSecurityPrincipalIdentity) {
         Write-Host "$CertTemplLDAPObjectSecurityPrincipalIdentity is(are) NOT valid AD user/computer/group account(s). Halting!"
     }
 }
