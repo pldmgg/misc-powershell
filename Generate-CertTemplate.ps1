@@ -1,5 +1,8 @@
 ﻿<#
 .SYNOPSIS
+    IMPORTANT NOTE: If you would like the resulting Certificate Template to appear in the Certificate Template drop-down on the ADCS Web Enrollment site, $msPKITemplateSchemaVersion MUST BE "2" or "1"
+    AND $pKIExpirationPeriod must be 1 year or LESS
+     
     This script/function generates a New Certificate Template AND Publishes it for use.  It does NOT generate actual certificates.
     This script/function attempts to simplify Certificate Template creation by mapping hashtables/arrays of OID and hexadecimal values to the choices an administrator would see using the Certificate Template Console GUI.
 
@@ -72,7 +75,8 @@
     Operating System in your environment older than Windows 2012/8.1 and $msPKITemplateSchemaVersion will be set to "2".
     If it is set to anything other than "Yes","yes","Y" or "y", then $msPKITemplateSchemaVersion will be set to "4"
 
-    11) $msPKITemplateSchemaVersion
+    11) $msPKITemplateSchemaVersion - IMPORTANT: If you would like the resulting Certificate Template to appear in the Certificate Template drop-down on the ADCS Web Enrollment site, $msPKITemplateSchemaVersion MUST BE "2" or "1"
+    AND $pKIExpirationPeriod must be 1 year or LESS
 
     12) $msPKIEnrollmentValues
 
@@ -80,7 +84,8 @@
 
     14) $msPKICertificateNameValues
 
-    15) $pKIExpirationPeriod
+    15) $pKIExpirationPeriod - IMPORTANT: If you would like the resulting Certificate Template to appear in the Certificate Template drop-down on the ADCS Web Enrollment site, $msPKITemplateSchemaVersion MUST BE "2" or "1"
+    AND $pKIExpirationPeriod must be 1 year or LESS
 
     16) $pKIOverlapPeriod
 
