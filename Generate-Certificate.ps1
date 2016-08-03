@@ -15,7 +15,7 @@
     This function/script is split into the following sections (ctl-f to jump to each of these sections)
     - Libraries and Helper Functions (~Lines 298-1395)
     - Initial Variable Definition and Validation (~Lines 1397-1760)
-    - Additional Variable Definition and Config File Creation (~Lines 1762-2169)
+    - Writing the Certificate Request Config File (~Lines 1762-2169)
     - Generate Certificate Request and Submit to Issuing Certificate Authority (~Lines 2172-2284)
 
     OUTPUTS
@@ -366,10 +366,30 @@ Param(
     [Parameter(Mandatory=$False)]
     $PFXPwdAsSecureString = $(Read-Host -Prompt "Please enter a password to use when exporting .pfx bundle certificate/key bundle" -AsSecureString),
 
-    # WE can determine this automatically with certutil
+    # If the workstation being used to request the certificate is part of the same domain as the Issuing Certificate Authority, we can identify
+    # the Issuing Certificate Authority with certutil, so there is no need to set an $IssuingCertificateAuth Parameter
     #[Parameter(Mandatory=$False)]
-    #$IssuingCertAuthFQDN = $(Read-Host -Prompt "Please enter the FQDN the server responsible for Issuing New Certificates.
-    #NOTE: The servername must be able to be resolved via DNS"),
+    #$IssuingCertAuth = $(Read-Host -Prompt "Please enter the FQDN the server responsible for Issuing New Certificates."),
+
+    # If the workstation being used to request the certificate is NOT part of the same domain as the Issuing Certificate Authority, we must use
+    # the ADCS WEb Enrollment site for the certificate request. $RequestViaWebEnrollment should be set to "Yes", and $ADCSWebEnrollmentURL should be set.
+    [Parameter(Mandatory=$False)]
+    $RequestViaWebEnrollment = "No",
+
+    [Parameter(Mandatory=$False)]
+    $ADCSWebEnrollmentURL,
+
+    [Parameter(Mandatory=$False)]
+    $ADCSWebAuthType,
+
+    [Parameter(Mandatory=$False)]
+    $ADCSWebAuthUserName,
+
+    [Parameter(Mandatory=$False)]
+    $ADCSWebAuthPass,
+
+    [Parameter(Mandatory=$False)]
+    $CertADCSWebResponse = "NewCertificate_$CertificateCN"+"_ADCSWebResponse"+$(Get-Date -format 'dd-MMM-yyyy_HHmm')+".txt",
 
     [Parameter(Mandatory=$False)]
     $Organization = $(Read-Host -Prompt "Please enter the name of the the Company that will appear on the New Certificate"),
@@ -441,8 +461,9 @@ Param(
     $KeyUsageValue = "0x80",
     
     [Parameter(Mandatory=$False)]
-    $MachineKeySet = $(Read-Host -Prompt "Please enter TRUE if you are using this certificate for a service that runs in the Computer's
-    security context (such as a Web Server, Domain Controller, etc). Enter FALSE for User security context [TRUE/FALSE]"),
+    $MachineKeySet = $(Read-Host -Prompt "If you would like the private key exported, please enter FALSE. If you are creating this certificate to be used
+    in the User's security context (like for a developer to sign their code), enter FALSE. If you are using this certificate for a service 
+    that runs in the Computer's security context (such as a Web Server, Domain Controller, etc) enter TRUE [TRUE/FALSE]"),
 
     [Parameter(Mandatory=$False)]
     $SecureEmail = $(Read-Host -Prompt "Are you using this new certificate for Secure E-Mail? [Yes/No]"),
@@ -514,6 +535,7 @@ Param(
 
     [Parameter(Mandatory=$False)]
     $GUIDSANObjects
+
 )
 
 ##### BEGIN Libraries and Helper Functions #####
@@ -1130,8 +1152,24 @@ $OIDHashTable = @{
 function Get-IntendedPurposeAdjudication {
     [CmdletBinding()]
     Param()
+
+    # This function will be creating several $global: variables to be used outside of this function by the rest of the script
+    # All variables that are NOT preceded by $global: must be set elsewhere BEFORE this funciton is executed
+    # Variables that must be set BEFORE running this function are: $IntendedPurposeValues, $ValidIntendedPurposeValues, and $OIDHashTable
+
+    # Using [System.Collections.ArrayList] so that Add and Remove methods work as expected and only operate on a single array 
+    # instead of destroying and recreating arrays everytime an item is added/removed
     $global:CertRequestConfigFileStringsSectionArrayPrep = @()
     [System.Collections.ArrayList]$global:CertRequestConfigFileStringsSectionArray = $global:CertRequestConfigFileStringsSectionArrayPrep
+
+    [array]$global:szOIDArrayPrep = @()
+    [System.Collections.ArrayList]$global:szOIDArray = $global:szOIDArrayPrep
+
+    [array]$global:ExtKeyUsePrep = @()
+    [System.Collections.ArrayList]$global:ExtKeyUse = $global:ExtKeyUsePrep
+
+    [array]$global:AppPolPrep = @()
+    [System.Collections.ArrayList]$global:AppPol = $global:AppPolPrep
 
     # Validation check...
     foreach ($obj1 in $IntendedPurposeValues) {
@@ -1146,469 +1184,469 @@ function Get-IntendedPurposeAdjudication {
         if ($obj1 -eq "Code Signing") {
             $global:OfficialName = "PKIX_KP_CODE_SIGNING"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Document Signing") {
             $global:OfficialName = "KP_DOCUMENT_SIGNING"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Client Authentication") {
             $global:OfficialName = "PKIX_KP_CLIENT_AUTH"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Private Key Archival") {
             $global:OfficialName = "KP_CA_EXCHANGE"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Directory Service Email Replication") {
             $global:OfficialName = "DS_EMAIL_REPLICATION"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Key Recovery Agent") {
             $global:OfficialName = "KP_KEY_RECOVERY_AGENT"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "OCSP Signing") {
             $global:OfficialName = "KP_OCSP_SIGNING"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Server Authentication") {
             $global:OfficialName = "PKIX_KP_SERVER_AUTH"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         ##### Below this point, Intended Purposes will be set but WILL NOT show up in the Certificate Templates Console under Intended Purpose column #####
         if ($obj1 -eq "EFS") {
             $global:OfficialName = "KP_EFS"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Secure E-Mail") {
             $global:OfficialName = "PKIX_KP_EMAIL_PROTECTION"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Enrollment Agent") {
             $global:OfficialName = "ENROLLMENT_AGENT"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Microsoft Trust List Signing") {
             $global:OfficialName = "KP_CTL_USAGE_SIGNING"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Smartcard Logon") {
             $global:OfficialName = "IdMsKpScLogon"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "File Recovery") {
             $global:OfficialName = "EFS_RECOVERY"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "IPSec IKE Intermediate") {
             $global:OfficialName = "IPSEC_KP_IKE_INTERMEDIATE"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "KDC Authentication") {
             $global:OfficialName = "IdPkinitKPKdc"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         ##### Begin Newly Added #####
         if ($obj1 -eq "Remote Desktop") {
             $global:OfficialName = "Remote Desktop"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         # Cannot be overridden in Certificate Request
         if ($obj1 -eq "Windows Update") {
             $global:OfficialName = "Windows Update"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows Third Party Application Component") {
             $global:OfficialName = "Windows Third Party Application Component"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows TCB Component") {
             $global:OfficialName = "Windows TCB Component"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows Store") {
             $global:OfficialName = "Windows Store"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows Software Extension Verification") {
             $global:OfficialName = "Windows Software Extension Verification"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows RT Verification") {
             $global:OfficialName = "Windows RT Verification"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows Kits Component") {
             $global:OfficialName = "Windows Kits Component"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "No OCSP Failover to CRL") {
             $global:OfficialName = "No OCSP Failover to CRL"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Auto Update End Revocation") {
             $global:OfficialName = "Auto Update End Revocation"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Auto Update CA Revocation") {
             $global:OfficialName = "Auto Update CA Revocation"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Revoked List Signer") {
             $global:OfficialName = "Revoked List Signer"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Protected Process Verification") {
             $global:OfficialName = "Protected Process Verification"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Protected Process Light Verification") {
             $global:OfficialName = "Protected Process Light Verification"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Platform Certificate") {
             $global:OfficialName = "Platform Certificate"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Microsoft Publisher") {
             $global:OfficialName = "Microsoft Publisher"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Kernel Mode Code Signing") {
             $global:OfficialName = "Kernel Mode Code Signing"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "HAL Extension") {
             $global:OfficialName = "HAL Extension"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Endorsement Key Certificate") {
             $global:OfficialName = "Endorsement Key Certificate"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Early Launch Antimalware Driver") {
             $global:OfficialName = "Early Launch Antimalware Driver"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Dynamic Code Generator") {
             $global:OfficialName = "Dynamic Code Generator"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "DNS Server Trust") {
             $global:OfficialName = "DNS Server Trust"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Document Encryption") {
             $global:OfficialName = "Document Encryption"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Disallowed List") {
             $global:OfficialName = "Disallowed List"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Attestation Identity Key Certificate") {
             $global:OfficialName = "Attestation Identity Key Certificate"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "System Health Authentication") {
             $global:OfficialName = "System Health Authentication"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "CTL Usage") {
             $global:OfficialName = "AUTO_ENROLL_CTL_USAGE"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "IP Security End System") {
             $global:OfficialName = "PKIX_KP_IPSEC_END_SYSTEM"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "IP Security Tunnel Termination") {
             $global:OfficialName = "PKIX_KP_IPSEC_TUNNEL"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "IP Security User") {
             $global:OfficialName = "PKIX_KP_IPSEC_USER"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Time Stamping") {
             $global:OfficialName = "PKIX_KP_TIMESTAMP_SIGNING"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Microsoft Time Stamping") {
             $global:OfficialName = "KP_TIME_STAMP_SIGNING"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows Hardware Driver Verification") {
             $global:OfficialName = "WHQL_CRYPTO"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Windows System Component Verification") {
             $global:OfficialName = "NT5_CRYPTO"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "OEM Windows System Component Verification") {
             $global:OfficialName = "OEM_WHQL_CRYPTO"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Embedded Windows System Component Verification") {
             $global:OfficialName = "EMBEDDED_NT_CRYPTO"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Root List Signer") {
             $global:OfficialName = "ROOT_LIST_SIGNER"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Qualified Subordination") {
             $global:OfficialName = "KP_QUALIFIED_SUBORDINATION"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Key Recovery") {
             $global:OfficialName = "KP_KEY_RECOVERY"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Lifetime Signing") {
             $global:OfficialName = "KP_LIFETIME_SIGNING"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "Key Pack Licenses") {
             $global:OfficialName = "LICENSES"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
         if ($obj1 -eq "License Server Verification") {
             $global:OfficialName = "LICENSE_SERVER"
             $global:OfficialOID = $OIDHashTable.$global:OfficialName
-            $szOIDArray.Add("szOID_$global:OfficialName")
+            $global:szOIDArray.Add("szOID_$global:OfficialName")
             $global:CertRequestConfigFileStringsSectionArray.Add("szOID_$global:OfficialName = `"$global:OfficialOID`"")
-            $ExtKeyUse.Add("$global:OfficialOID")
-            $AppPol.Add("$global:OfficialOID")
+            $global:ExtKeyUse.Add("$global:OfficialOID")
+            $global:AppPol.Add("$global:OfficialOID")
         }
     }
 }
@@ -1620,96 +1658,61 @@ $DomainPrefix = ((gwmi Win32_ComputerSystem).Domain).Split(".") | Select-Object 
 $DomainSuffix = ((gwmi Win32_ComputerSystem).Domain).Split(".") | Select-Object -Index 1
 $Hostname = (gwmi Win32_ComputerSystem).Name
 $HostFQDN = $Hostname+'.'+$DomainPrefix+'.'+$DomainSuffix
-# Make sure $PFXPwdAsSecureString is a SecureString. If not, convert it to a SecureString
+# If $PFXPwdAsSecureString is set, and it is *not* a SecureString, make it one.
 if ($PFXPwdAsSecureString.GetType().Name -eq "String") {
     $PFXPwdAsSecureString = ConvertTo-SecureString -String $PFXPwdAsSecureString -Force –AsPlainText
 }
-$AvailableCertificateAuthorities = (((certutil | Select-String -Pattern "Config:") -replace "Config:[\s]{1,32}``") -replace "'","").trim()
-$IssuingCertAuth = foreach ($obj1 in $AvailableCertificateAuthorities) {
-    $obj2 = certutil -config $obj1 -CAInfo type | Select-String -Pattern "Enterprise Subordinate CA" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    if ($obj2 -eq "Enterprise Subordinate CA") {
-        $obj1
+
+# If the workstation being used to request the Certificate is part of the same Domain as the Issuing Certificate Authority, leverage certutil...
+if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
+    $AvailableCertificateAuthorities = (((certutil | Select-String -Pattern "Config:") -replace "Config:[\s]{1,32}``") -replace "'","").trim()
+    $IssuingCertAuth = foreach ($obj1 in $AvailableCertificateAuthorities) {
+        $obj2 = certutil -config $obj1 -CAInfo type | Select-String -Pattern "Enterprise Subordinate CA" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+        if ($obj2 -eq "Enterprise Subordinate CA") {
+            $obj1
+        }
     }
-}
-$IssuingCertAuthFQDN = $IssuingCertAuth.Split("\") | Select-Object -Index 0
-$IssuingCertAuthHostname = $IssuingCertAuth.Split("\") | Select-Object -Index 1
-certutil -config $IssuingCertAuth -ping
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Successfully contacted the server acting as the Issuing Certificate Authority"
-}
-else {
-    Write-Host "Cannot contact the Issuing Certificate Authority. Halting!"
-    return
-}
-$LDAPSearchBase = "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
-# $AllAvailableCertificateTemplates Using PSPKI
-# $AllAvailableCertificateTemplates = Get-PSPKICertificateTemplate
-# Using certutil
-$AllAvailableCertificateTemplatesPrep = certutil -ADTemplate
-# Determine valid CN using PSPKI
-# $ValidCertificateTemplatesByCN = $AllAvailableCertificateTemplatesPrep.Name
-# Determine valid displayNames using certutil
-$ValidCertificateTemplatesByCN = foreach ($obj1 in $AllAvailableCertificateTemplatesPrep) {
-    $obj2 = $obj1 | Select-String -Pattern "[\w]{1,32}:[\s][\w]" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    $obj3 = $obj2 -replace ':[\s][\w]',''
-    $obj3
-}
-$ValidCNNamesAsStringPrep = foreach ($obj1 in $ValidCertificateTemplatesByCN) {
-    $obj1.Trim()+','
-}
-$ValidCNNamesAsString = [string]$ValidCNNamesAsStringPrep
+    $IssuingCertAuthFQDN = $IssuingCertAuth.Split("\") | Select-Object -Index 0
+    $IssuingCertAuthHostname = $IssuingCertAuth.Split("\") | Select-Object -Index 1
+    certutil -config $IssuingCertAuth -ping
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Successfully contacted the server acting as the Issuing Certificate Authority"
+    }
+    else {
+        Write-Host "Cannot contact the Issuing Certificate Authority. Halting!"
+        return
+    }
+    $LDAPSearchBase = "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
+    # $AllAvailableCertificateTemplates Using PSPKI
+    # $AllAvailableCertificateTemplates = Get-PSPKICertificateTemplate
+    # Using certutil
+    $AllAvailableCertificateTemplatesPrep = certutil -ADTemplate
+    # Determine valid CN using PSPKI
+    # $ValidCertificateTemplatesByCN = $AllAvailableCertificateTemplatesPrep.Name
+    # Determine valid displayNames using certutil
+    $ValidCertificateTemplatesByCN = foreach ($obj1 in $AllAvailableCertificateTemplatesPrep) {
+        $obj2 = $obj1 | Select-String -Pattern "[\w]{1,32}:[\s][\w]" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+        $obj3 = $obj2 -replace ':[\s][\w]',''
+        $obj3
+    }
+    $ValidCNNamesAsStringPrep = foreach ($obj1 in $ValidCertificateTemplatesByCN) {
+        $obj1.Trim()+','
+    }
+    $ValidCNNamesAsString = [string]$ValidCNNamesAsStringPrep
 
-# Determine valid displayNames using PSPKI
-# $ValidCertificateTemplatesByDisplayName = $AllAvailableCertificateTemplatesPrep.DisplayName
-# Determine valid displayNames using certutil
-$ValidCertificateTemplatesByDisplayName = foreach ($obj1 in $AllAvailableCertificateTemplatesPrep) {
-    $obj2 = $obj1 | Select-String -Pattern "\:(.*)\-\-" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    $obj3 = ($obj2 -replace ": ","") -replace " --",""
-    $obj3
-}
-$ValidDisplayNamesAsStringPrep = foreach ($obj1 in $ValidCertificateTemplatesByDisplayName) {
-    $obj1.Trim()+','
-}
-$ValidDisplayNamesAsString = [string]$ValidDisplayNamesAsStringPrep
+    # Determine valid displayNames using PSPKI
+    # $ValidCertificateTemplatesByDisplayName = $AllAvailableCertificateTemplatesPrep.DisplayName
+    # Determine valid displayNames using certutil
+    $ValidCertificateTemplatesByDisplayName = foreach ($obj1 in $AllAvailableCertificateTemplatesPrep) {
+        $obj2 = $obj1 | Select-String -Pattern "\:(.*)\-\-" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+        $obj3 = ($obj2 -replace ": ","") -replace " --",""
+        $obj3
+    }
+    $ValidDisplayNamesAsStringPrep = foreach ($obj1 in $ValidCertificateTemplatesByDisplayName) {
+        $obj1.Trim()+','
+    }
+    $ValidDisplayNamesAsString = [string]$ValidDisplayNamesAsStringPrep
 
-# Set displayName and CN Values for user-provided $BasisTemplate
-if ($ValidCertificateTemplatesByCN -contains $BasisTemplate) {
-    $cnForBasisTemplate = $BasisTemplate
-}
-if ($ValidCertificateTemplatesByDisplayName -contains $BasisTemplate) {
-    $displayNameForBasisTemplate = $BasisTemplate
-}
-
-if ($cnForBasisTemplate -eq $null -and $displayNameForBasisTemplate -ne $null) {
-    $cnForBasisTemplatePrep1 = $AllAvailableCertificateTemplatesPrep | Select-String -Pattern $displayNameForBasisTemplate | Select-Object -ExpandProperty Line
-    $cnForBasisTemplatePrep2 = $cnForBasisTemplatePrep1 | Select-String -Pattern "[\w]{1,32}:[\s][\w]" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    $cnForBasisTemplate = $cnForBasisTemplatePrep2 -replace ':[\s][\w]',''
-}
-if ($cnForBasisTemplate -ne $null -and $displayNameForBasisTemplate -eq $null) {
-    $displayNameForBasisTemplatePrep1 = $AllAvailableCertificateTemplatesPrep | Select-String -Pattern $cnForBasisTemplate | Select-Object -ExpandProperty Line
-    $displayNameForBasisTemplatePrep2 = $displayNameForBasisTemplatePrep1 | Select-String -Pattern "\:(.*)\-\-" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    $displayNameForBasisTemplate = ($displayNameForBasisTemplatePrep2 -replace ": ","") -replace " --",""
-}
-
-# ---------
-
-if ($ValidCertificateTemplatesByCN -notcontains $BasisTemplate -and $ValidCertificateTemplatesByDisplayName -notcontains $BasisTemplate) {
-    Write-Host ""
-    Write-Host ""
-    Write-Host "You must base your New Certificate Template on an existing Certificate Template."
-    Write-Host "To do so, please enter either the displayName or CN of the Certificate Template you would like to use as your base."
-    Write-Host ""
-    Write-Host "Valid displayName values are as follows:"
-    Write-Host ""
-    $ValidDisplayNamesAsString
-    Write-Host ""
-    Sleep 2
-    Write-Host "Valid CN values are as follows:"
-    Write-Host""
-    $ValidCNNamesAsString
-    Write-Host""
-
-    $BasisTemplate = Read-Host -Prompt "Please enter the displayName or CN of the Certificate Template you would like to use as your base"
     # Set displayName and CN Values for user-provided $BasisTemplate
     if ($ValidCertificateTemplatesByCN -contains $BasisTemplate) {
         $cnForBasisTemplate = $BasisTemplate
@@ -1717,17 +1720,182 @@ if ($ValidCertificateTemplatesByCN -notcontains $BasisTemplate -and $ValidCertif
     if ($ValidCertificateTemplatesByDisplayName -contains $BasisTemplate) {
         $displayNameForBasisTemplate = $BasisTemplate
     }
+
+    if ($cnForBasisTemplate -eq $null -and $displayNameForBasisTemplate -ne $null) {
+        $cnForBasisTemplatePrep1 = $AllAvailableCertificateTemplatesPrep | Select-String -Pattern $displayNameForBasisTemplate | Select-Object -ExpandProperty Line
+        $cnForBasisTemplatePrep2 = $cnForBasisTemplatePrep1 | Select-String -Pattern "[\w]{1,32}:[\s][\w]" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+        $cnForBasisTemplate = $cnForBasisTemplatePrep2 -replace ':[\s][\w]',''
+    }
+    if ($cnForBasisTemplate -ne $null -and $displayNameForBasisTemplate -eq $null) {
+        $displayNameForBasisTemplatePrep1 = $AllAvailableCertificateTemplatesPrep | Select-String -Pattern $cnForBasisTemplate | Select-Object -ExpandProperty Line
+        $displayNameForBasisTemplatePrep2 = $displayNameForBasisTemplatePrep1 | Select-String -Pattern "\:(.*)\-\-" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+        $displayNameForBasisTemplate = ($displayNameForBasisTemplatePrep2 -replace ": ","") -replace " --",""
+    }
+
+    # ---------
+
     if ($ValidCertificateTemplatesByCN -notcontains $BasisTemplate -and $ValidCertificateTemplatesByDisplayName -notcontains $BasisTemplate) {
         Write-Host ""
         Write-Host ""
         Write-Host "You must base your New Certificate Template on an existing Certificate Template."
-        Write-Host "To do so, please enter either the displayName or CN of the Certificate Template you would like to use as your base. Halting!"
+        Write-Host "To do so, please enter either the displayName or CN of the Certificate Template you would like to use as your base."
+        Write-Host ""
+        Write-Host "Valid displayName values are as follows:"
+        Write-Host ""
+        $ValidDisplayNamesAsString
+        Write-Host ""
+        Sleep 2
+        Write-Host "Valid CN values are as follows:"
+        Write-Host""
+        $ValidCNNamesAsString
+        Write-Host""
+
+        $BasisTemplate = Read-Host -Prompt "Please enter the displayName or CN of the Certificate Template you would like to use as your base"
+        # Set displayName and CN Values for user-provided $BasisTemplate
+        if ($ValidCertificateTemplatesByCN -contains $BasisTemplate) {
+            $cnForBasisTemplate = $BasisTemplate
+        }
+        if ($ValidCertificateTemplatesByDisplayName -contains $BasisTemplate) {
+            $displayNameForBasisTemplate = $BasisTemplate
+        }
+        if ($ValidCertificateTemplatesByCN -notcontains $BasisTemplate -and $ValidCertificateTemplatesByDisplayName -notcontains $BasisTemplate) {
+            Write-Host ""
+            Write-Host ""
+            Write-Host "You must base your New Certificate Template on an existing Certificate Template."
+            Write-Host "To do so, please enter either the displayName or CN of the Certificate Template you would like to use as your base. Halting!"
+        }
     }
+
+    # Get all Certificate Template Properties of the Basis Template
+    $CertificateTemplateLDAPObject = "CN=$cnForBasisTemplate,CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
+    $AllCertificateTemplateProperties = Get-ADObject $CertificateTemplateLDAPObject -Properties *
+    $ConfigContext = ([ADSI]"LDAP://RootDSE").ConfigurationNamingContext
+    $ADSI = [ADSI]"LDAP://CN=Certificate Templates,CN=Public Key Services,CN=Services,$ConfigContext"
+
+    Write-Host "Writing all attributes of Certificate Template that this New Certificate is Based On for user awareness/reference"
+    Sleep 2
+    $AllCertificateTemplateProperties
+    Sleep 2
 }
 
-# Get all Certificate Template Properties of the Basis Template
-$CertificateTemplateLDAPObject = "CN=$cnForBasisTemplate,CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
-$AllCertificateTemplateProperties = Get-ADObject $CertificateTemplateLDAPObject -Properties *
+# If the workstation being used to request the Certificate is NOT part of the same Domain as the Issuing Certificate Authority, use ADCS Web Enrollment Site...
+if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
+    # Set $ADCSWebEnrollmentURL if it hasn't been set yet
+    if ($ADCSWebEnrollmentURL -eq $null) {
+        $ADCSWebEnrollmentURL = Read-Host -Prompt "Please enter the URL of the ADCS Web Enrollment website
+        Example: https://pki.zero.lab/certsrv"
+    }
+    # Make sure there is no trailing / on $ADCSWebEnrollmentURL
+    if ($ADCSWebEnrollmentURL.EndsWith('/')) {
+        $ADCSWebEnrollmentURL = $ADCSWebEnrollmentURL.Substring(0,$ADCSWebEnrollmentURL.Length-1)
+    } 
+
+    # The IIS Web Server hosting ADCS Web Enrollment may be configured for Windows Authentication, Basic Authentication, or both.
+    # Validate the type of Authentication...
+    if ($ADCSWebAuthType -eq $null) {
+        Write-Host "The IIS Web Server hosting ADCS Web Enrollment may be configured for Windows Authentication, Basic Authentication, or both."
+        $ADCSWebAuthType = Read-Host -Prompt "Which type of Authentication will you use to authenticate against the ADCS Web Enrollment site? [Windows/Basic]"
+    }
+
+    if ($ADCSWebAuthType -like "*Windows*") {
+        if ($ADCSWebAuthUserName -eq $null) {
+            $ADCSWebAuthUserName = Read-Host -Prompt "Please specify the AD account to be used for ADCS Web Enrollment authentication.
+            Do NOT include the domain prefix. Example: testadmin"
+        }
+        if ($ADCSWebAuthUserName -match "[\w\W]\\[\w\W]") {
+            $ADCSWebAuthUserName = $ADCSWebAuthUserName.Split("\")[1]
+        }
+
+        if ($ADCSWebAuthPass -eq $null) {
+            $ADCSWebAuthPass = Read-Host -Prompt "Please enter a password to be used for ADCS Web Enrollment authentication" -AsSecureString
+        }
+        # If $ADCSWebAuthPass has already been set, and the above "if" statement is not triggered, make sure it's a secure string...
+        if ($ADCSWebAuthPass.GetType().Name -eq "String") {
+            $ADCSWebAuthPass = ConvertTo-SecureString -String $ADCSWebAuthPass -Force –AsPlainText
+        }
+        
+        if ($ADCSWebCreds -eq $null) {
+            $ADCSWebCreds = New-Object System.Management.Automation.PSCredential ($ADCSWebAuthUserName, $ADCSWebAuthPass)
+        }
+        else {
+            $ADCSWebCreds = New-Object System.Management.Automation.PSCredential ($ADCSWebAuthUserName, $ADCSWebAuthPass)
+        }
+
+        # Test Connection to $ADCSWebEnrollmentURL
+        # Validate $ADCSWebEnrollmentURL...
+        $statusCode = Invoke-WebRequest -Uri "$ADCSWebEnrollmentURL/" -Credential $ADCSWebCreds | % {$_.StatusCode}
+        if ($statusCode -eq "200") {
+            Write-Host "Connection to $ADCSWebEnrollmentURL was successful...continuing"
+        }
+        else {
+            Write-Host "Connection to $ADCSWebEnrollmentURL was NOT successful. Please check your credentials and/or DNS."
+            return
+        }
+
+        # Check available Certificate Templates...
+        $CertTemplCheckInitialResponse = Invoke-WebRequest -Uri "$ADCSWebEnrollmentURL/certrqxt.asp" -Credential $ADCSWebCreds
+        $ValidADCSWebEnrollCertTemplatesPrep = ($CertTemplCheckInitialResponse.RawContent.Split("`r") | Select-String -Pattern 'Option Value=".*').Matches.Value
+        $ValidADCSWEbEnrollCertTemplates = foreach ($obj1 in $ValidADCSWebEnrollCertTemplatesPrep) {
+            $obj1.Split(";")[1]
+        }
+        # Validate specified Certificate Template...
+        if ($ValidADCSWebEnrollCertTemplates -notcontains $BasisTemplate) {
+            Write-Host "$BaisTemplate is not on the list of available Certificate Templates on the ADCS Web Enrollment site." 
+            Write-Host "IMPORTANT NOTE: For a Certificate Template to appear in the Certificate Template drop-down on the ADCS Web Enrollment site,
+            msPKITemplateSchemaVersion MUST BE '2' or '1' AND pKIExpirationPeriod MUST BE 1 year or LESS"
+            Write-Host "Certificate Templates available via ADCS Web Enrollment are as follows:"
+            $ValidADCSWebEnrollCertTemplates
+            $BasisTemplate = Read-Host -Prompt "Please enter the name of an existing Certificate Template that you would like your New Certificate to be based on"
+        }
+    }
+    if ($ADCSWebAuthType -like "*Basic*") {
+        if ($ADCSWebAuthUserName -eq $null) {
+            $ADCSWebAuthUserName = Read-Host -Prompt "Please specify the AD account to be used for ADCS Web Enrollment authentication.
+            Please *include* the domain prefix. Example: test\testadmin"
+        }
+        if (! $ADCSWebAuthUserName -match "[\w\W]\\[\w\W]") {
+            Write-Host "Please include the domain prefix before the username. Example: test\testadmin"
+            $ADCSWebAuthUserName = Read-Host -Prompt "Please specify the AD account to be used for ADCS Web Enrollment authentication.
+            Please *include* the domain prefix. Example: test\testadmin"
+        }
+
+        if ($ADCSWebAuthPass -eq $null) {
+            $ADCSWebAuthPass = Read-Host -Prompt "Please enter a password to be used for ADCS Web Enrollment authentication"
+        }
+
+        $pair = "${$ADCSWebAuthUserName}:${$ADCSWebAuthPass}"
+        $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
+        $base64 = [System.Convert]::ToBase64String($bytes)
+        $basicAuthValue = "Basic $base64"
+        $headers = @{ Authorization = $basicAuthValue }
+
+        # Test Connection to $ADCSWebEnrollmentURL
+        # Validate $ADCSWebEnrollmentURL...
+        $statusCode = Invoke-WebRequest -Uri "$ADCSWebEnrollmentURL/" -Headers $headers | % {$_.StatusCode}
+        if ($statusCode -eq "200") {
+            Write-Host "Connection to $ADCSWebEnrollmentURL was successful...continuing"
+        }
+        else {
+            Write-Host "Connection to $ADCSWebEnrollmentURL was NOT successful. Please check your credentials and/or DNS."
+        }
+
+        # Check available Certificate Templates...
+        $CertTemplCheckInitialResponse = Invoke-WebRequest -Uri "$ADCSWebEnrollmentURL/certrqxt.asp" -Headers $headers
+        $ValidADCSWebEnrollCertTemplatesPrep = ($CertTemplCheckInitialResponse.RawContent.Split("`r") | Select-String -Pattern 'Option Value=".*').Matches.Value
+        $ValidADCSWEbEnrollCertTemplates = foreach ($obj1 in $ValidADCSWebEnrollCertTemplatesPrep) {
+            $obj1.Split(";")[1]
+        }
+        # Validate specified Certificate Template...
+        if ($ValidADCSWebEnrollCertTemplates -notcontains $BasisTemplate) {
+            Write-Host "$BaisTemplate is not on the list of available Certificate Templates on the ADCS Web Enrollment site." 
+            Write-Host "IMPORTANT NOTE: For a Certificate Template to appear in the Certificate Template drop-down on the ADCS Web Enrollment site,
+            msPKITemplateSchemaVersion MUST BE '2' or '1' AND pKIExpirationPeriod MUST BE 1 year or LESS"
+            Write-Host "Certificate Templates available via ADCS Web Enrollment are as follows:"
+            $ValidADCSWebEnrollCertTemplates
+            $BasisTemplate = Read-Host -Prompt "Please enter the name of an existing Certificate Template that you would like your New Certificate to be based on"
+        }
+    }
+}
 
 # Make a working Directory Where Genrated Certificates will be Saved
 if (Test-Path $CertGenWorking) {
@@ -1736,16 +1904,6 @@ if (Test-Path $CertGenWorking) {
 else {
     mkdir $CertGenWorking
 }
-
-<#
-if ($ValidityPeriodValue -match "[0-9][\s]month" -or $ValidityPeriodValue -match "[0-9][\s]months" -or $ValidityPeriodValue -match "[0-9][\s]year" -or $ValidityPeriodValue -match "[0-9][\s]years") {
-    Write-Host "The value for ValidityPeriodValue is valid...continuing"
-}
-else {
-    Write-Host "The value for ValidityPeriodValue is not valid. Please use a Validity Period in Months or Years such as '6 months' or '2 years'. Halting!"
-    return
-}
-#>
 
 if ($KeyLengthOverride -eq "Yes" -or $KeyLengthOverride -eq "y" -or $KeyLengthOverride -eq "No" -or $KeyLengthOverride -eq "n") {
     Write-Host "The value for KeyLengthOverride is valid...continuing"
@@ -1923,52 +2081,82 @@ if ($IntendedPurposeValuesPrep -ne $null) {
     }
 }
 
-# Validate $ProviderNameValuePrep
-# All available Cryptographic Providers (CSPs) are as follows:
-$PossibleProvidersPrep = certutil -csplist | Select-String "Provider Name" -Context 0,1
-$PossibleProviders = foreach ($obj1 in $PossibleProvidersPrep) {
-    $obj2 = $obj1.Context.PostContext | Select-String 'FAIL' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
-    $obj3 = $obj1.Context.PostContext | Select-String 'not ready' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
-    if ($obj2 -ne "True" -and $obj3 -ne "True") {
-        $obj1.Line -replace "Provider Name: ",""
+if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
+    # Validate $ProviderNameValuePrep
+    # All available Cryptographic Providers (CSPs) are as follows:
+    $PossibleProvidersPrep = certutil -csplist | Select-String "Provider Name" -Context 0,1
+    $PossibleProviders = foreach ($obj1 in $PossibleProvidersPrep) {
+        $obj2 = $obj1.Context.PostContext | Select-String 'FAIL' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
+        $obj3 = $obj1.Context.PostContext | Select-String 'not ready' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
+        if ($obj2 -ne "True" -and $obj3 -ne "True") {
+            $obj1.Line -replace "Provider Name: ",""
+        }
     }
-}
-# Available Cryptographic Providers (CSPs) based on user choice in Certificate Template (i.e. $BasisTemplate)
-# Does the Basis Certificate Template LDAP Object have an attribute called pKIDefaultCSPs that is set?
-$CertificateTemplateLDAPObjectSetAttributes = Get-ADObject $CertificateTemplateLDAPObject -Properties * | Select-Object -ExpandProperty PropertyNames
-if ($CertificateTemplateLDAPObjectSetAttributes -notcontains "pKIDefaultCSPs") {
-    Write-Host "The Basis Template $BasisTemplate does NOT have the attribute pKIDefaultCSPs set."
-    Write-Host "This means that Cryptographic Providers are NOT Limited, and (almost) any ProviderNameValue is valid"
-    $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
-    foreach ($obj1 in $ProviderNameValue) {
-        if ($PossibleProviders -notcontains $obj1) {
-            Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
-            $PossibleProviders
-            $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
-            $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
-            # Validation check...
-            foreach ($obj1 in $ProviderNameValue) {
-                if ($PossibleProviders -notcontains $obj1) {
-                    Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
-                    return
+    # Available Cryptographic Providers (CSPs) based on user choice in Certificate Template (i.e. $BasisTemplate)
+    # Does the Basis Certificate Template LDAP Object have an attribute called pKIDefaultCSPs that is set?
+    $CertificateTemplateLDAPObjectSetAttributes = Get-ADObject $CertificateTemplateLDAPObject -Properties * | Select-Object -ExpandProperty PropertyNames
+    if ($CertificateTemplateLDAPObjectSetAttributes -notcontains "pKIDefaultCSPs") {
+        Write-Host "The Basis Template $BasisTemplate does NOT have the attribute pKIDefaultCSPs set."
+        Write-Host "This means that Cryptographic Providers are NOT Limited, and (almost) any ProviderNameValue is valid"
+        $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
+        foreach ($obj1 in $ProviderNameValue) {
+            if ($PossibleProviders -notcontains $obj1) {
+                Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
+                $PossibleProviders
+                $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
+                $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
+                # Validation check...
+                foreach ($obj1 in $ProviderNameValue) {
+                    if ($PossibleProviders -notcontains $obj1) {
+                        Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
+                        return
+                    }
+                }
+            }
+        }
+    }
+    else {
+        $AvailableCSPsBasedOnCertificateTemplate = (Get-ADObject $CertificateTemplateLDAPObject -Properties * | Select-Object -ExpandProperty pkiDefaultCSPs) -replace '[0-9],',''
+        # NOTE: There can only be one (1) ProviderNameValue. Maybe no need to use array.
+        $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
+        foreach ($obj1 in $ProviderNameValue) {
+            if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
+                Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
+                $AvailableCSPsBasedOnCertificateTemplate
+                $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
+                $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
+                # Validation check...
+                foreach ($obj1 in $ProviderNameValue) {
+                    if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
+                        Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
+                        return
+                    }
                 }
             }
         }
     }
 }
-else {
-    $AvailableCSPsBasedOnCertificateTemplate = (Get-ADObject $CertificateTemplateLDAPObject -Properties * | Select-Object -ExpandProperty pkiDefaultCSPs) -replace '[0-9],',''
+if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
+    $CertTemplvsCSPHash = @{}
+    $ValidADCSWebEnrollCSPsPrep = ($CertTemplCheckInitialResponse.RawContent.Split("`r") | Select-String -Pattern 'Option Value=".*').Matches.Value
+    $ValidADCSWebEnrollCSPsPrep2 = foreach ($obj1 in $ValidADCSWebEnrollCSPsPrep) {
+        $obj2 = $obj1.Split(";")[1]
+        $obj3 = ($obj1.Split(";")[8]) -replace '\?',', '
+        $CertTemplvsCSPHash.Add("$obj2", "$obj3")
+    }
+    $ValidADCSWebEnrollCSPs = $CertTemplvsCSPHash.$BasisTemplate.Split(",").Trim()
+
     # NOTE: There can only be one (1) ProviderNameValue. Maybe no need to use array.
     $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
     foreach ($obj1 in $ProviderNameValue) {
-        if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
+        if ($ValidADCSWebEnrollCSPs -notcontains $obj1) {
             Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
-            $AvailableCSPsBasedOnCertificateTemplate
+            $ValidADCSWebEnrollCSPs
             $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
             $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
             # Validation check...
             foreach ($obj1 in $ProviderNameValue) {
-                if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
+                if ($ValidADCSWebEnrollCSPs -notcontains $obj1) {
                     Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
                     return
                 }
@@ -1976,38 +2164,15 @@ else {
         }
     }
 }
+    
 
 
 ##### END Initial Variable Definition and Validation #####
 
-##### BEGIN Additional Variable Definition and Config File Creation #####
-$ConfigContext = ([ADSI]"LDAP://RootDSE").ConfigurationNamingContext
-$ADSI = [ADSI]"LDAP://CN=Certificate Templates,CN=Public Key Services,CN=Services,$ConfigContext"
+##### BEGIN Writing the Certificate Request Config File #####
 
-# Using [System.Collections.ArrayList] so that Add and Remove methods work as expected and only operate on a single array 
-# instead of destroying and recreating arrays everytime an item is added/removed
-[array]$szOIDArrayPrep = @()
-[System.Collections.ArrayList]$szOIDArray = $szOIDArrayPrep
-
-# Using [System.Collections.ArrayList] so that Add and Remove methods work as expected and only operate on a single array 
-# instead of destroying and recreating arrays everytime an item is added/removed
-[array]$ExtKeyUsePrep = @()
-[System.Collections.ArrayList]$ExtKeyUse = $ExtKeyUsePrep
-
-# Using [System.Collections.ArrayList] so that Add and Remove methods work as expected and only operate on a single array 
-# instead of destroying and recreating arrays everytime an item is added/removed
-[array]$AppPolPrep = @()
-[System.Collections.ArrayList]$AppPol = $AppPolPrep
-
-Write-Host "Writing all attributes of Certificate Template that this New Certificate is Based On for user awareness/reference"
-Sleep 2
-$AllCertificateTemplateProperties
-Sleep 2
-
-## Start Writing Config File ##
 # This content is saved to $CertGenWorking\$CertificateRequestConfigFile
-# For more information about the contents of the config file, see: https://technet.microsoft.com/en-us/library/cc736326(v=ws.10).aspx
-# and: 
+# For more information about the contents of the config file, see: https://technet.microsoft.com/en-us/library/cc736326(v=ws.10).aspx 
 
 Set-Content -Value '[Version]' -Path "$CertGenWorking\$CertificateRequestConfigFile"
 Add-Content -Value 'Signature="$Windows NT$"' -Path "$CertGenWorking\$CertificateRequestConfigFile"
@@ -2479,9 +2644,7 @@ if ($AddSAN -eq "Yes" -or $AddSAN -eq "y") {
     }
 }
 
-## End Writing Config File ##
-
-##### END Additional Variable Definition and Config File Creation #####
+##### END Writing the Certificate Request Config File #####
 
 
 ##### BEGIN Generate Certificate Request and Submit to Issuing Certificate Authority #####
@@ -2496,20 +2659,68 @@ certreq.exe -new "$CertGenWorking\$CertificateRequestConfigFile" "$CertGenWorkin
 # the below certreq command should be used:
 # certreq.exe -new -cert [CertId] "$CertGenWorking\$CertificateRequestConfigFile" "$CertGenWorking\$CertificateRequestFile"
 
-Sleep 2
+if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
+    # POST Data as a hash table
+    $postParams = @{            
+        "Mode"             = "newreq"
+        "CertRequest"      = $(Get-Content "$CertGenWorking\$CertificateRequestFile" -Encoding Ascii | Out-String)
+        "CertAttrib"       = "CertificateTemplate:$BasisTemplate"
+        "FriendlyType"     = "Saved-Request+Certificate+($(Get-Date -DisplayHint Date -Format M/dd/yyyy),+$(Get-Date -DisplayHint Date -Format h:mm:ss+tt))"
+        "Thumbprint"       = ""
+        "TargetStoreFlags" = "0"
+        "SaveCert"         = "yes"
+    }
 
-## Submit New Certificate Request File to Issuing Certificate Authority and Specify a Certificate to Use as a Base ##
-if (Test-Path "$CertGenWorking\$CertificateRequestFile") {
-    certreq.exe -submit -attrib "CertificateTemplate:$cnForBasisTemplate" -config "$IssuingCertAuth" "$CertGenWorking\$CertificateRequestFile" "$CertGenWorking\$CertFileOut" "$CertGenWorking\$CertificateChainOut"
-    # Equivalent of above certreq command using "Get-Certificate" cmdlet is below. We decided to use certreq.exe though because it actually outputs
-    # files to the filesystem as opposed to just working with the client machine's certificate store.  This is more similar to the same process on Linux.
-    #
-    # ## Begin "Get-Certificate" equivalent ##
-    # $LocationOfCSRInStore = $(Get-ChildItem Cert:\CurrentUser\Request | Where-Object {$_.Subject -like "*$CertificateCN*"}) | Select-Object -ExpandProperty PSPath
-    # Get-Certificate -Template $cnForBasisTemplate -Url "https:\\$IssuingCertAuthFQDN\certsrv" -Request $LocationOfCSRInStore -CertStoreLocation Cert:\CurrentUser\My
-    # NOTE: The above Get-Certificate command ALSO imports the certificate generated by the above request, making the below "Import-Certificate" command unnecessary
-    # ## End "Get-Certificate" equivalent ##
+    # Submit New Certificate Request and Download New Certificate
+    if ($ADCSWebAuthType -like "*Windows*") {
+        # Send the POST Data
+        Invoke-RestMethod -Uri "$ADCSWebEnrollmentURL/certfnsh.asp" -Method Post -Body $postParams -Credential $ADCSWebCreds -OutFile "$CertGenWorking\$CertADCSWebResponse"
+    
+        # Download New Certificate
+        $ReqId = (Get-Content "$CertGenWorking\$CertADCSWebResponse" | Select-String -Pattern "ReqID=[0-9]{1,5}" | Select-Object -Index 0).Matches.Value.Split("=")[1]
+        if ($ReqId -eq $null) {
+            Write-Host "The Certificate Request was successfully submitted via ADCS Web Enrollment, but was rejected. Please check the format and contents of
+            the Certificate Request Config File and try again."
+            return
+        }
+
+        $CertWebRawContent = (Invoke-WebRequest -Uri "$ADCSWebEnrollmentURL/certnew.cer?ReqID=$ReqId&Enc=b64" -Credential $ADCSWebCreds).RawContent
+        $CertWebRawContentArray = $CertWebRawContent.Split("`n") 
+        $CertWebRawContentArray | Select-Object -Skip $([array]::indexof($CertWebRawContentArray,"`r")) | Out-File "$CertGenWorking\$CertFileOut"
+    }
+    if ($ADCSWebAuthType -like "*Basic*") {
+        # Send the POST Data
+        Invoke-RestMethod -Uri "$ADCSWebEnrollmentURL/certfnsh.asp" -Method Post -Body $postParams -Headers $headers -OutFile "$CertGenWorking\$CertADCSWebResponse"
+
+        # Download New Certificate
+        $ReqId = (Get-Content "$CertGenWorking\$CertADCSWebResponse" | Select-String -Pattern "ReqID=[0-9]{1,5}" | Select-Object -Index 0).Matches.Value.Split("=")[1]
+        if ($ReqId -eq $null) {
+            Write-Host "The Certificate Request was successfully submitted via ADCS Web Enrollment, but was rejected. Please check the format and contents of
+            the Certificate Request Config File and try again."
+            return
+        }
+
+        $CertWebRawContent = (Invoke-WebRequest -Uri "$ADCSWebEnrollmentURL/certnew.cer?ReqID=$ReqId&Enc=b64" -Headers $headers).RawContent
+        $CertWebRawContentArray = $CertWebRawContent.Split("`n") 
+        $CertWebRawContentArray | Select-Object -Skip $([array]::indexof($CertWebRawContentArray,"`r")) | Out-File "$CertGenWorking\$CertFileOut"
+    }
 }
+
+if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
+    ## Submit New Certificate Request File to Issuing Certificate Authority and Specify a Certificate to Use as a Base ##
+    if (Test-Path "$CertGenWorking\$CertificateRequestFile") {
+        certreq.exe -submit -attrib "CertificateTemplate:$cnForBasisTemplate" -config "$IssuingCertAuth" "$CertGenWorking\$CertificateRequestFile" "$CertGenWorking\$CertFileOut" "$CertGenWorking\$CertificateChainOut"
+        # Equivalent of above certreq command using "Get-Certificate" cmdlet is below. We decided to use certreq.exe though because it actually outputs
+        # files to the filesystem as opposed to just working with the client machine's certificate store.  This is more similar to the same process on Linux.
+        #
+        # ## Begin "Get-Certificate" equivalent ##
+        # $LocationOfCSRInStore = $(Get-ChildItem Cert:\CurrentUser\Request | Where-Object {$_.Subject -like "*$CertificateCN*"}) | Select-Object -ExpandProperty PSPath
+        # Get-Certificate -Template $cnForBasisTemplate -Url "https:\\$IssuingCertAuthFQDN\certsrv" -Request $LocationOfCSRInStore -CertStoreLocation Cert:\CurrentUser\My
+        # NOTE: The above Get-Certificate command ALSO imports the certificate generated by the above request, making the below "Import-Certificate" command unnecessary
+        # ## End "Get-Certificate" equivalent ##
+    }
+}
+    
 if (Test-Path "$CertGenWorking\$CertFileOut") {
     ## Generate .pfx file by installing certificate in store and then exporting with private key ##
     # NOTE: I'm not sure why importing a file that only contains the public certificate (i.e, the .cer file) suddenly makes the private key available
@@ -2571,12 +2782,38 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
             # The below extracts ALL Public Certificates in Chain
             openssl pkcs12 -in "$CertGenWorking\$PFXFileOut" -nokeys -out "$CertGenWorking\$AllPublicKeysInChainOut" -password pass:$PwdForPFXOpenSSL 2> null
 
-            # Extract the Public Certificate specific to the New Certificate that was just made (i.e. NOT the entire chain)
-            # This file should have the EXACT SAME CONTENT as the .cer file generated earlier
-            $PublicKeySansChainPrep1 = (Get-Content "$CertGenWorking\$AllPublicKeysInChainOut") -join "`n"
-            $PublicKeySansChainPrep2 = $PublicKeySansChainPrep1 | Select-String -Pattern '\-----BEGIN CERTIFICATE-----([\s\S]*)\-----END CERTIFICATE-----' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-            $PublicKeySansChain = $PublicKeySansChainPrep2.Substring(0, $PublicKeySansChainPrep2.IndexOf('Bag'))
-            $PublicKeySansChain | Out-File "$CertGenWorking\$PublicKeySansChainOutFile" -Encoding ascii
+            # Parse the Public Certificate Chain File and and Write Each Public Certificate to a Separate File
+            # These files should have the EXACT SAME CONTENT as the .cer counterparts
+            $PublicKeySansChainPrep1 = Get-Content "$CertGenWorking\$AllPublicKeysInChainOut"
+            $LinesToReplace1 = $PublicKeySansChainPrep1 | Select-String -Pattern "issuer" | Sort-Object | Get-Unique
+            $LinesToReplace2 = $PublicKeySansChainPrep1 | Select-String -Pattern "Bag Attributes" | Sort-Object | Get-Unique
+            $PublicKeySansChainPrep2 = (Get-Content "$CertGenWorking\$AllPublicKeysInChainOut") -join "`n"
+            foreach ($obj1 in $LinesToReplace1) {
+                $PublicKeySansChainPrep2 = $PublicKeySansChainPrep2 -replace "$obj1",";;;"
+            }
+            foreach ($obj1 in $LinesToReplace2) {
+                $PublicKeySansChainPrep2 = $PublicKeySansChainPrep2 -replace "$obj1",";;;"
+            }
+            $PublicKeySansChainPrep3 = $PublicKeySansChainPrep2.Split(";;;")
+            $PublicKeySansChainPrep4 = foreach ($obj1 in $PublicKeySansChainPrep3) {
+                if ($obj1.Trim().StartsWith("-")) {
+                    $obj1.Trim()
+                }
+            }
+            # Setup Hash Containing Cert Name vs Content Pairs
+            $CertNamevsContentsHash = @{}
+            foreach ($obj1 in $PublicKeySansChainPrep4) {
+                $obj2 = $obj1.Split("`n")[1]
+                if ((($PublicKeySansChainPrep1 | Select-String -SimpleMatch $obj2).Line) -ne $null) {
+                    $CertNamePrep = (($PublicKeySansChainPrep1 | Select-String -SimpleMatch $obj2 -Context 4).Context.PreContext | Select-String -Pattern "subject").Line
+                    $CertName = $CertNamePrep.Split("=") | Select-Object -Last 1
+                    $CertNamevsContentsHash.Add("$CertName", "$obj1")
+                }
+            }
+            # Write each Hash Key Value to Separate Files
+            foreach ($obj1 in $CertNamevsContentsHash.Keys) {
+                $CertNamevsContentsHash.$obj1 | Out-File "$CertGenWorking\$obj1`_Public_Cert.cer" -Encoding Ascii
+            }
 
             # Determine if we should remove the password from the private key (i.e. $ProtectedPrivateKeyOut)
             if ($StripPrivateKeyOfPassword -eq $null) {
@@ -2614,3 +2851,71 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
 }
 
 # Generate-Certificate
+
+# SIG # Begin signature block
+# MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8vh7Lzmr7N8AHyoQUgY5P9du
+# ddqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
+# CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
+# CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
+# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCmRIzy6nwK
+# uqvhoz297kYdDXs2Wom5QCxzN9KiqAW0VaVTo1eW1ZbwZo13Qxe+6qsIJV2uUuu/
+# 3jNG1YRGrZSHuwheau17K9C/RZsuzKu93O02d7zv2mfBfGMJaJx8EM4EQ8rfn9E+
+# yzLsh65bWmLlbH5OVA0943qNAAJKwrgY9cpfDhOWiYLirAnMgzhQd3+DGl7X79aJ
+# h7GdVJQ/qEZ6j0/9bTc7ubvLMcJhJCnBZaFyXmoGfoOO6HW1GcuEUwIq67hT1rI3
+# oPx6GtFfhCqyevYtFJ0Typ40Ng7U73F2hQfsW+VPnbRJI4wSgigCHFaaw38bG4MH
+# Nr0yJDM0G8XhAgMBAAGjggECMIH/MBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQW
+# BBQ4uUFq5iV2t7PneWtOJALUX3gTcTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMA
+# QTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBR2
+# lbqmEvZFA0XsBkGBBXi2Cvs4TTAxBgNVHR8EKjAoMCagJKAihiBodHRwOi8vcGtp
+# L2NlcnRkYXRhL1plcm9EQzAxLmNybDA8BggrBgEFBQcBAQQwMC4wLAYIKwYBBQUH
+# MAKGIGh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb0RDMDEuY3J0MA0GCSqGSIb3DQEB
+# CwUAA4IBAQAUFYmOmjvbp3goa3y95eKMDVxA6xdwhf6GrIZoAg0LM+9f8zQOhEK9
+# I7n1WbUocOVAoP7OnZZKB+Cx6y6Ek5Q8PeezoWm5oPg9XUniy5bFPyl0CqSaNWUZ
+# /zC1BE4HBFF55YM0724nBtNYUMJ93oW/UxsWL701c3ZuyxBhrxtlk9TYIttyuGJI
+# JtbuFlco7veXEPfHibzE+JYc1MoGF/whz6l7bC8XbgyDprU1JS538gbgPBir4RPw
+# dFydubWuhaVzRlU3wedYMsZ4iejV2xsf8MHF/EHyc/Ft0UnvcxBqD0sQQVkOS82X
+# +IByWP0uDQ2zOA1L032uFHHA65Bt32w8MIIFmzCCBIOgAwIBAgITWAAAADw2o858
+# ZSLnRQAAAAAAPDANBgkqhkiG9w0BAQsFADA9MRMwEQYKCZImiZPyLGQBGRYDTEFC
+# MRQwEgYKCZImiZPyLGQBGRYEWkVSTzEQMA4GA1UEAxMHWmVyb1NDQTAeFw0xNTEw
+# MjcxMzM1MDFaFw0xNzA5MDkxMDAwMjRaMD4xCzAJBgNVBAYTAlVTMQswCQYDVQQI
+# EwJWQTEPMA0GA1UEBxMGTWNMZWFuMREwDwYDVQQDEwhaZXJvQ29kZTCCASIwDQYJ
+# KoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ8LM3f3308MLwBHi99dvOQqGsLeC11p
+# usrqMgmEgv9FHsYv+IIrW/2/QyBXVbAaQAt96Tod/CtHsz77L3F0SLuQjIFNb522
+# sSPAfDoDpsrUnZYVB/PTGNDsAs1SZhI1kTKIjf5xShrWxo0EbDG5+pnu5QHu+EY6
+# irn6C1FHhOilCcwInmNt78Wbm3UcXtoxjeUl+HlrAOxG130MmZYWNvJ71jfsb6lS
+# FFE6VXqJ6/V78LIoEg5lWkuNc+XpbYk47Zog+pYvJf7zOric5VpnKMK8EdJj6Dze
+# 4tJ51tDoo7pYDEUJMfFMwNOO1Ij4nL7WAz6bO59suqf5cxQGd5KDJ1ECAwEAAaOC
+# ApEwggKNMA4GA1UdDwEB/wQEAwIHgDA9BgkrBgEEAYI3FQcEMDAuBiYrBgEEAYI3
+# FQiDuPQ/hJvyeYPxjziDsLcyhtHNeIEnofPMH4/ZVQIBZAIBBTAdBgNVHQ4EFgQU
+# a5b4DOy+EUyy2ILzpUFMmuyew40wHwYDVR0jBBgwFoAUOLlBauYldrez53lrTiQC
+# 1F94E3EwgeMGA1UdHwSB2zCB2DCB1aCB0qCBz4aBq2xkYXA6Ly8vQ049WmVyb1ND
+# QSxDTj1aZXJvU0NBLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxD
+# Tj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NlcnRp
+# ZmljYXRlUmV2b2NhdGlvbkxpc3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmli
+# dXRpb25Qb2ludIYfaHR0cDovL3BraS9jZXJ0ZGF0YS9aZXJvU0NBLmNybDCB4wYI
+# KwYBBQUHAQEEgdYwgdMwgaMGCCsGAQUFBzAChoGWbGRhcDovLy9DTj1aZXJvU0NB
+# LENOPUFJQSxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxD
+# Tj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NBQ2VydGlmaWNhdGU/YmFz
+# ZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9yaXR5MCsGCCsGAQUFBzAC
+# hh9odHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EuY3J0MBMGA1UdJQQMMAoGCCsG
+# AQUFBwMDMBsGCSsGAQQBgjcVCgQOMAwwCgYIKwYBBQUHAwMwDQYJKoZIhvcNAQEL
+# BQADggEBACbc1NDl3NTMuqFwTFd8NHHCsSudkVhuroySobzUaFJN2XHbdDkzquFF
+# 6f7KFWjqR3VN7RAi8arW8zESCKovPolltpp3Qu58v59qZLhbXnQmgelpA620bP75
+# zv8xVxB9/xmmpOHNkM6qsye4IJur/JwhoHLGqCRwU2hxP1pu62NUK2vd/Ibm8c6w
+# PZoB0BcC7SETNB8x2uKzJ2MyAIuyN0Uy/mGDeLyz9cSboKoG6aQibnjCnGAVOVn6
+# J7bvYWJsGu7HukMoTAIqC6oMGerNakhOCgrhU7m+cERPkTcADVH/PWhy+FJWd2px
+# ViKcyzWQSyX93PcOj2SsHvi7vEAfCGcxggH1MIIB8QIBATBUMD0xEzARBgoJkiaJ
+# k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
+# U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
+# AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQXlvJ2fq8/
+# 7FfS3IPEaeuMhNe+xTANBgkqhkiG9w0BAQEFAASCAQBTb+fcDEGA6AtoEiQx8TDX
+# PIjNblpFl3hzVe8YNsvU+F9jWhOx/jXZs95Q1fMHN9RiGGAz/LdBM9XqAxMoI0JN
+# dDEW3e69Y9wYKrmk65ZK5zn3WYAHNEJVi98rZ+LYVD+Sm+51G/OSd7Oq7qzHQ2c6
+# S6NFG3KQXnUG9CZVzHL6okYHV4pExrU3cMjmwd+1ysk3wB8u2Gk3Uak7MrYFTyaS
+# v5nMk+98RSWnU8arrWAL9yPJL1j52z98Iiw8mr1DKTwIwnXYu7eCuQ3MjrQLKols
+# 0BPTnKBbpb8Mtv/BkBKQIPPLkqKYEh5HrLJTmlOxh77H3YrTxcsaRZE/Tczu0NFQ
+# SIG # End signature block
