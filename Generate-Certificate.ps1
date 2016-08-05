@@ -3030,6 +3030,26 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
     $AdditionalPublicKeysArray = (Get-Item "$CertGenWorking\*_Public_Cert.pem").Name
     # For each Certificate in the hashtable $CertNamevsContentsHashGlobal, determine it it's a Root, Intermediate, or End Entity
     foreach ($obj1 in $AdditionalPublicKeysArray) {
+        $SubjectType = (certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "Subject Type=").Line.Split("=")[-1]
+        $RootCertFlag = certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "Subject matches issuer"
+        $EndPointCNFlag = certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "CN=$CertificateCN"
+        if ($SubjectType -eq "CA" -and $RootCertFlag.Matches.Success -eq $true) {
+            $RootCAPublicCertFile = $obj1
+            $global:GenerateCertificateFileOutputHashGlobal.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
+        }
+        if ($SubjectType -eq "CA" -and $RootCertFlag.Matches.Success -ne $true) {
+            $IntermediateCAPublicCertFile = $obj1
+            $global:GenerateCertificateFileOutputHashGlobal.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
+        }
+        if ($SubjectType -eq "End Entity" -and $EndPointCNFlag.Matches.Success -eq $true) {
+            $EndPointPublicCertFile = $obj1
+            $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
+        }
+    }
+
+    # Alternate Logic using .Net to Inspect Certificate files to Determine RootCA, Intermediate CA, and Endpoint
+    <#
+    foreach ($obj1 in $AdditionalPublicKeysArray) {
         $certPrint = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
         $certPrint.Import("$CertGenWorking\$obj1")
         if ($certPrint.Issuer -eq $certPrint.Subject) {
@@ -3056,16 +3076,24 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
             $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
         }
     }
+    #>
 
     $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointProtectedPrivateKey", "$ProtectedPrivateKeyOut")
 }
 if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
     $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyOut")
+
+    # Add UnProtected Private Key to $global:CertNamevsContentsHashGlobal
+    $UnProtectedPrivateKeyContent = Get-Content $CertGenWorking\$UnProtectedPrivateKeyOut -Encoding Ascii
+    $global:CertNamevsContentsHashGlobal.Add("EndPointUnProtectedPrivateKey", "$obj1")
 }
 
 # Write the two Global Output Hases to STDOUT for Awareness
 $global:GenerateCertificateFileOutputHashGlobal
 $global:CertNamevsContentsHashGlobal
+
+# ***IMPORTANT NOTE: If you want to write the Certificates contained in the $global:CertNamevsContentsHashGlobal out to files again
+# at some point in the future, make sure you use the "Out-File" cmdlet instead of the "Set-Content" cmdlet
 
 ##### END Generate Certificate Request and Submit to Issuing Certificate Authority #####
 
@@ -3076,8 +3104,8 @@ $global:CertNamevsContentsHashGlobal
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUb8R3xXa9X+aA3Oz09olv0hFY
-# ZP+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU824OBgGGKrKaogLKZu2ttfKe
+# T7agggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3132,11 +3160,11 @@ $global:CertNamevsContentsHashGlobal
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSUyOvI6okd
-# QNkewHBz24vgwvZFYDANBgkqhkiG9w0BAQEFAASCAQApzByCq7jyiJMq89fYSr/t
-# tNtVRVkP1h6BZj8h0vodM9ypH1669lCCZQXHkINOYsQhyI3TXnfYFgFXxpGCNTaC
-# RUbxw73YddOy+0Xg+XO0QnxQYhapf8lZQz47/znVRsPu/NG6BGJY76XMcB/tETqk
-# uNP29kXWGM2n/tOQK0j5NC/2ZKrlDwsRE64WOt0Tav8kxLWyBdQMSRwMEXf9DgWL
-# /s5C/OcR5eMU5x8v/X9hbTeQNzWBZE0HRDMaBIgpk3WdWaGW0vIXNeCG0FiV0fBv
-# +PHcKpzfUCFOTpKmXGJKaUr19rVCUygXiwabx7I11qzuk8EIpmIojkHpgdXrHtlV
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSkR6S0bXsc
+# 2fxLlxKehDu9g2miGjANBgkqhkiG9w0BAQEFAASCAQBjC8xsfyxxcr+HvYqegxY1
+# NP2GzZz+KRn1AKNAey31oSdb0047rNcJwCfdY+zdYn7L0+WKbkl5DBTYytQQyEbU
+# J6cAsP5Nx7KRg4P3J4RUsMp3svFk7uHW/fvEkp4VHgYq8vZYLBmKZdgNVIeVwl1l
+# QNqDW4gwALAVAN8SbzAOyDPShSpUoAU0shb4KF0a3R5J3Fn+7RxkbQwMnF4SlhT5
+# EG99hsnsXQl6sQrNVwqHhD9eMaoZgmQo1w8bk0vYrLGT2gssiw2ijIsre8BpbmY5
+# P1U4onOVUyGssS4+fWUrB1jJfkkAVW+6Jw3l2cVH3yl1ToM1B2ZJDJFUCe25S5XY
 # SIG # End signature block
