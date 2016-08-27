@@ -1,23 +1,113 @@
 ﻿<#
+
 .SYNOPSIS
-    This function/script generates a HashTable from HTML tables with several caveats:
-    1) Column 1 in the HTML table must contain ONLY ONE VALUE or NO VALUE at all.
-    2) One-to-many relationships (i.e. one value in Column 1 and more than one value in Column 1+N) are only handled properly if Column 1+N contains a MAXIMUM of 2 values.
-    Example: https://coreos.com/os/docs/latest/booting-on-ec2.html
-    3) One-to-many relationships must be identified beforehand and entered into the $Layer2HashTableKeys and $Layer2HashTableValues parameters
+    This function/script generates a multi-dimensional HashTable from a single HTML table (i.e. ONE <table></table> element). 
+    
+    There are several caveats however:
+    1) Row N x Column 1 in the HTML table must contain ONLY ONE VALUE or NO VALUE at all.
+    2) Column Headers must contain ONLY ONE VALUE per column or NO VALUE at all.
+    3) One-to-many relationships (i.e. one value in Row N x Column 1 and more than one value in Row N x Column 1+N) are only handled properly if Column 1+N 
+    contains a MAXIMUM of 2 values. Example: https://coreos.com/os/docs/latest/booting-on-ec2.html
 
 .DESCRIPTION
-    
+    This function/script targets a single HTML Table using the parameters provided by the user.  By single HTML Table, we mean a single instance of 
+    <table></table> on a webpage.  It results in a multi-dimensional Global HashTable which you can use within the scope that called the script/function
+    in the first place.
 
-.DEPENDENCIES
-    1) 
+    For example, by running the following:
+        Generate-HashTableFromHTML `
+        -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
+        -OuterHTMLElementTagName "div" `
+        -OuterHTMLElementClassName "tab-pane" `
+        -JavaScriptUsedToGenTable "No" `
+        -TextUniqueToTargetTable "ami-9cf707f3"
+    
+    ...you will be able to easily access any values contained within the HTML table as follows:
+    PS C:\Users\testadmin> $global:FinalHashTable.'us-west-1'.'AMI Type'.PV
+    ami-ee65149d
+
+.EXAMPLE
+    Example #1:
+    Generate-HashTableFromHTML `
+    -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
+    -OuterHTMLElementTagName "div" `
+    -OuterHTMLElementClassName "tab-pane" `
+    -JavaScriptUsedToGenTable "No" `
+    -TextUniqueToTargetTable "ami-9cf707f3"
+    
+    Example #2:
+    Generate-HashTableFromHTML `
+    -TargetURL "https://aws.amazon.com/ec2/pricing" `
+    -OuterHTMLElementClassName "pricing-table-wrapper" `
+    -OuterHTMLElementTagName "div" `
+    -JavaScriptUsedToGenTable "Yes" `
+    -ParentHTMLElementClassName "content reg-us-west-2" `
+    -TableTitle "1-Year Term" `
+    -TextUniqueToTargetTable "0.004, 0.005, 25, 38, 31, 32, 34, 0.0065"
+    
+    Example #3:
+    Generate-HashTableFromHTML `
+    -TargetURL "http://www.ec2instances.info" `
+    -OuterHTMLElementTagName "div" `
+    -OuterHTMLElementClassName "dataTables_wrapper" `
+    -JavaScriptUsedToGenTable "No" `
+    -ParentHTMLElementClassName "ec2instances" `
+    -TextUniqueToTargetTable "Cluster Compute Eight Extra Large"
+    
+    Example #4:
+    Generate-HashTableFromHTML `
+    -TargetURL "https://aws.amazon.com/ec2/pricing" `
+    -OuterHTMLElementClassName "content reg-us-east-1" `
+    -OuterHTMLElementTagName "div" `
+    -JavaScriptUsedToGenTable "Yes" `
+    -TableTitle "General Purpose - Current Generation" `
+    -TextUniqueToTargetTable "Linux/UNIX Usage, t2.micro, variable, 0.0065"
+
+.NOTES
+    Be aware that HTML Tables that contain over 100 rows will take several minutes to complete processing.
 
 .PARAMETERS
-    1) 
+    1) $TargetURL - [REQUIRED} The URL that contains the table you would like to convert into a multi-dimensional HashTable
 
-    $(Read-Host -Prompt "Please enter the HTML Element ClassName in the HTML Element that is the parent of the element class=$OuterHTMLElementTagName. 
-        This value COULD BE unique to the webpage you are targeting. This value should be found in html that looks like: 
-        <$OuterHTMLElementTagName class=[HTML Element ClassName]..."),
+    2) $OuterHTMLElementTagName - [REQUIRED] The HTML Element Tag in the HTML Element that is the immediate *parent* of the <table> element. 
+    This value is a generic HTML tag and is NEVER unique to the webpage you are targeting.
+    Examples: div, body
+    If you are unsure, use 'div'
+
+    3) $OuterHTMLElementClassName - [REQUIRED] The HTML Element ClassName in the HTML Element that is the immediate *parent* of the <table> element. 
+    This value COULD BE unique to the webpage you are targeting. This value should be found in html that looks similar to: 
+    <div class=$OuterHTMLElementClassName ...
+
+    4) $JavaScriptUsedToGenTable - [REQUIRED] On many websites, JavaScript is used to dynamically generate HTML Tables.  If that is the case with the 
+    website you are targeting, then set this parameter to "Yes"
+
+    5) $TextUniqueToTargetTable - [REQUIRED*] In order to help narrow down the HTML Table Target to ONE instance of <table></table>, a comma separated
+    list of table cell values unique to the table you are targeting is very helpful. Each cell value should be separated by a comma.
+    * This parameter is only required if there is MORE THAN ONE <table></table> instance on the webpage, which is ALMOST ALWAYS the case. 
+
+    5) $ParentHTMLElementClassName - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>,
+    it is helpful to indicate the class of the HTML element that is the *grandparent* of <table></table>)
+
+    6) $TableTitle - [OPTIONAL] WARNING: Only use this parameter is the targeted table's title is within located in HTML as follows: 
+    <table><thead><TR><TH>$TableTitle</TH></TR></thead></table>
+    Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>, it is helpful to indicate the table's title.
+    This parameter has the added feature of changing the Output variable from $global:FinalHashTable to $global:HashTableTitle$TableTitle
+
+.OUTPUTS
+    This script/function outputs a multi-dimensional HashTable called $global:FinalHashTable, or, if the $TableTitle parameter is used,
+    $global:HashTableTitle$TableTitle.
+
+    For example, by running the following:
+        Generate-HashTableFromHTML `
+        -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
+        -OuterHTMLElementTagName "div" `
+        -OuterHTMLElementClassName "tab-pane" `
+        -JavaScriptUsedToGenTable "No" `
+        -TextUniqueToTargetTable "ami-9cf707f3"
+    
+    ...you will be able to easily access any values contained within the HTML table as follows:
+    PS C:\Users\testadmin> $global:FinalHashTable.'us-west-1'.'AMI Type'.PV
+    ami-ee65149d
 
 #>
 
@@ -86,6 +176,7 @@ function Generate-HashTableFromHTML {
     ##### END Gather All HTML from WebPage #####
 
     ##### BEGIN Logic To Target A Specific Table #####
+    # Ends arounf line 750 #
 
     $TablesOnPageCount = ([array]$($NewHTMLObjectBody.getElementsByTagName("table"))).Count
     Write-Host ""
@@ -109,14 +200,14 @@ function Generate-HashTableFromHTML {
                 $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
                 | Where-Object {$_.tagName -eq "TABLE"}))
             }
-            if ($ParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
-                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
-                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
-            }
             if ($ParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
                 $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
                 | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
                 | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($ParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
             }
             if ($ParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
                 $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
@@ -132,95 +223,614 @@ function Generate-HashTableFromHTML {
             Write-Host ""
             Write-Host "Writing `$TableTarget.Count (should be 1)"
             Write-Output $TableTargetCount
-            <#
-            Write-Host ""
-            Write-Host "Writing TableTarget (should be one HTML Object)"
-            $TableTarget
-            Write-Host ""
-            #>
+            
             # If $TextUniqueToTargetTable isn't specific enough to filter out all but one table, ask the user to provide different/additional $TextUniqueTotargetTable
-            if ($TableTargetCount -ne $null -and $TableTargetCount -gt 1) {
-                Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table."
-                $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
-                [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
-                if ($ParentHTMLElementClassName -eq $null) {
-                    $TableTarget = [array]$($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"})
-                }
-                if ($ParentHTMLElementClassName -ne $null) {
-                    $TableTarget = [array]$($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"})
-                }
-                For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
-                    $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
-                }
-                $TableTargetCount = $TableTarget.Count
-                Write-Host ""
-                Write-Host "Writing `$TableTarget.Count (should be 1)"
-                Write-Output $TableTargetCount
-                <#
-                Write-Host ""
-                Write-Host "Writing TableTarget (should be one HTML Object)"
-                $TableTarget
-                Write-Host ""
-                #>
-                # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
-                if ($TableTargetCount -ne $null -and $TableTargetCount -gt 1) {
-                    Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table. Halting!"
-                    if ($ie -ne $null) {
-                        $ie.Quit()
+            if ($TableTargetCount -gt 1) {
+                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
+                    Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table."
+                    $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                    [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+                    For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                     }
-                    return
-                }
-                # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
-                if ($TableTargetCount -ne $null -and $TableTargetCount -lt 1) {
-                    Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found. Halting!"
-                    if ($ie -ne $null) {
-                        $ie.Quit()
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table.
+                        Try using the -ParentHTMLELementClassName and/or the -TableTitle parameters to assist with targeting a table.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
                     }
-                    return
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                }
+                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
+                    Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
+                    and the ParentHTMLElementClassName $ParentHTMLElementClassName."
+                    Write-Host "Please either adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName in order to better target one specific table"
+                    [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
+
+                    if ($AdjustmentSwitch -ne 1 -or $AdjustmentSwitch -ne 2 -or $AdjustmentSwitch -ne 3) {
+                        Write-Host "Please enter either 1, 2, or 3"
+                        $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
+                    }
+                    if ($AdjustmentSwitch -eq 1) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 2) {
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 3) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing matching all parameters was found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                }
+                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
+                    Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
+                    and the TableTitle $TableTitle."
+                    Write-Host "Please either adjust TextUniqueTotargetTable and/or TableTitle in order to better target one specific table"
+                    Write-Host "IMPORTANT: The TableTitle value MUST be found within a <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct.
+                    If it is not, do not use the TableTitle parameter."
+                    [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) TableTitle, or (3) Both? [1/2/3]"
+
+                    if ($AdjustmentSwitch -ne 1 -or $AdjustmentSwitch -ne 2 -or $AdjustmentSwitch -ne 3) {
+                        Write-Host "Please enter either 1, 2, or 3"
+                        $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) TableTitle, or (3) Both? [1/2/3]"
+                    }
+                    if ($AdjustmentSwitch -eq 1) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 2) {
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 3) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing matching all parameters was found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                }
+                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
+                    Write-Host "More than one HTML table was found on $TargetURL based on the combination of the parameters TextUniqueToTargetTable 
+                    (i.e. '$TextUniqueToTargetTable'), ParentHTMLElementClassName (i.e. $ParentHTMLElementClassName), and TableTitle (i.e. $TableTitle)."
+                    Write-Host "Please adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName, and/or TableTitle in order to better target one specific table."
+                    Write-Host "IMPORTANT: The TableTitle value MUST be found within a <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct.
+                    If it is not, do not use the TableTitle parameter."
+                    [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, 
+                    (3) TableTitle, (4) 1 and 2, (5) 1 and 3, (6) 2 and 3, or (7) 1,2, and 3? [1/2/3/4/5/6/7]"
+
+                    if ($AdjustmentSwitch -notmatch "[0-7]") {
+                        Write-Host "Please enter either 1, 2, 3, 4, 5, 6, or 7"
+                        $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, 
+                        (3) TableTitle, (4) 1 and 2, (5) 1 and 3, (6) 2 and 3, or (7) 1,2, and 3? [1/2/3/4/5/6/7]"
+                    }
+                    if ($AdjustmentSwitch -eq 1) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 2) {
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 3) {
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 4) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 5) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 6) {
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 7) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing matching all parameters was found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
                 }
             }
             # If the $TextUniqueToTargetTable returns 0 tables, ask the user to provide different/additional $TextUniqueTotargetTable
-            if ($TableTargetCount -ne $null -and $TableTargetCount -lt 1) {
-                Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found."
-                $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text string that is unique to the one table you would like to target"
-                [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
-                if ($ParentHTMLElementClassName -eq $null) {
-                    $TableTarget = [array]$($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"})
-                }
-                if ($ParentHTMLElementClassName -ne $null) {
-                    $TableTarget = [array]$($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"})
-                }
-                For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
-                    $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
-                }
-                $TableTargetCount = $TableTarget.Count
-                Write-Host ""
-                Write-Host "Writing `$TableTarget.Count (should be 1)"
-                Write-Output $TableTargetCount
-                <#
-                Write-Host ""
-                Write-Host "Writing TableTarget (should be one HTML Object)"
-                $TableTarget
-                Write-Host ""
-                #>
-                # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
-                if ($TableTargetCount -ne $null -and $TableTargetCount -gt 1) {
-                    Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table. Halting!"
-                    if ($ie -ne $null) {
-                        $ie.Quit()
+            if ($TableTargetCount -lt 1) {
+                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
+                    Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found."
+                    $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                    [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+                    For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                     }
-                    return
-                }
-                # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
-                if ($TableTargetCount -ne $null -and $TableTargetCount -lt 1) {
-                    Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found. Halting!"
-                    if ($ie -ne $null) {
-                        $ie.Quit()
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table.
+                        Try using the -ParentHTMLELementClassName and/or the -TableTitle parameters to assist with targeting a table.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
                     }
-                    return
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                }
+                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
+                    Write-Host "No table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
+                    and the ParentHTMLElementClassName $ParentHTMLElementClassName."
+                    Write-Host "Please either adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName in order to better target one specific table"
+                    [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
+
+                    if ($AdjustmentSwitch -ne 1 -or $AdjustmentSwitch -ne 2 -or $AdjustmentSwitch -ne 3) {
+                        Write-Host "Please enter either 1, 2, or 3"
+                        $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
+                    }
+                    if ($AdjustmentSwitch -eq 1) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"}))
+                        
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 2) {
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 3) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing matching all parameters was found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                }
+                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
+                    Write-Host "No table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
+                    and the TableTitle $TableTitle."
+                    Write-Host "Please either adjust TextUniqueTotargetTable and/or TableTitle in order to better target one specific table"
+                    Write-Host "IMPORTANT: The TableTitle value MUST be found within a <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct.
+                    If it is not, do not use the TableTitle parameter."
+                    [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) TableTitle, or (3) Both? [1/2/3]"
+
+                    if ($AdjustmentSwitch -ne 1 -or $AdjustmentSwitch -ne 2 -or $AdjustmentSwitch -ne 3) {
+                        Write-Host "Please enter either 1, 2, or 3"
+                        $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) TableTitle, or (3) Both? [1/2/3]"
+                    }
+                    if ($AdjustmentSwitch -eq 1) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+                        
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 2) {
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 3) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing matching all parameters was found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                }
+                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
+                    Write-Host "No table was found on $TargetURL based on the combination of the parameters TextUniqueToTargetTable 
+                    (i.e. '$TextUniqueToTargetTable'), ParentHTMLElementClassName (i.e. $ParentHTMLElementClassName), and TableTitle (i.e. $TableTitle)."
+                    Write-Host "Please adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName, and/or TableTitle in order to better target one specific table."
+                    Write-Host "IMPORTANT: The TableTitle value MUST be found within a <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct.
+                    If it is not, do not use the TableTitle parameter."
+                    [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, 
+                    (3) TableTitle, (4) 1 and 2, (5) 1 and 3, (6) 2 and 3, or (7) 1,2, and 3? [1/2/3/4/5/6/7]"
+
+                    if ($AdjustmentSwitch -notmatch "[0-7]") {
+                        Write-Host "Please enter either 1, 2, 3, 4, 5, 6, or 7"
+                        $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, 
+                        (3) TableTitle, (4) 1 and 2, (5) 1 and 3, (6) 2 and 3, or (7) 1,2, and 3? [1/2/3/4/5/6/7]"
+                    }
+                    if ($AdjustmentSwitch -eq 1) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 2) {
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 3) {
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 4) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 5) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 6) {
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+                    if ($AdjustmentSwitch -eq 7) {
+                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
+                        $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
+
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                            $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
+                        }
+                    }
+
+                    $TableTargetCount = $TableTarget.Count
+                    Write-Host ""
+                    Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    Write-Output $TableTargetCount
+                    
+                    # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
+                    if ($TableTargetCount -gt 1) {
+                        Write-Host "More than one HTML table was found.  Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
+                    # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
+                    if ($TableTargetCount -lt 1) {
+                        Write-Host "No table containing matching all parameters was found. Halting!"
+                        if ($ie -ne $null) {
+                            $ie.Quit()
+                        }
+                        return
+                    }
                 }
             }
-            if ($TableTargetCount -eq $null -or $TableTargetCount -eq 1) {
+            if ($TableTargetCount -eq 1) {
                 Write-Host "The specified TargetTable has been found. Continuing..."
             }
         }
@@ -245,17 +855,16 @@ function Generate-HashTableFromHTML {
 
 
     ##### BEGIN Logic to Define $ArrayofArraysColumnValues #####
-    # $ArrayofArraysColumnValues[0] represents Column Headers, 
-    # $ArrayofArraysColumnValues[N] (where N -ne 0) represents each row in the table, and 
+    # Notes:
+    # $ArrayofArraysColumnValues[0] where ([array]$($ArrayofArraysColumnValues[0].GetElementsByTagName("TH")).Count -ge $MaxColumns represents Column Headers, 
+    # $ArrayofArraysColumnValues[N] (where N -ne 0 and ([array]$($ArrayofArraysColumnValues[0].GetElementsByTagName("TD")).Count -ge $MaxColumns) 
+    # represents each row in the table, and 
     # $ArrayofArraysColumnValues[N][0] represents the first column value in each row (may or may not have a column header)
-
-    # IMPORTANT NOTE: Anytime a variable represents an "Array" of HTML Objects, note that it's NOT *actually* an array - it's a __ComObject of BaseType System.MarshalByRefObject
-    # As such, the Count method does NOT perform as expected by counting the number of HTML Objects in the "Array". However, using the Length method on a __ComObject performs as 
-    # one would expect the Count method to on a normal array
 
     # Begin Defining $MaxColumns #
 
-    # Estimate the maximum number of column values in any given row by picking a row in the middle of the table. This defines $MaxColumns (which is an Int32). This is helpful if:
+    # Estimate the maximum number of column values in any given row by picking a row in the middle of the table. This defines $MaxColumns (which is an Int32). 
+    # This is helpful if:
     # 1) There are headers and subheaders within the table.
     # 2) There are HTML class=rowspan elements used for one-to-many associations. See https://coreos.com/os/docs/latest/booting-on-ec2.html for an example.
     $MiddleRowNumber = $($ArrayofRowsHTMLObjects.Count/2)
@@ -300,7 +909,7 @@ function Generate-HashTableFromHTML {
         }
     }
 
-    Write-Host "Writing maxColumns $MaxColumns"
+    Write-Host "Writing maxColumns..."
     Write-Output $MaxColumns
 
     # End Defining $MaxColumns #
@@ -569,9 +1178,9 @@ function Generate-HashTableFromHTML {
 
     ###### BEGIN Make Final HashTable #####
 
+    # If the $rowspan variable is set to "Yes", this means that the 1st Column uses rowspan...
     if ($rowspan -eq "Yes") {
-        # Make Interim Hashtable for the rowspan split
-        # Need logic to identify WHERE rowspan split is with regards to Column headers. 
+        # Make Interim Hashtable for the rowspan split on the 1st Column 
         # For now, hashtable keys are just hardcoded with the Index number (i.e. $ArrayofArraysColumnValues[$loop][1], etc
         # Because I know in advance that those array elements contain the values for AMIType and AMIID Columns
         $AMITypeHashTable = @{}
@@ -665,95 +1274,18 @@ function Generate-HashTableFromHTML {
 
     ###### END Make Final HashTable #####
 
-    # Close Internet Explorer (i.e. stop the iexplorer.exe process)
+    # Close Internet Explorer if it is running (i.e. stop the iexplorer.exe process)
+    # It should only be running if $JavaScriptUsedToGenTable = "Yes"
     if ($ie -ne $null) {
         $ie.Quit()
     }
 }
 
-<#
-Generate-HashTableFromHTML -TextUniqueToTargetTable "0.004, 0.005, 25, 38, 31, 32, 34, 0.0065" `
--TableTitle "1-Year Term" `
--OuterHTMLElementClassName "pricing-table-wrapper" `
--OuterHTMLElementTagName "div" `
--ParentHTMLElementClassName "content reg-us-west-2" `
--JavaScriptUsedToGenTable "Yes" `
--TargetURL "https://aws.amazon.com/ec2/pricing"
-#>
-
-<#
-Generate-HashTableFromHTML -TargetURL "http://www.ec2instances.info" `
--OuterHTMLElementTagName "div" `
--OuterHTMLElementClassName "dataTables_wrapper" `
--TextUniqueToTargetTable "Cluster Compute Eight Extra Large" `
--JavaScriptUsedToGenTable "No" `
--ParentHTMLElementClassName "ec2instances"
-#>
-
-<#
-Generate-HashTableFromHTML -TextUniqueToTargetTable "Linux/UNIX Usage, t2.micro, variable, 0.0065" `
--TableTitle "General Purpose - Current Generation" `
--OuterHTMLElementClassName "content reg-us-east-1" `
--OuterHTMLElementTagName "div" `
--JavaScriptUsedToGenTable "Yes" `
--TargetURL "https://aws.amazon.com/ec2/pricing"
-#>
-
-Generate-HashTableFromHTML -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
--OuterHTMLElementTagName "div" `
--OuterHTMLElementClassName "tab-pane" `
--JavaScriptUsedToGenTable "No" `
--TextUniqueToTargetTable "ami-9cf707f3"
-
-
-#---------------
-
-# Webpage with ***MULTIPLE TABLES*** and Target Table that has ***ONLY ONE*** value per row/column cell
-#Generate-HashTableFromHTML -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
-#-OuterHTMLElementTagName "div" `
-#-OuterHTMLElementClassName "tab-pane" `
-#-TextUniqueToTargetTable "The alpha channel"`
-#-JavaScriptUsedToGenTable "No"
-
-# Webpage with ***MULTIPLE TABLES*** and Target Table ***COULD HAVE MULTIPLE*** values per row/column cell
-#Generate-HashTableFromHTML -TargetURL "https://aws.amazon.com/ec2/instance-types" `
-#-OuterHTMLElementTagName "div" `
-#-OuterHTMLElementClassName "aws-table" `
-#-TextUniqueToTargetTable "Instance Type" `
-#-JavaScriptUsedToGenTable "No"
-
-# Webpage with only ***ONE TABLE*** and that table has ***ONLY ONE*** value per row/column cell
-#Generate-HashTableFromHTML -TargetURL "http://www.ec2instances.info" `
-#-OuterHTMLElementTagName "div" `
-#-OuterHTMLElementClassName "dataTables_wrapper" `
-#-TextUniqueToTargetTable "Cluster Compute Eight Extra Large" `
-#-JavaScriptUsedToGenTable "No"
-
-# Webpage with ***MULTIPLE TABLES*** and Target Table ***COULD HAVE MULTIPLE*** values per row/column cell
-#Generate-HashTableFromHTML -TargetURL "https://aws.amazon.com/ec2/pricing" `
-#-JavaScriptUsedToGenTable "Yes" `
-#-OuterHTMLElementTagName "div" `
-#-OuterHTMLElementClassName "content reg-us-east-1" `
-#-TextUniqueToTargetTable "Linux/UNIX Usage, t2.micro, variable, 0.0065"
-
-<#
-Generate-HashTableFromHTML -TargetURL "https://aws.amazon.com/ec2/pricing" `
--JavaScriptUsedToGenTable "Yes" `
--OuterHTMLElementTagName "div" `
--OuterHTMLElementClassName "pricing-table-wrapper" `
--ParentHTMLElementClassName "content reg-us-west-2" `
--TextUniqueToTargetTable "1-Year Term, 0.004, 0.005, 25, 38, 31, 32, 34, 0.0065"
-#>
-
-#$($NewHTMLObjectBody.getElementsByClassName("par parsys")).children.GetElementsByTagName("div").id
-#$($NewHTMLObjectBody.getElementsByTagName("div")).getElementsByClassName("aws-pricing-table")
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTYxXPkYQrFZb+KrA4gpGuiEE
-# O4igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6D6ItBdXP8TKZWTVnjcLzbLz
+# 44mgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -808,11 +1340,11 @@ Generate-HashTableFromHTML -TargetURL "https://aws.amazon.com/ec2/pricing" `
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRNsjntUVVt
-# m6eEkVKXwjPJ79/DNjANBgkqhkiG9w0BAQEFAASCAQBBZT/wcRKaOQ/bo2zQQ8lG
-# K9LkG/Xc4wqYDfQ3hHtPzNx+PdERNOhBZsBNzAy4uuW3rgJ0nRlhF+b4yoPYPD+M
-# E5MltBfrK46pzmOw3GDA2BZsXB/JTFtmOWtFdlnBMnOSkLE8cdGSd5Sk9qyRNslD
-# +YWtuSrts626/IxZw+2tzLEEHt1DnVsZnxClFN3b9CC9N4mJ38ZoA/T4aLHIT4Ac
-# y4fjrtVpY8FLdTxc4771AocF9DEXXPC+otx1TO9TTtZnHdV3Y4TSAwzvmmczIZtt
-# h+olIfjF1fG7jF9RKo/PxjJpQUGbsSE0hRT3LR4+uUSD0/+eOq5eHhxumQxMEyF1
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQESobsQ+pJ
+# mFewrp7IaD6JNozEEzANBgkqhkiG9w0BAQEFAASCAQAvOujKmbh1xmIWSHcLeKFa
+# bw1Wm240IQ8UJ+3zGun0HM7TCMjJxPLjKFm0WcFpwi03Y1ZXfmSPMbqnqbGFQH+L
+# DVxfBYwSGg5vf/CltSONl2uESPtupqSuYdXjLma/ivbGxAziAMb6J0Ihp6eb3jKW
+# CYII2Ud1DQIFMe9cHYVq/N3CfuCmt7bfwtILJuBy/r9KtAcICDRY5XD8ympjRN2w
+# w3ltPsM8IoKsQkClMWTR6RF/YFagf6XJYvW8iA5M/iBCBmV7FVPfgoMBFbcGWteV
+# s/Q3oW/JKQlOv1X8j15iunUIgCCSXSsKRseDGAUM5vsZSevVu3Fof7ucyEPvzYPX
 # SIG # End signature block
