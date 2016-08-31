@@ -1,98 +1,53 @@
-﻿Function Send-EmailOnPublicIPChange {
+﻿# Get Old Public IP
+$OutputPath = "$HOME\currentpublicip.txt"
+$OldPublicIP = Get-Content -Path $OutputPath
+Write-Host "Old Public IP is $OldPublicIP"
 
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        $CurrentPublicIPOutFile,
+# Get the Public IP string
+$PublicIPPrep = Invoke-WebRequest -Uri http://checkip.dyndns.com | Select-Object -ExpandProperty Content
+$IPRegex = '\b(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b'
+$NewPublicIP = $PublicIPPrep | Select-String -Pattern $IPRegex | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+Write-Host "New Public IP is $NewPublicIP"
 
-        [Parameter(Mandatory=$False)]
-        $cnForBasisTemplate,
+# Write Public IP to file which will be overwritten evertime this script runs
+Set-Content -Path $OutputPath -Value $PublicIP
 
-        [Parameter(Mandatory=$False)]
-        $CertGenWorking = $(Read-Host -Prompt "Please enter a full path to a temporary working directory for this script"),
+#If the IP hasnt changed...
+if ($OldPublicIP -eq $NewPublicIP) {
+    Write-Host "Public IP Address has NOT changed...No action taken"
+    exit
+}
 
-        [Parameter(Mandatory=$False)]
-        $NewTemplName = $(Read-Host -Prompt "Please enter a name for your New Certificate Template"),
-
-        [Parameter(Mandatory=$False)]
-        $IssuingCertAuth = $(Read-Host -Prompt "Please enter the name of the server that acts as your Issuing Certificate Authority.
-        This name must be able to be resolved via DNS"),
-
-        [Parameter(Mandatory=$False)]
-        $AttributesFile = "BasisTemplate_Attributes.txt",
-
-        [Parameter(Mandatory=$False)]
-        $CustomExpirationPeriodInYears = $(Read-Host -Prompt "Please enter the Expiration Period for certificates generated from your New Certificate Template.
-        Valid options (in years) are '1' and '2' [1,2]"),
-
-        [Parameter(Mandatory=$False)]
-        $AllowPrivateKeyExport = $(Read-Host -Prompt "Would you like to allow private keys to be exported from certificates
-        generated from your New Certificate Template? [Yes,No]"),
-
-        [Parameter(Mandatory=$False)]
-        $IntendedPurposeValuesPrep,
-
-        [Parameter(Mandatory=$False)]
-        $KeyUsageValuesPrep
-    )
-
-    ##### BEGIN Variable Validation #####
-
-
-    ##### END Variable Validation #####
-
-    # Get Old Public IP
-    $CurrentPublicIPOutFile = "$HOME\currentpublicip.txt"
-    $OldPublicIP = Get-Content -Path $CurrentPublicIPOutFile
-    Write-Host "Old Public IP is $OldPublicIP"
-
-    # Get the Public IP string
-    # IMPORTANT NOTE: http://checkip.dyndns.com only lets you check your public IP address every 3 minutes max. Otherwise they consider it abuse.
-    $PublicIPPrep = Invoke-WebRequest -Uri http://checkip.dyndns.com | Select-Object -ExpandProperty Content
-    $IPRegex = '\b(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b'
-    $NewPublicIP = $PublicIPPrep | Select-String -Pattern $IPRegex | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    Write-Host "New Public IP is $NewPublicIP"
-
-    # Write Public IP to file which will be overwritten evertime this script runs
-    Set-Content -Path $CurrentPublicIPOutFile -Value $PublicIP
-
-    #If the IP hasnt changed...
-    if ($OldPublicIP -eq $NewPublicIP) {
-        Write-Host "Public IP Address has NOT changed...No action taken"
+# Determine if there is a drive mounted that contains a filepath that matches where EncryptedPwdFiles are kept
+$PSDrives = Get-PSDrive | Select-Object -ExpandProperty Name
+foreach ($obj1 in $PSDrives) {
+    $obj2 = $obj1+':\EncryptedPwdFiles'
+    if (Test-Path $obj2) {
+        Write-Host "Found appropriate encrypted pwd directory under $obj1`:\"
+        $EncryptedPwdFilesDirectory = $obj2
+        $EncryptedPwdFileNeededForThisScript = "pdogmail.txt"
+    }
+    else {
+        Write-Host "Appropriate encrypted pwd directory was not found. Please mount the appropriate network drive"
+        Write-Host "or copy the necessary encrypted pwd file to a directory with the following format:"
+        Write-Host "[DriveLetter]:\EncryptedPwdFiles\"
         exit
     }
+}
 
-    # Determine if there is a drive mounted that contains a filepath that matches where EncryptedPwdFiles are kept
-    $PSDrives = Get-PSDrive | Select-Object -ExpandProperty Name
-    foreach ($obj1 in $PSDrives) {
-        $obj2 = $obj1+':\EncryptedPwdFiles'
-        if (Test-Path $obj2) {
-            Write-Host "Found appropriate encrypted pwd directory under $obj1`:\"
-            $EncryptedPwdFilesDirectory = $obj2
-            $EncryptedPwdFileNeededForThisScript = "XXXXXXXX.txt"
-        }
-        else {
-            Write-Host "Appropriate encrypted pwd directory was not found. Please mount the appropriate network drive"
-            Write-Host "or copy the necessary encrypted pwd file to a directory with the following format:"
-            Write-Host "[DriveLetter]:\EncryptedPwdFiles\"
-            exit
-        }
-    }
-
-    #If the IP has changed...
-    if($OldPublicIP -ne $NewPublicIP){
-        $Username = "[gmail username]"
-        $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFilesDirectory\$EncryptedPwdFileNeededForThisScript
-        $Password = ConvertTo-SecureString $PasswordPrep -AsPlainText -Force
-        # Overwrite the plaintext password in memory
-        $PasswordPrep = "null"
-        $Cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $Username, $Password
-        $target = "[cellphone-number-only-digits]@vtext.com"
-        $from = "[gmail email address]"
-        $smtp = "smtp.gmail.com"
-        Send-MailMessage -from $from -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $smtp -Credential $cred -UseSsl -to $target -Port 587
-        exit
-    }
+#If the IP has changed...
+if($OldPublicIP -ne $NewPublicIP){
+    $Username = "pauldimaggioofficial"
+    $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFilesDirectory\$EncryptedPwdFileNeededForThisScript
+    $Password = ConvertTo-SecureString $PasswordPrep -AsPlainText -Force
+    # Overwrite the plaintext password in memory
+    $PasswordPrep = "null"
+    $Cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $Username, $Password
+    $target = "6109371836@vtext.com"
+    $from = "pauldimaggioofficial@gmail.com"
+    $smtp = "smtp.gmail.com"
+    Send-MailMessage -from $from -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $smtp -Credential $cred -UseSsl -to $target -Port 587
+    exit
 }
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
