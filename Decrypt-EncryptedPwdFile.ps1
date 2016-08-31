@@ -83,7 +83,7 @@ function Decrypt-EncryptedPwdFile {
     
     function Validate-CNofCertInStore { 
         if ($CNofCertInStore -ne $null) {
-            $PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
+            $global:PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
 
             if ($PathToCertInStore.Count -gt 1) {
                 Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. 
@@ -103,10 +103,16 @@ function Decrypt-EncryptedPwdFile {
     if ($PathToCertFile -eq $null -and $PathToCertInStore -eq $null) {
         $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been 
         loaded in the certificate Store in order to decrypt the password file? [File/Store]"
-        if ($FileOrStoreSwitch -ne "File" -or $FileOrStoreSwitch -ne "Store") {
+        if ($FileOrStoreSwitch -eq "File" -or $FileOrStoreSwitch -eq "Store") {
+            Write-Host "Continuing..."
+        }
+        else {
             Write-Host "The string entered did not match either 'File' or 'Store'. Please type either 'File' or 'Store'"
             $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been loaded in the certificate Store? [File,Store]"
-            if ($FileOrStoreSwitch -ne "File" -or $FileOrStoreSwitch -ne "Store") {
+            if ($FileOrStoreSwitch -eq "File" -or $FileOrStoreSwitch -eq "Store") {
+                Write-Host "Continuing..."
+            }
+            else {
                 Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
                 exit
             }
@@ -125,10 +131,16 @@ function Decrypt-EncryptedPwdFile {
     if ($PathToCertFile -ne $null -and $PathToCertInStore -ne $null) {
         Write-Host "Please use *either* a .pfx certificate file *or*  a certificate in the user's local certificate store to decrypt the password file"
         $WhichCertSwitch = Read-Host -Prompt "Would you like to use the certificate file or the certificate in the local user's cert store? [File/Store]"
-        if ($WhichCertSwitch -ne "File" -or $WhichCertSwitch -ne "Store") {
+        if ($WhichCertSwitch -eq "File" -or $WhichCertSwitch -eq "Store") {
+            Write-Host "Continuing..."
+        }
+        else {
             Write-Host "The string entered did not match either 'File' or 'Store'. Please type either 'File' or 'Store'"
             $WhichCertSwitch = Read-Host -Prompt "Would you like to use the certificate file or the certificate in the local user's cert store? [File/Store]"
-            if ($WhichCertSwitch -ne "File" -or $WhichCertSwitch -ne "Store") {
+            if ($WhichCertSwitch -eq "File" -or $WhichCertSwitch -eq "Store") {
+                Write-Host "Continuing..."
+            }
+            else {
                 Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
                 exit
             }
@@ -167,8 +179,8 @@ function Decrypt-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUCuKLPcENqliIXSmHfMegMNRm
-# Np6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUztgeKvtgSYEsFk3JTFH2zNmb
+# Rd2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -223,11 +235,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQnn9Jhaoej
-# ebx/ktU++LjLF9k65DANBgkqhkiG9w0BAQEFAASCAQAl2cQulGHHJMi5ytaBFo4Q
-# MpS/cpAO7n80ORSdQz3e8aAScu0FJtZqj/zc1ex2pqzc8yfm9dm6RTssTYS97l+7
-# 1PZ6tIgimol8m9/dQNLIizW9GmJ48aYK3efe/N4YskkX3K9CoLddrNVKUtZ4XKJY
-# XLHORRqXQgEhv8cJG3Z1s6US189X1OGLJYO57f9+99VRs9Qllcv678g2w9sPfyj8
-# 5PSfTh4RZdZRjGorPZHcnMisG3IuchpTO+LrisV1SK1IkHuROmlovpzyluTVVx0L
-# 85VeEW37DWfpKcjMCaqe6hr2NtVj+cVEnjoxnKTOEtj0zrZxpxfcYLunWNc4jXGu
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSwhJPHmzJI
+# tDwP7OvqIAAIbb4ycTANBgkqhkiG9w0BAQEFAASCAQBhxmvBt/hBR/kulF/9yS2p
+# N62M2leXM3aOqLvDygt5EYxGMsdykejXkdzZIKub4kUA+DNZ9FQ9/CrCgjz2H+EH
+# h8iNKCTD6egMQdtQtZ/jVuhMiri0u5tjhC5vjJmGI9igL52k2LeEFQXXvGCIN8nu
+# ew1ZxMutEJsLgpsiceqvXhkAu1jJFuuDFtPP8hWar4Js8q2TGJ4G5Dv3eDS+XHg5
+# kqxqOgmqRsIXfv4MVBFa0k5tGyA6XmQtOv1S6jPqxkK7fOg3IPGI4xxQHapaBdkN
+# ZK8U+uleosBXrpSCUb2935gQdHc3k2hjNEnezVhCKoOSNloHCOBHxtxR0gdYzFOB
 # SIG # End signature block
