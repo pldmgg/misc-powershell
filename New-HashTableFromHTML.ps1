@@ -15,7 +15,7 @@
     in the first place.
 
     For example, by running the following:
-        Generate-HashTableFromHTML `
+        New-HashTableFromHTML `
         -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
         -OuterHTMLElementTagName "div" `
         -OuterHTMLElementClassName "tab-pane" `
@@ -28,7 +28,7 @@
 
 .EXAMPLE
     Example #1:
-    Generate-HashTableFromHTML `
+    New-HashTableFromHTML `
     -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
     -OuterHTMLElementTagName "div" `
     -OuterHTMLElementClassName "tab-pane" `
@@ -36,7 +36,7 @@
     -TextUniqueToTargetTable "ami-9cf707f3"
     
     Example #2:
-    Generate-HashTableFromHTML `
+    New-HashTableFromHTML `
     -TargetURL "https://aws.amazon.com/ec2/pricing" `
     -OuterHTMLElementClassName "pricing-table-wrapper" `
     -OuterHTMLElementTagName "div" `
@@ -46,7 +46,7 @@
     -TextUniqueToTargetTable "0.004, 0.005, 25, 38, 31, 32, 34, 0.0065"
     
     Example #3:
-    Generate-HashTableFromHTML `
+    New-HashTableFromHTML `
     -TargetURL "http://www.ec2instances.info" `
     -OuterHTMLElementTagName "div" `
     -OuterHTMLElementClassName "dataTables_wrapper" `
@@ -55,7 +55,7 @@
     -TextUniqueToTargetTable "Cluster Compute Eight Extra Large"
     
     Example #4:
-    Generate-HashTableFromHTML `
+    New-HashTableFromHTML `
     -TargetURL "https://aws.amazon.com/ec2/pricing" `
     -OuterHTMLElementClassName "content reg-us-east-1" `
     -OuterHTMLElementTagName "div" `
@@ -88,7 +88,7 @@
     5) $ParentHTMLElementClassName - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>,
     it is helpful to indicate the class of the HTML element that is the *grandparent* of <table></table>)
 
-    6) $TableTitle - [OPTIONAL] WARNING: Only use this parameter is the targeted table's title is within located in HTML as follows: 
+    6) $TableTitle - [OPTIONAL] WARNING: Only use this parameter if the targeted table's title is located within HTML as follows: 
     <table><thead><TR><TH>$TableTitle</TH></TR></thead></table>
     Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>, it is helpful to indicate the table's title.
     This parameter has the added feature of changing the Output variable from $global:FinalHashTable to $global:HashTableTitle$TableTitle
@@ -98,7 +98,7 @@
     $global:HashTableTitle$TableTitle.
 
     For example, by running the following:
-        Generate-HashTableFromHTML `
+        New-HashTableFromHTML `
         -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
         -OuterHTMLElementTagName "div" `
         -OuterHTMLElementClassName "tab-pane" `
@@ -111,7 +111,7 @@
 
 #>
 
-function Generate-HashTableFromHTML {
+function New-HashTableFromHTML {
     
     [CmdletBinding()]
     Param(
@@ -176,7 +176,7 @@ function Generate-HashTableFromHTML {
     ##### END Gather All HTML from WebPage #####
 
     ##### BEGIN Logic To Target A Specific Table #####
-    # Ends arounf line 750 #
+    # Ends around line 760 #
 
     $TablesOnPageCount = ([array]$($NewHTMLObjectBody.getElementsByTagName("table"))).Count
     Write-Host ""
@@ -1284,8 +1284,8 @@ function Generate-HashTableFromHTML {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6D6ItBdXP8TKZWTVnjcLzbLz
-# 44mgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7il/K50eUforH8nWRS7Y6uSd
+# 2vegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1340,11 +1340,11 @@ function Generate-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQESobsQ+pJ
-# mFewrp7IaD6JNozEEzANBgkqhkiG9w0BAQEFAASCAQAvOujKmbh1xmIWSHcLeKFa
-# bw1Wm240IQ8UJ+3zGun0HM7TCMjJxPLjKFm0WcFpwi03Y1ZXfmSPMbqnqbGFQH+L
-# DVxfBYwSGg5vf/CltSONl2uESPtupqSuYdXjLma/ivbGxAziAMb6J0Ihp6eb3jKW
-# CYII2Ud1DQIFMe9cHYVq/N3CfuCmt7bfwtILJuBy/r9KtAcICDRY5XD8ympjRN2w
-# w3ltPsM8IoKsQkClMWTR6RF/YFagf6XJYvW8iA5M/iBCBmV7FVPfgoMBFbcGWteV
-# s/Q3oW/JKQlOv1X8j15iunUIgCCSXSsKRseDGAUM5vsZSevVu3Fof7ucyEPvzYPX
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTHOgSrprxl
+# Ly2+T6SViDcgjyHjvjANBgkqhkiG9w0BAQEFAASCAQAhhKp6ityxxKYMKVEJxvlz
+# Z8IFa6Mf/r1VGY8bqbqfcjOCY/OD6KyqxcmmafKkPoyxT+QLBub08XOOIfeOKHg0
+# Riklq17o8H2FZkLjBR6+dbUhPzgJa8eOARvGJnsYr0ha2Memn8WJvKS2IGMlij2S
+# Q2CJla9tae5DfcAa+BTV9Hx43u0PCSBDY3jmLCM8qUmDz604OLwB/6kl9WQAKLWM
+# HQ8vVf/yGpBeYYka9/i4b7ET4Tm7IlYkfHMUKr2llA0RNzJDpL9AeQSI5fWvuN8i
+# J9Y1DvfRh3lEU356J5AoDHrhakULwH/qYKKfiDHA9HVwfWvZi9hXwy7Usv5Ffzil
 # SIG # End signature block
