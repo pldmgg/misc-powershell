@@ -101,6 +101,10 @@
     not recommended from a security standpoint.
 
     2) $BasisTemplate - Either the CN or the displayName of the Certificate Template that you are basing this New Certificate on.
+    IMPORTANT NOTE: If you are requesting the new certificate via the ADCS Web Enrollment Website (i.e. $RequestViaWebEnrollment = "Yes") the Certificate Template will ONLY appear in the Certificate Template drop-down on the ADCS 
+    Web Enrollment website (which makes it a valid option for this parameter) if msPKITemplateSchemaVersion is "2" or "1" AND 
+    pKIExpirationPeriod is 1 year or LESS.  See the Generate-CertTemplate.ps1 script/function for more details here:
+    https://github.com/pldmgg/misc-powershell/blob/master/Generate-CertTemplate.ps1
 
     3) $CertificateCN - The name that you would like to give the New Certificate. This name will appear in the following 
     locations:
@@ -190,7 +194,7 @@
     27) $PrivateKeyExportableOverride - Setting this parameter to "Yes", "Y", "yes", or "y" will trigger an interactive prompt
     asking the user if they want to make the private key of the New Certificate exportable.
 
-    28) $PrivateKeyExportableValue - Valid values are "TRUE" and "FALSE"
+    28) $PrivateKeyExportableValue - Valid values are "TRUE" and "FALSE". Default value is "TRUE".
 
     29) $KeySpecOverride - Setting this parameter to "Yes", "Y", "yes", or "y" will trigger an interactive walkthrough that 
     explains KeySpec values and asks the user for input.
@@ -292,9 +296,11 @@
 
 .DEPENDENCIES
     OPTIONAL DEPENDENCIES
-    If the $UseOpenSSL parameter is set to "Yes" or "y", the script/function depends on the latest Win32 OpenSSL binary that can be found here:
+    1) RSAT (Windows Server Feature) - If $RequestViaWebEnrollment = "No", then the Get-ADObject cmdlet is used for various purposes. This cmdlet
+    is available only if RSAT is installed on the Windows Server.
+
+    2) Win32 OpenSSL - If $UseOpenSSL = "Yes", the script/function depends on the latest Win32 OpenSSL binary that can be found here:
     https://indy.fulgan.com/SSL/
-    
     Simply extract the (32-bit) zip and place the directory on your filesystem in a location to be referenced by the parameter $PathToWin32OpenSSL.
 
     IMPORTANT NOTE 2: The above third-party Win32 OpenSSL binary is referenced by OpenSSL.org here:
@@ -1778,6 +1784,49 @@ $DomainSuffix = ((gwmi Win32_ComputerSystem).Domain).Split(".") | Select-Object 
 $Hostname = (gwmi Win32_ComputerSystem).Name
 $HostFQDN = $Hostname+'.'+$DomainPrefix+'.'+$DomainSuffix
 
+# Check RSAT Feature Dependency if NOT Requesting via ADCS Web Enrollment site...
+if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") { 
+    $NeededRSATFeatures =  @("RSAT","RSAT-Role-Tools","RSAT-AD-Tools","RSAT-AD-PowerShell","RSAT-ADDS","RSAT-AD-AdminCenter","RSAT-ADDS-Tools","RSAT-ADLDS")
+    foreach ($obj1 in $NeededRSATFeatures) {
+        if ($(Get-WindowsFeature -Name $obj1).Installed) {
+            Write-Host "$obj1 is installed. Continuing..."
+        }
+        else {
+            Write-Host "$obj1 is NOT installed. Please install $obj1 and try again."
+            return
+        }
+    }
+}
+
+# If using Win32 OpenSSL, check to make sure the path to binary is valid...
+if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
+    if ($PathToWin32OpenSSL -eq $null) {
+        Write-Host "You have indicated that you would like to use Win32 OpenSSL to create certificate files in formats compatible with Linux."
+        $PathToWin32OpenSSL = Read-Host -Prompt "Please enter the full path to the directory containing the Win32 OpenSSL binary"
+    }
+    if (Test-Path $PathToWin32OpenSSL) {
+        Write-Host "Path to Win32 OpenSSL directory is valid...Continuing..."
+    }
+    if (! (Test-Path $PathToWin32OpenSSL)) {
+        Write-Host "The path to the directory containing the Win32 OpenSSL binary is not valid."
+        $PathToWin32OpenSSL = Read-Host -Prompt "Please enter the path to the Win32 OpenSSL binary directory"
+        if (Test-Path $PathToWin32OpenSSL) {
+            Write-Host "Path to Win32 OpenSSL directory is valid...Continuing..."
+        }
+        if (! (Test-Path $PathToWin32OpenSSL)) {
+            Write-Host "The path to the directory containing the Win32 OpenSSL binary is not valid."
+            $PathToWin32OpenSSL = Read-Host -Prompt "Please enter the path to the Win32 OpenSSL binary directory"
+            if (Test-Path $PathToWin32OpenSSL) {
+                Write-Host "Path to Win32 OpenSSL directory is valid...Continuing..."
+            }
+            else {
+                Write-Host "Win32 OpenSSL binary directory not found. Halting!"
+                return
+            }
+        }
+    }
+}
+
 # Check for contradictions in $MachineKeySet value and $PrivateKeyExportableValue and $UseOpenSSL
 if ($MachineKeySet -eq "TRUE" -and $PrivateKeyExportableValue -eq "TRUE") {
     Pause-ForWarning -PauseTimeInSeconds 10 -Message "MachineKeySet and PrivateKeyExportableValue have both been set to TRUE, but Private Key cannot be exported
@@ -3084,8 +3133,8 @@ if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y")
     $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyOut")
 
     # Add UnProtected Private Key to $global:CertNamevsContentsHashGlobal
-    $UnProtectedPrivateKeyContent = Get-Content $CertGenWorking\$UnProtectedPrivateKeyOut -Encoding Ascii
-    $global:CertNamevsContentsHashGlobal.Add("EndPointUnProtectedPrivateKey", "$obj1")
+    $UnProtectedPrivateKeyContent = ((Get-Content $CertGenWorking\$UnProtectedPrivateKeyOut) -join "`n").Trim()
+    $global:CertNamevsContentsHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyContent")
 }
 
 # Write the two Global Output Hases to STDOUT for Awareness
@@ -3104,8 +3153,8 @@ $global:CertNamevsContentsHashGlobal
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU824OBgGGKrKaogLKZu2ttfKe
-# T7agggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGx/54czYYiGEOp9ZhmO9X3ag
+# BHugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3160,11 +3209,11 @@ $global:CertNamevsContentsHashGlobal
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSkR6S0bXsc
-# 2fxLlxKehDu9g2miGjANBgkqhkiG9w0BAQEFAASCAQBjC8xsfyxxcr+HvYqegxY1
-# NP2GzZz+KRn1AKNAey31oSdb0047rNcJwCfdY+zdYn7L0+WKbkl5DBTYytQQyEbU
-# J6cAsP5Nx7KRg4P3J4RUsMp3svFk7uHW/fvEkp4VHgYq8vZYLBmKZdgNVIeVwl1l
-# QNqDW4gwALAVAN8SbzAOyDPShSpUoAU0shb4KF0a3R5J3Fn+7RxkbQwMnF4SlhT5
-# EG99hsnsXQl6sQrNVwqHhD9eMaoZgmQo1w8bk0vYrLGT2gssiw2ijIsre8BpbmY5
-# P1U4onOVUyGssS4+fWUrB1jJfkkAVW+6Jw3l2cVH3yl1ToM1B2ZJDJFUCe25S5XY
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTdvSmNhGWP
+# S0M/V9NFfrefOudikTANBgkqhkiG9w0BAQEFAASCAQAToCmH75yMJ3oyjrKoBKfR
+# NYd1dGkONyNRgEBrbSodYT38IYfIhdKeVuNeUUWES/5JJLjI78HAVODRo/CqE16x
+# Wa4Z6i8+XecSp/bnrKOOpxHyRZvjGbhl3TUrfzPX/ZTpGyKmtanw0wGaNLid+Hfe
+# whvf+Xr7/qxU64aVwrlViIwjBrBxs4iHMR2FLubceQPRq8ATBJxU/677cHqLz99G
+# 3LC4BBfvQfp2DKXgJ3n2nv+cpL6a1BCrfKG0sp33fzUik6wQVqB1PVh8fJlXE0Fh
+# 3IyR6YKhgVryYFqiN1R7qqAFbsT2OSFYyKoeYpdq2C3/TZNkSNOzlVetgeXC2Ybc
 # SIG # End signature block
