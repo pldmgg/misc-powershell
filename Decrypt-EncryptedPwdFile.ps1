@@ -1,147 +1,174 @@
 ﻿# Decrypt-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
 
-function Get-PfxCertificateBetter {
-    [CmdletBinding(DefaultParameterSetName='ByPath')]
-    param(
-        [Parameter(Position=0, Mandatory=$true, ParameterSetName='ByPath')] [string[]] $filePath,
-        [Parameter(Mandatory=$true, ParameterSetName='ByLiteralPath')] [string[]] $literalPath,
-
-        [Parameter(Position=1, ParameterSetName='ByPath')] 
-        [Parameter(Position=1, ParameterSetName='ByLiteralPath')] [string] $password,
-
-        [Parameter(Position=2, ParameterSetName='ByPath')]
-        [Parameter(Position=2, ParameterSetName='ByLiteralPath')] [string] 
-        [ValidateSet('DefaultKeySet','Exportable','MachineKeySet','PersistKeySet','UserKeySet','UserProtected')] $x509KeyStorageFlag = 'DefaultKeySet'
-    )
-
-    if($PsCmdlet.ParameterSetName -eq 'ByPath'){
-        $literalPath = Resolve-Path $filePath 
-    }
-
-    if(!$password){
-        # if the password parameter isn't present, just use the original cmdlet
-        $cert = Get-PfxCertificate -literalPath $literalPath
-    } else {
-        # otherwise use the .NET implementation
-        $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
-        $cert.Import($literalPath, $password, $X509KeyStorageFlag)
-    }
-
-    return $cert
-}
-
 function Decrypt-EncryptedPwdFile {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
+        $EncryptedPwdFileInput = $(Read-Host -Prompt "Please enter the full path to the file you would like to decrypt"),
+        
+        [Parameter(Mandatory=$False)]
         $PathToCertFile,
 
         [Parameter(Mandatory=$False)]
-        $PathToCertInStore = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -like "*Scripting*"}),
-
-        [Parameter(Mandatory=$False)]
-        $EncryptedPwdFileInput
+        $CNofCertInStore
     )
 
-    Process {
-        # $PathToCertFile = R:\zero\ZeroCode.pfx
+    ##### BEGIN Helper Functions #####
 
+    function Get-PfxCertificateBetter {
+        [CmdletBinding(DefaultParameterSetName='ByPath')]
+        param(
+            [Parameter(Position=0, Mandatory=$true, ParameterSetName='ByPath')] [string[]] $filePath,
+            [Parameter(Mandatory=$true, ParameterSetName='ByLiteralPath')] [string[]] $literalPath,
+
+            [Parameter(Position=1, ParameterSetName='ByPath')] 
+            [Parameter(Position=1, ParameterSetName='ByLiteralPath')] [string] $password,
+
+            [Parameter(Position=2, ParameterSetName='ByPath')]
+            [Parameter(Position=2, ParameterSetName='ByLiteralPath')] [string] 
+            [ValidateSet('DefaultKeySet','Exportable','MachineKeySet','PersistKeySet','UserKeySet','UserProtected')] $x509KeyStorageFlag = 'DefaultKeySet'
+        )
+
+        if($PsCmdlet.ParameterSetName -eq 'ByPath'){
+            $literalPath = Resolve-Path $filePath 
+        }
+
+        if(!$password){
+            # if the password parameter isn't present, just use the original cmdlet
+            $cert = Get-PfxCertificate -literalPath $literalPath
+        } else {
+            # otherwise use the .NET implementation
+            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+            $cert.Import($literalPath, $password, $X509KeyStorageFlag)
+        }
+
+        return $cert
+    }
+
+    ##### END Helper Functions #####
+
+    ##### BEGIN Parameter Validation #####
+
+    function Validate-EncryptedPwdFileInput {
         if ($EncryptedPwdFileInput -eq $null) {
-            $EncryptedPwdFileInput = Read-Host -Prompt 'Please enter the full path to the encrypted password file [Example: C:\encryptedpwd.txt]'
+            $EncryptedPwdFileInput = Read-Host -Prompt "Please enter the full path to the encrypted password file. 
+            Example: C:\encryptedpwd.txt"
         }
         if (! (Test-Path $EncryptedPwdFileInput)) {
-            Write-Host "Cannot find EncryptedPwdFile at the path specified. Please ensure it is present and try again"
-            exit
+            Write-Host "Cannot find $EncryptedPwdFileInput. Please ensure the file is present and try again."
+            $EncryptedPwdFileInput = Read-Host -Prompt "Please enter the full path to the encrypted password file.
+            Example: C:\encryptedpwd.txt"
+            if (! (Test-Path $EncryptedPwdFileInput)) {
+                Write-Host "Cannot find $EncryptedPwdFileInput. Please ensure the file is present and try again. Halting!"
+                exit
+            }
         }
+    }
+    Validate-EncryptedPwdFileInput
 
-        if ($PathToCertFile -ne $null) {
+    function Validate-PathToCertFile {
+        if ($PathToCertFile -ne $null) { 
             if (! (Test-Path $PathToCertFile)) {
-                Write-Host "The .pfx certificate file was not found at the path specified. Please check to make sure the file exists."
-                $PathToCertFile = Read-Host -Prompt 'Please enter the full path to the .pfx certificate file. [Example: C:\ps_scripting.pfx]'
+                Write-Host "The $PathToCertFile was not found. Please check to make sure the file exists."
+                $PathToCertFile = Read-Host -Prompt "Please enter the full path to the .pfx certificate file. 
+                Example: C:\ps_scripting.pfx"
                 if (! (Test-Path $PathToCertFile)) {
                     Write-Host "The .pfx certificate file was not found at the path specified. Halting."
                     exit
                 }
             }
-            if (Test-Path $PathToCertFile) {
-                $PasswordPrep2 = Read-Host -Prompt 'Please enter the password for the certificate being used to decrypt the encrypted file' -AsSecureString
-                $CertFilePwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep2))
-                $Cert2 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd2
-                $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
-                $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
-                $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
-                $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
-                $DecryptedPwd2
-            }
-        }
-
-        if ($PathToCertFile -eq $null -and $PathToCertInStore -eq $null) {
-            $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been `
-            `nloaded in the certificate Store in order to decrypt the password? [Type either File or Store]"
-            if ($FileOrStoreSwitch -ne "File" -or $FileOrStoreSwitch -ne "Store") {
-                Write-Host "The string entered did not match either 'File' or 'Store'. Please type either File or Store"
-                $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been loaded in the certificate Store? [File,Store]"
-                if ($FileOrStoreSwitch -ne "File" -or $FileOrStoreSwitch -ne "Store") {
-                    Write-Host "The string entered did not match either 'File' or 'Store'. Halting."
-                    exit
-                }
-            }
-            if ($FileOrStoreSwitch -eq "File") {
-                if ($PathToCertFile -eq $null) {
-                    $PathToCertFile = Read-Host -Prompt 'Please enter the full path to the .pfx certificate file. [Example: C:\ps_scripting.pfx]'
-                }
-                if (! (Test-Path $PathToCertFile)) {
-                    Write-Host "The .pfx certificate file was not found at the path specified. Please check to make sure the file exists."
-                    $PathToCertFile = Read-Host -Prompt 'Please enter the full path to the .pfx certificate file. [Example: C:\ps_scripting.pfx]'
-                    if (! (Test-Path $PathToCertFile)) {
-                        Write-Host "The .pfx certificate file was not found at the path specified. Halting."
-                        exit
-                    }
-                }
-                if ($PathToCertFile -ne $null -and (Test-Path $PathToCertFile)) {
-                    $PasswordPrep2 = Read-Host -Prompt 'Please enter the password for the certificate being used to decrypt the encrypted file' -AsSecureString
-                    $CertFilePwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep2))
-                    $Cert2 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd2
-                    $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
-                    $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
-                    $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
-                    $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
-                    $DecryptedPwd2
-                }
-            }
-            if ($FileOrStoreSwitch -eq "Store") {
-                if ($PathToCertInStore -eq $null) {
-                    Write-Host "Please ensure that a certificate with the word 'Scripting' somewhere in the Subject exists in the Certificate Store under Cert:\CurrentUser\My and try again."
-                    Write-Host "...or please select 'File' and use a certificate file in .pfx format"
-                    exit
-                }
-                if ($PathToCertInStore -ne $null) {
-                    $Cert2 = $PathToCertInStore
-                    $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
-                    $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
-                    $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
-                    $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
-                    $DecryptedPwd2
-                }
-            }  
-        }
-
-        if ($PathToCertFile -eq $null -and $PathToCertInStore -ne $null) {
-            $Cert2 = $PathToCertInStore
-            $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
-            $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
-            $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
-            $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
-            $DecryptedPwd2
         }
     }
+    Validate-PathToCertFile
+    
+    function Validate-CNofCertInStore { 
+        if ($CNofCertInStore -ne $null) {
+            $PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
+
+            if ($PathToCertInStore.Count -gt 1) {
+                Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. 
+                A list of available Certificates in the User Store are as follows:"
+                foreach ($obj1 in $(Get-ChildItem "Cert:\CurrentUser\My").Subject) {$obj1.Split(",")[0]}
+                $CNofCertInStore = Read-Host -Prompt "Please enter the CN of the Certificate you would like to use to decrypt the password file"
+                $PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
+                if ($PathToCertInStore.Count -gt 1) {
+                    Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. Halting!"
+                    exit
+                }
+            }
+        }
+    }
+    Validate-CNofCertInStore
+    
+    if ($PathToCertFile -eq $null -and $PathToCertInStore -eq $null) {
+        $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been 
+        loaded in the certificate Store in order to decrypt the password file? [File/Store]"
+        if ($FileOrStoreSwitch -ne "File" -or $FileOrStoreSwitch -ne "Store") {
+            Write-Host "The string entered did not match either 'File' or 'Store'. Please type either 'File' or 'Store'"
+            $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been loaded in the certificate Store? [File,Store]"
+            if ($FileOrStoreSwitch -ne "File" -or $FileOrStoreSwitch -ne "Store") {
+                Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
+                exit
+            }
+        }
+        if ($FileOrStoreSwitch -eq "File") {
+            $PathToCertFile = Read-Host -Prompt "Please enter the full path to the .pfx certificate file. 
+            Example: C:\ps_scripting.pfx"
+            Validate-PathToCertFile
+        }
+        if ($FileOrStoreSwitch -eq "Store") {
+            $CNofCertInStore = Read-Host -Prompt "Please enter the CN of the Certificate you would like to use to decrypt the password file"
+            Validate-CNofCertInStore
+        }
+    }
+
+    if ($PathToCertFile -ne $null -and $PathToCertInStore -ne $null) {
+        Write-Host "Please use *either* a .pfx certificate file *or*  a certificate in the user's local certificate store to decrypt the password file"
+        $WhichCertSwitch = Read-Host -Prompt "Would you like to use the certificate file or the certificate in the local user's cert store? [File/Store]"
+        if ($WhichCertSwitch -ne "File" -or $WhichCertSwitch -ne "Store") {
+            Write-Host "The string entered did not match either 'File' or 'Store'. Please type either 'File' or 'Store'"
+            $WhichCertSwitch = Read-Host -Prompt "Would you like to use the certificate file or the certificate in the local user's cert store? [File/Store]"
+            if ($WhichCertSwitch -ne "File" -or $WhichCertSwitch -ne "Store") {
+                Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
+                exit
+            }
+        }
+        if ($WhichCertSwitch -eq "File") {
+            Remove-Variable -Name "PathToCertInStore"
+        }
+        if ($WhichCertSwitch -eq "Store") {
+            Remove-Variable -Name "PathToCertFile"
+        }
+    }
+
+    ##### END Parameter Validation #####
+
+    ##### BEGIN Main Body #####
+
+    if ($PathToCertFile -ne $null -and $PathToCertInStore -eq $null) {
+        $PasswordPrep2 = Read-Host -Prompt 'Please enter the password *for the certificate* being used to decrypt the encrypted file' -AsSecureString
+        $CertFilePwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep2))
+        $Cert2 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd2
+    }
+
+    if ($PathToCertFile -eq $null -and $PathToCertInStore -ne $null) {
+        $Cert2 = $PathToCertInStore
+    }
+
+    $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
+    $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
+    $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
+    $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
+    Write-Output $DecryptedPwd2
+
+    ##### END Main Body #####
 }
 
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6L+qcfNrhstNQ2TrX6AEpo/g
-# X06gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUCuKLPcENqliIXSmHfMegMNRm
+# Np6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -196,11 +223,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQVhOSSetua
-# sRVdfA+thixufd7mvzANBgkqhkiG9w0BAQEFAASCAQBbjlHYrDipXvsjp0rFJH72
-# YIbBPQseFw+Ak3AYpTjpEoZ5SY0oJCnUNGdNQZ+IvNuLC7DOOvOAOgNphF62hRW8
-# tQl9AybSGvDBz4t6zyFXkxzPtlbFUJ9DDFxohCYpMb1Kttvce/1ygA6+cdmfLV6t
-# uNTbyem0RnTPEHGYk3X+FFfkHIkYBCuolWKhGDIanPqBMrxz7/M935OSBI9hbyge
-# rqlU7u1b+0XE39XgSSFvXGL+45aOuSV2J2rwfvFBMH9yxAe5gJvgW5m0qALr+gdD
-# mt/S8kVCJgfIWr4Dinc+z2ipMdqU0+TjhrcDD+wQZL5C+ko71lXu4l4TbLh9rJhn
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQnn9Jhaoej
+# ebx/ktU++LjLF9k65DANBgkqhkiG9w0BAQEFAASCAQAl2cQulGHHJMi5ytaBFo4Q
+# MpS/cpAO7n80ORSdQz3e8aAScu0FJtZqj/zc1ex2pqzc8yfm9dm6RTssTYS97l+7
+# 1PZ6tIgimol8m9/dQNLIizW9GmJ48aYK3efe/N4YskkX3K9CoLddrNVKUtZ4XKJY
+# XLHORRqXQgEhv8cJG3Z1s6US189X1OGLJYO57f9+99VRs9Qllcv678g2w9sPfyj8
+# 5PSfTh4RZdZRjGorPZHcnMisG3IuchpTO+LrisV1SK1IkHuROmlovpzyluTVVx0L
+# 85VeEW37DWfpKcjMCaqe6hr2NtVj+cVEnjoxnKTOEtj0zrZxpxfcYLunWNc4jXGu
 # SIG # End signature block

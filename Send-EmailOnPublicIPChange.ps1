@@ -1,16 +1,37 @@
-﻿# Get Old Public IP
-$OutputPath = "$HOME\currentpublicip.txt"
+﻿# Set Environment Dependent Variables
+$HelperFunctionSourceDirectory = "V:\powershell"
+$CurrentPublicIPFile = "currentpublicip.txt"
+$URLThatReturnsPublicIP = "http://checkip.dyndns.com"
+$GmailUsername = "gmailusername"
+# NOTE: The GmailSenderAddress below is sending an email to the Verizon Email-To-SMS forwarding service. It is NOT sending the SMS directly.
+$GmailSenderAddress = "$GmailUsername@gmail.com"
+$smtp = "smtp.gmail.com"
+$EncryptedPwdFile = " P:\EncryptedPwdFiles\pdogmail.txt"
+$PhoneNumberToReceiveText = "1234567890"
+$VerizonEmailToSMSAddress = "$PhoneNumberToReceiveText@vtext.com" 
+
+##### BEGIN Helper Functions #####
+
+# See: https://github.com/pldmgg/misc-powershell/blob/master/Send-EmailOnPublicIPChange.ps1
+. "$HelperFunctionSourceDirectory\Decrypt-EncryptedPwdFile.ps1"
+
+##### END Helper Functions #####
+
+##### BEGIN Main Body #####
+
+# Get Old Public IP
+$OutputPath = "$HOME\$CurrentPublicIPFile"
 $OldPublicIP = Get-Content -Path $OutputPath
 Write-Host "Old Public IP is $OldPublicIP"
 
 # Get the Public IP string
-$PublicIPPrep = Invoke-WebRequest -Uri http://checkip.dyndns.com | Select-Object -ExpandProperty Content
+$PublicIPPrep = Invoke-WebRequest -Uri "$URLThatReturnsPublicIP" | Select-Object -ExpandProperty Content
 $IPRegex = '\b(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b'
-$NewPublicIP = $PublicIPPrep | Select-String -Pattern $IPRegex | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+$NewPublicIP = $($PublicIPPrep | Select-String -Pattern $IPRegex).Matches.Value
 Write-Host "New Public IP is $NewPublicIP"
 
 # Write Public IP to file which will be overwritten evertime this script runs
-Set-Content -Path $OutputPath -Value $PublicIP
+Set-Content -Path $OutputPath -Value $NewPublicIP
 
 #If the IP hasnt changed...
 if ($OldPublicIP -eq $NewPublicIP) {
@@ -18,42 +39,24 @@ if ($OldPublicIP -eq $NewPublicIP) {
     exit
 }
 
-# Determine if there is a drive mounted that contains a filepath that matches where EncryptedPwdFiles are kept
-$PSDrives = Get-PSDrive | Select-Object -ExpandProperty Name
-foreach ($obj1 in $PSDrives) {
-    $obj2 = $obj1+':\EncryptedPwdFiles'
-    if (Test-Path $obj2) {
-        Write-Host "Found appropriate encrypted pwd directory under $obj1`:\"
-        $EncryptedPwdFilesDirectory = $obj2
-        $EncryptedPwdFileNeededForThisScript = "pdogmail.txt"
-    }
-    else {
-        Write-Host "Appropriate encrypted pwd directory was not found. Please mount the appropriate network drive"
-        Write-Host "or copy the necessary encrypted pwd file to a directory with the following format:"
-        Write-Host "[DriveLetter]:\EncryptedPwdFiles\"
-        exit
-    }
-}
-
 #If the IP has changed...
 if($OldPublicIP -ne $NewPublicIP){
-    $Username = "pauldimaggioofficial"
-    $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFilesDirectory\$EncryptedPwdFileNeededForThisScript
+    $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFile
     $Password = ConvertTo-SecureString $PasswordPrep -AsPlainText -Force
     # Overwrite the plaintext password in memory
     $PasswordPrep = "null"
-    $Cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $Username, $Password
-    $target = "6109371836@vtext.com"
-    $from = "pauldimaggioofficial@gmail.com"
-    $smtp = "smtp.gmail.com"
-    Send-MailMessage -from $from -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $smtp -Credential $cred -UseSsl -to $target -Port 587
-    exit
+    $Cred = New-Object -TypeName System.Management.Automation.PSCredential -Argumentlist $Username, $Password
+    Send-MailMessage -from $GmailSenderAddress -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $smtp `
+    -Credential $cred -UseSsl -to $VerizonEmailToSMSAddress -Port 587
 }
+
+##### END Main Body #####
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUY8Wm4yGpJQXa/PgwpOQv4upI
-# sJ2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHI+XIVkPF+NUZUc8045tB7Vn
+# JkigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -108,11 +111,11 @@ if($OldPublicIP -ne $NewPublicIP){
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSEur9KF/At
-# K3LIvwyV0Ci7ZRwhKjANBgkqhkiG9w0BAQEFAASCAQAH73eBboOlF3CBPwrE3tnB
-# m44BDAFNCxhLCQHJRNp4nBsH5cwCUfLyd5McIgyxfgDfOtJ7j5wt/Vu9nLLV3aP0
-# LSeM71xFH/KyYycWPELIFsgbfjELuoxQgpslrzsKX9GWaTYgKJ4ItGNiKtTj3BNv
-# g8j7zjzAglNAs9oCRWzkFG7iaKQZqq2LvmPkMUrveBKano19D+6I59MOIbo0wiH1
-# QW13KjB1kWxMn4liUHQPF0gfgMQ0tdbhL8AHFWSHdmvC0OrbFQd1JOE2Dz5lxyFb
-# BboRzJT2Kzty4Ajxk3YcHaqNBebIL6clHeRWmQdcuCnbZJC8CXZJvdxYk/y05EDJ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTFhEqpNmu5
+# fbs+c+PhZhuH90lLjzANBgkqhkiG9w0BAQEFAASCAQB/DHV7eZgPjQ5z9Q4ULoaj
+# CcLKop1HxsqVLiBz3XGlqIKPSwJiGlsS5cqjJUAj+CdqCEevEGeVEcSqW9gSUYKv
+# YQveI0Jl+1bKxV687dYOhzxRLFkCT7lzcd/rcM97Ba7sXb4pb27c8QQsEM6RIhKV
+# d+O5LxdEHgBP4cQMe4Xawt2qA4CjdcMDIS/aSw0eAGQax8nKtGJVVqDhUVOjP84r
+# ntOfOuD3IroUArKGUrwQZb7H8PCX4XO+lhZsT/9EPhqWIIVHBNSiGe5C8EKYwyDt
+# +0pu+NpaCmE64IJKr7z0h2meGdDx8qMldVaKLXcQ2sDWYclfdZylRUAKrGUqEGR7
 # SIG # End signature block
