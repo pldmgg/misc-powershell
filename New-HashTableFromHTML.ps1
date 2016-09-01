@@ -138,7 +138,8 @@ function New-HashTableFromHTML {
         $TableTitle,
 
         [Parameter(Mandatory=$False)]
-        $TextUniqueToTargetTable
+        $TextUniqueToTargetTable = $(Read-Host -Prompt "Please enter text unique to the table you would like to target. 
+        If you would like to specify text from multiple cells, separate the text from each cell with a comma")
     )
 
     # Convert $TextUniqueToTargetTable to array
@@ -1284,8 +1285,8 @@ function New-HashTableFromHTML {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7il/K50eUforH8nWRS7Y6uSd
-# 2vegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgOAbsolL/bmESbCDY3cmpgKW
+# WX+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1340,11 +1341,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTHOgSrprxl
-# Ly2+T6SViDcgjyHjvjANBgkqhkiG9w0BAQEFAASCAQAhhKp6ityxxKYMKVEJxvlz
-# Z8IFa6Mf/r1VGY8bqbqfcjOCY/OD6KyqxcmmafKkPoyxT+QLBub08XOOIfeOKHg0
-# Riklq17o8H2FZkLjBR6+dbUhPzgJa8eOARvGJnsYr0ha2Memn8WJvKS2IGMlij2S
-# Q2CJla9tae5DfcAa+BTV9Hx43u0PCSBDY3jmLCM8qUmDz604OLwB/6kl9WQAKLWM
-# HQ8vVf/yGpBeYYka9/i4b7ET4Tm7IlYkfHMUKr2llA0RNzJDpL9AeQSI5fWvuN8i
-# J9Y1DvfRh3lEU356J5AoDHrhakULwH/qYKKfiDHA9HVwfWvZi9hXwy7Usv5Ffzil
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSaq1bKbvAg
+# bWCG0GNPC5uo9jYZojANBgkqhkiG9w0BAQEFAASCAQB3pSscSSPC8mgCvQRmygms
+# F8Cp3xRfpLDkg/Qw9tCBejHVxoOi35uAP8YcMRKzLMAB87iDpu/2rfubPGcmD8JT
+# TrCp7ts3WiyMZayxWTYDXLNT02M3j8eBIYJSHkHkvnVNhP3ARiNhogoonqHyX5+S
+# UTRobqw47Lz+mwOEpimWbn5VTk68iYvrFKvaOeyvIiD3Gfq7PIH8abhcNA74dguJ
+# 5gJymNpr59f3m+PGGcQppG6dH0ruV4bh9y7HqCGC5iNb2KBFqX4GGEDVpUZx6hTS
+# TFyD4Ax+5z9QLHDJc1w0qtamov4s7Tke6o9qIBqvSUfN0cwMsBs64PqW2KV8DW4B
 # SIG # End signature block
