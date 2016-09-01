@@ -69,14 +69,14 @@
 .PARAMETERS
     1) $TargetURL - [REQUIRED} The URL that contains the table you would like to convert into a multi-dimensional HashTable
 
-    2) $OuterHTMLElementTagName - [REQUIRED] The HTML Element Tag in the HTML Element that is the immediate *parent* of the <table> element. 
+    2) $ParentHTMLElementTagName - [REQUIRED] The HTML Element Tag in the HTML Element that is the immediate *parent* of the <table> element. 
     This value is a generic HTML tag and is NEVER unique to the webpage you are targeting.
     Examples: div, body
     If you are unsure, use 'div'
 
-    3) $OuterHTMLElementClassName - [REQUIRED] The HTML Element ClassName in the HTML Element that is the immediate *parent* of the <table> element. 
+    3) $ParentHTMLElementClassName - [REQUIRED] The HTML Element ClassName in the HTML Element that is the immediate *parent* of the <table> element. 
     This value COULD BE unique to the webpage you are targeting. This value should be found in html that looks similar to: 
-    <div class=$OuterHTMLElementClassName ...
+    <div class=$ParentHTMLElementClassName ...
 
     4) $JavaScriptUsedToGenTable - [REQUIRED] On many websites, JavaScript is used to dynamically generate HTML Tables.  If that is the case with the 
     website you are targeting, then set this parameter to "Yes"
@@ -85,7 +85,7 @@
     list of table cell values unique to the table you are targeting is very helpful. Each cell value should be separated by a comma.
     * This parameter is only required if there is MORE THAN ONE <table></table> instance on the webpage, which is ALMOST ALWAYS the case. 
 
-    5) $ParentHTMLElementClassName - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>,
+    5) $GrandParentHTMLElementClassName - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>,
     it is helpful to indicate the class of the HTML element that is the *grandparent* of <table></table>)
 
     6) $TableTitle - [OPTIONAL] WARNING: Only use this parameter if the targeted table's title is located within HTML as follows: 
@@ -122,28 +122,31 @@ function New-HashTableFromHTML {
         $JavaScriptUsedToGenTable = $(Read-Host -Prompt "If JavaScript is used to dynamically generate the table you are targeting, please enter 'Yes'. [Yes/No]"),
 
         [Parameter(Mandatory=$False)]
-        $OuterHTMLElementTagName = $(Read-Host -Prompt "Please enter the HTML Element Tag that is the parent of the <table> element. 
+        $ParentHTMLElementTagName = $(Read-Host -Prompt "Please enter the HTML Element Tag that is the parent of the <table> element. 
         This value is a generic HTML element and is NEVER unique to the webpage you are targeting. If you are unsure, type 'div'"),
 
         [Parameter(Mandatory=$False)]
-        $OuterHTMLElementClassName = $(Read-Host -Prompt "Please enter the HTML Element ClassName in the HTML Element that is the immediate parent of the <table> element. 
+        $ParentHTMLElementClassName = $(Read-Host -Prompt "Please enter the HTML Element ClassName in the HTML Element that is the immediate parent of the <table> element. 
         This value COULD BE unique to the webpage you are targeting. This value should be found in html that looks like: 
-        <$OuterHTMLElementTagName class=[HTML Element ClassName]..."),
+        <$ParentHTMLElementTagName class=[HTML Element ClassName]..."),
 
         [Parameter(Mandatory=$False)]
-        $ParentHTMLElementClassName,
+        $ParentHTMLElementID,
 
-        # IMPORTANT NOTE: Only use the $TableTitle parameter if the Table Title is WITHIN the <table><TH>$TableTitle</TH></table>
+        [Parameter(Mandatory=$False)]
+        $GrandParentHTMLElementClassName,
+
+        [Parameter(Mandatory=$False)]
+        $GrandParentHTMLElementID,
+
+        # IMPORTANT NOTE: Only use the $TableTitle parameter if the targeted table's title is located within HTML as follows: 
+        # <table><thead><TR><TH>$TableTitle</TH></TR></thead></table>
         [Parameter(Mandatory=$False)]
         $TableTitle,
 
         [Parameter(Mandatory=$False)]
-        $TextUniqueToTargetTable = $(Read-Host -Prompt "Please enter text unique to the table you would like to target. 
-        If you would like to specify text from multiple cells, separate the text from each cell with a comma")
+        $TextUniqueToTargetTable
     )
-
-    # Convert $TextUniqueToTargetTable to array
-    [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
     
     ##### BEGIN Gather All HTML from WebPage #####
 
@@ -190,36 +193,217 @@ function New-HashTableFromHTML {
     
     # If there is more than one table on the webpage, figure out which table to actually target.
     if ($TablesOnPageCount -gt 1) {
-        # If the user did NOT provide $TextUniqueToTargetTable, in order to assist targeting a specific table, ask the user to provide $TextUniqueToTargetTable
+        # If $TextUniqueToTargetTable -eq $null, try to narrow down the target table using other parameters provided 
         if ($TextUniqueToTargetTable -eq $null) {
-            Write-Host "More than one HTML table was found on $TargetURL"
-            $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
-            [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"}).children | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"}).children | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" `
+                -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" `
+                -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+
+            Write-Host "Writing TableTarget.Count without searching for TextUniqueToTable"
+            $TableTarget.Count
+            
+            # If more than one instance of <table></table> is returned using the provided parameters, force user to specify TextUniqueToTargetTable
+            if ($TableTargetCount -gt 1) {
+                Write-Host "More than one HTML table was found on $TargetURL using the provided parameters."
+                $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+            }
         }
+        # If $TextUniqueToTargetTable has been provided, use it to narrow down target table after processing all other parameters
         if ($TextUniqueToTargetTable -ne $null) {
-            if ($ParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
-                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                 | Where-Object {$_.tagName -eq "TABLE"}))
             }
-            if ($ParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
-                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                 | Where-Object {$_.tagName -eq "TABLE"}))
             }
-            if ($ParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
-                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                 | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
             }
-            if ($ParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
-                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"}).children | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                 | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
             }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"}).children | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -eq $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" `
+                -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -eq $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+            if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null -and $GrandParentHTMLElementID -ne $null -and $ParentHTMLElementID -ne $null) {
+                $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") `
+                | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName" `
+                -and $_.id -match "$ParentHTMLElementID"} | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName" `
+                -and $_.parentElement.id -match "$GrandParentHTMLElementID"}).children `
+                | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
+            }
+
             Write-Host "Writing TableTarget.Count prior to searching Unique Text"
             $TableTarget.Count
+
             For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
                 $TableTarget = ([array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"}))
             }
+
             $TableTargetCount = $TableTarget.Count
             Write-Host ""
             Write-Host "Writing `$TableTarget.Count (should be 1)"
@@ -227,7 +411,7 @@ function New-HashTableFromHTML {
             
             # If $TextUniqueToTargetTable isn't specific enough to filter out all but one table, ask the user to provide different/additional $TextUniqueTotargetTable
             if ($TableTargetCount -gt 1) {
-                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
+                if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
                     Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table."
                     $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                     [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
@@ -257,9 +441,9 @@ function New-HashTableFromHTML {
                         return
                     }
                 }
-                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
+                if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
                     Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
-                    and the ParentHTMLElementClassName $ParentHTMLElementClassName."
+                    and the ParentHTMLElementClassName $GrandParentHTMLElementClassName."
                     Write-Host "Please either adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName in order to better target one specific table"
                     [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
 
@@ -271,8 +455,8 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -280,11 +464,11 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 2) {
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -295,11 +479,11 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -329,7 +513,7 @@ function New-HashTableFromHTML {
                         return
                     }
                 }
-                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
+                if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
                     Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
                     and the TableTitle $TableTitle."
                     Write-Host "Please either adjust TextUniqueTotargetTable and/or TableTitle in order to better target one specific table"
@@ -345,7 +529,7 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -355,7 +539,7 @@ function New-HashTableFromHTML {
                     if ($AdjustmentSwitch -eq 2) {
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -368,7 +552,7 @@ function New-HashTableFromHTML {
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -398,9 +582,9 @@ function New-HashTableFromHTML {
                         return
                     }
                 }
-                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
+                if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
                     Write-Host "More than one HTML table was found on $TargetURL based on the combination of the parameters TextUniqueToTargetTable 
-                    (i.e. '$TextUniqueToTargetTable'), ParentHTMLElementClassName (i.e. $ParentHTMLElementClassName), and TableTitle (i.e. $TableTitle)."
+                    (i.e. '$TextUniqueToTargetTable'), ParentHTMLElementClassName (i.e. $GrandParentHTMLElementClassName), and TableTitle (i.e. $TableTitle)."
                     Write-Host "Please adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName, and/or TableTitle in order to better target one specific table."
                     Write-Host "IMPORTANT: The TableTitle value MUST be found within a <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct.
                     If it is not, do not use the TableTitle parameter."
@@ -416,8 +600,8 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -425,11 +609,11 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 2) {
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -439,8 +623,8 @@ function New-HashTableFromHTML {
                     if ($AdjustmentSwitch -eq 3) {
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -451,11 +635,11 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -468,8 +652,8 @@ function New-HashTableFromHTML {
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -477,12 +661,12 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 6) {
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -492,12 +676,12 @@ function New-HashTableFromHTML {
                     if ($AdjustmentSwitch -eq 7) {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -530,7 +714,7 @@ function New-HashTableFromHTML {
             }
             # If the $TextUniqueToTargetTable returns 0 tables, ask the user to provide different/additional $TextUniqueTotargetTable
             if ($TableTargetCount -lt 1) {
-                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
+                if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
                     Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found."
                     $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                     [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
@@ -560,9 +744,9 @@ function New-HashTableFromHTML {
                         return
                     }
                 }
-                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
+                if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -eq $null) {
                     Write-Host "No table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
-                    and the ParentHTMLElementClassName $ParentHTMLElementClassName."
+                    and the ParentHTMLElementClassName $GrandParentHTMLElementClassName."
                     Write-Host "Please either adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName in order to better target one specific table"
                     [int]$AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
 
@@ -574,8 +758,8 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
                         
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -583,11 +767,11 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 2) {
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -598,11 +782,11 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -632,7 +816,7 @@ function New-HashTableFromHTML {
                         return
                     }
                 }
-                if ($ParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
+                if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -ne $null) {
                     Write-Host "No table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') 
                     and the TableTitle $TableTitle."
                     Write-Host "Please either adjust TextUniqueTotargetTable and/or TableTitle in order to better target one specific table"
@@ -648,7 +832,7 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
                         
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -658,7 +842,7 @@ function New-HashTableFromHTML {
                     if ($AdjustmentSwitch -eq 2) {
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -671,7 +855,7 @@ function New-HashTableFromHTML {
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -701,9 +885,9 @@ function New-HashTableFromHTML {
                         return
                     }
                 }
-                if ($ParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
+                if ($GrandParentHTMLElementClassName -ne $null -and $TableTitle -ne $null) {
                     Write-Host "No table was found on $TargetURL based on the combination of the parameters TextUniqueToTargetTable 
-                    (i.e. '$TextUniqueToTargetTable'), ParentHTMLElementClassName (i.e. $ParentHTMLElementClassName), and TableTitle (i.e. $TableTitle)."
+                    (i.e. '$TextUniqueToTargetTable'), ParentHTMLElementClassName (i.e. $GrandParentHTMLElementClassName), and TableTitle (i.e. $TableTitle)."
                     Write-Host "Please adjust TextUniqueTotargetTable and/or ParentHTMLElementClassName, and/or TableTitle in order to better target one specific table."
                     Write-Host "IMPORTANT: The TableTitle value MUST be found within a <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct.
                     If it is not, do not use the TableTitle parameter."
@@ -719,8 +903,8 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -728,11 +912,11 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 2) {
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -742,8 +926,8 @@ function New-HashTableFromHTML {
                     if ($AdjustmentSwitch -eq 3) {
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -754,11 +938,11 @@ function New-HashTableFromHTML {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -771,8 +955,8 @@ function New-HashTableFromHTML {
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -780,12 +964,12 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 6) {
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -795,12 +979,12 @@ function New-HashTableFromHTML {
                     if ($AdjustmentSwitch -eq 7) {
                         $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
-                        $ParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
+                        $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
 
-                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$OuterHTMLElementTagName") | Where-Object {$_.ClassName -match "$OuterHTMLElementClassName"} `
-                        | Where-Object {$_.parentElement.ClassName -match "$ParentHTMLElementClassName"}).children `
+                        $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
+                        | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
                         For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
@@ -835,6 +1019,7 @@ function New-HashTableFromHTML {
                 Write-Host "The specified TargetTable has been found. Continuing..."
             }
         }
+
     }
     # If there is only one table on the webpage, just define $TableTarget...
     if ($TablesOnPageCount -eq 1) {
@@ -1282,11 +1467,18 @@ function New-HashTableFromHTML {
     }
 }
 
+New-HashTableFromHTML `
+-TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
+-ParentHTMLElementTagName "div" `
+-ParentHTMLElementClassName "tab-pane" `
+-ParentHTMLElementID "alpha" `
+-JavaScriptUsedToGenTable "No"
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgOAbsolL/bmESbCDY3cmpgKW
-# WX+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUurUCgspkaiYfYcUa5YZQCqhU
+# RzugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1341,11 +1533,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSaq1bKbvAg
-# bWCG0GNPC5uo9jYZojANBgkqhkiG9w0BAQEFAASCAQB3pSscSSPC8mgCvQRmygms
-# F8Cp3xRfpLDkg/Qw9tCBejHVxoOi35uAP8YcMRKzLMAB87iDpu/2rfubPGcmD8JT
-# TrCp7ts3WiyMZayxWTYDXLNT02M3j8eBIYJSHkHkvnVNhP3ARiNhogoonqHyX5+S
-# UTRobqw47Lz+mwOEpimWbn5VTk68iYvrFKvaOeyvIiD3Gfq7PIH8abhcNA74dguJ
-# 5gJymNpr59f3m+PGGcQppG6dH0ruV4bh9y7HqCGC5iNb2KBFqX4GGEDVpUZx6hTS
-# TFyD4Ax+5z9QLHDJc1w0qtamov4s7Tke6o9qIBqvSUfN0cwMsBs64PqW2KV8DW4B
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTgVQXS5JX6
+# tNg+52JYbN7x+AC7YzANBgkqhkiG9w0BAQEFAASCAQBX4uYN1JyRqfnPjqxC5bqM
+# QYbGxet44GcvrlD+4YEzmT6dboDdoVw2QjnLnzldT7mqZe5Gz/ZDo/UOyVM0rkUT
+# 9s9w/OUo8/QW5eF1WBKUGutoebzmoWI9Fv6IyNA574jX8adVYv4b/2xSdeNfOPpV
+# is2jtJ2kMbk4wuy9VNewTF9f6P2r5e6dD+qhxCZbMlv21tqwtwc7P197TaNLd4IR
+# YF05LD2Qot5L6g8n7nRVIcV7h+GugSuwem67WXz7Zt7k+1vFNHYrsmXtjckAr9wi
+# HF14YNJxJENk2enKkXU7BkjY26ZyR17nlDBHeC9aqa79GBkspK7GbiFTQ/VupCNe
 # SIG # End signature block
