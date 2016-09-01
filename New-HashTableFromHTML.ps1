@@ -30,35 +30,35 @@
     Example #1:
     New-HashTableFromHTML `
     -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
-    -OuterHTMLElementTagName "div" `
-    -OuterHTMLElementClassName "tab-pane" `
+    -ParentHTMLElementTagName "div" `
+    -ParentHTMLElementClassName "tab-pane" `
+    -ParentHTMLElementID "alpha" `
     -JavaScriptUsedToGenTable "No" `
-    -TextUniqueToTargetTable "ami-9cf707f3"
     
     Example #2:
     New-HashTableFromHTML `
     -TargetURL "https://aws.amazon.com/ec2/pricing" `
-    -OuterHTMLElementClassName "pricing-table-wrapper" `
-    -OuterHTMLElementTagName "div" `
+    -ParentHTMLElementClassName "pricing-table-wrapper" `
+    -ParentHTMLElementTagName "div" `
     -JavaScriptUsedToGenTable "Yes" `
-    -ParentHTMLElementClassName "content reg-us-west-2" `
+    -GrandParentHTMLElementClassName "content reg-us-west-2" `
     -TableTitle "1-Year Term" `
     -TextUniqueToTargetTable "0.004, 0.005, 25, 38, 31, 32, 34, 0.0065"
     
     Example #3:
     New-HashTableFromHTML `
     -TargetURL "http://www.ec2instances.info" `
-    -OuterHTMLElementTagName "div" `
-    -OuterHTMLElementClassName "dataTables_wrapper" `
+    -ParentHTMLElementTagName "div" `
+    -ParentHTMLElementClassName "dataTables_wrapper" `
     -JavaScriptUsedToGenTable "No" `
-    -ParentHTMLElementClassName "ec2instances" `
+    -GrandParentHTMLElementClassName "ec2instances" `
     -TextUniqueToTargetTable "Cluster Compute Eight Extra Large"
     
     Example #4:
     New-HashTableFromHTML `
     -TargetURL "https://aws.amazon.com/ec2/pricing" `
-    -OuterHTMLElementClassName "content reg-us-east-1" `
-    -OuterHTMLElementTagName "div" `
+    -ParentHTMLElementClassName "content reg-us-east-1" `
+    -ParentHTMLElementTagName "div" `
     -JavaScriptUsedToGenTable "Yes" `
     -TableTitle "General Purpose - Current Generation" `
     -TextUniqueToTargetTable "Linux/UNIX Usage, t2.micro, variable, 0.0065"
@@ -81,17 +81,28 @@
     4) $JavaScriptUsedToGenTable - [REQUIRED] On many websites, JavaScript is used to dynamically generate HTML Tables.  If that is the case with the 
     website you are targeting, then set this parameter to "Yes"
 
-    5) $TextUniqueToTargetTable - [REQUIRED*] In order to help narrow down the HTML Table Target to ONE instance of <table></table>, a comma separated
+    5) $TextUniqueToTargetTable - [OPTIONAL] In order to help narrow down the HTML Table Target to ONE instance of <table></table>, a comma separated
     list of table cell values unique to the table you are targeting is very helpful. Each cell value should be separated by a comma.
-    * This parameter is only required if there is MORE THAN ONE <table></table> instance on the webpage, which is ALMOST ALWAYS the case. 
 
-    5) $GrandParentHTMLElementClassName - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>,
+    6) $ParentHTMLElementID - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>, the 
+    it is helpful to specify the HTML Element ID in the HTML Element that is the immediate *parent* of the <table> element. 
+    This value COULD BE unique to the webpage you are targeting. This value should be found in html that looks similar to: 
+    <div id=$ParentHTMLElementID ...
+
+    7) $GrandParentHTMLElementClassName - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>,
     it is helpful to indicate the class of the HTML element that is the *grandparent* of <table></table>)
+    This value COULD BE unique to the webpage you are targeting. This value should be found in html that looks similar to: 
+    <div class=$GrandParentHTMLElementClassName ...
 
-    6) $TableTitle - [OPTIONAL] WARNING: Only use this parameter if the targeted table's title is located within HTML as follows: 
+    8) $GrandParentHTMLElementID - [OPTIONAL] Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>,
+    it is helpful to indicate the ID of the HTML element that is the *grandparent* of <table></table>)
+    This value COULD BE unique to the webpage you are targeting. This value should be found in html that looks similar to: 
+    <div id=$GrandParentHTMLElementID ...
+
+    9) $TableTitle - [OPTIONAL] WARNING: Only use this parameter if the targeted table's title is located within HTML as follows: 
     <table><thead><TR><TH>$TableTitle</TH></TR></thead></table>
     Sometimes, in order to narrow down the HTML Table Target to ONE instance of <table></table>, it is helpful to indicate the table's title.
-    This parameter has the added feature of changing the Output variable from $global:FinalHashTable to $global:HashTableTitle$TableTitle
+    IMPORTANT NOTE: This parameter has the added feature of changing the Output variable from $global:FinalHashTable to $global:HashTableTitle$TableTitle
 
 .OUTPUTS
     This script/function outputs a multi-dimensional HashTable called $global:FinalHashTable, or, if the $TableTitle parameter is used,
@@ -1477,8 +1488,8 @@ New-HashTableFromHTML `
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUurUCgspkaiYfYcUa5YZQCqhU
-# RzugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwPkPfvXA5LFjoXUJvpul/y97
+# mUugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1533,11 +1544,11 @@ New-HashTableFromHTML `
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTgVQXS5JX6
-# tNg+52JYbN7x+AC7YzANBgkqhkiG9w0BAQEFAASCAQBX4uYN1JyRqfnPjqxC5bqM
-# QYbGxet44GcvrlD+4YEzmT6dboDdoVw2QjnLnzldT7mqZe5Gz/ZDo/UOyVM0rkUT
-# 9s9w/OUo8/QW5eF1WBKUGutoebzmoWI9Fv6IyNA574jX8adVYv4b/2xSdeNfOPpV
-# is2jtJ2kMbk4wuy9VNewTF9f6P2r5e6dD+qhxCZbMlv21tqwtwc7P197TaNLd4IR
-# YF05LD2Qot5L6g8n7nRVIcV7h+GugSuwem67WXz7Zt7k+1vFNHYrsmXtjckAr9wi
-# HF14YNJxJENk2enKkXU7BkjY26ZyR17nlDBHeC9aqa79GBkspK7GbiFTQ/VupCNe
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRHd4uvDyRg
+# N5hSRcNuQtx5SPKSwjANBgkqhkiG9w0BAQEFAASCAQBKub+BnZfUvlgY6bapKXSM
+# bf3NtuKRorTUagIaoD+JuuS/qnArfO769XufGi8u1oK1KZx/RB+kyyvPn0Buf93T
+# CmCH99Ilk13PrBAaAZPRN8tptktmQkUMZxoKv4hPaEUCo79kOJwwTw4Z1T27W8zb
+# +usk3R695FI524/DS2gzBDdQI29BCKDp1DQ3cW9XttDBmz+RixJ2jl8Wu4EFzJS1
+# 5+hsHtIHIp8Z0zEPfPG/vZuwyrBdI7N/gJGbGoZNRY8xeCGfsl7FtvxYMYD6Oy9R
+# FIzKQIAB4VN+bAbXjq3Z8duSy2/WeFxn9//RCg3eBr/pDAWo3ESlgVe2MFOWT6U5
 # SIG # End signature block
