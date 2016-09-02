@@ -63,6 +63,14 @@
     -TableTitle "General Purpose - Current Generation" `
     -TextUniqueToTargetTable "Linux/UNIX Usage, t2.micro, variable, 0.0065"
 
+    Example #5:
+    New-HashTableFromHTML `
+    -TargetURL "https://aws.amazon.com/ec2/instance-types" `
+    -ParentHTMLElementClassName "aws-table" `
+    -ParentHTMLElementTagName "div" `
+    -JavaScriptUsedToGenTable "No" `
+    -TextUniqueToTargetTable "Clock Speed (GHz), EBS Only"
+
 .NOTES
     Be aware that HTML Tables that contain over 100 rows will take several minutes to complete processing.
 
@@ -156,9 +164,17 @@ function New-HashTableFromHTML {
         $TableTitle,
 
         [Parameter(Mandatory=$False)]
-        $TextUniqueToTargetTable
+        [array]$TextUniqueToTargetTable
     )
+
+    ##### BEGIN Parameter Transforms #####
     
+    if ($TextUniqueToTargetTable -ne $null) {
+        [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
+    }
+
+    ##### END Parameter Transforms #####
+
     ##### BEGIN Gather All HTML from WebPage #####
 
     # If the website uses Javascript to dynamically create the target table, we need to wait for the page to completely finish loading so that we can grab
@@ -307,7 +323,7 @@ function New-HashTableFromHTML {
             # If more than one instance of <table></table> is returned using the provided parameters, force user to specify TextUniqueToTargetTable
             if ($TableTargetCount -gt 1) {
                 Write-Host "More than one HTML table was found on $TargetURL using the provided parameters."
-                $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                 [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
             }
         }
@@ -424,7 +440,7 @@ function New-HashTableFromHTML {
             if ($TableTargetCount -gt 1) {
                 if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
                     Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table."
-                    $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                    [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                     [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                     For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
                         $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
@@ -463,7 +479,7 @@ function New-HashTableFromHTML {
                         $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
                     }
                     if ($AdjustmentSwitch -eq 1) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
@@ -487,7 +503,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 3) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
@@ -537,7 +553,7 @@ function New-HashTableFromHTML {
                         $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) TableTitle, or (3) Both? [1/2/3]"
                     }
                     if ($AdjustmentSwitch -eq 1) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
@@ -558,7 +574,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 3) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
@@ -608,7 +624,7 @@ function New-HashTableFromHTML {
                         (3) TableTitle, (4) 1 and 2, (5) 1 and 3, (6) 2 and 3, or (7) 1,2, and 3? [1/2/3/4/5/6/7]"
                     }
                     if ($AdjustmentSwitch -eq 1) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
@@ -643,7 +659,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 4) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
@@ -658,7 +674,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 5) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
@@ -685,7 +701,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 7) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
@@ -727,7 +743,7 @@ function New-HashTableFromHTML {
             if ($TableTargetCount -lt 1) {
                 if ($GrandParentHTMLElementClassName -eq $null -and $TableTitle -eq $null) {
                     Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found."
-                    $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                    [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                     [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                     For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
                         $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
@@ -766,7 +782,7 @@ function New-HashTableFromHTML {
                         $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) ParentHTMLElementClassName, or (3) Both? [1/2/3]"
                     }
                     if ($AdjustmentSwitch -eq 1) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
@@ -790,7 +806,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 3) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
@@ -840,7 +856,7 @@ function New-HashTableFromHTML {
                         $AdjustmentSwitch = Read-Host -Prompt "Would you like to adjust (1) TextUniqueToTargetTable, (2) TableTitle, or (3) Both? [1/2/3]"
                     }
                     if ($AdjustmentSwitch -eq 1) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
@@ -861,7 +877,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 3) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
@@ -911,7 +927,7 @@ function New-HashTableFromHTML {
                         (3) TableTitle, (4) 1 and 2, (5) 1 and 3, (6) 2 and 3, or (7) 1,2, and 3? [1/2/3/4/5/6/7]"
                     }
                     if ($AdjustmentSwitch -eq 1) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
@@ -946,7 +962,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 4) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
@@ -961,7 +977,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 5) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
 
                         $TableTitle = Read-Host -Prompt "Please enter the Table's Title found within the <table><thead><TR><TH>TableTitle</thead></TR></TH></table> HTML construct"
@@ -988,7 +1004,7 @@ function New-HashTableFromHTML {
                         }
                     }
                     if ($AdjustmentSwitch -eq 7) {
-                        $TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
+                        [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                         [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
                         $GrandParentHTMLElementClassName = Read-Host -Prompt "Please enter the class of the HTML element that is the grandparent of the <table> element.
                         For example, in the HTML <div class=content>, the word 'content' would be Parent HTML Element ClassName."
@@ -1375,6 +1391,14 @@ function New-HashTableFromHTML {
 
     ###### BEGIN Make Final HashTable #####
 
+    # It is possible that the HTML did NOT use THEAD or TH elements, in which case the creation of the $global:FinalHashTable
+    # was not triggered. To make sure it has been created, trigger the below if it doesn't exist at this point.
+    if ($(Get-Variable -Name "FinalHashTable" -ValueOnly -ErrorAction SilentlyContinue) -eq $null) {
+        # Make Final HashTable Variable name generic, i.e. FinalHashTable
+        Write-Host "Triggering creation of FinalHashTable variable..."
+        New-Variable -Name "FinalHashTable" -Scope Global -Value @{}
+    }
+
     # If the $rowspan variable is set to "Yes", this means that the 1st Column uses rowspan...
     if ($rowspan -eq "Yes") {
         # Make Interim Hashtable for the rowspan split on the 1st Column 
@@ -1481,8 +1505,8 @@ function New-HashTableFromHTML {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOcs/WT2ePlSSUtVzdvcGpicC
-# T4egggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfTtsTehuab4dWMcpKSDcnKJT
+# ZSCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1537,11 +1561,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQbBFs7Y9bo
-# x+UDNvhCzw8XnrR9ejANBgkqhkiG9w0BAQEFAASCAQAHDJ6aPn301E9FF1DNxNTO
-# SU1OvDPNZd77s4j8LxHx1USYuiyxcSfjKHovp3wZWGzbEqvq0BlHTo92l9erLtuR
-# YrUea1PmmhflvbrOPGLusKAsSyIkQWA+WrEIjrEC0uzpMerBCT6VYSEFgZfyDV6d
-# ZVspnv6RnGo1boxD494yiJL4dx5jIJM/K1clDxdO3G1eqwDMedHdaezsHb/SvOmc
-# m5Zhp8KbAEBXF/ZJatbmwCi7W6Aa5bYTqujX8C4a6D+unUNn/j2uD4Gy6Z0vopCn
-# c5vqMYq8LqY+9SRVJPIHY99DzponFoqjZxGrx6CbC4rxBF4VlghOmnRAmpOf3JsJ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTuhYvMXqNb
+# /87hIdFNdKXxXYy5BzANBgkqhkiG9w0BAQEFAASCAQA/vxzsdse/rY1uZybRU/we
+# 2fddwAvIaPuDwIyHpbHJWUn+hd3RLz8Y6iTJatdwl/I8Fykk0OheOH+G7K0s5jan
+# f54Af6H222HktzaIHdcm1Ko+xCI3d8joBHFcMTFpuK6a0P9SMoeqdehuFdokijBy
+# K8VLt6dlfU9I8YWy4tgiVocqe0U0ZvlydNFIPjKRnHgQrnou8wLfDpRcD+5nmsdD
+# alroJhMiEQOK4V9MoMogcWGwTZUmfKCOaJfubVWKysRlnGoEzrTiRDs8n7k0n7WE
+# YAK214ilKuDShHFZZ9zUl7s17xc36MKq9eqFDqaXGsW7rjRyogvaVkNcUuMIF7K+
 # SIG # End signature block
