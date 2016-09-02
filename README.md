@@ -65,7 +65,7 @@ IMPORTANT NOTE: Ultimately, the output of this script is almost entirely based o
 
 6) New-HashTableFromHTML.ps1
 
-This function/script generates a multi-dimensional HashTable from a single HTML table (i.e. ONE <table></table> element). There are several caveats however:
+This function/script generates a multi-dimensional HashTable from a single HTML table (i.e. ONE &lt;table&gt;&lt;/table&gt; element). There are several caveats however:
 
 
 1) Row N x Column 1 in the HTML table must contain ONLY ONE VALUE or NO VALUE at all.
