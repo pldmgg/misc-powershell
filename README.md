@@ -67,6 +67,7 @@ IMPORTANT NOTE: Ultimately, the output of this script is almost entirely based o
 
 This function/script generates a multi-dimensional HashTable from a single HTML table (i.e. ONE <table></table> element). There are several caveats however:
 
+
 1) Row N x Column 1 in the HTML table must contain ONLY ONE VALUE or NO VALUE at all.
 
 2) Column Headers must contain ONLY ONE VALUE per column or NO VALUE at all.
@@ -85,5 +86,5 @@ The first time the script is run, it writes your current Public IP to a file und
 
     - Uses the specified gmail account to email the Verizon SMS forwarding service to send a text message to your phone notifying you of the change.
 
-WARNING: You may only check http://checkip.dyndns.com once every 600 seconds (and consequently, you should schedule this script to run no more than once every 600 seconds). If you check http://checkip.dyndns.com more often, then it may not resolve. 
+IMPORTANT NOTE: You may only check http://checkip.dyndns.com once every 600 seconds (and consequently, you should schedule this script to run no more than once every 600 seconds). If you check http://checkip.dyndns.com more often, then it may not resolve. 
 
