@@ -17,8 +17,8 @@
     For example, by running the following:
         New-HashTableFromHTML `
         -TargetURL "https://coreos.com/os/docs/latest/booting-on-ec2.html" `
-        -OuterHTMLElementTagName "div" `
-        -OuterHTMLElementClassName "tab-pane" `
+        -ParentHTMLElementTagName "div" `
+        -ParentHTMLElementClassName "tab-pane" `
         -JavaScriptUsedToGenTable "No" `
         -TextUniqueToTargetTable "ami-9cf707f3"
     
@@ -1481,8 +1481,8 @@ function New-HashTableFromHTML {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0weuqRQH4xNVhf5NOut0GEW5
-# am+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQamt3oLK85Nlx/VAjggXzYr8
+# WtCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1537,11 +1537,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS1yAqomRdM
-# 9NmCigEhwv9cOWI+SjANBgkqhkiG9w0BAQEFAASCAQB3K99eCcXRRSDm9uXXwRHw
-# I/bpnlx6XgIfQPTZYvNhOxrwF9Jr2CmexVROTEaYG2xeTbjGsC4OjpBxyOw6NqDm
-# DaHnrRGzH9EOFXun4ywkCHqr7ltfKvPXWmBewgnI2xzIQluEnzCJFxteX2yvwk5X
-# uKBG5jmaswj/CFulYAaf13eUuAUk1ClFNsdzoEWW8S0RN/qyDYGlVXSPWU4cIF9T
-# 1PQ6KJn3wsQUR1FjhdfHBXycolTVg7O6l9o5MA1ys4zMqytfkClZZIVQGluQtecn
-# LSrTf8rxIaySoU8njXDcWtxPsn8gXW+FgkveJ0AgChN2dw01sk4Ym1uCrxjok7hr
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSNxDRDNw6I
+# hRfl6DhJWaqkz9RXETANBgkqhkiG9w0BAQEFAASCAQAXwhWIQaSCZE/HwKjQAz+6
+# hy+LxJZsMBztCUbw7rJZcN9E00BmBvneFjG5tnaMeAe9XIAPC/sb3GInKcbLYyVy
+# ubFfDmqPaakAh+Yejy6MqPRNXQdwbIi7Ui82ueUWlSYIhabOgGV81q+zjqN3Bfl3
+# PZLWZK6MfPoyKdsrcwui7sdKIEqAZ4zA9ZyMIyNsMI8wR64qtgbddWeVS2d6wbut
+# v9HcXPP3IHWhlLaI9N9LkjcRnvQ1whx5hTRJylS08KuBVm3d99j6zNHuFlTNLCiR
+# bYRZEEj7exDCGmrjGUBcfv7tRxf9ZhCXR2NMRw28S8SbagUhF9BffxKZg3VQwM0Z
 # SIG # End signature block
