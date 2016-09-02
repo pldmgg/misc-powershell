@@ -4,14 +4,14 @@ Miscellaneous PowerShell Scripts
 Contents:
 
 
-*1) Decrypt-EncryptedPwdFile.ps1*
+**1) Decrypt-EncryptedPwdFile.ps1**
 
 This script/function will decrypt a file that contains an encrypted password that was written using the Generate-EncryptedPwdFile.ps1 script/function in this repository.  
 
 WARNING: The decrypted password will be written to STDOUT.
 
 
-*2) Generate-CertTemplate.ps1*
+**2) Generate-CertTemplate.ps1**
 
 This script/function generates a New Certificate Template AND Publishes it for use.  It does NOT generate actual certificates.
 
@@ -24,7 +24,7 @@ This can be run as a script by uncommenting the very last line calling the Gener
 IMPORTANT NOTE 1: By running the function without any parameters, the user will be walked through several prompts. This is the recommended way to use this function until the user feels comfortable with parameters mentioned below.
 
 
-*3) Generate-Certificate.ps1*
+**3) Generate-Certificate.ps1**
 
 This script/function requests and receives a New Certificate from your Windows-based Issuing Certificate Authority.
 
@@ -35,14 +35,14 @@ This can be run as a script by uncommenting the very last line calling the Gener
 IMPORTANT NOTE 1: By running the function without any parameters, the user will be walked through several prompts. This is the recommended way to use this function until the user feels comfortable with parameters mentioned below.
 
 
-*4) Generate-EncryptedPwdFile.ps1*
+**4) Generate-EncryptedPwdFile.ps1**
 
 This script/function prompts the user for a password, which is then encrypted via a certificate (in .pfx format), converted to base64, and then written to a file on the filesystem in a location provided by the user.
 
 The resulting file containing the encrypted password can be decrypted using the Decrypt-EncryptedPwdFile.ps1 script/function in this repository.
 
 
-*5) Get-AllDiskInfo.ps1*
+**5) Get-AllDiskInfo.ps1**
     
 This script along with the Get-AllDiskInfo function (at the end) has 2 goals that can be satisfied depending on the 
 
@@ -58,7 +58,7 @@ Goal #2: Provide a very flexible way to access any and all information about any
 IMPORTANT NOTE: Ultimately, the output of this script is almost entirely based on diskpart. If output is not what you would expect, check diskpart to make sure. For example, diskpart cuts off the Volume Label name at 11 characters. If a Volume Label name is greater that 11 characters, this cutoff will be present in this script/function's output.
 
 
-*6) New-HashTableFromHTML.ps1*
+**6) New-HashTableFromHTML.ps1**
 
 This function/script generates a multi-dimensional HashTable from a single HTML table (i.e. ONE &lt;table&gt;&lt;/table&gt; element). There are several caveats however:
 
@@ -72,7 +72,7 @@ This function/script generates a multi-dimensional HashTable from a single HTML 
 Example: https://coreos.com/os/docs/latest/booting-on-ec2.html
 
 
-*7) Send-EmailOnPublicIPChange.ps1*
+**7) Send-EmailOnPublicIPChange.ps1**
 
 This script, when run as a scheduled task, monitors your public IP Address by checking http://checkip.dyndns.com. 
 
