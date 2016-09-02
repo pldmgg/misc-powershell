@@ -12,6 +12,7 @@ WARNING: The decrypted password will be written to STDOUT.
 
 
 
+
 2) Generate-CertTemplate.ps1
 
 This script/function generates a New Certificate Template AND Publishes it for use.  It does NOT generate actual certificates.
@@ -23,6 +24,7 @@ This script/function attempts to simplify Certificate Template creation by mappi
 This can be run as a script by uncommenting the very last line calling the Generate-CertTemplate function, or by simply loading the entire function into your current PowerShell shell and then calling it.
 
 IMPORTANT NOTE 1: By running the function without any parameters, the user will be walked through several prompts. This is the recommended way to use this function until the user feels comfortable with parameters mentioned below.
+
 
 
 
@@ -38,11 +40,13 @@ IMPORTANT NOTE 1: By running the function without any parameters, the user will 
 
 
 
+
 4) Generate-EncryptedPwdFile.ps1
 
 This script/function prompts the user for a password, which is then encrypted via a certificate (in .pfx format), converted to base64, and then written to a file on the filesystem in a location provided by the user.
 
 The resulting file containing the encrypted password can be decrypted using the Decrypt-EncryptedPwdFile.ps1 script/function in this repository.
+
 
 
 
@@ -63,6 +67,7 @@ IMPORTANT NOTE: Ultimately, the output of this script is almost entirely based o
 
 
 
+
 6) New-HashTableFromHTML.ps1
 
 This function/script generates a multi-dimensional HashTable from a single HTML table (i.e. ONE &lt;table&gt;&lt;/table&gt; element). There are several caveats however:
@@ -75,6 +80,7 @@ This function/script generates a multi-dimensional HashTable from a single HTML 
 3) One-to-many relationships (i.e. one value in Row N x Column 1 and more than one value in Row N x Column 1+N) are only handled properly if Column 1+N contains a MAXIMUM of 2 values.
 
 Example: https://coreos.com/os/docs/latest/booting-on-ec2.html
+
 
 
 
