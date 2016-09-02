@@ -72,7 +72,9 @@ This function/script generates a multi-dimensional HashTable from a single HTML 
 
 2) Column Headers must contain ONLY ONE VALUE per column or NO VALUE at all.
 
-3) One-to-many relationships (i.e. one value in Row N x Column 1 and more than one value in Row N x Column 1+N) are only handled properly if Column 1+N contains a MAXIMUM of 2 values. Example: https://coreos.com/os/docs/latest/booting-on-ec2.html
+3) One-to-many relationships (i.e. one value in Row N x Column 1 and more than one value in Row N x Column 1+N) are only handled properly if Column 1+N contains a MAXIMUM of 2 values.
+
+Example: https://coreos.com/os/docs/latest/booting-on-ec2.html
 
 
 
@@ -82,9 +84,9 @@ This script, when run as a scheduled task, monitors your public IP Address by ch
 
 The first time the script is run, it writes your current Public IP to a file under the user account's $HOME directory according to what http://checkip.dyndns.com reports as your Public IP. When the script runs again, it checks the IP within the file against what http://checkip.dyndns.com reports as your Public IP. If there was a change, the script:
 
-    - Overwrites the file in the $HOME directory with the new Public IP address
+  - Overwrites the file in the $HOME directory with the new Public IP address
 
-    - Uses the specified gmail account to email the Verizon SMS forwarding service to send a text message to your phone notifying you of the change.
+  - Uses the specified gmail account to email the Verizon SMS forwarding service to send a text message to your phone notifying you of the change.
 
 IMPORTANT NOTE: You may only check http://checkip.dyndns.com once every 600 seconds (and consequently, you should schedule this script to run no more than once every 600 seconds). If you check http://checkip.dyndns.com more often, then it may not resolve. 
 
