@@ -72,7 +72,8 @@
     -TextUniqueToTargetTable "Clock Speed (GHz), EBS Only"
 
 .NOTES
-    Be aware that HTML Tables that contain over 100 rows will take several minutes to complete processing.
+    WARNING: For each row in the Target HTML Table it takes this script/function about 500ms to process the information. So a table with 100 rows
+    will take approximately 50 seconds to finish processing.
 
 .PARAMETERS
     1) $TargetURL - [REQUIRED} The URL that contains the table you would like to convert into a multi-dimensional HashTable
@@ -1544,8 +1545,8 @@ function New-HashTableFromHTML {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUS8Oi31LhvHwRzBac2Yh8kh3S
-# trCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW3nQ9xe7XgD6iWi7YXrNNR/9
+# MPWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1600,11 +1601,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTjt96KVhxX
-# ubjUCX2Aml+fJMrLwjANBgkqhkiG9w0BAQEFAASCAQBfGrcTWtz1CueMTkj7KFzw
-# 5wVXD1C0Wh2VDjz6rXvHQUgo34gT7W+8HCYB/dw7N1eWNSF6NcSfcF0C9VIZUXFQ
-# lvehN2VD33hA8QWVORIScKouoR77317VsjjeEFjTSks0FOlHtF4hKpgOcO2Z96hL
-# 4SIGOBzlf18dPEhF0QV5mE8+m36CjQ6B7G/0utO/cQjX4JbkdcsnBY4dfgZMiKNT
-# u2r29r7gvnZ9wK9NrTjhVrptySkPTA7HHoiE+7NKFoQ6P5+0rQoTSSgrAJyJzYc5
-# vbG+vH/GuP7SspF340ex1hcmBQqHTPnM8jwKPbz9/pN5aDJmXT4lE0r08mj+slwa
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRfOHvzzoGI
+# hR+nItAujWMLbMBagDANBgkqhkiG9w0BAQEFAASCAQA72W7TovPZgIK14iWo46v6
+# g82RYcN+1I93B//bSOkqPLkSgJ9yVeijMTeUApEFJSkz4QoeC6JCn6OR9QdSeTvf
+# Xq0U2kbVGxpljmUHZCoygMUddMNCCOJaKocfyWw/MDaRyU5n7YdFsDloi4oYwr8+
+# 60jz9EDG0aLy8O/DL9EGjmJv127ZoEe4rrwWz6nfPwZFotmoIp+pgLGyx5sUrWZI
+# 46BJrCjFC0IcH2LVYF2W4dHExD/kg8rqtNP0zGb6s2T9fiQana1papw7jzvmKzJ2
+# eHTYlIDov8QJQwo8Pa11hRaEXOkgG+NFNuwUJfQ760NokFtTqObbvfv0rDDnLHbM
 # SIG # End signature block
