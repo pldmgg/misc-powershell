@@ -425,15 +425,16 @@ function New-HashTableFromHTML {
             }
 
             Write-Host "Writing TableTarget.Count prior to searching Unique Text"
-            $TableTarget.Count
+            $TableTargetCount = $TableTarget.Count
+            Write-Output $TableTargetCount
 
-            For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+            $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+            For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                 $TableTarget = ([array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"}))
             }
 
-            $TableTargetCount = $TableTarget.Count
-            Write-Host ""
             Write-Host "Writing `$TableTarget.Count (should be 1)"
+            $TableTargetCount = $TableTarget.Count
             Write-Output $TableTargetCount
             
             # If $TextUniqueToTargetTable isn't specific enough to filter out all but one table, ask the user to provide different/additional $TextUniqueTotargetTable
@@ -442,12 +443,13 @@ function New-HashTableFromHTML {
                     Write-Host "More than one HTML table was found on $TargetURL based on the text string (i.e. '$TextUniqueToTargetTable') that is supposedly unique to one table."
                     [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                     [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
-                    For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+
+                    $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                    For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                         $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                     }
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -486,7 +488,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -497,8 +500,9 @@ function New-HashTableFromHTML {
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"} `
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
-
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -513,14 +517,14 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
 
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -559,7 +563,8 @@ function New-HashTableFromHTML {
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -569,7 +574,8 @@ function New-HashTableFromHTML {
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -582,14 +588,14 @@ function New-HashTableFromHTML {
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
 
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -631,7 +637,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -643,7 +650,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -654,7 +662,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -669,7 +678,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -683,7 +693,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -696,7 +707,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -711,14 +723,14 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
 
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -745,12 +757,14 @@ function New-HashTableFromHTML {
                     Write-Host "No table containing the unique text $TextUniqueToTargetTable has been found."
                     [array]$TextUniqueToTargetTable = Read-Host -Prompt "Please enter a text that is unique to the one table you would like to target. Separate text from different cells with a comma."
                     [array]$TextUniqueToTargetTable = $TextUniqueToTargetTable.Split(",").Trim()
-                    For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+
+                    $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                    For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                         $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                     }
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
+
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -789,7 +803,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
                         
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -801,7 +816,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -816,14 +832,14 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
 
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -862,7 +878,8 @@ function New-HashTableFromHTML {
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
                         
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -872,7 +889,8 @@ function New-HashTableFromHTML {
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -885,14 +903,14 @@ function New-HashTableFromHTML {
                         $TableTarget = ([array]$($($NewHTMLObjectBody.getElementsByTagName("$ParentHTMLElementTagName") | Where-Object {$_.ClassName -match "$ParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
 
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -934,7 +952,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -946,7 +965,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -957,7 +977,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -972,7 +993,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -986,7 +1008,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -999,7 +1022,8 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
@@ -1014,14 +1038,14 @@ function New-HashTableFromHTML {
                         | Where-Object {$_.parentElement.ClassName -match "$GrandParentHTMLElementClassName"}).children `
                         | Where-Object {$_.tagName -eq "TABLE"} | Where-Object {$_.innerText -like "*$TableTitle*"}))
 
-                        For ($loop=0; $loop -lt $TextUniqueToTargetTable.Count; $loop++) {
+                        $TextUniqueToTargetTableCount = $TextUniqueToTargetTable.Count
+                        For ($loop=0; $loop -lt $TextUniqueToTargetTableCount; $loop++) {
                             $TableTarget = [array]$($TableTarget | Where-Object {$_.innerText -like "*$($TextUniqueToTargetTable[$loop])*"})
                         }
                     }
 
-                    $TableTargetCount = $TableTarget.Count
-                    Write-Host ""
                     Write-Host "Writing `$TableTarget.Count (should be 1)"
+                    $TableTargetCount = $TableTarget.Count
                     Write-Output $TableTargetCount
                     
                     # If the new $TextUniqueTotargetTable isn't specific enough to filter out all but one table, halt the script
@@ -1063,6 +1087,7 @@ function New-HashTableFromHTML {
 
     # The result of $TableTarget.getElementsByTagName("TR") is a __ComObject of BaseType System.MarshalByRefObject but we want an array of __ComObjects
     $ArrayofRowsHTMLObjects = $([array]$($TableTarget.getElementsByTagName("TR")))
+    $ArrayofRowsHTMLObjectsCount = $ArrayofRowsHTMLObjects.Count
 
     ##### END Logic To Target A Specific Table #####
 
@@ -1133,7 +1158,7 @@ function New-HashTableFromHTML {
     [System.Collections.ArrayList]$ArrayofArraysColumnValuesPrep2 = $ArrayofArraysColumnValuesPrep
     
     # For each TR HTML Object...
-    For ($loop=0; $loop -lt $ArrayofRowsHTMLObjects.Count; $loop++) {
+    For ($loop=0; $loop -lt $ArrayofRowsHTMLObjectsCount; $loop++) {
         Write-Host "Starting loop $loop"
         # If the parent HTML element's tagName is thead, then we know we will be dealing with TH elements.
         if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).parentElement.tagName) -eq "THEAD") {
@@ -1505,8 +1530,8 @@ function New-HashTableFromHTML {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfTtsTehuab4dWMcpKSDcnKJT
-# ZSCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU8bgxso8D2Ni3PztYw+anarS
+# HYigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1561,11 +1586,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTuhYvMXqNb
-# /87hIdFNdKXxXYy5BzANBgkqhkiG9w0BAQEFAASCAQA/vxzsdse/rY1uZybRU/we
-# 2fddwAvIaPuDwIyHpbHJWUn+hd3RLz8Y6iTJatdwl/I8Fykk0OheOH+G7K0s5jan
-# f54Af6H222HktzaIHdcm1Ko+xCI3d8joBHFcMTFpuK6a0P9SMoeqdehuFdokijBy
-# K8VLt6dlfU9I8YWy4tgiVocqe0U0ZvlydNFIPjKRnHgQrnou8wLfDpRcD+5nmsdD
-# alroJhMiEQOK4V9MoMogcWGwTZUmfKCOaJfubVWKysRlnGoEzrTiRDs8n7k0n7WE
-# YAK214ilKuDShHFZZ9zUl7s17xc36MKq9eqFDqaXGsW7rjRyogvaVkNcUuMIF7K+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQnvNh4yxwU
+# ka0k6uMJUnAXYVFq1TANBgkqhkiG9w0BAQEFAASCAQBzpZby9dTs8YOPeDJHtUoq
+# wRwQl+MYMQeNgVf+miLiNFJGCi/BTlv4EJXp/Fr3LDq9wgV9xTUyyvx/5TqaKi0D
+# 3Oqd8uoOzliuAyk+sNkoKMvjGVHxr0lbvQ8Kp6R9SYesK5XuxldclNzdCoz/tGN/
+# lKl4YecoSbjby0+qrEhBy7HJr/lf+Pv763UZKnp9p1MfQLXwhMaR1IBG/JYwI7oc
+# IDHQE5wJCfRuVnL4u1UtKBXCuUSvzkBKgnnBdwMosE2bhunOdlMRUQam5XbIAt5a
+# A6vBuylPLCmE+to65E+tRAvVAKWhR3ndX3YkX42M2TJGqDbMzN/QIwY7NecSWV2T
 # SIG # End signature block
