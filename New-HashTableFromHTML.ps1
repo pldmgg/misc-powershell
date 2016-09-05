@@ -1163,6 +1163,9 @@ function New-HashTableFromHTML {
         # If the parent HTML element's tagName is thead, then we know we will be dealing with TH elements.
         if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).parentElement.tagName) -eq "THEAD") {
             Write-Host "Starting THEAD statement"
+            $THElementsCount = ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH"))).Count
+            $THElementsWithTextCount = ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null})).Count
+            $THElementsWithTextThatUseColspanColspanCount = ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null})).colspan
             # If the $TableTitle parameter isn't provided, try to figure out if the table has a title. If it does, make the
             # final hashtable's variable name the table title.
             if ($TableTitle -eq $null) {
@@ -1172,14 +1175,14 @@ function New-HashTableFromHTML {
                 # if the colSpan property on that one TH element is -ge $MaxColumns-2 (doesn't necessarily have to span ALL columns), 
                 # then it is most likely the table's title. In wich case, create an empty HashTable Variable with a name reflecting the table's title.
                 # Else, assume the table doesn't have a title and create a generic HashTable named FinalHashTable that will contain all of the table values.
-                # IMPORTANT NOTE: When attempting to get an object count, code defensively to ensure PowerShell typecasting doesn't 
-                if ( ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH"))).Count -lt $MaxColumns -and `
-                ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null})).Count -eq 1) {
+                # IMPORTANT NOTE: When attempting to get an object count, code defensively to ensure PowerShell typecasting doesn't
+                if ( $THElementsCount -lt $MaxColumns -and $THElementsWithTextCount -eq 1) {
                     Write-Host "Triggering secodnary HashTableTitle if statement"
-                    if ( ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null})).colspan -ge $($MaxColumns-2)) {
+                    if ( $THElementsWithTextThatUseColspanColspanCount -ge $($MaxColumns-2)) {
+                        $THElementInnerText = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null}).innerText
                         # Make Final HashTable Variable out of this Table's Title
                         Write-Host "Triggering creation of HashTableTitle variable..."
-                        New-Variable -Name "HashTableTitle$($($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null}).innerText)" -Scope Global -Value @{}
+                        New-Variable -Name "HashTableTitle$THElementInnerText" -Scope Global -Value @{}
                         #New-Variable -Name "HashTableTitle$loop" -Scope Global -Value @{}
                     }
                 }
@@ -1199,40 +1202,40 @@ function New-HashTableFromHTML {
             }
             # At this point, the Table's Title (if present) has been processed. Now we need to process the Column Headers
             # If the number of TH elements in the TR element are -ge $MaxColumns, then treat them as Column Headers
-            if ( ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH"))).Count -ge $MaxColumns) {
+            if ( $THElementsCount -ge $MaxColumns) {
                 Write-Host "Triggering zeroth if statement"
                 New-Variable -Name "ArrayofColumnValuesforRow$loop" -Value $(
-                    For ($loop2=0; $loop2 -lt ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH"))).Count; $loop2++) {
+                    For ($loop2=0; $loop2 -lt $THElementsCount; $loop2++) {
+                        $THElementWithTextThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null} | Select-Object -Index $loop2).rowspan
+                        $THElementThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).rowspan
+                        $THElementText = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText
                         # In cases where rowspan is used in the 1st Column (i.e. $loop2 = 0), precede the value with @ to make parsing later easier.
-                        if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Where-Object {$_.innerText -ne $null} | Select-Object -Index $loop2).rowspan -gt 1) {
+                        if ( $THElementWithTextThatUsesRowspanRowspanCount -gt 1) {
                             if ($loop2 -eq 0) {
-                                "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                "@"+$THElementText.Trim()+";"
                                 $rowspan = "Yes"
                             }
                         }
                         # In cases where rowspan is used in any other column (i.e. $loop2 -gt 0), treat it like normal
-                        if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).rowspan -gt 1) {
+                        if ( $THElementThatUsesRowspanRowspanCount -gt 1) {
                             if ($loop2 -gt 0) {
-                                $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                $THElementText.Trim()+";"
                             }
                         }
                         # In cases where rowspan is NOT used in the 1st Column, precede the value of Index 0 with @ to make parsing later easier.
-                        if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).rowspan -le 1 `
-                        -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText -ne $null) {
+                        if ( $THElementThatUsesRowspanRowspanCount -le 1 -and $THElementText -ne $null) {
                             if ($loop2 -eq 0) {
-                                "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                "@"+$THElementText.Trim()+";"
                             }
                         }
                         # In cases where rowspan is NOT used and we are NOT processing the 1st Column (i.e. $loop2 -gt 0), process normally
-                        if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).rowspan -le 1 `
-                        -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText -ne $null) {
+                        if ( $THElementThatUsesRowspanRowspanCount -le 1 -and $THElementText -ne $null) {
                             if ($loop2 -gt 0) {
-                                $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                $THElementText.Trim()+";"
                             }
                         }
                         # In cases where there is no value in the TH element, fill it in with the word "null"
-                        if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).rowspan -le 1 `
-                        -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TH") | Select-Object -Index $loop2).innerText -eq $null) {
+                        if ( $THElementThatUsesRowspanRowspanCount -le 1 -and $THElementText -eq $null) {
                             "null;"
                         }
                     }
@@ -1241,93 +1244,99 @@ function New-HashTableFromHTML {
         }
         # If the parent HTML element's tagName is TBODY, then we know we will be dealing with TD elements.
         if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).parentElement.tagName) -eq "TBODY") {
+            $RowspanPresentInRow = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).children | Where-Object {$_.rowSpan -gt 1})
             # If the TR element contains a TD element that contains the property rowspan where rowspan -gt 1
-            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).children | Where-Object {$_.rowSpan -gt 1}) -ne $null) {
+            if ( $RowspanPresentInRow -ne $null) {
                 # If the Subsequent Row has ONE LESS TD Element than the current Row, assume add the Subsequent Row contains values that should be 
                 # added to current Row under current Row's Column 1 (i.e. Index 0) value
-                if ( ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD"))).Count -eq ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count-1) {
+                if ($($loop+1) -lt $ArrayofRowsHTMLObjectsCount) {
+                    $SubsequentRowTDElementCount = ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD"))).Count
+                }
+                $CurrentRowTDElementCount = $([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count
+                if ( $SubsequentRowTDElementCount -eq $($CurrentRowTDElementCount-1)) {
                     Write-Host "Triggering first if statement"
                     New-Variable -Name "ArrayofColumnValuesforRow$loop" -Value $(
-                        For ($loop2=0; $loop2 -le $([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count; $loop2++) {
+                        For ($loop2=0; $loop2 -le $CurrentRowTDElementCount; $loop2++) {
+                            $TDElementWithTextThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Where-Object {$_.innerText -ne $null} | Select-Object -Index $loop2).rowspan
+                            $TDElementThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan
+                            $TDElementText = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText
                             # In cases where rowspan is used in the 1st Column (i.e. $loop2 = 0), precede the value with @ to make parsing later easier.
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -gt 1) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -gt 1) {
                                 if ($loop2 -eq 0) {
-                                    "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    "@"+$TDElementText.Trim()+";"
                                     $rowspan = "Yes"
                                 }
                             }
                             # In cases where rowspan is used in any other column (i.e. $loop2 -gt 0), treat it like normal
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -gt 1) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -gt 1) {
                                 if ($loop2 -gt 0) {
-                                    $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    $TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where rowspan is NOT used in the 1st Column, precede the value of Index 0 with @ to make parsing later easier.
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -ne $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -ne $null) {
                                 if ($loop2 -eq 0) {
-                                    "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    "@"+$TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where rowspan is NOT used and we are NOT processing the 1st Column (i.e. $loop2 -gt 0), process normally
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -ne $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -ne $null) {
                                 if ($loop2 -gt 0) {
-                                    $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    $TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where there is no value in the TD element, fill it in with the word "null"
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -eq $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -eq $null) {
                                 "null;"
                             }
                         }
-                        For ($loop3=0; $loop3 -le ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD"))).Count; $loop3++) {
+                        For ($loop3=0; $loop3 -le $SubsequentRowTDElementCount; $loop3++) {
+                            $TDElementSubsequentRowText = $($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD") | Select-Object -Index $loop3).innerText
                             # In cases where there is no value in the TD element, fill it in with the word "null"
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD") | Select-Object -Index $loop3).innerText -eq $null) {
+                            if ( $TDElementSubsequentRowText -eq $null) {
                                 "null;"
                             }
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD") | Select-Object -Index $loop3).innerText -ne $null) {
-                                $($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD") | Select-Object -Index $loop3).innerText.Trim()+";"
+                            if ( $TDElementSubsequentRowText -ne $null) {
+                                $TDElementSubsequentRowText.Trim()+";"
                             }
                         }
                     )
                 }
                 # If the Subsequent Row does NOT have ONE LESS TD Element than the current Row, just process current row normally
-                if ( ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD"))).Count -ne ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count-1) {
+                if ( $SubsequentRowTDElementCount -ne $($CurrentRowTDElementCount-1)) {
                     Write-Host "Triggering second if statement"
                     New-Variable -Name "ArrayofColumnValuesforRow$loop" -Value $(
-                        For ($loop2=0; $loop2 -lt ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count; $loop2++) {
+                        For ($loop2=0; $loop2 -lt $CurrentRowTDElementCount; $loop2++) {
+                            $TDElementWithTextThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Where-Object {$_.innerText -ne $null} | Select-Object -Index $loop2).rowspan
+                            $TDElementThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan
+                            $TDElementText = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText
                             # In cases where rowspan is used in the 1st Column (i.e. $loop2 = 0), precede the value with @ to make parsing later easier.
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -gt 1) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -gt 1) {
                                 if ($loop2 -eq 0) {
-                                    "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    "@"+$TDElementText.Trim()+";"
                                     $rowspan = "Yes"
                                 }
                             }
                             # In cases where rowspan is used in any other column (i.e. $loop2 -gt 0), treat it like normal
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -gt 1) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -gt 1) {
                                 if ($loop2 -gt 0) {
-                                    $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    $TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where rowspan is NOT used in the 1st Column, precede the value of Index 0 with @ to make parsing later easier.
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -ne $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -ne $null) {
                                 if ($loop2 -eq 0) {
-                                    "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    "@"+$TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where rowspan is NOT used and we are NOT processing the 1st Column (i.e. $loop2 -gt 0), process normally
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -ne $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -ne $null) {
                                 if ($loop2 -gt 0) {
-                                    $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    $TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where there is no value in the TD element, fill it in with the word "null"
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -eq $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -eq $null) {
                                 "null;"
                             }
                         }
@@ -1335,42 +1344,46 @@ function New-HashTableFromHTML {
                 }
             }
             # If "rowspan=2" is NOT present...
-            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).children | Where-Object {$_.rowSpan -gt 1}) -eq $null) {
+            if ( $RowspanPresentInRow -eq $null) {
                 # ...And if the current row has the same number of columns (i.e. TD elements) as the Maximum number of columns in the table (i.e. $MaxColumns), then just process the current Row Object
-                if ( ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count -eq $MaxColumns) {
+                if ($($loop+1) -lt $ArrayofRowsHTMLObjectsCount) {
+                    $SubsequentRowTDElementCount = ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $($loop+1)).GetElementsByTagName("TD"))).Count
+                }
+                $CurrentRowTDElementCount = $([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count
+                if ( $CurrentRowTDElementCount -eq $MaxColumns) {
                     Write-Host "Triggering third if statement"
                     New-Variable -Name "ArrayofColumnValuesforRow$loop" -Value $(
-                        For ($loop2=0; $loop2 -lt ([array]$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD"))).Count; $loop2++) {
+                        For ($loop2=0; $loop2 -lt $CurrentRowTDElementCount; $loop2++) {
+                            $TDElementWithTextThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Where-Object {$_.innerText -ne $null} | Select-Object -Index $loop2).rowspan
+                            $TDElementThatUsesRowspanRowspanCount = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan
+                            $TDElementText = $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText
                             # In cases where rowspan is used in the 1st Column (i.e. $loop2 = 0), precede the value with @ to make parsing later easier.
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -gt 1) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -gt 1) {
                                 if ($loop2 -eq 0) {
-                                    "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    "@"+$TDElementText.Trim()+";"
                                     $rowspan = "Yes"
                                 }
                             }
                             # In cases where rowspan is used in any other column (i.e. $loop2 -gt 0), treat it like normal
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -gt 1) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -gt 1) {
                                 if ($loop2 -gt 0) {
-                                    $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    $TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where rowspan is NOT used in the 1st Column, precede the value of Index 0 with @ to make parsing later easier.
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -ne $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -ne $null) {
                                 if ($loop2 -eq 0) {
-                                    "@"+$($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    "@"+$TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where rowspan is NOT used and we are NOT processing the 1st Column (i.e. $loop2 -gt 0), process normally
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -ne $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -ne $null) {
                                 if ($loop2 -gt 0) {
-                                    $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText.Trim()+";"
+                                    $TDElementText.Trim()+";"
                                 }
                             }
                             # In cases where there is no value in the TD element, fill it in with the word "null"
-                            if ( $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).rowspan -le 1 `
-                            -and $($($ArrayofRowsHTMLObjects | Select-Object -Index $loop).GetElementsByTagName("TD") | Select-Object -Index $loop2).innerText -eq $null) {
+                            if ( $TDElementThatUsesRowspanRowspanCount -le 1 -and $TDElementText -eq $null) {
                                 "null;"
                             }
                         }
@@ -1409,6 +1422,7 @@ function New-HashTableFromHTML {
         }
     }
     $ArrayofArraysColumnValues = $ArrayofArraysColumnValuesPrep5 | Where-Object {$_ -ne $null}
+    $ArrayofArraysColumnValuesCount = $ArrayofArraysColumnValues.Count
 
     # End Working through $ArrayofArrayColumnValuesPrep Iterations #
 
@@ -1430,7 +1444,7 @@ function New-HashTableFromHTML {
         # For now, hashtable keys are just hardcoded with the Index number (i.e. $ArrayofArraysColumnValues[$loop][1], etc
         # Because I know in advance that those array elements contain the values for AMIType and AMIID Columns
         $AMITypeHashTable = @{}
-        For ($loop=1; $loop -lt $ArrayofArraysColumnValues.Count; $loop++) {
+        For ($loop=1; $loop -lt $ArrayofArraysColumnValuesCount; $loop++) {
             New-Variable -Name "temphashtableB$loop" -Value @{}
             $interimkeyA = $ArrayofArraysColumnValues[$loop][1]
             $interimvalueA = $ArrayofArraysColumnValues[$loop][2]
@@ -1445,7 +1459,7 @@ function New-HashTableFromHTML {
         }
         
         $AMIIDHashTable = @{}
-        For ($loop=1; $loop -lt $ArrayofArraysColumnValues.Count; $loop++) {
+        For ($loop=1; $loop -lt $ArrayofArraysColumnValuesCount; $loop++) {
             New-Variable -Name "temphashtableC$loop" -Value @{}
             $interimkeyC = $ArrayofArraysColumnValues[$loop][2]
             $interimvalueC = $ArrayofArraysColumnValues[$loop][1]
@@ -1459,7 +1473,7 @@ function New-HashTableFromHTML {
             $AMIIDHashTable.Add($keyC,$valueC)
         }
 
-        For ($loop=1; $loop -lt $ArrayofArraysColumnValues.Count; $loop++) {
+        For ($loop=1; $loop -lt $ArrayofArraysColumnValuesCount; $loop++) {
             New-Variable -Name "temphashtableA$loop" -Value @{}
             For ($loop2=0; $loop2 -lt $ArrayofArraysColumnValues[0].Count; $loop2++) {
                 $tempkeyA = $ArrayofArraysColumnValues[0][0]
@@ -1489,7 +1503,7 @@ function New-HashTableFromHTML {
     }
     # If the $rowspan variable is NOT set to "Yes", this means that the 1st Column DOES NOT use rowspan...
     if ($rowspan -ne "Yes") {
-        For ($loop=1; $loop -lt $ArrayofArraysColumnValues.Count; $loop++) {
+        For ($loop=1; $loop -lt $ArrayofArraysColumnValuesCount; $loop++) {
             New-Variable -Name "temphashtableA$loop" -Value @{}
             For ($loop2=0; $loop2 -lt $ArrayofArraysColumnValues[0].Count; $loop2++) {
                 $tempkeyA = $ArrayofArraysColumnValues[0][$loop2]
@@ -1530,8 +1544,8 @@ function New-HashTableFromHTML {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU8bgxso8D2Ni3PztYw+anarS
-# HYigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUS8Oi31LhvHwRzBac2Yh8kh3S
+# trCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1586,11 +1600,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQnvNh4yxwU
-# ka0k6uMJUnAXYVFq1TANBgkqhkiG9w0BAQEFAASCAQBzpZby9dTs8YOPeDJHtUoq
-# wRwQl+MYMQeNgVf+miLiNFJGCi/BTlv4EJXp/Fr3LDq9wgV9xTUyyvx/5TqaKi0D
-# 3Oqd8uoOzliuAyk+sNkoKMvjGVHxr0lbvQ8Kp6R9SYesK5XuxldclNzdCoz/tGN/
-# lKl4YecoSbjby0+qrEhBy7HJr/lf+Pv763UZKnp9p1MfQLXwhMaR1IBG/JYwI7oc
-# IDHQE5wJCfRuVnL4u1UtKBXCuUSvzkBKgnnBdwMosE2bhunOdlMRUQam5XbIAt5a
-# A6vBuylPLCmE+to65E+tRAvVAKWhR3ndX3YkX42M2TJGqDbMzN/QIwY7NecSWV2T
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTjt96KVhxX
+# ubjUCX2Aml+fJMrLwjANBgkqhkiG9w0BAQEFAASCAQBfGrcTWtz1CueMTkj7KFzw
+# 5wVXD1C0Wh2VDjz6rXvHQUgo34gT7W+8HCYB/dw7N1eWNSF6NcSfcF0C9VIZUXFQ
+# lvehN2VD33hA8QWVORIScKouoR77317VsjjeEFjTSks0FOlHtF4hKpgOcO2Z96hL
+# 4SIGOBzlf18dPEhF0QV5mE8+m36CjQ6B7G/0utO/cQjX4JbkdcsnBY4dfgZMiKNT
+# u2r29r7gvnZ9wK9NrTjhVrptySkPTA7HHoiE+7NKFoQ6P5+0rQoTSSgrAJyJzYc5
+# vbG+vH/GuP7SspF340ex1hcmBQqHTPnM8jwKPbz9/pN5aDJmXT4lE0r08mj+slwa
 # SIG # End signature block
