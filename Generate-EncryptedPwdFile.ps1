@@ -17,7 +17,7 @@ function Generate-EncryptedPwdFile {
 
     $position = $FileToOutput.LastIndexOf("\")
     $FileToOutputDirectory = $FileToOutput.Substring(0, $position)
-    $FileToOutputfile = $FileToOutput.Substring($position+1)
+    $FileToOutputFile = $FileToOutput.Substring($position+1)
     if (! $(Test-Path $FileToOutputDirectory)) {
         Write-Host "The directory $FileToOutputDirectory does not exist. Please check the path."
         $FileToOutput = Read-Host -Prompt "Please enter the full path to the output file that will be created"
