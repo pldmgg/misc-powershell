@@ -9,9 +9,9 @@
 
 .DEPENDENCIES
     1) AWS PowerShell Tools - https://aws.amazon.com/powershell/
-    2) Win32 OpenSSL - https://indy.fulgan.com/SSL/
-    3) Win32-OpenSSH - https://github.com/PowerShell/Win32-OpenSSH/releases
-    4) WinSCP Version 5.9 or Higher - https://winscp.net/eng/download.php
+    2) Win32-OpenSSH - https://github.com/PowerShell/Win32-OpenSSH/releases
+    3) WinSCP Version 5.9 or Higher - https://winscp.net/eng/download.php
+    4) Pageant - http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html
 
 .PARAMETERS
     1) $OutputDirectory - The full path to the directory where all output files will be written
@@ -162,7 +162,7 @@ function New-AWSSSHKey {
     # Validate Directories...
     $DirectoryValidationArray = @("$OutputDirectory","$HelperFunctionSourceDirectory","$PathToWin32OpenSSH","$PathToWinSCP","$PathToPageant")
     foreach ($obj1 in $DirectoryValidationArray) {
-        if (Test-Path $OutputDirectory) {
+        if (Test-Path $obj1) {
             Write-Host "$obj1 is a valid directory. Continuing..."
         }
         else {
@@ -186,12 +186,12 @@ function New-AWSSSHKey {
     (New-EC2KeyPair -KeyName $NewEC2KeyName).KeyMaterial | Out-File "$OutputDirectory\$NewEC2KeyName-key.pem" -Append ascii
     # Using the above private key, generate a public key in OpenSSH Format to be used in ~/.ssh/authorized_keys using Win32-OpenSSH
     & "$PathToWin32OpenSSH\ssh-keygen" -y -f "$OutputDirectory\$NewEC2KeyName-key.pem" > "$OutputDirectory\$NewEC2KeyName-openssh-authorized-keys-format.pub"
-    # Add a comment at the end of the aove OpenSSH public key to help keep track of it in the future
+    # Add a comment at the end of the above OpenSSH public key to help keep track of it in the future
     $PubKeyInOpenSSHFormatFinal = $(Get-Content "$OutputDirectory\$NewEC2KeyName-openssh-authorized-keys-format.pub" -Encoding Ascii)+" $NewEC2KeyName"
     Set-Content -Path "$OutputDirectory\$NewEC2KeyName-openssh-authorized-keys-format.pub" -Value $PubKeyInOpenSSHFormatFinal
     # Convert $NewEC2KeyName-key.pem to $NewEC2KeyName-key.ppk for use with puttygen
     & "$PathToWinSCP\WinSCP.com" /keygen "$OutputDirectory\$NewEC2KeyName-key.pem" /output="$OutputDirectory\$NewEC2KeyName-key.ppk" /comment="$NewEC2KeyName"
-    # Start Pageant and Add the new .ppk key to the list of available keys
+    # Start Pageant and Add the new .ppk key to the list of available keys. If Pageant is already running, it will simply add the key.
     & "$PathToPageant\pageant.exe" "$OutputDirectory\$NewEC2KeyName-key.ppk"
 
     # Output Global PSObject with Properties representing the location of the .pem, .pub, and .ppk files
@@ -213,8 +213,8 @@ function New-AWSSSHKey {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOUbCSx+G3Fvx6Bg1jC5FZeL1
-# TYugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6WOMqAcDywWYwquaQe5yLv0f
+# OB+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -269,11 +269,11 @@ function New-AWSSSHKey {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRy1js+H/oe
-# aXP/KMZOsZJNygYjbjANBgkqhkiG9w0BAQEFAASCAQAKI99fqOuFOV5HFFMex1t5
-# /Z2NvLUlLRlTMAcGLP6poL4e00mYl2dgVsZb9/aV7kleC+yKfoy50l9Kft/DivlX
-# cGd3rWwSEW/yzSaSX8aWkIfCVGw0DQWgpHCmO7fk8Y0BGtELNmDNWCV7c3lDdiao
-# QqMXRVWZ6zsygKhYgH3+ufzV5vJ5Kmbs/VW0ObjiNhpeSLMkq1PgdZXJr+o9W+8y
-# FGKInDCE3xD1U2eK52zqzttkbWQShQ7yLq/+VmMUv4nC6irh1AXUlag7ejQtUbV7
-# PbgRsE2BsxV9trqQ4YXQrAvwMyuzr6nPL0wZcMiVkV8nsoxjduEZviKzmNUubtF7
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRgzcaCfzOn
+# tVifD4igMZVjxl7B2TANBgkqhkiG9w0BAQEFAASCAQB/HAaPFsmU7lasVu9fyJqz
+# pWf6PJGJsFFwwnl0iwEditbA4w4OO5xGKgRL/tKcfa2LbHgXwJ7kXHLrxuj52oIc
+# 8YX4rcfco/Qm0/tfvV1/Ylayyi9G6T6zuBsXmtf/OfmaRphT3eht2ve0c4Pkwxw+
+# uG89Qv4p5HU/vRPt6RQrCpEMWDMpf7CNWg5m1mcycSzDxuQ44cXAlLyQ5/OP2VtU
+# 7TCIWEnW+GoXYS/bvRUKjAO14DqAFidMIr65ihJV1z3tLo0o1HZX9sUhjT5he+uB
+# YglRyoAkVitDVT4sBdJMgc9l6zdmolq+NGj6f+ktogJEK1XwXuXffiUWD8yu2JpL
 # SIG # End signature block
