@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
-    This function/script is a Swiss-Army Knife for SSL key conversion/creation. All conversions use an existing unencrypted RSA private key.
-    It can generate teh following outputs:
-        1) A PPK file that contains both public and private key information for for use with PuTTY/Pageant
+    This function/script is a Swiss-Army Knife for SSL key conversion/creation.
+     
+    Using an existing unencrypted RSA private key, it can generate the following outputs:
+        1) A PPK file (contains both public and private key information) for use with PuTTY/Pageant
             - file extension = .ppk
             - file format = UTF-8
         2) A Public Key in OpenSSH Format to be used in ~/.ssh/authorized_keys on Linux hosts
@@ -448,8 +449,8 @@ extendedKeyUsage = serverAuth
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUX2OCoeM+dCfOSKy/8gAKCot+
-# 91egggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeZMY7MDxs5cdKtjQqLCIIn5j
+# WrGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -504,11 +505,11 @@ extendedKeyUsage = serverAuth
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS/IAXFzXVy
-# 06k61Sf2JR1pQeO3vTANBgkqhkiG9w0BAQEFAASCAQBveuyNWbTzA70l5kTcKx5O
-# 7COUhNQrRbtaYVWLyuEOMMrFT5oNEG2s/Aoj3gZRjXBUkxa/fvICZeG60pgWYURb
-# 2QfwUWW4ER/orthGTVHM9ZVNNmDpxv52hPTu7732rrS3Ptl2QbHN52vSM3S7OX6G
-# dOC6dmG+nS9Gstw6ZHp71macHopMMx/b7sxpAe+Hw7ic2tO8etnjx+mVvjzrrVI7
-# 3zsmYyJiVJwG98r8UBMNrn9rR930orBssKcooPMrP7r1j9zSrvnZzJtwqvLRkkJq
-# VGBRokxg8s59yxjTmnTs+0smj4wrhwcwFuQXBc1R5TV85MoAjRT7l6QzZZNvJuy0
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTleizyXDzy
+# j60eaBvi44iJO3Y1kTANBgkqhkiG9w0BAQEFAASCAQCJH3RiX4h5a65dSIVG0TQU
+# tYlXOyROIho20Z9VchQjO4IYraR16bsoKQUTAd0/w69SE6BB5ou3C3zpJEN5c9Sx
+# IMl+jvkQ0I8G9gQFeu8J1YTM9K0J/xX3d74bb0r90N/b+odVIg6qTp5bFrtWX02g
+# z5To3egQ8BomnBklrAIm9IQ3iG6DZf8Fho7bybPHgTMigrmgzIHY/1OJ5AFYBySi
+# V1xf0AodE+xlReEuldV6Qy7nk0YzU0f0Xh6DsMgBbrTgjYsTSb8MR19xpO1jFLRG
+# DLFZvromcHqI9n9FgjH1dSRXw2I75/OoEOUQ6EgZfDI441NiVhNasDiE0SbEtyA1
 # SIG # End signature block
