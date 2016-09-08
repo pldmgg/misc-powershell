@@ -75,72 +75,74 @@ function Send-EmailOnPublicIPChange {
 
     )
 
-##### BEGIN Helper Functions #####
+    ##### BEGIN Helper Functions #####
 
-# See: https://github.com/pldmgg/misc-powershell/blob/master/Decrypt-EncryptedPwdFile.ps1
-. "$HelperFunctionSourceDirectory\Decrypt-EncryptedPwdFile.ps1"
+    # See: https://github.com/pldmgg/misc-powershell/blob/master/Decrypt-EncryptedPwdFile.ps1
+    . "$HelperFunctionSourceDirectory\Decrypt-EncryptedPwdFile.ps1"
 
-##### END Helper Functions #####
+    ##### END Helper Functions #####
 
-##### BEGIN Variable Transforms #####
+    ##### BEGIN Variable Transforms #####
 
-$GmailSenderAddress = $GmailUserName@gmail.com
+    $GmailSenderAddress = "$GmailUserName@gmail.com"
 
-if ($CellProvider -eq "Verizon") {
-    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@vtext.com"
+    if ($CellProvider -eq "Verizon") {
+        $CellProviderEmailAddress = "$PhoneNumberToReceiveText@vtext.com"
+    }
+    if ($CellProvider -eq "T-Mobile") {
+        $CellProviderEmailAddress = "$PhoneNumberToReceiveText@tmomail.net"
+    }
+    if ($CellProvider -eq "ATT") {
+        $CellProviderEmailAddress = "$PhoneNumberToReceiveText@txt.att.net"
+    }
+    if ($CellProvider -eq "Sprint") {
+        $CellProviderEmailAddress = "$PhoneNumberToReceiveText@messaging.sprintpcs.com"
+    }
+
+    ##### END variable Transforms #####
+
+    ##### BEGIN Main Body #####
+
+    # Get Old Public IP
+    $OutputPath = "$HOME\$CurrentPublicIPFile"
+    $OldPublicIP = Get-Content -Path $OutputPath
+    Write-Host "Old Public IP is $OldPublicIP"
+
+    # Get the Public IP string
+    $PublicIPPrep = Invoke-WebRequest -Uri "$URLThatReturnsPublicIP" | Select-Object -ExpandProperty Content
+    $IPRegex = '\b(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b'
+    $NewPublicIP = $($PublicIPPrep | Select-String -Pattern $IPRegex).Matches.Value
+    Write-Host "New Public IP is $NewPublicIP"
+
+    # Write Public IP to file which will be overwritten evertime this script runs
+    Set-Content -Path $OutputPath -Value $NewPublicIP
+
+    #If the IP hasnt changed...
+    if ($OldPublicIP -eq $NewPublicIP) {
+        Write-Host "Public IP Address has NOT changed...No action taken"
+        exit
+    }
+
+    #If the IP has changed...
+    if($OldPublicIP -ne $NewPublicIP){
+        $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFile
+        $Password = ConvertTo-SecureString $PasswordPrep -AsPlainText -Force
+        # Overwrite the plaintext password in memory
+        $PasswordPrep = "null"
+        $Cred = New-Object -TypeName System.Management.Automation.PSCredential -Argumentlist $Username, $Password
+        Send-MailMessage -from $GmailSenderAddress -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $SMTPConnection `
+        -Credential $cred -UseSsl -to $CellProviderEmailAddress -Port 587
+    }
+
+    ##### END Main Body #####
+
 }
-if ($CellProvider -eq "T-Mobile") {
-    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@tmomail.net"
-}
-if ($CellProvider -eq "ATT") {
-    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@txt.att.net"
-}
-if ($CellProvider -eq "Sprint") {
-    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@messaging.sprintpcs.com"
-}
-
-##### END variable Transforms #####
-
-##### BEGIN Main Body #####
-
-# Get Old Public IP
-$OutputPath = "$HOME\$CurrentPublicIPFile"
-$OldPublicIP = Get-Content -Path $OutputPath
-Write-Host "Old Public IP is $OldPublicIP"
-
-# Get the Public IP string
-$PublicIPPrep = Invoke-WebRequest -Uri "$URLThatReturnsPublicIP" | Select-Object -ExpandProperty Content
-$IPRegex = '\b(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b'
-$NewPublicIP = $($PublicIPPrep | Select-String -Pattern $IPRegex).Matches.Value
-Write-Host "New Public IP is $NewPublicIP"
-
-# Write Public IP to file which will be overwritten evertime this script runs
-Set-Content -Path $OutputPath -Value $NewPublicIP
-
-#If the IP hasnt changed...
-if ($OldPublicIP -eq $NewPublicIP) {
-    Write-Host "Public IP Address has NOT changed...No action taken"
-    exit
-}
-
-#If the IP has changed...
-if($OldPublicIP -ne $NewPublicIP){
-    $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFile
-    $Password = ConvertTo-SecureString $PasswordPrep -AsPlainText -Force
-    # Overwrite the plaintext password in memory
-    $PasswordPrep = "null"
-    $Cred = New-Object -TypeName System.Management.Automation.PSCredential -Argumentlist $Username, $Password
-    Send-MailMessage -from $GmailSenderAddress -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $SMTPConnection `
-    -Credential $cred -UseSsl -to $CellProviderEmailAddress -Port 587
-}
-
-##### END Main Body #####
 
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcrhxUgGeXNt5VhhIe0pDRiAK
-# IfugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdnRzsYpln3EfY6LsVmqKCOOB
+# d6GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -195,11 +197,11 @@ if($OldPublicIP -ne $NewPublicIP){
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR34QBrGC6f
-# Cj8MGHea0ZjMGDug7jANBgkqhkiG9w0BAQEFAASCAQBFDU2rlt+UrkOt2msS7xcq
-# T/vMX+rJjuNkcDtQim6EznsQzsr9uO/8iYRZfIjGardHvQfCeDBiInIJeTKKqzlw
-# OfO4agkTvuZ9tdkmFtP7zWzZTmMCNHut7DV+6fwZPh9xNP+hwfH1vVqv9Pc/6nvl
-# RlolmucUQOAM+uxOQwC9FV+91We6xvqVtdzniIQCdrtNqQnTPdu/o2F1Q9A+N+fy
-# II2JKsJqiiQbZNoRlvmf/zKw9hqykRtDP4VRouHacUEyDnlt2yV19/LE2Vcsxk79
-# DoOECsC2sGfpG6cZdT/sZ+YL3inEtoXxyX0TNVrUgEuLxD7AWnv3a/6hBRpeLyZk
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTNB0kQ/cuz
+# FierqNdPmwImLAmKWTANBgkqhkiG9w0BAQEFAASCAQBy81u1QJg0WIUQfiCvFKv9
+# 65yKytXkxDFUFIsMknX+AcAj6iNxgbQV1fqvxmNAxY2OdEWx1sRgXa3qbDdkgfcE
+# a+PP006s6t7Kq/sSrkadgFde5+29uGCQ9NDDCgjL3qvWxmwMgiyrdrhlbJ2Zp0i9
+# olRsGLEMD4HvyWXavncoKHZXnDXfsg3G7cHuPbqerExwW9rQsHGEY9r+CsiqOTXm
+# gcpuCRTz+zugg8mQnUz1AwORXilwRpQzw/HXJSPjMI2Uop0IJ2fGX1Xp4eqDZZwg
+# +pEToyVDeySVffExKUyx0FJnCQgsMor/gQSf8JZcP7maQTiPkynjqoaW9VPJ5U/O
 # SIG # End signature block
