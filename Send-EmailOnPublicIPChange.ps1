@@ -7,23 +7,50 @@
     
 .DEPENDENCIES
     This function/script requires that there be an existing file that contains your encrypted gmail password. This file should be generated
-    using the Generate-EncryptedPwdFile.ps1 script/function located here:
+    using the Generate-EncryptedPwdFile.ps1 script/function located here...
     https://github.com/pldmgg/misc-powershell/blob/master/Generate-EncryptedPwdFile.ps1
 
+    ...and it needs to be decrypted by the Decrypt-EncryptedPwdFile.ps1 script/function which must be placed in the $HelperFunctionSourceDirectory.
+    Get the Decrypt-EncryptedPwdFile.ps1 script/function here: 
+    https://github.com/pldmgg/misc-powershell/blob/master/Decrypt-EncryptedPwdFile.ps1
+
 .PARAMETERS
-    1) $OutputDirectory - The full path to the directory where all output files will be written
+    1) [MANDATORY] $HelperFunctionSourceDirectory - The full path to the directory that contains the Decrypt-EncryptedPwdFile.ps1 script/function
 
-    2) $AWSIAMProfile - The AWS PowerShell Tools IAM Profile that you would like to use in order to interact with AWS.
+    2) [MANDATORY] $OutputDirectory - The full path to the directory where $CurrentPublicIPFile will be written
 
-    3) $DefaultAWSRegion - The AWS Region that your EC2 instances currently/will reside
+    3) [MANDATORY] $CurrentPublicIPFile - The name of the file that contains your current/old/new Public IP Address (Default: currentpublicip.txt)
 
-    4) $NewEC2KeyName - The name of your new EC2 Key
+    4) [MANDATORY] $URLThatReturnsPublicIP - The URL that returns your Public IP (Default: http://checkip.dyndns.com)
 
-    5) $PathToWin32OpenSSH - The full path to the directory that contains Win32-OpenSSH
+    5) [MANDATORY] $GmailUserName - The username for the Gmail Account you are using to send an email to the Cell Provider SMS forwarding service email address.
 
-    6) $PathToWinSCP - The full path to the directory that contains WinSCP (must be version 5.9 or higher)
+    6) [MANDATORY] $SMTPConnection - The smtp connection to gmail. (Default: smtp.gmail.com)
 
-    7) $PathToPageant - The full path to the directory that contains Pageant (most likely in C:\Program Files (x86)\PuTTY)
+    7) [MANDATORY] $EncryptedPwdFile - The file that contains your encrypted Gmail App Password. Should be generated initially by using the
+    Generate-EncryptedPwdFile.ps1 script/funtion located here: https://github.com/pldmgg/misc-powershell/blob/master/Generate-EncryptedPwdFile.ps1
+
+    8) $CNofCertInStoreToDecryptPwdFile and $PathToCertFileToDecryptPwdFile - One of these two parameters is MANDATORY. 
+    
+    If the certificate used to create your $EncryptedPwdFile is available in your local Certificate Store under Cert:\CurrentUser\My, 
+    then set the $CNofCertInStoreToDecryptPwdFile parameter to the CN of the certificate. For example, given the following content of your
+    local Certificate Store...
+    PS Cert:\CurrentUser\My\> Get-ChildItem
+
+        Directory: Microsoft.PowerShell.Security\Certificate::CurrentUser\My
+
+    Thumbprint                                Subject
+    ----------                                -------
+    03AF098180F9F37EE3C498476684CDEB60128659  CN=PowerShell_Scripting, L=Portland, S=OR, C=US
+    
+    ...you would set the $CNofCertInStoreToDecryptPwdFile parameter to "PowerShell_Scripting"
+
+    If the certificate used to create your $EncryptedPwdFile is available as a .pfx file on your Windows filesystem, then set the 
+    $PathToCertFileToDecryptPwdFile parameter to the full file path. For example: C:\EncryptedPwdFiles\PowerShell_Scripting.pfx
+
+    9) [MANDATORY] $PhoneNumberToReceiveText - The phone number you would like the text message sent to
+
+    10) [MANDATORY] $CellProvider - The Cell Provider for your phone. Choose either Verizon, ATT, T-Mobile, or Sprint
 
 .EXAMPLE
     Send-EmailOnPublicIPChange `
@@ -31,8 +58,9 @@
     -OutputDirectory "C:\powershell\RecurringTasks\Outputs" `
     -URLThatReturnsPublicIP "http://checkip.dyndns.com" `
     -GmailUserName "gmailusername" `
+    -CNofCertInStoreToDecryptPwdFile "PowerShell_Scripting" `
     -SMTPConnection "smtp.gmail.com" `
-    -EncryptedPwdFile "C:\EncryptedPwdFiles\gmailpwd.txt" `
+    -EncryptedPwdFile "C:\powershell\EncryptedPwdFiles\gmailpwd.txt" `
     -PhoneNumberToReceiveText "1234567890" `
     -CellProvider "Verizon"
 
@@ -46,7 +74,7 @@ function Send-EmailOnPublicIPChange {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
-        $HelperFunctionSourceDirectory = $(Read-Host -Prompt "Please enter the full path to the directory that contains the Decrypt-EncryptedPwd.ps1 script/function"),
+        $HelperFunctionSourceDirectory = $(Read-Host -Prompt "Please enter the full path to the directory that contains the Decrypt-EncryptedPwdFile.ps1 script/function"),
 
         [Parameter(Mandatory=$False)]
         $OutputDirectory = $(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written"),
@@ -67,6 +95,12 @@ function Send-EmailOnPublicIPChange {
         $EncryptedPwdFile = $(Read-Host -Prompt "Please enter the full path to the file that contains your encrypted gmail password"),
 
         [Parameter(Mandatory=$False)]
+        $CNofCertInStoreToDecryptPwdFile,
+
+        [Parameter(Mandatory=$False)]
+        $PathToCertFileToDecryptPwdFile,
+
+        [Parameter(Mandatory=$False)]
         $PhoneNumberToReceiveText = $(Read-Host -Prompt "Please enter the Phone Number (without dashes) that will receive the SMS text message"),
 
         [Parameter(Mandatory=$True)]
@@ -74,6 +108,29 @@ function Send-EmailOnPublicIPChange {
         $CellProvider
 
     )
+
+    ##### BEGIN Variable Validation #####
+
+    # Validate Directories...
+    $DirectoryValidationArray = @("$OutputDirectory","$HelperFunctionSourceDirectory")
+    foreach ($obj1 in $DirectoryValidationArray) {
+        if (Test-Path $obj1) {
+            Write-Host "$obj1 is a valid directory. Continuing..."
+        }
+        else {
+            Write-Host "$obj1 cannot be found."
+            $obj1 = Read-Host -Prompt "Please enter a valid path to a directory."
+            if (Test-Path $obj1) {
+                Write-Host "$obj1 is a valid directory. Continuing..."
+            }
+            else {
+                Write-Host "$obj1 cannot be found. Halting!"
+                return
+            }
+        }
+    }
+
+    ##### END Variable Validation #####
 
     ##### BEGIN Helper Functions #####
 
@@ -104,9 +161,15 @@ function Send-EmailOnPublicIPChange {
     ##### BEGIN Main Body #####
 
     # Get Old Public IP
-    $OutputPath = "$HOME\$CurrentPublicIPFile"
-    $OldPublicIP = Get-Content -Path $OutputPath
-    Write-Host "Old Public IP is $OldPublicIP"
+    if (Test-Path "$OutputDirectory\$CurrentPublicIPFile") {
+        $OutputPath = "$OutputDirectory\$CurrentPublicIPFile"
+        $OldPublicIP = Get-Content -Path $OutputPath
+        Write-Host "Old Public IP is $OldPublicIP"
+    }
+    else {
+        $OutputPath = "$OutputDirectory\$CurrentPublicIPFile"
+        Set-Content -Path $OutputPath -Value "First Run"
+    }
 
     # Get the Public IP string
     $PublicIPPrep = Invoke-WebRequest -Uri "$URLThatReturnsPublicIP" | Select-Object -ExpandProperty Content
@@ -125,11 +188,19 @@ function Send-EmailOnPublicIPChange {
 
     #If the IP has changed...
     if($OldPublicIP -ne $NewPublicIP){
-        $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFile
+        if ($CNofCertInStoreToDecryptPwdFile -ne $null -and $PathToCertFileToDecryptPwdFile -eq $null) {
+            $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFile -CNofCertInStore $CNofCertInStoreToDecryptPwdFile
+        }
+        if ($CNofCertInStoreToDecryptPwdFile -eq $null -and $PathToCertFileToDecryptPwdFile -ne $null) {
+            $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFile -PathToCertFile $PathToCertFileToDecryptPwdFile
+        }
+        if ($CNofCertInStoreToDecryptPwdFile -eq $null -and $PathToCertFileToDecryptPwdFile -eq $null) {
+            $PasswordPrep = Decrypt-EncryptedPwdFile -EncryptedPwdFileInput $EncryptedPwdFile
+        }
         $Password = ConvertTo-SecureString $PasswordPrep -AsPlainText -Force
         # Overwrite the plaintext password in memory
         $PasswordPrep = "null"
-        $Cred = New-Object -TypeName System.Management.Automation.PSCredential -Argumentlist $Username, $Password
+        $Cred = New-Object -TypeName System.Management.Automation.PSCredential -Argumentlist $GmailUsername, $Password
         Send-MailMessage -from $GmailSenderAddress -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $SMTPConnection `
         -Credential $cred -UseSsl -to $CellProviderEmailAddress -Port 587
     }
@@ -141,8 +212,8 @@ function Send-EmailOnPublicIPChange {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdnRzsYpln3EfY6LsVmqKCOOB
-# d6GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfxMWF1YdBc08ZPS7RBqxVRZo
+# LRKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -197,11 +268,11 @@ function Send-EmailOnPublicIPChange {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTNB0kQ/cuz
-# FierqNdPmwImLAmKWTANBgkqhkiG9w0BAQEFAASCAQBy81u1QJg0WIUQfiCvFKv9
-# 65yKytXkxDFUFIsMknX+AcAj6iNxgbQV1fqvxmNAxY2OdEWx1sRgXa3qbDdkgfcE
-# a+PP006s6t7Kq/sSrkadgFde5+29uGCQ9NDDCgjL3qvWxmwMgiyrdrhlbJ2Zp0i9
-# olRsGLEMD4HvyWXavncoKHZXnDXfsg3G7cHuPbqerExwW9rQsHGEY9r+CsiqOTXm
-# gcpuCRTz+zugg8mQnUz1AwORXilwRpQzw/HXJSPjMI2Uop0IJ2fGX1Xp4eqDZZwg
-# +pEToyVDeySVffExKUyx0FJnCQgsMor/gQSf8JZcP7maQTiPkynjqoaW9VPJ5U/O
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBShQ2/753m5
+# PiqQ24qOsaSHiuXewDANBgkqhkiG9w0BAQEFAASCAQCCZJsoZCwdqRRD9TaetDX0
+# IBVCmmtHKvdjQpzGaAanv9UFSyn/taIe7DBhE2097zmTsAaiXL8k17KKNcY5M6K/
+# X8Ee6Y8dvFlSGSCDECZUqyt/H5u2BTLOPlq1MXDVF4l7OhLCf/fXNeinS8vdJ4Gh
+# DGlL6YqXF8fiw77E5f5VdsNgOvNvUfd4i9dWolMnSaPSbVPibrif9Em08DlHZVpG
+# WuJnonHvTbd6Sk+yUprgTWkJ7dm2g9XZ6Vk8JvHbo4wMWP9r/LUXQt3UugAETeMv
+# flXYzerENx8Iu8L1t35EADk/tP946OqMFYVbEcKyiLfOf2bBNbPAbK/DgaMacyus
 # SIG # End signature block
