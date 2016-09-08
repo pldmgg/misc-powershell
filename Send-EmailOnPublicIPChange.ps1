@@ -1,21 +1,105 @@
-﻿# Set Environment Dependent Variables
-$HelperFunctionSourceDirectory = "V:\powershell"
-$CurrentPublicIPFile = "currentpublicip.txt"
-$URLThatReturnsPublicIP = "http://checkip.dyndns.com"
-$GmailUsername = "gmailusername"
-# NOTE: The GmailSenderAddress below is sending an email to the Verizon Email-To-SMS forwarding service. It is NOT sending the SMS directly.
-$GmailSenderAddress = "$GmailUsername@gmail.com"
-$smtp = "smtp.gmail.com"
-$EncryptedPwdFile = " P:\EncryptedPwdFiles\pdogmail.txt"
-$PhoneNumberToReceiveText = "1234567890"
-$VerizonEmailToSMSAddress = "$PhoneNumberToReceiveText@vtext.com" 
+﻿<#
+.SYNOPSIS
+    This function/script sends an email notification via Gmail to the Verizon SMS Forwarding service in order to provide a text message alert
+    when your Public IP Address changes. 
+
+.DESCRIPTION
+    
+.DEPENDENCIES
+    This function/script requires that there be an existing file that contains your encrypted gmail password. This file should be generated
+    using the Generate-EncryptedPwdFile.ps1 script/function located here:
+    https://github.com/pldmgg/misc-powershell/blob/master/Generate-EncryptedPwdFile.ps1
+
+.PARAMETERS
+    1) $OutputDirectory - The full path to the directory where all output files will be written
+
+    2) $AWSIAMProfile - The AWS PowerShell Tools IAM Profile that you would like to use in order to interact with AWS.
+
+    3) $DefaultAWSRegion - The AWS Region that your EC2 instances currently/will reside
+
+    4) $NewEC2KeyName - The name of your new EC2 Key
+
+    5) $PathToWin32OpenSSH - The full path to the directory that contains Win32-OpenSSH
+
+    6) $PathToWinSCP - The full path to the directory that contains WinSCP (must be version 5.9 or higher)
+
+    7) $PathToPageant - The full path to the directory that contains Pageant (most likely in C:\Program Files (x86)\PuTTY)
+
+.EXAMPLE
+    Send-EmailOnPublicIPChange `
+    -HelperFunctionSourceDirectory "C:\powershell\HelperFunctions" `
+    -OutputDirectory "C:\powershell\RecurringTasks\Outputs" `
+    -URLThatReturnsPublicIP "http://checkip.dyndns.com" `
+    -GmailUserName "gmailusername" `
+    -SMTPConnection "smtp.gmail.com" `
+    -EncryptedPwdFile "C:\EncryptedPwdFiles\gmailpwd.txt" `
+    -PhoneNumberToReceiveText "1234567890" `
+    -CellProvider "Verizon"
+
+.OUTPUTS
+    1) $CurrentPublicIPFile - If the file does not exist, this script will create it. If it exists already, this script will overwrite it.
+    2) An SMS Text Message to $PhoneNumberToReceiveText 
+
+#>
+
+function Send-EmailOnPublicIPChange {
+    [CmdletBinding()]
+    Param( 
+        [Parameter(Mandatory=$False)]
+        $HelperFunctionSourceDirectory = $(Read-Host -Prompt "Please enter the full path to the directory that contains the Decrypt-EncryptedPwd.ps1 script/function"),
+
+        [Parameter(Mandatory=$False)]
+        $OutputDirectory = $(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written"),
+
+        [Parameter(Mandatory=$False)]
+        $CurrentPublicIPFile = "currentpublicip.txt",
+
+        [Parameter(Mandatory=$False)]
+        $URLThatReturnsPublicIP = "http://checkip.dyndns.com",
+
+        [Parameter(Mandatory=$False)]
+        $GmailUserName = $(Read-Host -Prompt "Please enter the gmail username that will be used to send an email to the CellProvider SMS Forwarding service"),
+
+        [Parameter(Mandatory=$False)]
+        $SMTPConnection = "smtp.gmail.com",
+
+        [Parameter(Mandatory=$False)]
+        $EncryptedPwdFile = $(Read-Host -Prompt "Please enter the full path to the file that contains your encrypted gmail password"),
+
+        [Parameter(Mandatory=$False)]
+        $PhoneNumberToReceiveText = $(Read-Host -Prompt "Please enter the Phone Number (without dashes) that will receive the SMS text message"),
+
+        [Parameter(Mandatory=$True)]
+        [ValidateSet('Verizon','T-Mobile','ATT','Sprint')]
+        $CellProvider
+
+    )
 
 ##### BEGIN Helper Functions #####
 
-# See: https://github.com/pldmgg/misc-powershell/blob/master/Send-EmailOnPublicIPChange.ps1
+# See: https://github.com/pldmgg/misc-powershell/blob/master/Decrypt-EncryptedPwdFile.ps1
 . "$HelperFunctionSourceDirectory\Decrypt-EncryptedPwdFile.ps1"
 
 ##### END Helper Functions #####
+
+##### BEGIN Variable Transforms #####
+
+$GmailSenderAddress = $GmailUserName@gmail.com
+
+if ($CellProvider -eq "Verizon") {
+    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@vtext.com"
+}
+if ($CellProvider -eq "T-Mobile") {
+    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@tmomail.net"
+}
+if ($CellProvider -eq "ATT") {
+    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@txt.att.net"
+}
+if ($CellProvider -eq "Sprint") {
+    $CellProviderEmailAddress = "$PhoneNumberToReceiveText@messaging.sprintpcs.com"
+}
+
+##### END variable Transforms #####
 
 ##### BEGIN Main Body #####
 
@@ -46,8 +130,8 @@ if($OldPublicIP -ne $NewPublicIP){
     # Overwrite the plaintext password in memory
     $PasswordPrep = "null"
     $Cred = New-Object -TypeName System.Management.Automation.PSCredential -Argumentlist $Username, $Password
-    Send-MailMessage -from $GmailSenderAddress -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $smtp `
-    -Credential $cred -UseSsl -to $VerizonEmailToSMSAddress -Port 587
+    Send-MailMessage -from $GmailSenderAddress -Subject "Public IP has changed to $NewPublicIP" -SmtpServer $SMTPConnection `
+    -Credential $cred -UseSsl -to $CellProviderEmailAddress -Port 587
 }
 
 ##### END Main Body #####
@@ -55,8 +139,8 @@ if($OldPublicIP -ne $NewPublicIP){
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHI+XIVkPF+NUZUc8045tB7Vn
-# JkigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcrhxUgGeXNt5VhhIe0pDRiAK
+# IfugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -111,11 +195,11 @@ if($OldPublicIP -ne $NewPublicIP){
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTFhEqpNmu5
-# fbs+c+PhZhuH90lLjzANBgkqhkiG9w0BAQEFAASCAQB/DHV7eZgPjQ5z9Q4ULoaj
-# CcLKop1HxsqVLiBz3XGlqIKPSwJiGlsS5cqjJUAj+CdqCEevEGeVEcSqW9gSUYKv
-# YQveI0Jl+1bKxV687dYOhzxRLFkCT7lzcd/rcM97Ba7sXb4pb27c8QQsEM6RIhKV
-# d+O5LxdEHgBP4cQMe4Xawt2qA4CjdcMDIS/aSw0eAGQax8nKtGJVVqDhUVOjP84r
-# ntOfOuD3IroUArKGUrwQZb7H8PCX4XO+lhZsT/9EPhqWIIVHBNSiGe5C8EKYwyDt
-# +0pu+NpaCmE64IJKr7z0h2meGdDx8qMldVaKLXcQ2sDWYclfdZylRUAKrGUqEGR7
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR34QBrGC6f
+# Cj8MGHea0ZjMGDug7jANBgkqhkiG9w0BAQEFAASCAQBFDU2rlt+UrkOt2msS7xcq
+# T/vMX+rJjuNkcDtQim6EznsQzsr9uO/8iYRZfIjGardHvQfCeDBiInIJeTKKqzlw
+# OfO4agkTvuZ9tdkmFtP7zWzZTmMCNHut7DV+6fwZPh9xNP+hwfH1vVqv9Pc/6nvl
+# RlolmucUQOAM+uxOQwC9FV+91We6xvqVtdzniIQCdrtNqQnTPdu/o2F1Q9A+N+fy
+# II2JKsJqiiQbZNoRlvmf/zKw9hqykRtDP4VRouHacUEyDnlt2yV19/LE2Vcsxk79
+# DoOECsC2sGfpG6cZdT/sZ+YL3inEtoXxyX0TNVrUgEuLxD7AWnv3a/6hBRpeLyZk
 # SIG # End signature block
