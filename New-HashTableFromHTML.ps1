@@ -460,6 +460,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -468,6 +469,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -534,6 +536,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -542,6 +545,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -605,6 +609,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -613,6 +618,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -740,6 +746,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -748,6 +755,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -775,6 +783,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -783,6 +792,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -849,6 +859,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -857,6 +868,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -920,6 +932,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -928,6 +941,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -1055,6 +1069,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                     # If the new $TextUniqueToTargetTable returns 0 tables, halt the script
@@ -1063,6 +1078,7 @@ function New-HashTableFromHTML {
                         if ($ie -ne $null) {
                             $ie.Quit()
                         }
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -1083,6 +1099,7 @@ function New-HashTableFromHTML {
         if ($ie -ne $null) {
             $ie.Quit()
         }
+        $global:FunctionResult = "1"
         return
     }
 
@@ -1540,13 +1557,15 @@ function New-HashTableFromHTML {
     if ($ie -ne $null) {
         $ie.Quit()
     }
+
+    $global:FunctionResult = "0"
 }
 
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW3nQ9xe7XgD6iWi7YXrNNR/9
-# MPWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOJooIvZVsx/t5KHg4V4N8G0s
+# g02gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1601,11 +1620,11 @@ function New-HashTableFromHTML {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRfOHvzzoGI
-# hR+nItAujWMLbMBagDANBgkqhkiG9w0BAQEFAASCAQA72W7TovPZgIK14iWo46v6
-# g82RYcN+1I93B//bSOkqPLkSgJ9yVeijMTeUApEFJSkz4QoeC6JCn6OR9QdSeTvf
-# Xq0U2kbVGxpljmUHZCoygMUddMNCCOJaKocfyWw/MDaRyU5n7YdFsDloi4oYwr8+
-# 60jz9EDG0aLy8O/DL9EGjmJv127ZoEe4rrwWz6nfPwZFotmoIp+pgLGyx5sUrWZI
-# 46BJrCjFC0IcH2LVYF2W4dHExD/kg8rqtNP0zGb6s2T9fiQana1papw7jzvmKzJ2
-# eHTYlIDov8QJQwo8Pa11hRaEXOkgG+NFNuwUJfQ760NokFtTqObbvfv0rDDnLHbM
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSdjpAm8Ahq
+# Vr+7WF5DT15PZ3msOzANBgkqhkiG9w0BAQEFAASCAQBnw7GZcpsqVccVOqQwHPN3
+# qRksnj6nevI9Coq4Wafdlv5s4ECSu8Z59LzMfaUautlatA2C2fQ3wnU3cyR3kBi+
+# 4tgVWp3x/sEKVk/a53YN+cSCv23Bcs4sq0szniwbmH6/wCQLiGCaMMLzhSzTyzLH
+# /vYCsYVeio+sxjMi1Ops4jhjz69TecicllULiOnUM4cSDOo1A9MWUhqjIivvPF+2
+# hV0KkdwJdLuRBlk/c8W3Pop23xkGv3sPKiMXhdOkIYdR58QhpXhcEYpIJ3l1+FX2
+# xaIA7LtSD23QQTQsWgRLizlgDxJKRqKhz7NVmg7fYmSlQVJuMMDdSyxXJgdKKdSe
 # SIG # End signature block

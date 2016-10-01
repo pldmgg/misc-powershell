@@ -36,8 +36,8 @@
             but $CertFileOut DOES. Even though $CertFileOut has what appear to be extraneous newlines, Microsoft Crypto Shell Extensions will 
             be able to read both files as if they were the same. However, Linux machines will need to use $PublicKeySansChainOutFile (Also, the 
             file extension for $PublicKeySansChainOutFile can safely be changed from .cer to .pem without issue)
-        - A Global HashTable called $global:GenerateCertificateFileOutputHashGlobal that can help the user quickly and easily reference output 
-            files in $CertGenWorking. Example content of $global:GenerateCertificateFileOutputHashGlobal:
+        - A Global HashTable called $GenerateCertificateFileOutputHashGlobal that can help the user quickly and easily reference output 
+            files in $CertGenWorking. Example content of $GenerateCertificateFileOutputHashGlobal:
 
             Key   : CertificateRequestFile
             Value : NewCertRequest_aws-coreos3-client-server-cert04-Sep-2016_2127.csr
@@ -83,8 +83,8 @@
             Value : NewCertificate_aws-coreos3-client-server-cert_protected_private_key_.pem
             Name  : EndPointProtectedPrivateKey
 
-        - A Global HashTable called $global:CertNamevsContentsHashGlobal that contains the actual content of certain Certificates. 
-            Example content of $global:CertNamevsContentsHashGlobal is as follows:
+        - A Global HashTable called $CertNamevsContentsHashGlobal that contains the actual content of certain Certificates. 
+            Example content of $CertNamevsContentsHashGlobal is as follows:
 
             Key   : EndPointUnProtectedPrivateKey
             Value : -----BEGIN RSA PRIVATE KEY-----
@@ -728,8 +728,10 @@ function Pause-ForWarning {
             $keypressed = [Console]::ReadKey("NoEcho").Key
             Write-Host "You pressed the `"$keypressed`" key"
             if ($keypressed -eq "x") {
-                Write-Host "Halt entire script!"
-                exit 1
+                Write-Host "Halting entire script with hard-stop!"
+                Write-Error "Halting entire script with hard-stop!" 2>$null
+                $global:FunctionResult = "0"
+                exit 0
             }
             if ($keypressed -ne "x") {
                 Write-Host "Continuing with rest of script..."
@@ -740,6 +742,7 @@ function Pause-ForWarning {
         # Check once every 1 second to see if the above "if" condition is satisfied
         Start-Sleep 1
     }
+    $global:FunctionResult = "0"
 }
 
 function Compare-Arrays {
@@ -767,7 +770,7 @@ function Convert-DecToHex {
     param($dec)
 
     ForEach ($value in $dec) {
-        “{0:x}” -f [Int]$value
+        "{0:x}" -f [Int]$value
     }
 }
 
@@ -790,12 +793,12 @@ function Get-PermutationsAll {
     $depth ++
     for ($i = 0; $i -lt $array.Count; $i++)
     {
-        $list += $cur+" "+$array[$i]        
+        $list += $cur+" "+$array[$i]
 
         if ($depth -lt $array.Count)
         {
             $list = Get-PermutationsAll $array ($cur+" "+$array[$i]) $depth $list
-        }       
+        }
     }
 
     $list
@@ -1376,8 +1379,11 @@ function Get-IntendedPurposeAdjudication {
     # Validation check...
     foreach ($obj1 in $IntendedPurposeValues) {
         if ($ValidIntendedPurposeValues -notcontains $obj1) {
-            Write-Host “$($obj1) is not a valid IntendedPurpose. Halting!”
-            $ValidIntendedPurposeValuesString
+            Write-Host "$($obj1) is not a valid IntendedPurpose. Halting!"
+            Write-Host "Valid IntendedPurpose values are as follows:"
+            $ValidIntendedPurposeValuesString            
+            Write-Error "$($obj1) is not a valid IntendedPurpose. Halting!"
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -1870,6 +1876,7 @@ if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
         }
         else {
             Write-Host "$obj1 is NOT installed. Please install $obj1 and try again."
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -1898,6 +1905,7 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
             }
             else {
                 Write-Host "Win32 OpenSSL binary directory not found. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -1908,6 +1916,11 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
 if ($MachineKeySet -eq "TRUE" -and $PrivateKeyExportableValue -eq "TRUE") {
     Pause-ForWarning -PauseTimeInSeconds 10 -Message "MachineKeySet and PrivateKeyExportableValue have both been set to TRUE, but Private Key cannot be exported
     if MachineKeySet = TRUE. If you continue, you will be asked if you want the Private Key to be exportable. Do you want to continue?"
+    if ($global:FunctionResult -ne 0) {
+        Write-Host "The function Pause-ForWarning failed! Continuing..."
+        Write-Error "The function Pause-ForWarning failed! Continuing..."
+        $global:FunctionResult = "1"
+    }
     $ShouldPrivKeyBeExportable = Read-Host -Prompt "Would you like the Private Key to be exportable? [Yes/No]"
     if ($ShouldPrivKeyBeExportable -eq "Yes" -or $ShouldPrivKeyBeExportable -eq "y") {
         $MachineKeySet = "FALSE"
@@ -1922,6 +1935,11 @@ if ($MachineKeySet -eq "TRUE" -and $UseOpenSSL -eq "Yes") {
     Pause-ForWarning -PauseTimeInSeconds 10 -Message "MachineKeySet and UseOpenSSL have both been set to TRUE. Win32 OpenSSL targets a .pfx file exported from the 
     local Certificate Store. If MachineKeySet is set to TRUE, no .pfx file will be exported from the local Certificate Store. If you continue, you will be asked
     if you want to use Win32 OpenSSL to generate keys in formats compatible with Linux. Do you want to continue?"
+    if ($global:FunctionResult -ne 0) {
+        Write-Host "The function Pause-ForWarning failed! Continuing..."
+        Write-Error "The function Pause-ForWarning failed! Continuing..."
+        $global:FunctionResult = "1"
+    }
     $ShouldUseOpenSSL = Read-Host -Prompt "Would you like to use Win32 OpenSSL in order to generate keys in formats compatible with Linux? [Yes\No]"
     if ($ShouldUseOpenSSL -eq "Yes" -or $ShouldUseOpenSSL -eq "y") {
         $MachineKeySet = "FALSE"
@@ -1957,6 +1975,7 @@ if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
     }
     else {
         Write-Host "Cannot contact the Issuing Certificate Authority. Halting!"
+        $global:FunctionResult = "1"
         return
     }
     $LDAPSearchBase = "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
@@ -2106,6 +2125,7 @@ if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
         }
         else {
             Write-Host "Connection to $ADCSWebEnrollmentURL was NOT successful. Please check your credentials and/or DNS."
+            $global:FunctionResult = "1"
             return
         }
 
@@ -2192,6 +2212,7 @@ if ($KeyLengthOverride -eq "Yes" -or $KeyLengthOverride -eq "y" -or $KeyLengthOv
 }
 else {
     Write-Host "The value for KeyLengthOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2200,6 +2221,7 @@ if ($HashAlgorithmOverride -eq "Yes" -or $HashAlgorithmOverride -eq "y" -or $Has
 }
 else {
     Write-Host "The value for HashAlgorithmOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2210,6 +2232,7 @@ if ($KeyAlgorithmOverride -eq "Yes" -or $KeyAlgorithmOverride -eq "y" -or $KeyAl
 }
 else {
     Write-Host "The value for KeyAlgorithmOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 #>
@@ -2219,6 +2242,7 @@ if ($EncryptionAlgorithmOverride -eq "Yes" -or $EncryptionAlgorithmOverride -eq 
 }
 else {
     Write-Host "The value for EncryptionAlgorithmOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2227,6 +2251,7 @@ if ($PrivateKeyExportableOverride -eq "Yes" -or $PrivateKeyExportableOverride -e
 }
 else {
     Write-Host "The value for PrivateKeyExportableOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2235,6 +2260,7 @@ if ($KeySpecOverride -eq "Yes" -or $KeySpecOverride -eq "y" -or $KeySpecOverride
 }
 else {
     Write-Host "The value for KeySpecOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2243,6 +2269,7 @@ if ($KeyUsageOverride -eq "Yes" -or $KeyUsageOverride -eq "y" -or $KeyUsageOverr
 }
 else {
     Write-Host "The value for KeyUsageOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2251,6 +2278,7 @@ if ($MachineKeySet -eq "TRUE" -or $MachineKeySet -eq "FALSE") {
 }
 else {
     Write-Host "The value for MachineKeySet is not valid. Please use either 'TRUE', 'FALSE'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2259,6 +2287,7 @@ if ($SecureEmail -eq "Yes" -or $SecureEmail -eq "y" -or $SecureEmail -eq "No" -o
 }
 else {
     Write-Host "The value for SecureEmail is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2267,6 +2296,7 @@ if ($UserProtected -eq "Yes" -or $UserProtected -eq "y" -or $UserProtected -eq "
 }
 else {
     Write-Host "The value for UserProtected is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2275,6 +2305,7 @@ if ($ProviderNameOverride -eq "Yes" -or $ProviderNameOverride -eq "y" -or $Provi
 }
 else {
     Write-Host "The value for ProviderNameOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2283,6 +2314,7 @@ if ($RequestTypeOverride -eq "Yes" -or $RequestTypeOverride -eq "y" -or $Request
 }
 else {
     Write-Host "The value for RequestTypeOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2291,6 +2323,7 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y" -or $UseOpenSSL -eq "No" -or $
 }
 else {
     Write-Host "The value for UseOpenSSL is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -2358,6 +2391,7 @@ if ($IntendedPurposeValuesPrep -ne $null) {
         }
         else {
             Write-Host "One or more IntendedPurposeValues are NOT valid. Halting!"
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -2383,14 +2417,15 @@ if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
         $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
         foreach ($obj1 in $ProviderNameValue) {
             if ($PossibleProviders -notcontains $obj1) {
-                Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
+                Write-Host "$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:"
                 $PossibleProviders
                 $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
                 $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
                 # Validation check...
                 foreach ($obj1 in $ProviderNameValue) {
                     if ($PossibleProviders -notcontains $obj1) {
-                        Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
+                        Write-Host "$($obj1) is not a valid ProviderNameValue. Halting!"
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -2403,14 +2438,15 @@ if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
         $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
         foreach ($obj1 in $ProviderNameValue) {
             if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
-                Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
+                Write-Host "$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:"
                 $AvailableCSPsBasedOnCertificateTemplate
                 $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
                 $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
                 # Validation check...
                 foreach ($obj1 in $ProviderNameValue) {
                     if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
-                        Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
+                        Write-Host "$($obj1) is not a valid ProviderNameValue. Halting!"
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -2432,14 +2468,15 @@ if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
     $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
     foreach ($obj1 in $ProviderNameValue) {
         if ($ValidADCSWebEnrollCSPs -notcontains $obj1) {
-            Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
+            Write-Host "$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:"
             $ValidADCSWebEnrollCSPs
             $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
             $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
             # Validation check...
             foreach ($obj1 in $ProviderNameValue) {
                 if ($ValidADCSWebEnrollCSPs -notcontains $obj1) {
-                    Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
+                    Write-Host "$($obj1) is not a valid ProviderNameValue. Halting!"
+                    $global:FunctionResult = "1"
                     return
                 }
             }
@@ -2529,6 +2566,7 @@ if ($PrivateKeyExportableOverride -eq "Yes" -or $PrivateKeyExportableOverride -e
     }
     else {
         Write-Host "The value for PrivKeyBool is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+        $global:FunctionResult = "1"
         return
     }
     if ($PrivKeyBool -eq "Yes" -or $PrivKeyBool -eq "y") {
@@ -2551,6 +2589,7 @@ if ($KeySpecOverride -eq "Yes" -or $KeySpecOverride -eq "y") {
     # Validation check...
     if ($KeySpecValue -ne "1" -and $KeySpecValue -ne "2") {
         Write-Host "The value for PrivKeyBool is not valid. Please enter either 'TRUE' or 'FALSE'. Halting!"
+        $global:FunctionResult = "1"
         return
     }
     else {
@@ -2592,6 +2631,7 @@ if ($KeyUsageOverride -eq "Yes" -or $KeyUsageOverride -eq "y") {
         IMPORTANT: Some commonly used hex sums are 'c0' (i.e. 80+40), 'a0' (i.e. 80+20), and f0 (i.e. 80+40+20+10)"
         if ($ValidHexValues -notcontains $KeyUsageHexValue) {
             Write-Host "$($KeyUsageHexValue) is not a valid hexadecimal value for KeyUsage. Halting!"
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -2680,14 +2720,15 @@ if ($ProviderNameOverride -eq "Yes" -or $ProviderNameOverride -eq "y") {
     # Validation check...
     foreach ($obj1 in $ProviderNameValue) {
         if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
-            Write-Host “$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:”
+            Write-Host "$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:"
             $AvailableCSPsBasedOnCertificateTemplate
             $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
             $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
             # Validation check...
             foreach ($obj1 in $ProviderNameValue) {
                 if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
-                    Write-Host “$($obj1) is not a valid ProviderNameValue. Halting!”
+                    Write-Host "$($obj1) is not a valid ProviderNameValue. Halting!"
+                    $global:FunctionResult = "1"
                     return
                 }
             }
@@ -2722,6 +2763,7 @@ if ($RequestTypeOverride -eq "Yes" -or $RequestTypeOverride -eq "y") {
     # Validation check...
     if ($ValidRequestTypes -notcontains $RequestTypeValue) {
         Write-Host "The RequestType value is not valid. Please choose a RequestType value from the list of available RequestType values. halting!"
+        $global:FunctionResult = "1"
         return
     }
     
@@ -2775,8 +2817,10 @@ if ($IntendedPurposeOverride -eq "Yes" -or $IntendedPurposeOverride -eq "y") {
         # Validation check...
         foreach ($obj1 in $IntendedPurposeValues) {
             if ($ValidIntendedPurposeValues -notcontains $obj1) {
-                Write-Host “$($obj1) is not a valid IntendedPurpose. Halting!”
+                Write-Host "$($obj1) is not a valid IntendedPurpose. Halting!"
+                Write-Host "Valid IntendedPurpose values are as follows:"
                 $ValidIntendedPurposeValuesString
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -2809,8 +2853,10 @@ else {
         # Validation check...
         foreach ($obj1 in $IntendedPurposeValues) {
             if ($ValidIntendedPurposeValues -notcontains $obj1) {
-                Write-Host “$($obj1) is not a valid IntendedPurpose. Halting!”
+                Write-Host "$($obj1) is not a valid IntendedPurpose. Halting!"
+                Write-Host "Valid IntendedPurpose values are as follows:"
                 $ValidIntendedPurposeValuesString
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -2963,6 +3009,7 @@ if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
         if ($ReqId -eq $null) {
             Write-Host "The Certificate Request was successfully submitted via ADCS Web Enrollment, but was rejected. Please check the format and contents of
             the Certificate Request Config File and try again."
+            $global:FunctionResult = "1"
             return
         }
 
@@ -2981,6 +3028,7 @@ if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
         if ($ReqId -eq $null) {
             Write-Host "The Certificate Request was successfully submitted via ADCS Web Enrollment, but was rejected. Please check the format and contents of
             the Certificate Request Config File and try again."
+            $global:FunctionResult = "1"
             return
         }
 
@@ -3025,6 +3073,7 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
             $LocationOfCertInStore
             Write-Host ""
             Write-Host "You have more than one certificate in your Certificate Store under Cert:\CurrentUser\My with the same Common Name (CN). Please correct this and try again."
+            $global:FunctionResult = "1"
             return
         }
         Sleep 5
@@ -3047,6 +3096,7 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
                     }
                     else {
                         Write-Host "Win32 OpenSSL binary directory not found. Halting!"
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -3060,11 +3110,11 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
             $PwdForPFXOpenSSL = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PFXPwdAsSecureString))
 
             # Extract Private Key and Keep It Password Protected
-            openssl pkcs12 -in "$CertGenWorking\$PFXFileOut" -nocerts -out "$CertGenWorking\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2> null
+            & "$PathToWin32OpenSSL\openssl.exe" pkcs12 -in "$CertGenWorking\$PFXFileOut" -nocerts -out "$CertGenWorking\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
 
             # The .pfx File Contains ALL Public Certificates in Chain 
             # The below extracts ALL Public Certificates in Chain
-            openssl pkcs12 -in "$CertGenWorking\$PFXFileOut" -nokeys -out "$CertGenWorking\$AllPublicKeysInChainOut" -password pass:$PwdForPFXOpenSSL 2> null
+            & "$PathToWin32OpenSSL\openssl.exe" pkcs12 -in "$CertGenWorking\$PFXFileOut" -nokeys -out "$CertGenWorking\$AllPublicKeysInChainOut" -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
 
             # Parse the Public Certificate Chain File and and Write Each Public Certificate to a Separate File
             # These files should have the EXACT SAME CONTENT as the .cer counterparts
@@ -3114,44 +3164,45 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
                     }
                     else {
                         Write-Host "The value for StripPrivateKeyOfPassword is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
                 if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
                     # Strip Private Key of Password
-                    openssl rsa -in "$CertGenWorking\$ProtectedPrivateKeyOut" -out "$CertGenWorking\$UnProtectedPrivateKeyOut" 2> null
+                    & "$PathToWin32OpenSSL\openssl.exe" rsa -in "$CertGenWorking\$ProtectedPrivateKeyOut" -out "$CertGenWorking\$UnProtectedPrivateKeyOut" 2>&1 | Out-Null
                 }
             }
             if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
                 # Strip Private Key of Password
-                openssl rsa -in "$CertGenWorking\$ProtectedPrivateKeyOut" -out "$CertGenWorking\$UnProtectedPrivateKeyOut" 2> null
+                & "$PathToWin32OpenSSL\openssl.exe" rsa -in "$CertGenWorking\$ProtectedPrivateKeyOut" -out "$CertGenWorking\$UnProtectedPrivateKeyOut" 2>&1 | Out-Null
             }
         }
     }
 }
 
 # Create Global HashTable of Outputs for use in scripts that source this script
-$global:GenerateCertificateFileOutputHashGlobal = @{}
-$global:GenerateCertificateFileOutputHashGlobal.Add("CertificateRequestConfigFile", "$CertificateRequestConfigFile")
-$global:GenerateCertificateFileOutputHashGlobal.Add("CertificateRequestFile", "$CertificateRequestFile")
-$global:GenerateCertificateFileOutputHashGlobal.Add("CertFileOut", "$CertFileOut")
+$GenerateCertificateFileOutputHashGlobal = @{}
+$GenerateCertificateFileOutputHashGlobal.Add("CertificateRequestConfigFile", "$CertificateRequestConfigFile")
+$GenerateCertificateFileOutputHashGlobal.Add("CertificateRequestFile", "$CertificateRequestFile")
+$GenerateCertificateFileOutputHashGlobal.Add("CertFileOut", "$CertFileOut")
 if ($MachineKeySet -eq "FALSE") {
-    $global:GenerateCertificateFileOutputHashGlobal.Add("PFXFileOut", "$PFXFileOut")
+    $GenerateCertificateFileOutputHashGlobal.Add("PFXFileOut", "$PFXFileOut")
 }
 if ($RequestViaWebEnrollment -eq "No" -or $RequestViaWebEnrollment -eq "n") {
     $CertUtilResponseFile = (Get-Item "$CertGenWorking\*.rsp").Name
-    $global:GenerateCertificateFileOutputHashGlobal.Add("CertUtilResponseFile", "$CertUtilResponseFile")
+    $GenerateCertificateFileOutputHashGlobal.Add("CertUtilResponseFile", "$CertUtilResponseFile")
 
-    $global:GenerateCertificateFileOutputHashGlobal.Add("CertificateChainOut", "$CertificateChainOut")
+    $GenerateCertificateFileOutputHashGlobal.Add("CertificateChainOut", "$CertificateChainOut")
 }
 if ($RequestViaWebEnrollment -eq "Yes" -or $RequestViaWebEnrollment -eq "y") {
-    $global:GenerateCertificateFileOutputHashGlobal.Add("CertADCSWebResponse", "$CertADCSWebResponse")
+    $GenerateCertificateFileOutputHashGlobal.Add("CertADCSWebResponse", "$CertADCSWebResponse")
 }
 if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
-    $global:GenerateCertificateFileOutputHashGlobal.Add("AllPublicKeysInChainOut", "$AllPublicKeysInChainOut")
+    $GenerateCertificateFileOutputHashGlobal.Add("AllPublicKeysInChainOut", "$AllPublicKeysInChainOut")
 
     # Make CertName vs Contents Key/Value Pair hashtable available to scripts that source this script
-    $global:CertNamevsContentsHashGlobal = $CertNamevsContentsHash
+    $CertNamevsContentsHashGlobal = $CertNamevsContentsHash
 
     $AdditionalPublicKeysArray = (Get-Item "$CertGenWorking\*_Public_Cert.pem").Name
     # For each Certificate in the hashtable $CertNamevsContentsHashGlobal, determine it it's a Root, Intermediate, or End Entity
@@ -3161,15 +3212,15 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
         $EndPointCNFlag = certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "CN=$CertificateCN"
         if ($SubjectType -eq "CA" -and $RootCertFlag.Matches.Success -eq $true) {
             $RootCAPublicCertFile = $obj1
-            $global:GenerateCertificateFileOutputHashGlobal.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
+            $GenerateCertificateFileOutputHashGlobal.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
         }
         if ($SubjectType -eq "CA" -and $RootCertFlag.Matches.Success -ne $true) {
             $IntermediateCAPublicCertFile = $obj1
-            $global:GenerateCertificateFileOutputHashGlobal.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
+            $GenerateCertificateFileOutputHashGlobal.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
         }
         if ($SubjectType -eq "End Entity" -and $EndPointCNFlag.Matches.Success -eq $true) {
             $EndPointPublicCertFile = $obj1
-            $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
+            $GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
         }
     }
 
@@ -3181,7 +3232,7 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
         if ($certPrint.Issuer -eq $certPrint.Subject) {
             $RootCAPublicCertFile = $obj1
             $RootCASubject = $certPrint.Subject
-            $global:GenerateCertificateFileOutputHashGlobal.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
+            $GenerateCertificateFileOutputHashGlobal.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
         }
     }
     foreach ($obj1 in $AdditionalPublicKeysArray) {
@@ -3190,7 +3241,7 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
         if ($certPrint.Issuer -eq $RootCASubject -and $certPrint.Subject -ne $RootCASubject) {
             $IntermediateCAPublicCertFile = $obj1
             $IntermediateCASubject = $certPrint.Subject
-            $global:GenerateCertificateFileOutputHashGlobal.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
+            $GenerateCertificateFileOutputHashGlobal.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
         }
     }
     foreach ($obj1 in $AdditionalPublicKeysArray) {
@@ -3199,27 +3250,36 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
         if ($certPrint.Issuer -eq $IntermediateCASubject) {
             $EndPointPublicCertFile = $obj1
             $EndPointSubject = $certPrint.Subject
-            $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
+            $GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
         }
     }
     #>
 
-    $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointProtectedPrivateKey", "$ProtectedPrivateKeyOut")
+    $GenerateCertificateFileOutputHashGlobal.Add("EndPointProtectedPrivateKey", "$ProtectedPrivateKeyOut")
 }
 if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
-    $global:GenerateCertificateFileOutputHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyOut")
+    $GenerateCertificateFileOutputHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyOut")
 
-    # Add UnProtected Private Key to $global:CertNamevsContentsHashGlobal
+    # Add UnProtected Private Key to $CertNamevsContentsHashGlobal
     $UnProtectedPrivateKeyContent = ((Get-Content $CertGenWorking\$UnProtectedPrivateKeyOut) -join "`n").Trim()
-    $global:CertNamevsContentsHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyContent")
+    $CertNamevsContentsHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyContent")
 }
 
-# Write the two Global Output Hases to STDOUT for Awareness
-Write-Host "The following 2 Hash Tables should now be available in the current scope as a result of the Generate-Certificate function:
-`$global:GenerateCertificateFileOutputHashGlobal
-`$global:CertNamevsContentsHashGlobal"
+# Return PSObject that contains $GenerateCertificateFileOutputHashGlobal and $CertNamevsContentsHashGlobal HashTables
+New-Variable -Name "GenCertOutput" -Scope Script -Value $(
+    New-Object PSObject -Property @{
+        GenerateCertificateFileOutputHashGlobal    = $GenerateCertificateFileOutputHashGlobal
+        CertNamevsContentsHashGlobal               = $CertNamevsContentsHashGlobal
+    }
+)
 
-# ***IMPORTANT NOTE: If you want to write the Certificates contained in the $global:CertNamevsContentsHashGlobal out to files again
+# Write the two Global Output HashTableses to STDOUT for Awareness
+Write-Host "The `$GenCertOutput PSObject containing `$GenCertOutput.GenerateCertificateFileOutputHashGlobal and `$GenCertOutput.CertNamevsContentsHashGlobal `
+for $CertificateCN should now be available in the current scope as a result of the Generate-Certificate function"
+
+$global:FunctionResult = "0"
+
+# ***IMPORTANT NOTE: If you want to write the Certificates contained in the $CertNamevsContentsHashGlobal out to files again
 # at some point in the future, make sure you use the "Out-File" cmdlet instead of the "Set-Content" cmdlet
 
 ##### END Generate Certificate Request and Submit to Issuing Certificate Authority #####
@@ -3231,8 +3291,8 @@ Write-Host "The following 2 Hash Tables should now be available in the current s
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUjFGD6LDvK5DeLC4es+EudDz
-# mpagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9n4vkYstxm2d2srmogFrY2Fs
+# gGKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3287,11 +3347,11 @@ Write-Host "The following 2 Hash Tables should now be available in the current s
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMwLD7T2G7
-# AMDRvZRsiHTDF6e1CTANBgkqhkiG9w0BAQEFAASCAQCRCAcEJ2ZtiqpcvTKloLHZ
-# xFj61esvTt41cY2eesLxOtF0tEC06vtM46llWO5yxShzG/xZZo8kONlqUmOsOtfc
-# PNU6D1J2NvbAw1vKwDW3Ctinh6T+TURVj4LarWxoo6x3BO8Zmo18JFRECGLwg1Qu
-# XLLlo7php91cAT3puK3B8DuDf0++uNU5CQRBIP8dMA4V2b1k2SBTqa/4oxjkAF9w
-# GBa/rlLIMQN/H9tAWXlSnk+W8FuiAb3pkrsJfkVPrtaInxbqrzjz4M2c08yNVhW3
-# fQuvuTRnNNcpf4M23sYEdPAnDWK+/CZdM/eZg1P+7c3qcIXQhAxF7e1ZUD2GvFN8
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQrQRF3pX4N
+# 8ZYEmZy9SUIy0khGgjANBgkqhkiG9w0BAQEFAASCAQCOYibqcQ7nlQ/lUDJg6e9C
+# tchm4DkjKIt9JtxF/qxXh2hGKNnnCHS62Jd0KeXhi8W/neDbbwztWT3BtUXf8Ig4
+# +9xj6YcSGMDgOf/tog5WA3yBinAlVbAp0UhwhWMtGrOtsSR+L3dTs/5CoJGx72jk
+# PWfZeropxHvy8MW40CWuGnLz46PlYmE8o3n56jAlN+Fta32r2Y4m4/T/RPyotSKM
+# QVF/i8ZQMQrW/yt+zthbIDc8Dd8EUGBpijS0bJMNDcvZWBGH7lW5+++fim2RPVpr
+# ggQ7cdQVzYBO93YpasjaHslpqWgDqHWSdOMAm6OJd84OpgKTclDSID86B625PQCf
 # SIG # End signature block

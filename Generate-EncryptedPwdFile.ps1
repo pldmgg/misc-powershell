@@ -23,7 +23,8 @@ function Generate-EncryptedPwdFile {
         $FileToOutput = Read-Host -Prompt "Please enter the full path to the output file that will be created"
         if (! $(Test-Path $FileToOutputDirectory)) {
             Write-Host "The directory $FileToOutputDirectory does not exist. Please check the path. Halting!"
-            exit
+            $global:FunctionResult = "1"
+            return
         }
     }
 
@@ -69,7 +70,8 @@ function Generate-EncryptedPwdFile {
                 Example: C:\ps_scripting.pfx"
                 if (! (Test-Path $PathToCertFile)) {
                     Write-Host "The .pfx certificate file was not found at the path specified. Halting."
-                    exit
+                    $global:FunctionResult = "1"
+                    return
                 }
             }
         }
@@ -88,7 +90,8 @@ function Generate-EncryptedPwdFile {
                 $PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
                 if ($PathToCertInStore.Count -gt 1) {
                     Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. Halting!"
-                    exit
+                    $global:FunctionResult = "1"
+                    return
                 }
             }
         }
@@ -109,7 +112,8 @@ function Generate-EncryptedPwdFile {
             }
             else {
                 Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
-                exit
+                $global:FunctionResult = "1"
+                return
             }
         }
         if ($FileOrStoreSwitch -eq "File") {
@@ -137,7 +141,8 @@ function Generate-EncryptedPwdFile {
             }
             else {
                 Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
-                exit
+                $global:FunctionResult = "1"
+                return
             }
         }
         if ($WhichCertSwitch -eq "File") {
@@ -159,7 +164,6 @@ function Generate-EncryptedPwdFile {
         $PasswordPrep1 = Read-Host -Prompt 'Please enter the password for the certificate being used to encrypt the above password' -AsSecureString
         $CertFilePwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep1))
         $Cert1 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd1
-        
     }
 
     if ($PathToCertFile -eq $null -and $PathToCertInStore -ne $null) {
@@ -178,8 +182,8 @@ function Generate-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4evUwB/Qqh3wk2qvf0yp1JLO
-# M7SgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8sM2LiUTAmAXdVYPIt9NsnS0
+# K7+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -234,11 +238,11 @@ function Generate-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS+5gXjb7Dk
-# /YAWfF5dOt8Y65wxCTANBgkqhkiG9w0BAQEFAASCAQAYlBSCE08gI8LEeAk2k/Ty
-# YQQDpm7HYnOdWPZKIR6nMI2hdwF4n0RYFEiM0eghufnfiKQW96fvW+9suivcdpJJ
-# 1hJBm0RX6W7WNUieEQ1x6Vnm0skVvYO8ZRJWdXEUvlVlu92VuWjS6Ga/xdLBY7Iv
-# v7A+Zf769qbW6kNFBcckeSwtQQDW2qJmVYRbnY0WHRoebqZmWtPqpprqvhfwmPc4
-# PMSVPospVFV1Oh8PlmmbkwA5Wqjq7fLcz2gtimi0Y2ogYJvWd7KvXAIvmF4wmVyN
-# 5EdtC1lEkryEvV15aKyHEf6wNwq/zvi90PZEQBjF6vdvObRBVAEKLfdgFji1Va+H
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSvfhCmb2pU
+# 7Dz/i7FXj+1FOefKNTANBgkqhkiG9w0BAQEFAASCAQBm+yecFhNrJgs/TlC8yO0n
+# yzw0XadJlV4s+guyk6vAkgXZCzJsYBBTZBg7+V2NlXU6pitPz3Lq1lfygE6OOxAO
+# X0rbMLJuBJhj85BT7upkPM3XcHAAKbUSuIQdZ8EjNkS/1TrTtU5byk2dwHs1gk3c
+# uca37GLJ7DAobtzGpzUKOvcX6GOoKyT2vApEop0tx6ufj/DyC9cOOpfTnzAbiTkD
+# 11aKpSq8LJZfyGbqQT4ILoggm7DovKW5RfxWd0od+Hgj4W7eEcWklsd9Qoy5e7Wa
+# 4qeXwqknl69Gep3aI8+AlINeYXGT6oG3z6gn5dJ2Nlr7qyuV1FuH+fi/352r5CSm
 # SIG # End signature block

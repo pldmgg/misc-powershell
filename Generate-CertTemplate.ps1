@@ -407,7 +407,7 @@ function Convert-DecToHex {
     param($dec)
 
     ForEach ($value in $dec) {
-        “{0:x}” -f [Int]$value
+        "{0:x}" -f [Int]$value
     }
 }
 
@@ -1164,6 +1164,7 @@ foreach ($obj1 in $NeededRSATFeatures) {
     }
     else {
         Write-Host "$obj1 is NOT installed. Please install $obj1 and try again."
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1174,6 +1175,7 @@ if (((Get-Module -ListAvailable -Name PSPKI | Select-String -Pattern PSPKI).Matc
 }
 else {
     Write-Host "PSPKI Module is NOT available. This script requires the PSPKI module from http://pspki.codeplex.com. Please make this module available and try again."
+    $global:FunctionResult = "1"
     return
 }
 
@@ -1212,6 +1214,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 else {
     Write-Host "Cannot contact the Issuing Certificate Authority. Halting!"
+    $global:FunctionResult = "1"
     return
 }
 
@@ -1275,6 +1278,7 @@ if ($ValidCertificateTemplatesByCN -notcontains $BasisTemplate -and $ValidCertif
         Write-Host ""
         Write-Host "You must base your New Certificate Template on an existing Certificate Template."
         Write-Host "To do so, please enter either the displayName or CN of the Certificate Template you would like to use as your base. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1367,6 +1371,7 @@ if ($IntendedPurposeValuesPrep -ne $null) {
         }
         else {
             Write-Host "One or more IntendedPurposeValues are NOT valid. Halting!"
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -1417,6 +1422,7 @@ if ($KeyUsageValuesPrep -ne $null) {
         }
         else {
             Write-Host "One or more KeyUsageValues are NOT valid. Halting!"
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -1453,6 +1459,7 @@ else {
     }
     else {
         Write-Host "The values supplied for msPKIEnrollmentValues are NOT valid. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1486,6 +1493,7 @@ else {
     }
     else {
         Write-Host "The values supplied for msPKIPrivateKeyValues are NOT valid. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1520,6 +1528,7 @@ else {
     }
     else {
         Write-Host "The values supplied for msPKICertificateNameValues are NOT valid. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1540,6 +1549,7 @@ if ($ValidpKIPeriods -notcontains $pKIExpirationPeriod) {
     $pKIExpirationPeriod = Read-Host -Prompt "Please enter a valid length of time"
     if ($ValidpKIPeriods -notcontains $pKIExpirationPeriod) {
         Write-Host "$pKIExpirationPeriod is not a valid length of time for pKIExpirationPeriod. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1556,6 +1566,7 @@ if ($ValidpKIPeriods -notcontains $pKIOverlapPeriod) {
     $pKIOverlapPeriod = Read-Host -Prompt "Please enter a valid length of time"
     if ($ValidpKIPeriods -notcontains $pKIOverlapPeriod) {
         Write-Host "$pKIOverlapPeriod is not a valid length of time for pKIExpirationPeriod. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1612,6 +1623,7 @@ if (! (Compare-Arrays -LargerArray $ValidSecurityRights -SmallerArray $CertTempl
     $CertTemplLDAPObjectSecurityRights = $CertTemplLDAPObjectSecurityRightsPrep.Split(",").Trim()
     if (! (Compare-Arrays -LargerArray $ValidSecurityRights -SmallerArray $CertTemplLDAPObjectSecurityRights)) {
         Write-Host "Invalid permissions/rights for Certificate Template LDAP object. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -1627,6 +1639,7 @@ if ($ValidSecurityTypes -notcontains $CertTemplLDAPObjectSecurityType) {
     $CertTemplLDAPObjectSecurityType = Read-Host -Prompt "Please enter a valid Security Type"
     if ($ValidSecurityTypes -notcontains $CertTemplLDAPObjectSecurityType) {
         Write-Host "Invalid Security Type for Certificate Template LDAP object. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 }
@@ -2440,6 +2453,7 @@ if ($LimitCryptographicProviders -eq "Yes" -or $LimitCryptographicProviders -eq 
             else {
                 Write-Host ""
                 Write-Host "CSPPrep2 value is NOT valid. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -2487,6 +2501,7 @@ if ($LimitCryptographicProviders -eq "Yes" -or $LimitCryptographicProviders -eq 
             }
             else {
                 Write-Host "CSPPrep2 value is NOT valid. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -2589,6 +2604,8 @@ Get-ADObject $NewADObject -Properties * | Out-File "$CertGenWorking\$AttributesF
 
 ##### END Creating the New Certificate Template #####
 
+$global:FunctionResult = "0"
+
 }
 
 # Generate-CertTemplate
@@ -2597,8 +2614,8 @@ Get-ADObject $NewADObject -Properties * | Out-File "$CertGenWorking\$AttributesF
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGN1P72ksCoiex1AFhZvla0+B
-# FhagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUd7dQej+e3a0ipQ3cObLM9e0i
+# 0EGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2653,11 +2670,11 @@ Get-ADObject $NewADObject -Properties * | Out-File "$CertGenWorking\$AttributesF
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTy0VS0P1l2
-# oqZA7ULdJfZRYrcD0jANBgkqhkiG9w0BAQEFAASCAQCVhrilDDheO1YYhC6gGLWV
-# TRkAxFj+NP7tGeXNZVEfX10UG448LDyEhUb63Nzxq0fTXrGCfbp76YA747LS5duX
-# YBA47I1sTrqctX9BlU/nw22ryZhLlyz86t7zJLr899RSLU1359QcUtT9+A7RdOsA
-# Bd1f1OBYduBOOjAxZCDI+0qpfzqVafqw1soNEDu/1UexZpxFCPWGArtyZrvkO2GM
-# +YVJpJkEZtUMWkBn2/lrNTkjdT5PaaI35bW/BcAL7QKWpGIUWhokftpw5dYabYBE
-# scdjAyN2g5vOZGmljN0gnS8UxxkrFBx3o/NE8LqFzpK8DkJAFylG1K+ehPm1rHrS
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTKFqSKhx3p
+# pEHjow8d553iJ5WqrTANBgkqhkiG9w0BAQEFAASCAQB3AEDgVuWNlQ4ne5WFrVb9
+# UqQ40dUsnffmgvoG5uarRfo5rNuXSdOXs800OxNvBBsdugzXKOH5hi/c45HK/33L
+# rMwC0ag1qmeaGfbqgv+UbMZDXPKAPU5GEts8+rpmZiSSE+H2f+Zjr+npr010jmGe
+# 4N8Oi1Mh908g8NhKVipf6mxvOrG5iyXYaX0fPBkFEjFOPAOXgnflcyPdJ/HgJ2Fq
+# CYXUWYserJHFaVrgk6bFSiYQBOiflVPuS/DgK4kyrnDYQgke2jfhG4faCthr+aL+
+# Jid4UANQHypXLn87SfiY49jy+FWONw0dkF0UZxSs34bJrX3GlNYGwJKd+3YB40rS
 # SIG # End signature block

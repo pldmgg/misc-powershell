@@ -118,6 +118,7 @@ function New-AWSSSHKey {
                     $AWSProfile = Read-Host -Prompt "Please enter the AWS IAM Profile you would like to use in this PowerShell session."
                     if ($ValidAWSIAMProfiles -notcontains $AWSProfile) {
                         Write-Host "$AWSIAMProfile is NOT a valid AWS IAM Profile available to PowerShell under the current Windows user account. Halting!"
+                        $global:FunctionResult = "1"
                         return
                     }
                 }
@@ -139,6 +140,7 @@ function New-AWSSSHKey {
                 $AWSRegion = Read-Host -Prompt "Please enter the default AWS Region for this PowerShell session"
                 if ($ValidAWSRegions -notcontains $AWSRegion) {
                     Write-Host "$AWSRegion is not a valid AWS Region. Halting!"
+                    $global:FunctionResult = "1"
                     return
                 }
             }
@@ -173,6 +175,7 @@ function New-AWSSSHKey {
             }
             else {
                 Write-Host "$obj1 cannot be found. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -195,7 +198,7 @@ function New-AWSSSHKey {
     & "$PathToPageant\pageant.exe" "$OutputDirectory\$NewEC2KeyName-key.ppk"
 
     # Output Global PSObject with Properties representing the location of the .pem, .pub, and .ppk files
-    New-Variable -Name "NewEC2SSHKeysPSObject" -Scope Global -Value $(
+    New-Variable -Name "NewEC2SSHKeysPSObject" -Scope Script -Value $(
         New-Object PSObject -Property @{
             PrivateKey      = "$OutputDirectory\$NewEC2KeyName-key.pem"
             OpenSSHPubKey   = "$OutputDirectory\$NewEC2KeyName-openssh-authorized-keys-format.pub"
@@ -208,13 +211,14 @@ function New-AWSSSHKey {
 
     ##### END Main Body #####
 
+    $global:FunctionResult = "0"
 }
 
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6WOMqAcDywWYwquaQe5yLv0f
-# OB+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNT99v//ZCqV5TEAoWN501yik
+# m6ygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -269,11 +273,11 @@ function New-AWSSSHKey {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRgzcaCfzOn
-# tVifD4igMZVjxl7B2TANBgkqhkiG9w0BAQEFAASCAQB/HAaPFsmU7lasVu9fyJqz
-# pWf6PJGJsFFwwnl0iwEditbA4w4OO5xGKgRL/tKcfa2LbHgXwJ7kXHLrxuj52oIc
-# 8YX4rcfco/Qm0/tfvV1/Ylayyi9G6T6zuBsXmtf/OfmaRphT3eht2ve0c4Pkwxw+
-# uG89Qv4p5HU/vRPt6RQrCpEMWDMpf7CNWg5m1mcycSzDxuQ44cXAlLyQ5/OP2VtU
-# 7TCIWEnW+GoXYS/bvRUKjAO14DqAFidMIr65ihJV1z3tLo0o1HZX9sUhjT5he+uB
-# YglRyoAkVitDVT4sBdJMgc9l6zdmolq+NGj6f+ktogJEK1XwXuXffiUWD8yu2JpL
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTIirSnAqhb
+# hs8VwOhU7FTx9TZyDDANBgkqhkiG9w0BAQEFAASCAQBEygn5sHrt33MN36bR8sCP
+# 5j5pghNhK1HgnxPJdPRjw0DdKF37VA8wXl9S7SnCKCIaTuOW+YsMXlc6HuEsRf+g
+# V9RQIB+UwxZ9XGkgsSMlsSm4mZbYwgyBxZd/BG5hBPIdXCTYrnl4lu4xT+/kx+1B
+# bJTqz0vXdJWMyXgzBGpfevBYmPpj9TIhaJ0w4ajqZJSRpHnh8RlqbZngzht9qbme
+# Qyxhq5V9NC8V6hYCQi3M71hMa5M8EIDO6C7dlS9cSmc3YYwCU71Evh9dFubJlmwm
+# EPO4bRlO5eIMB0tpfq86FQy/3tSsFLvQonJP2AKJRRyuy4Lev0o47aAsMeODEpNs
 # SIG # End signature block

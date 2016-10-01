@@ -14,6 +14,7 @@
     # Make sure only ONE of the parameters $NumbersAndLettersOnly OR $LimitSpecialCharsToNumberRowOnKeyBoard is used...
     if ($NumbersAndLettersOnly -ne $null -and $LimitSpecialCharsToNumberRowOnKeyBoard -ne $null) {
         Write-Host "Please only use EITHER the NumbersAndLettersOnly paramter OR the LimitSpecialCharsToNumberRowOnKeyBoard parameter. Halting!"
+        $global:FunctionResult = "1"
         return
     }
 
@@ -24,6 +25,7 @@
             $NumbersAndLettersOnly = Read-Host -Prompt "Would you like to limit the string to ONLY numbers and letters? [Yes/No]"
             if (! ($NumbersAndLettersOnly -eq "Yes" -or $NumbersAndLettersOnly -eq "y" -or $NumbersAndLettersOnly -eq "No" -or $NumbersAndLettersOnly -eq "n") ) {
                 Write-Host "The value $NumbersAndLettersOnly is not valid for the parameter NumbersAndLettersOnly. Please enter either 'Yes' or 'No'. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -38,6 +40,7 @@
             if (! ($LimitSpecialCharsToNumberRowOnKeyBoard -eq "Yes" -or $LimitSpecialCharsToNumberRowOnKeyBoard -eq "y" `
             -or $LimitSpecialCharsToNumberRowOnKeyBoard -eq "No" -or $LimitSpecialCharsToNumberRowOnKeyBoard -eq "n") ) {
                 Write-Host "The value $LimitSpecialCharsToNumberRowOnKeyBoard is not valid for the parameter LimitSpecialCharsToNumberRowOnKeyBoard. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -68,8 +71,8 @@
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsd0Gf+zBssUu28+MY5YIihSD
-# 4y+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmPIzkTs0VUeL4JI4kUSfGbLY
+# o2ygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -124,11 +127,11 @@
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRpPNqoFH8L
-# IadRTPu1w2SFrQRnHDANBgkqhkiG9w0BAQEFAASCAQBDeH5naSfyC8TGPyfc8nnD
-# bS7L1hmPi/GYWPDjqcBR1Uh/hTJnagUTdMDktbRKNmV/I5v+pVBeO73C8wpnPaWE
-# hzBONjf/FlGPPjo4gbMVNYmJUhqer3n9BDrjZzEWFQQsrTPQ+8b7gQg/VOlMBptF
-# ouQ5Q5d9RCQ5Cw8webABm1+K5nUz36VxZVr4qtA6HWPZYGEf2jopm08FVxxzZwkk
-# OW6FVbSMhd5BiQfXwyRK81Ea0uRNg+jFGPXzrkaW16xiNPkHtE8Uf+iT3+QPdvb7
-# CuyTpV1iWa+Gf/WL4obAM7ureb/9EfajTO6qbDcCU7LOHqcwPBWb2sKka4/AGhL/
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSQG8CTt+no
+# qDEEyQVIooEV/NiS4TANBgkqhkiG9w0BAQEFAASCAQAj+rqpfGp3rzQPUepsRB8h
+# TMMiAR3Gdxd2uWCwmP2s0cr+J3Aygl6yaJmMutd+SXptXmjo9/vH5MBM8oDnEVBR
+# 2jmySa5kBTgKraFU9CqzMJfzlLeyo4w5vX2xFrsKfdl/1EUP3G88KVb+QA205Tzc
+# xHilPrEMhDlK6FffFdEYc/K6tRUhmndDpUzbNXQWDfrRmGM1eJXdV5UJndYsPmkP
+# 3xgIVEsvzzaqisfGUw8QhS/gPWVDsqvE4qoIi+rr4wUJGUICO0lw074Qrh+AKvtZ
+# 7I8SfoSaOneMVy8V/DepHe6gl+9jlMNxkPjClVQK3s50fIZ1qozoECOdFqoWuRlM
 # SIG # End signature block

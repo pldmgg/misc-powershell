@@ -60,7 +60,8 @@ function Decrypt-EncryptedPwdFile {
             Example: C:\encryptedpwd.txt"
             if (! (Test-Path $EncryptedPwdFileInput)) {
                 Write-Host "Cannot find $EncryptedPwdFileInput. Please ensure the file is present and try again. Halting!"
-                exit
+                $global:FunctionResult = "1"
+                return
             }
         }
     }
@@ -74,7 +75,8 @@ function Decrypt-EncryptedPwdFile {
                 Example: C:\ps_scripting.pfx"
                 if (! (Test-Path $PathToCertFile)) {
                     Write-Host "The .pfx certificate file was not found at the path specified. Halting."
-                    exit
+                    $global:FunctionResult = "1"
+                    return
                 }
             }
         }
@@ -93,7 +95,8 @@ function Decrypt-EncryptedPwdFile {
                 $PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
                 if ($PathToCertInStore.Count -gt 1) {
                     Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. Halting!"
-                    exit
+                    $global:FunctionResult = "1"
+                    return
                 }
             }
         }
@@ -114,7 +117,8 @@ function Decrypt-EncryptedPwdFile {
             }
             else {
                 Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
-                exit
+                $global:FunctionResult = "1"
+                return
             }
         }
         if ($FileOrStoreSwitch -eq "File") {
@@ -142,7 +146,8 @@ function Decrypt-EncryptedPwdFile {
             }
             else {
                 Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
-                exit
+                $global:FunctionResult = "1"
+                return
             }
         }
         if ($WhichCertSwitch -eq "File") {
@@ -174,13 +179,14 @@ function Decrypt-EncryptedPwdFile {
     Write-Output $DecryptedPwd2
 
     ##### END Main Body #####
+    $global:FunctionResult = "0"
 }
 
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUztgeKvtgSYEsFk3JTFH2zNmb
-# Rd2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU72m++lj0CNsC9FmDbyDlKct/
+# lA6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -235,11 +241,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSwhJPHmzJI
-# tDwP7OvqIAAIbb4ycTANBgkqhkiG9w0BAQEFAASCAQBhxmvBt/hBR/kulF/9yS2p
-# N62M2leXM3aOqLvDygt5EYxGMsdykejXkdzZIKub4kUA+DNZ9FQ9/CrCgjz2H+EH
-# h8iNKCTD6egMQdtQtZ/jVuhMiri0u5tjhC5vjJmGI9igL52k2LeEFQXXvGCIN8nu
-# ew1ZxMutEJsLgpsiceqvXhkAu1jJFuuDFtPP8hWar4Js8q2TGJ4G5Dv3eDS+XHg5
-# kqxqOgmqRsIXfv4MVBFa0k5tGyA6XmQtOv1S6jPqxkK7fOg3IPGI4xxQHapaBdkN
-# ZK8U+uleosBXrpSCUb2935gQdHc3k2hjNEnezVhCKoOSNloHCOBHxtxR0gdYzFOB
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ01vT43yTc
+# V2MLzk6yxSVAGKkGOzANBgkqhkiG9w0BAQEFAASCAQBHuwqUMRBT6Gh4ml4naTDZ
+# L02U6I0YyPUv6rDIe0TZac7ULIOSUtTp1zBd7fq0ZxeC/O2P66yfqsPB0nCTlYwI
+# nlN6rs6J8bnSggIpaZVIIVl/qFcoP9hbWXmUr9W0BNr78p4MSZ3tm0TqW3g5OZV8
+# ciTl8X3MR7QVT0VBQp28jUj56Ue2eZzUlCeP1lVVQK+Lzh/Y2bzJHn5mk+yQg0+r
+# azzmEvTzuB5oY0mjQJ3MKFvgrRWa/UksXQLPG+Wq8hCC3WZ8vj5F/l+xsRvR6pZb
+# 3bKczeG4m8Xq4gWrK0HIarC6z6v+DWxkk+G5G/+lrkEq6ldUTmA2NBlYGO6MXJtG
 # SIG # End signature block

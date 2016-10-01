@@ -21,7 +21,7 @@
 
     3) [MANDATORY] $CurrentPublicIPFile - The name of the file that contains your current/old/new Public IP Address (Default: currentpublicip.txt)
 
-    4) [MANDATORY] $URLThatReturnsPublicIP - The URL that returns your Public IP (Default: http://checkip.dyndns.com)
+    4) [MANDATORY] $URLThatReturnsPublicIP - The URL that returns your Public IP (Default: https://api.ipify.org)
 
     5) [MANDATORY] $GmailUserName - The username for the Gmail Account you are using to send an email to the Cell Provider SMS forwarding service email address.
 
@@ -56,7 +56,7 @@
     Send-EmailOnPublicIPChange `
     -HelperFunctionSourceDirectory "C:\powershell\HelperFunctions" `
     -OutputDirectory "C:\powershell\RecurringTasks\Outputs" `
-    -URLThatReturnsPublicIP "http://checkip.dyndns.com" `
+    -URLThatReturnsPublicIP "https://api.ipify.org" `
     -GmailUserName "gmailusername" `
     -CNofCertInStoreToDecryptPwdFile "PowerShell_Scripting" `
     -SMTPConnection "smtp.gmail.com" `
@@ -83,7 +83,7 @@ function Send-EmailOnPublicIPChange {
         $CurrentPublicIPFile = "currentpublicip.txt",
 
         [Parameter(Mandatory=$False)]
-        $URLThatReturnsPublicIP = "http://checkip.dyndns.com",
+        $URLThatReturnsPublicIP = "https://api.ipify.org",
 
         [Parameter(Mandatory=$False)]
         $GmailUserName = $(Read-Host -Prompt "Please enter the gmail username that will be used to send an email to the CellProvider SMS Forwarding service"),
@@ -125,6 +125,7 @@ function Send-EmailOnPublicIPChange {
             }
             else {
                 Write-Host "$obj1 cannot be found. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -175,6 +176,13 @@ function Send-EmailOnPublicIPChange {
     $PublicIPPrep = Invoke-WebRequest -Uri "$URLThatReturnsPublicIP" | Select-Object -ExpandProperty Content
     $IPRegex = '\b(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b'
     $NewPublicIP = $($PublicIPPrep | Select-String -Pattern $IPRegex).Matches.Value
+
+    if ($NewPublicIP -eq $null) {
+        Write-Host "No Public IP Address was returned from the URL $URLThatReturnsPublicIP. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
     Write-Host "New Public IP is $NewPublicIP"
 
     # Write Public IP to file which will be overwritten evertime this script runs
@@ -184,6 +192,9 @@ function Send-EmailOnPublicIPChange {
     if ($OldPublicIP -eq $NewPublicIP) {
         Write-Host "Public IP Address has NOT changed...No action taken"
         exit
+    }
+    if ($OldPublicIP -eq $null) {
+        $OldPublicIP = $NewPublicIP
     }
 
     #If the IP has changed...
@@ -212,8 +223,8 @@ function Send-EmailOnPublicIPChange {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+IHk4JKwQCMVt0Y5sy+w9Y/T
-# dTugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUw3Bh/PtoS5bwUGPSu0yM5EAX
+# XwygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -268,11 +279,11 @@ function Send-EmailOnPublicIPChange {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSI4tG1Qxfj
-# HJrPBVfZ/wBMyFyV7TANBgkqhkiG9w0BAQEFAASCAQBW/GMJnRWvVhJDIVZu+BPR
-# pANBq8TMwikb35ttoP9YcPsLW/EDL2nFZJkinZqczbMWriWsdD3TJs5/4fyHC5ta
-# Hxc7PTQQrZYjGDuCYSy8pSQINeDd9GxunCuz/aa1e5LJXD31q1kle+oZJoHzOoVH
-# PsvQOFpU+RJu+itzaICOs4Q2Ep84ruLdU0KSv1IgqllBDg0nhgiqHdUhd+WR+32T
-# Ae4vSJxo0/Mp9rbBEaMl9+eGa7ebtwGVWjF88LX+B51Ey4cQGDQ4VSq0WzVp/fgm
-# +FjarqV1+enNTJ1DMiC9VZ+WHbcvH5xEUSEAMDwxbo3T7IKVIts4vRvsLrr51mrh
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRn+vxVhyLH
+# 9JWQmtpzN6YerH92CTANBgkqhkiG9w0BAQEFAASCAQBI1wrNz86Wwze6IU/qwwpY
+# GwWgNpsqLjITeKLTcLZj+QJoj+Gy9HvME2uqACFOt6Ep262/WlQL8wZONHq8GJoy
+# Psph+xx7oDTRNL3a1PbCAghTOU54D6DJNHXmK1fsSLn+BqHDYsOjiFzsoP3WhqxB
+# i7iQbOvk4w324bFN4g5bASUg8hk2rykwSGsZzR6UTrzZC2ssQ1KQPiiqSLlUQTrX
+# c7umwWSI8G+SrDf/RjVvAlX/FAvNlBasYK3K4/Cj9DQphIYlpQgLwGvryFgLKX/b
+# o/lgkKfeaideI6gt7Q8hJZF2b+0vju4BGLBsp59xZpLJNlM8/skwDCMXjB1W89l8
 # SIG # End signature block

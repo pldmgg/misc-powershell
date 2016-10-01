@@ -211,6 +211,7 @@ function Convert-SSLKey {
         }
         else {
             Write-Host "$OutputDirectory cannot be found. Halting!"
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -232,6 +233,7 @@ function Convert-SSLKey {
                 }
                 else {
                     Write-Host "$PathToPageant cannot be found. Halting!"
+                    $global:FunctionResult = "1"
                     return
                 }
             }
@@ -251,6 +253,7 @@ function Convert-SSLKey {
                 }
                 else {
                     Write-Host "$PathToWinSCP cannot be found. Halting!"
+                    $global:FunctionResult = "1"
                     return
                 }
             }
@@ -274,6 +277,7 @@ function Convert-SSLKey {
                 }
                 else {
                     Write-Host "$PathToWin32OpenSSH cannot be found. Halting!"
+                    $global:FunctionResult = "1"
                     return
                 }
             }
@@ -294,6 +298,7 @@ function Convert-SSLKey {
             }
             else {
                 Write-Host "$PathToWin32OpenSSL cannot be found. Halting!"
+                $global:FunctionResult = "1"
                 return
             }
         }
@@ -334,6 +339,7 @@ function Convert-SSLKey {
         }
         else {
             Write-Host "$PathToPrivateKey cannot be found. Halting!"
+            $global:FunctionResult = "1"
             return
         }
     }
@@ -443,14 +449,15 @@ extendedKeyUsage = serverAuth
         & "$PathToWin32OpenSSL\openssl" req -x509 -days 365 -new -key "$PathToPrivateKey" -out "$OutputDirectory\$PrivateKeyName-key.crt" -config "$OutputDirectory\$OpenSSLCertConfFile"
     }
 
-
     ##### END Main Body #####
+
+    $global:FunctionResult = "0"
 }
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeZMY7MDxs5cdKtjQqLCIIn5j
-# WrGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpy7puIj2mKEh37KTcnINa+GZ
+# pG6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -505,11 +512,11 @@ extendedKeyUsage = serverAuth
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTleizyXDzy
-# j60eaBvi44iJO3Y1kTANBgkqhkiG9w0BAQEFAASCAQCJH3RiX4h5a65dSIVG0TQU
-# tYlXOyROIho20Z9VchQjO4IYraR16bsoKQUTAd0/w69SE6BB5ou3C3zpJEN5c9Sx
-# IMl+jvkQ0I8G9gQFeu8J1YTM9K0J/xX3d74bb0r90N/b+odVIg6qTp5bFrtWX02g
-# z5To3egQ8BomnBklrAIm9IQ3iG6DZf8Fho7bybPHgTMigrmgzIHY/1OJ5AFYBySi
-# V1xf0AodE+xlReEuldV6Qy7nk0YzU0f0Xh6DsMgBbrTgjYsTSb8MR19xpO1jFLRG
-# DLFZvromcHqI9n9FgjH1dSRXw2I75/OoEOUQ6EgZfDI441NiVhNasDiE0SbEtyA1
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSWGWt9eefx
+# sU8n9P40TJa1UT7T0TANBgkqhkiG9w0BAQEFAASCAQAfxFTau2BBgXjazgyuvUUu
+# 9sAeIZcgY3dUDyWhifYP//6e0v5m0aOjh48KWzIVZ9IW3KZJ01Pcui9RsoLRMUJz
+# Mp5Q0SpBxLDBjZlw0BZftNmyeOrlRhRTwV+t0uMSeCXaKZpVmbsR5A/RieDs48Qa
+# eES0UcFD9uMBFyz8nuiOwB3zg8eCx+sl28uWVSRCj8pfGjXspa+m6jjsDz2u9sPe
+# xxCa1z+Yty1gu5HzmwMFqeQpQeOFRIr5KqSovzESwrfco8Jxhqr89160LXuuY3us
+# 3yRaQSfViy4mQklvzySKn2m1qXEqn55SJKtmd3nb8x5BW7uTm3BOb1jGx6I6wP9o
 # SIG # End signature block
