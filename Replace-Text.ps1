@@ -29,7 +29,7 @@ function Replace-Text {
         $NewFileWithUpdatedText, # Must be full path to desired output filename
 
         [Parameter(Mandatory=$False)]
-        $TextFormationType = $(Read-Host -Prompt "WOuld you like to replace a string, and entire line, or a whole block of text? [string/line/block]"),
+        $TextFormationType = $(Read-Host -Prompt "Would you like to replace a string, and entire line, or a whole block of text? [string/line/block]"),
 
         [Parameter(Mandatory=$False)]
         $StringToReplace,
@@ -38,7 +38,7 @@ function Replace-Text {
         [array]$StringLineNumber, # Which instance of $StringToReplace do you want to replace if there are multiple?
 
         [Parameter(Mandatory=$False)]
-        $LineOccurrenceOfString, # Refers to either the "first" line that contains $StringToReplace , or the "last" line that contains $StringToReplace
+        [array]$StringOccurrenceOfLine, # Refers to either the "first" line that contains $StringToReplace , or the "last" line that contains $StringToReplace
 
         [Parameter(Mandatory=$False)]
         [array]$StringInLineOccurrence, # For cases where $StringToReplace appears multiple times within a single line
@@ -53,7 +53,7 @@ function Replace-Text {
         [array]$LineLineNumber, # Which instance of $LineToReplace do you want to replace if there are multiple?
 
         [Parameter(Mandatory=$False)]
-        $LineOccurrenceOfLine, # Refers to either the "first" line that matches $LineToReplace, or the "last" line that matches $LineToReplace
+        [array]$LineOccurrenceOfLine, # Refers to either the "first" line that matches $LineToReplace, or the "last" line that matches $LineToReplace
 
         [Parameter(Mandatory=$False)]
         $BlockToReplace,
@@ -129,6 +129,20 @@ function Replace-Text {
     }
     if (! $($LineLineNumberPrep | Select-String -Pattern ",").Matches.Success) {
         [array]$LineLineNumber = $LineLineNumber
+    }
+
+    if ($($StringOccurrenceOfLine | Select-String -Pattern ",").Matches.Success) {
+        [array]$StringOccurrenceOfLine = $StringOccurrenceOfLine.Split(",").Trim()
+    }
+    if (! $($StringOccurrenceOfLine | Select-String -Pattern ",").Matches.Success) {
+        [array]$StringOccurrenceOfLine = $StringOccurrenceOfLine
+    }
+
+    if ($($StringOccurrenceInLine | Select-String -Pattern ",").Matches.Success) {
+        [array]$StringOccurrenceInLine = $StringOccurrenceInLine.Split(",").Trim()
+    }
+    if (! $($StringOccurrenceInLine | Select-String -Pattern ",").Matches.Success) {
+        [array]$StringOccurrenceInLine = $StringOccurrenceInLine
     }
 
     # If used, convert $BeginningStringLineNumber and/or $EndingStringLineNumber to [int] object
@@ -581,6 +595,8 @@ function Replace-Text {
                         $StringLineCheck += $LineNumber
                     }
                 }
+                # Ensure the Line Numbers in $StringLineCheck are sorted by ascending
+                $StringLineCheck = $StringLineCheck | Sort-Object
                 if ($StringLineCheck -eq $null) {
                     Write-Host "Line Number $StringLineNumber does NOT contain '$StringToReplace'. Halting!"
                     Write-Error "Line Number $StringLineNumber does NOT contain '$StringToReplace'. Halting!"
@@ -588,33 +604,78 @@ function Replace-Text {
                     return
                 }
                 if ($ReplaceSome -eq "Yes" -or $ReplaceSome -eq "y") {
-                    if ($LineOccurrenceOfString -eq "last") {
-                        [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Maximum
+                    if ($StringOccurrenceOfLine.Count -eq 1) {
+                        if ($StringOccurrenceOfLine -eq "last") {
+                            [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Maximum
+                        }
+                        if ($StringOccurrenceOfLine -eq "first") {
+                            [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Minimum
+                        }
+                        if ($StringOccurrenceOfLine -match "[\d]{1,10}") {
+                            $UpdatedStringLineNumbers = @()
+                            for ($loop=0; $loop -lt $StringLineCheck.Count; $loop++) {
+                                foreach ($obj1 in $StringOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj1) {
+                                        $UpdatedStringLineNumbers += $StringLineCheck[$loop]
+                                    }
+                                }
+                                
+                            }
+                        }
                     }
-                    if ($LineOccurrenceOfString -eq "first") {
-                        [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Minimum
+                    if ($StringOccurrenceOfLine.Count -gt 1) {
+                        $UpdatedStringLineNumbers = for ($loop=0; $loop -lt $StringLineCheck.Count; $loop++) {
+                            foreach ($obj2 in $StringOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj2) {
+                                    $StringLineCheck[$loop]
+                                }
+                            }
+                        }
                     }
-                    if ($StringLineCheck.Count -eq 1) {
+                    if ($StringLineCheck.Count -eq 1 -and $StringOccurrenceOfLine -eq $null) {
                         $UpdatedStringLineNumbers = $StringLineCheck
                     }
-                    if ($StringLineCheck.Count -gt 1) {
+                    if ($StringLineCheck.Count -gt 1 -and $StringOccurrenceOfLine -eq $null) {
                         $UpdatedStringLineNumbers = $StringLineCheck
                     }
                 }
                 if ($ReplaceOne -eq "Yes" -or $ReplaceOne -eq "y") {
-                    if ($LineOccurrenceOfString -eq "last" ) {
-                        [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Maximum
+                    if ($StringOccurrenceOfLine.Count -eq 1) {
+                        if ($StringOccurrenceOfLine -eq "last") {
+                            [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Maximum
+                        }
+                        if ($StringOccurrenceOfLine -eq "first") {
+                            [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Minimum
+                        }
+                        if ($StringOccurrenceOfLine -match "[\d]{1,10}") {
+                            $UpdatedStringLineNumbers = @()
+                            for ($loop=0; $loop -lt $StringLineCheck.Count; $loop++) {
+                                foreach ($obj1 in $StringOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj1) {
+                                        $UpdatedStringLineNumbers += $StringLineCheck[$loop]
+                                    }
+                                }
+                                
+                            }
+                        }
                     }
-                    if ($LineOccurrenceOfString -eq "first") {
-                        [int]$UpdatedStringLineNumbers = $($StringLineCheck | Measure-Object -Maximum -Minimum).Minimum
+                    if ($StringOccurrenceOfLine.Count -gt 1) {
+                        $UpdatedStringLineNumbers = for ($loop=0; $loop -lt $StringLineCheck.Count; $loop++) {
+                            foreach ($obj2 in $StringOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj2) {
+                                    $StringLineCheck[$loop]
+                                }
+                            }
+                        }
                     }
-                    if ($StringLineCheck.Count -eq 1) {
+                    if ($StringLineCheck.Count -eq 1 -and $StringOccurrenceOfLine -eq $null) {
                         $UpdatedStringLineNumbers = $StringLineCheck
                     }
-                    if ($StringLineCheck.Count -gt 1) {
+                    if ($StringLineCheck.Count -gt 1 -and $StringOccurrenceOfLine -eq $null) {
                         Write-Host "The parameter `$ReplaceOne was used, however, multiple line numbers were specified using the `$StringLineNumber parameter, and more than one line contains the string:`n$StringToReplace"
                         Write-Host "Lines that contain the string '$StringToReplace' are as follows:"
                         $PotentialStringLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").LineNumber
+                        $PotentialStringLineNumbers = $PotentialStringLineNumbers | Sort-Object
                         $PotentialStringLineNumbersContent = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").Line
                         $PotentialStringLineChoices = For ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
                             "$($loop+1)"+") "+"Line Number $($PotentialStringLineNumbers[$loop])`: "+"$($TextFileSourceContent[$($PotentialStringLineNumbers[$loop])-1])"
@@ -702,6 +763,8 @@ function Replace-Text {
                 # If $StringToReplace appears multiple times in $TextFileSource, but the $StringLineNumber is not provided, 
                 # and either $ReplaceSome or $ReplaceOne is used, prompt user to provide $StringLineNumber
                 if ($ReplaceSome -eq "Yes" -or $ReplaceSome -eq "y") {
+                    Write-Host "Writing `$StringOccurrenceOfLine"
+                    $StringOccurrenceOfLine
                     if ($StringLineNumberVSOccurrenceHashTable -ne $null) {
                         [array]$UpdatedStringLineNumbers = $StringLineNumberVSOccurrenceHashTable.Keys
                     }
@@ -709,9 +772,8 @@ function Replace-Text {
                         $UpdatedStringLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").LineNumber
                     }
                     if ($($TextFileSourceContent | Select-String -Pattern "$StringToReplace").Count -gt 1 -and $StringLineNumberVSOccurrenceHashTable -eq $null) {
-                        Write-Host "The parameter `$ReplaceSome was used, however, no line numbers were specified using the `$StringLineNumber parameter, and more than one line contains the string:`n$StringToReplace"
-                        Write-Host "Lines that contain the string '$StringToReplace' are as follows:"
                         $PotentialStringLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").LineNumber
+                        $PotentialStringLineNumbers = $PotentialStringLineNumbers | Sort-Object
                         $PotentialStringLineNumbersContent = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").Line
                         $PotentialStringLineChoices = For ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
                             "$($loop+1)"+") "+"Line Number $($PotentialStringLineNumbers[$loop])`: "+"$($TextFileSourceContent[$($PotentialStringLineNumbers[$loop])-1])"
@@ -719,29 +781,43 @@ function Replace-Text {
                         $ValidStringLineChoices = For ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
                             $loop+1
                         }
-                        $PotentialStringLineChoices
-                        $StringLineChoices = Read-Host -Prompt "Please select one or more choices (separated by commas) that correspond to the Nth occurrence of lines that contain '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
-                        if ($($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
-                            [array]$StringLineChoices = $StringLineChoices.Split(",").Trim()
-                        }
-                        if (! $($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
-                            [array]$StringLineChoices = $StringLineChoices
-                        }
-                        $InvalidStringLineChoices = @()
-                        foreach ($obj1 in $StringLineChoices) {
-                            if ($ValidStringLineChoices -notcontains $obj1) {
-                                Write-Host "$obj1 is not a valid choice."
-                                $InvalidStringLineChoices += $obj1
+                        if ($StringOccurrenceOfLine.Count -eq 1) {
+                            if ($StringOccurrenceOfLine -eq "last") {
+                                [int]$UpdatedStringLineNumbers = $($PotentialStringLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                            }
+                            if ($StringOccurrenceOfLine -eq "first") {
+                                [int]$UpdatedStringLineNumbers = $($PotentialStringLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                            }
+                            if ($StringOccurrenceOfLine -match "[\d]{1,10}") {
+                                $UpdatedStringLineNumbers = @()
+                                for ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
+                                    foreach ($obj1 in $StringOccurrenceOfLine) {
+                                        if ($($loop+1) -eq $obj1) {
+                                            $UpdatedStringLineNumbers += $PotentialStringLineNumbers[$loop]
+                                        }
+                                    }
+                                    
+                                }
                             }
                         }
-                        if ($InvalidStringLineChoices -ne $null) {
-                            if ($InvalidStringLineChoices.Count -eq 1) {
-                                Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Valid choices are as follows:"
+                        if ($StringOccurrenceOfLine.Count -gt 1) {
+                            $UpdatedStringLineNumbers = for ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
+                                foreach ($obj2 in $StringOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj2) {
+                                        $PotentialStringLineNumbers[$loop]
+                                    }
+                                }
                             }
-                            if ($InvalidStringLineChoices.Count -gt 1) {
-                                Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Valid choices are as follows:"
-                            }
-                            $ValidStringLineChoices
+                            Write-Host "Writing `$UpdatedStringLineNumbers"
+                            $UpdatedStringLineNumbers
+                        }
+                        if ($PotentialStringLineNumbers.Count -eq 1 -and $StringOccurrenceOfLine -eq $null) {
+                            $UpdatedStringLineNumbers = $PotentialStringLineNumbers
+                        }
+                        if ($PotentialStringLineNumbers.Count -gt 1 -and $StringOccurrenceOfLine -eq $null) {
+                            Write-Host "The parameter `$ReplaceSome was used, however, no line numbers were specified using the `$StringLineNumber parameter, no Nth occurrence of a line that contains the string was specified using the `$StringOccurrenceOfLine parameter, and more than one line contains the string:`n$StringToReplace"
+                            Write-Host "Lines that contain the string '$StringToReplace' are as follows:"
+                            $PotentialStringLineChoices
                             $StringLineChoices = Read-Host -Prompt "Please select one or more choices (separated by commas) that correspond to the Nth occurrence of lines that contain '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
                             if ($($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
                                 [array]$StringLineChoices = $StringLineChoices.Split(",").Trim()
@@ -758,26 +834,49 @@ function Replace-Text {
                             }
                             if ($InvalidStringLineChoices -ne $null) {
                                 if ($InvalidStringLineChoices.Count -eq 1) {
-                                    Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
-                                    Write-Error "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
+                                    Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Valid choices are as follows:"
                                 }
                                 if ($InvalidStringLineChoices.Count -gt 1) {
-                                    Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
-                                    Write-Error "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
+                                    Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Valid choices are as follows:"
                                 }
-                                $global:FunctionResult = "1"
-                                return
+                                $ValidStringLineChoices
+                                $StringLineChoices = Read-Host -Prompt "Please select one or more choices (separated by commas) that correspond to the Nth occurrence of lines that contain '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
+                                if ($($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
+                                    [array]$StringLineChoices = $StringLineChoices.Split(",").Trim()
+                                }
+                                if (! $($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
+                                    [array]$StringLineChoices = $StringLineChoices
+                                }
+                                $InvalidStringLineChoices = @()
+                                foreach ($obj1 in $StringLineChoices) {
+                                    if ($ValidStringLineChoices -notcontains $obj1) {
+                                        Write-Host "$obj1 is not a valid choice."
+                                        $InvalidStringLineChoices += $obj1
+                                    }
+                                }
+                                if ($InvalidStringLineChoices -ne $null) {
+                                    if ($InvalidStringLineChoices.Count -eq 1) {
+                                        Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
+                                        Write-Error "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
+                                    }
+                                    if ($InvalidStringLineChoices.Count -gt 1) {
+                                        Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
+                                        Write-Error "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
+                                    }
+                                    $global:FunctionResult = "1"
+                                    return
+                                }
                             }
-                        }
 
-                        $UpdatedStringLineNumbers = foreach ($obj1 in $StringLineChoices) {
-                            foreach ($obj2 in $PotentialStringLineChoices) {
-                                $ChoicePosition = $obj2.IndexOf(")")
-                                $ChoiceNumber = $obj2.Substring(0, $ChoicePosition)
-                                $LineNumPrep = $($obj2 | Select-String -Pattern "Line Number [\w]{1,10}:").Matches.Value
-                                $LineNum = $($LineNumPrep -split " " | Select-Object -Last 1) -replace ":",""
-                                if ($obj1 -eq $ChoiceNumber) {
-                                    $LineNum
+                            $UpdatedStringLineNumbers = foreach ($obj1 in $StringLineChoices) {
+                                foreach ($obj2 in $PotentialStringLineChoices) {
+                                    $ChoicePosition = $obj2.IndexOf(")")
+                                    $ChoiceNumber = $obj2.Substring(0, $ChoicePosition)
+                                    $LineNumPrep = $($obj2 | Select-String -Pattern "Line Number [\w]{1,10}:").Matches.Value
+                                    $LineNum = $($LineNumPrep -split " " | Select-Object -Last 1) -replace ":",""
+                                    if ($obj1 -eq $ChoiceNumber) {
+                                        $LineNum
+                                    }
                                 }
                             }
                         }
@@ -788,9 +887,8 @@ function Replace-Text {
                         $UpdatedStringLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").LineNumber
                     }
                     if ($($TextFileSourceContent | Select-String -Pattern "$StringToReplace").Count -gt 1) {
-                        Write-Host "The parameter `$ReplaceOne was used, however, no line numbers were specified using the `$StringLineNumber parameter, and more than one line contains the string:`n$StringToReplace"
-                        Write-Host "Lines that contain the string '$StringToReplace' are as follows:"
                         $PotentialStringLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").LineNumber
+                        $PotentialStringLineNumbers = $PotentialStringLineNumbers | Sort-Object
                         $PotentialStringLineNumbersContent = $($TextFileSourceContent | Select-String -Pattern "$StringToReplace").Line
                         $PotentialStringLineChoices = For ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
                             "$($loop+1)"+") "+"Line Number $($PotentialStringLineNumbers[$loop])`: "+"$($TextFileSourceContent[$($PotentialStringLineNumbers[$loop])-1])"
@@ -798,46 +896,58 @@ function Replace-Text {
                         $ValidStringLineChoices = For ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
                             $loop+1
                         }
-                        $PotentialStringLineChoices
-                        $StringLineChoices = Read-Host -Prompt "Please select one (1) choice that corresponds to the Nth occurrence of line that contains '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
-                        if ($($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
-                            [array]$StringLineChoices = $StringLineChoices.Split(",").Trim()
-                        }
-                        if (! $($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
-                            [array]$StringLineChoices = $StringLineChoices
-                        }
-                        # Since this is $ReplaceOne, check to make sure $StringLineChoices only has 1 element
-                        if ($StringLineChoices.Count -gt 1) {
-                            Write-Host "The parameter `$ReplaceOne allows for only one string to be replaced, and more than one choice was selected."
-                            [array]$StringLineChoices = Read-Host -Prompt "Please select one (1) choice that corresponds to the Nth occurrence of line that contains '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
-                            if ($StringLineChoices.Count -gt 1) {
-                                Write-Host "The parameter `$ReplaceOne allows for only one line to be replaced, and more than one choice was selected. Halting!"
-                                Write-Error "The parameter `$ReplaceOne allows for only one line to be replaced, and more than one choice was selected. Halting!"
-                                $global:FunctionResult = "1"
-                                return
+                        if ($StringOccurrenceOfLine.Count -eq 1) {
+                            if ($StringOccurrenceOfLine -eq "last") {
+                                [int]$UpdatedStringLineNumbers = $($PotentialStringLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                            }
+                            if ($StringOccurrenceOfLine -eq "first") {
+                                [int]$UpdatedStringLineNumbers = $($PotentialStringLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                            }
+                            if ($StringOccurrenceOfLine -match "[\d]{1,10}") {
+                                $UpdatedStringLineNumbers = @()
+                                for ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
+                                    foreach ($obj1 in $StringOccurrenceOfLine) {
+                                        if ($($loop+1) -eq $obj1) {
+                                            $UpdatedStringLineNumbers += $PotentialStringLineNumbers[$loop]
+                                        }
+                                    }
+                                    
+                                }
                             }
                         }
-                        $InvalidStringLineChoices = @()
-                        foreach ($obj1 in $StringLineChoices) {
-                            if ($ValidStringLineChoices -notcontains $obj1) {
-                                Write-Host "$obj1 is not a valid choice."
-                                $InvalidStringLineChoices += $obj1
+                        if ($StringOccurrenceOfLine.Count -gt 1) {
+                            $UpdatedStringLineNumbers = for ($loop=0; $loop -lt $PotentialStringLineNumbers.Count; $loop++) {
+                                foreach ($obj2 in $StringOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj2) {
+                                        $PotentialStringLineNumbers[$loop]
+                                    }
+                                }
                             }
                         }
-                        if ($InvalidStringLineChoices -ne $null) {
-                            if ($InvalidStringLineChoices.Count -eq 1) {
-                                Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Valid choices are as follows:"
-                            }
-                            if ($InvalidStringLineChoices.Count -gt 1) {
-                                Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Valid choices are as follows:"
-                            }
-                            $ValidStringLineChoices
+                        if ($PotentialStringLineNumbers.Count -eq 1 -and $StringOccurrenceOfLine -eq $null) {
+                            $UpdatedStringLineNumbers = $PotentialStringLineNumbers
+                        }
+                        if ($PotentialStringLineNumbers.Count -gt 1 -and $StringOccurrenceOfLine -eq $null) {
+                            Write-Host "The parameter `$ReplaceOne was used, however, no line numbers were specified using the `$StringLineNumber parameter, and more than one line contains the string:`n$StringToReplace"
+                            Write-Host "Lines that contain the string '$StringToReplace' are as follows:"
+                            $PotentialStringLineChoices
                             $StringLineChoices = Read-Host -Prompt "Please select one (1) choice that corresponds to the Nth occurrence of line that contains '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
                             if ($($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
                                 [array]$StringLineChoices = $StringLineChoices.Split(",").Trim()
                             }
                             if (! $($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
                                 [array]$StringLineChoices = $StringLineChoices
+                            }
+                            # Since this is $ReplaceOne, check to make sure $StringLineChoices only has 1 element
+                            if ($StringLineChoices.Count -gt 1) {
+                                Write-Host "The parameter `$ReplaceOne allows for only one string to be replaced, and more than one choice was selected."
+                                [array]$StringLineChoices = Read-Host -Prompt "Please select one (1) choice that corresponds to the Nth occurrence of line that contains '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
+                                if ($StringLineChoices.Count -gt 1) {
+                                    Write-Host "The parameter `$ReplaceOne allows for only one line to be replaced, and more than one choice was selected. Halting!"
+                                    Write-Error "The parameter `$ReplaceOne allows for only one line to be replaced, and more than one choice was selected. Halting!"
+                                    $global:FunctionResult = "1"
+                                    return
+                                }
                             }
                             $InvalidStringLineChoices = @()
                             foreach ($obj1 in $StringLineChoices) {
@@ -848,26 +958,49 @@ function Replace-Text {
                             }
                             if ($InvalidStringLineChoices -ne $null) {
                                 if ($InvalidStringLineChoices.Count -eq 1) {
-                                    Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
-                                    Write-Error "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
+                                    Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Valid choices are as follows:"
                                 }
                                 if ($InvalidStringLineChoices.Count -gt 1) {
-                                    Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
-                                    Write-Error "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
+                                    Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Valid choices are as follows:"
                                 }
-                                $global:FunctionResult = "1"
-                                return
+                                $ValidStringLineChoices
+                                $StringLineChoices = Read-Host -Prompt "Please select one (1) choice that corresponds to the Nth occurrence of line that contains '$StringToReplace' [$([string]$ValidStringLineChoices -replace " ","/")]"
+                                if ($($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
+                                    [array]$StringLineChoices = $StringLineChoices.Split(",").Trim()
+                                }
+                                if (! $($StringLineChoices | Select-String -Pattern ",").Matches.Success) {
+                                    [array]$StringLineChoices = $StringLineChoices
+                                }
+                                $InvalidStringLineChoices = @()
+                                foreach ($obj1 in $StringLineChoices) {
+                                    if ($ValidStringLineChoices -notcontains $obj1) {
+                                        Write-Host "$obj1 is not a valid choice."
+                                        $InvalidStringLineChoices += $obj1
+                                    }
+                                }
+                                if ($InvalidStringLineChoices -ne $null) {
+                                    if ($InvalidStringLineChoices.Count -eq 1) {
+                                        Write-Host "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
+                                        Write-Error "The choice $([string]$InvalidStringLineChoices) is not a valid choice. Halting!"
+                                    }
+                                    if ($InvalidStringLineChoices.Count -gt 1) {
+                                        Write-Host "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
+                                        Write-Error "The choices $([string]$InvalidStringLineChoices) are not valid choices. Halting!"
+                                    }
+                                    $global:FunctionResult = "1"
+                                    return
+                                }
                             }
-                        }
 
-                        $UpdatedStringLineNumbers = foreach ($obj1 in $StringLineChoices) {
-                            foreach ($obj2 in $PotentialStringLineChoices) {
-                                $ChoicePosition = $obj2.IndexOf(")")
-                                $ChoiceNumber = $obj2.Substring(0, $ChoicePosition)
-                                $LineNumPrep = $($obj2 | Select-String -Pattern "Line Number [\w]{1,10}:").Matches.Value
-                                $LineNum = $($LineNumPrep -split " " | Select-Object -Last 1) -replace ":",""
-                                if ($obj1 -eq $ChoiceNumber) {
-                                    $LineNum
+                            $UpdatedStringLineNumbers = foreach ($obj1 in $StringLineChoices) {
+                                foreach ($obj2 in $PotentialStringLineChoices) {
+                                    $ChoicePosition = $obj2.IndexOf(")")
+                                    $ChoiceNumber = $obj2.Substring(0, $ChoicePosition)
+                                    $LineNumPrep = $($obj2 | Select-String -Pattern "Line Number [\w]{1,10}:").Matches.Value
+                                    $LineNum = $($LineNumPrep -split " " | Select-Object -Last 1) -replace ":",""
+                                    if ($obj1 -eq $ChoiceNumber) {
+                                        $LineNum
+                                    }
                                 }
                             }
                         }
@@ -898,7 +1031,7 @@ function Replace-Text {
                     return
                 }
             }
-
+            # The below variable $PossibleLineLineNumbers is used later in the if statement where $LineLineNumber -eq $null
             $PossibleLineLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$LineToReplace").LineNumber
             if ($LineLineNumber -ne $null) {
                 $LineLineCheck = @()
@@ -964,33 +1097,78 @@ function Replace-Text {
                 if ($PotentialPatterns.Count -gt 0) {
                     $UpdatedPossibleLineLineNumbers = $LineLineCheck
                 }
+                # Make sure $UpdatedPossibleLineLineNumbers is sorted ascending
+                $UpdatedPossibleLineLineNumbers = $UpdatedPossibleLineLineNumbers | Sort-Object
                 # Begin checking $UpdatedPossibleLineLineNumbers against $ReplaceSome and $ReplaceOne
                 if ($ReplaceSome -eq "Yes" -or $ReplaceSome -eq "y") {
-                    if ($LineOccurrenceOfLine -eq "last" ) {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                    if ($LineOccurrenceOfLine.Count -eq 1) {
+                        if ($LineOccurrenceOfLine -eq "last") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                        }
+                        if ($StringOccurrenceOfLine -eq "first") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                        }
+                        if ($LineOccurrenceOfLine -match "[\d]{1,10}") {
+                            $UpdatedLineLineNumbers = @()
+                            for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                                foreach ($obj1 in $LineOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj1) {
+                                        $UpdatedStringLineNumbers += $UpdatedPossibleLineLineNumbers[$loop]
+                                    }
+                                }
+                                
+                            }
+                        }
                     }
-                    if ($LineOccurrenceOfLine -eq "first") {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                    if ($LineOccurrenceOfLine.Count -gt 1) {
+                        $UpdatedLineLineNumbers = for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                            foreach ($obj2 in $LineOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj2) {
+                                    $UpdatedPossibleLineLineNumbers[$loop]
+                                }
+                            }
+                        }
                     }
-                    if ($UpdatedPossibleLineLineNumbers.Count -eq 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -eq 1 -and $LineOccurrenceOfLine -eq $null) {
                         $UpdatedLineLineNumbers = $UpdatedPossibleLineLineNumbers
                     }
-                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1 -and $LineOccurrenceOfLine -eq $null) {
                         $UpdatedLineLineNumbers = $UpdatedPossibleLineLineNumbers
                     }
                 }
                 if ($ReplaceOne -eq "Yes" -or $ReplaceOne -eq "y") {
-                    Write-Host "HELLO THERE TOP"
-                    if ($LineOccurrenceOfLine -eq "last" ) {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                    if ($LineOccurrenceOfLine.Count -eq 1) {
+                        if ($LineOccurrenceOfLine -eq "last") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                        }
+                        if ($StringOccurrenceOfLine -eq "first") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                        }
+                        if ($LineOccurrenceOfLine -match "[\d]{1,10}") {
+                            $UpdatedLineLineNumbers = @()
+                            for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                                foreach ($obj1 in $LineOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj1) {
+                                        $UpdatedStringLineNumbers += $UpdatedPossibleLineLineNumbers[$loop]
+                                    }
+                                }
+                                
+                            }
+                        }
                     }
-                    if ($LineOccurrenceOfLine -eq "first") {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                    if ($LineOccurrenceOfLine.Count -gt 1) {
+                        $UpdatedLineLineNumbers = for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                            foreach ($obj2 in $LineOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj2) {
+                                    $UpdatedPossibleLineLineNumbers[$loop]
+                                }
+                            }
+                        }
                     }
-                    if ($UpdatedPossibleLineLineNumbers.Count -eq 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -eq 1 -and $LineOccurrenceOfLine -eq $null) {
                         $UpdatedLineLineNumbers = $UpdatedPossibleLineLineNumbers
                     }
-                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1 -and $LineOccurrenceOfLine -eq $null) {
                         Write-Host "The parameter `$ReplaceOne was used, however, multiple line numbers were specified using the `$LineLineNumber parameter, and more than one line contains the line:`n$LineToReplace"
                         Write-Host "Lines that contain the line '$LineToReplace' are as follows:"
                         $PotentialLineLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$LineToReplace").LineNumber
@@ -1202,18 +1380,42 @@ function Replace-Text {
                         }
                     }
                 }
+                # Make sure $UpdatedPossibleLineLineNumbers is sorted ascending
+                $UpdatedPossibleLineLineNumbers = $UpdatedPossibleLineLineNumbers | Sort-Object
                 # Begin checking $UpdatedPossibleLineLineNumbers against $ReplaceSome and $ReplaceOne
                 if ($ReplaceSome -eq "Yes" -or $ReplaceSome -eq "y") {
-                    if ($LineOccurrenceOfLine -eq "last" ) {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                    if ($LineOccurrenceOfLine.Count -eq 1) {
+                        if ($LineOccurrenceOfLine -eq "last") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                        }
+                        if ($StringOccurrenceOfLine -eq "first") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                        }
+                        if ($LineOccurrenceOfLine -match "[\d]{1,10}") {
+                            $UpdatedLineLineNumbers = @()
+                            for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                                foreach ($obj1 in $LineOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj1) {
+                                        $UpdatedStringLineNumbers += $UpdatedPossibleLineLineNumbers[$loop]
+                                    }
+                                }
+                                
+                            }
+                        }
                     }
-                    if ($LineOccurrenceOfLine -eq "first") {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                    if ($LineOccurrenceOfLine.Count -gt 1) {
+                        $UpdatedLineLineNumbers = for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                            foreach ($obj2 in $LineOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj2) {
+                                    $UpdatedPossibleLineLineNumbers[$loop]
+                                }
+                            }
+                        }
                     }
-                    if ( $UpdatedPossibleLineLineNumbers.Count -eq 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -eq 1 -and $LineOccurrenceOfLine -eq $null) {
                         $UpdatedLineLineNumbers = $UpdatedPossibleLineLineNumbers
                     }
-                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1 -and $LineOccurrenceOfLine -eq $null) {
                         Write-Host "The parameter `$ReplaceSome was used, however, no line numbers were specified using the `$LineLineNumber parameter, and more than one line contains the line:`n$LineToReplace"
                         Write-Host "Lines that contain the line '$LineToReplace' are as follows:"
                         $PotentialLineLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$LineToReplace").LineNumber
@@ -1289,16 +1491,38 @@ function Replace-Text {
                     }
                 }
                 if ($ReplaceOne -eq "Yes" -or $ReplaceOne -eq "y") {
-                    if ($LineOccurrenceOfLine -eq "last" ) {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                    if ($LineOccurrenceOfLine.Count -eq 1) {
+                        if ($LineOccurrenceOfLine -eq "last") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                        }
+                        if ($StringOccurrenceOfLine -eq "first") {
+                            [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                        }
+                        if ($LineOccurrenceOfLine -match "[\d]{1,10}") {
+                            $UpdatedLineLineNumbers = @()
+                            for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                                foreach ($obj1 in $LineOccurrenceOfLine) {
+                                    if ($($loop+1) -eq $obj1) {
+                                        $UpdatedStringLineNumbers += $UpdatedPossibleLineLineNumbers[$loop]
+                                    }
+                                }
+                                
+                            }
+                        }
                     }
-                    if ($LineOccurrenceOfLine -eq "first") {
-                        [int]$UpdatedLineLineNumbers = $($UpdatedPossibleLineLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                    if ($LineOccurrenceOfLine.Count -gt 1) {
+                        $UpdatedLineLineNumbers = for ($loop=0; $loop -lt $UpdatedPossibleLineLineNumbers.Count; $loop++) {
+                            foreach ($obj2 in $LineOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj2) {
+                                    $UpdatedPossibleLineLineNumbers[$loop]
+                                }
+                            }
+                        }
                     }
-                    if ( $UpdatedPossibleLineLineNumbers.Count -eq 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -eq 1 -and $LineOccurrenceOfLine -eq $null) {
                         $UpdatedLineLineNumbers = $UpdatedPossibleLineLineNumbers
                     }
-                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1) {
+                    if ($UpdatedPossibleLineLineNumbers.Count -gt 1 -and $LineOccurrenceOfLine -eq $null) {
                         Write-Host "The parameter `$ReplaceOne was used, however, no line numbers were specified using the `$LineLineNumber parameter, and more than one line contains the line:`n$LineToReplace"
                         Write-Host "Lines that contain the line '$LineToReplace' are as follows:"
                         $PotentialLineLineNumbers = $($TextFileSourceContent | Select-String -Pattern "$LineToReplace").LineNumber
@@ -1604,7 +1828,7 @@ function Replace-Text {
                         }
                     )
 
-                    $UpdatedStringToReplaceObjects += $(Get-Variable -Name "UpdatedStringToReplaceLine$obj1$Occurrence" -ValueOnly)
+                    $UpdatedStringToReplaceObjects += $(Get-Variable -Name "UpdatedStringToReplaceLine$obj1`1" -ValueOnly)
                 }
                 if ($StringToReplaceInLineIndexes.Count -gt 1) {
                     [array]$StringLineSplitPrep = $($FinalStringLineNumberContent -replace "$StringToReplace",";;;splithere;;;$StringToReplace;;;splithere;;;") -split ";;;splithere;;;"
@@ -2211,6 +2435,93 @@ function Replace-Text {
     ##### END Main Body #####
 
 }
+
+#### BEGIN STRING OCCURRENCE OF LINE TESTING #####
+
+# String, ReplaceSome, WITH $StringOccurrenceOfLine (single), WITH $StringInLineOccurrence (single), WITHOUT `$StringLineNumber = SUCCESS
+<#
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "string" `
+-StringToReplace "- name:" `
+-StringOccurrenceOfLine "1" `
+-StringInLineOccurrence "2" `
+-ReplaceSome "Yes" `
+-ReplacementText "Hi" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
+# String, ReplaceSome, WITH $StringOccurrenceOfLine (single), WITH $StringInLineOccurrence (multiple), WITHOUT `$StringLineNumber = SUCCESS
+<#
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "string" `
+-StringToReplace "- name:" `
+-StringOccurrenceOfLine "1" `
+-StringInLineOccurrence "2, 3" `
+-ReplaceSome "Yes" `
+-ReplacementText "Hi" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
+# String, ReplaceSome, WITH $StringOccurrenceOfLine (multiple), WITH $StringInLineOccurrence (single), WITHOUT `$StringLineNumber = SUCCESS
+<#
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "string" `
+-StringToReplace "- name:" `
+-StringOccurrenceOfLine "1, 2" `
+-StringInLineOccurrence "2" `
+-ReplaceSome "Yes" `
+-ReplacementText "Hi" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
+# String, ReplaceSome, WITH $StringOccurrenceOfLine (multiple), WITH $StringInLineOccurrence (multiple), WITHOUT `$StringLineNumber = SUCCESS
+<#
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "string" `
+-StringToReplace "- name:" `
+-StringOccurrenceOfLine "1, 2" `
+-StringInLineOccurrence "2, 3" `
+-ReplaceSome "Yes" `
+-ReplacementText "Hi" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
+#### END STRING OCCURRENCE OF LINE TESTING #####
+
+
+
+
+
+
+
+
+#### BEGIN LINE OCCURRENCE OF LINE TESTING #####
+# Line, ReplaceSome, where $LineToReplace is an ENTIRE LINE, WITH $LineOccurrenceOfLine (single), WITHOUT `$LineLineNumber
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "line" `
+-LineToReplace "  - name: `"user1 and user1`" - name: and - name:" `
+-LineOccurrenceOfLine "1" `
+-ReplaceSome "Yes" `
+-ReplacementText "Hi" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+
+
+
+#### END LINE OCCURRENCE OF LINE TESTING #####
+
+
+
+
+
+
+
+
+
 # String, ReplaceAll = SUCCESS = SUCCESS
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
@@ -2855,45 +3166,34 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 
 ### BEGIN TESTING FOR BLOCKS ###
 
-# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESS
-Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
--TextFormationType "block" `
--BeginningString "user1" `
--EndingString "shell: `"/bin/bash`"2" `
--ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
--ReplacementType "newfile" `
--NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
-
-# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
--BeginningString "user1" `
--BeginningStringLineNumber "8" `
+-BeginningString "`"/bin/bash`"1" `
 -EndingString "shell: `"/bin/bash`"2" `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
 -ReplacementType "newfile" `
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITH $EndingStringLineNumber = Success
+# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
--BeginningString "user1" `
+-BeginningString "`"/bin/bash`"1" `
+-BeginningStringLineNumber "16" `
 -EndingString "shell: `"/bin/bash`"2" `
--EndingStringLineNumber "24" `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
 -ReplacementType "newfile" `
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITH $EndingStringLineNumber = Successx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
--BeginningString "user1" `
--BeginningStringLineNumber "8" `
+-BeginningString "`"/bin/bash`"1" `
 -EndingString "shell: `"/bin/bash`"2" `
 -EndingStringLineNumber "24" `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
@@ -2901,55 +3201,68 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
--BeginningString "user1" `
+-BeginningString "`"/bin/bash`"1" `
+-BeginningStringLineNumber "16" `
+-EndingString "shell: `"/bin/bash`"2" `
+-EndingStringLineNumber "24" `
+-ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
+# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESSx2
+<#
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "block" `
+-BeginningString "`"/bin/bash`"1" `
 -EndingString "shell: `"/bin/bash`"" `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
 -ReplacementType "newfile" `
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITH $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITH $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
--BeginningString "user1" `
--BeginningStringLineNumber "8" `
+-BeginningString "`"/bin/bash`"1" `
+-BeginningStringLineNumber "16" `
 -EndingString "shell: `"/bin/bash`"" `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
 -ReplacementType "newfile" `
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITHOUT $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITHOUT $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
--BeginningString "user1" `
+-BeginningString "`"/bin/bash`"1" `
 -EndingString "shell: `"/bin/bash`"" `
--EndingStringLineNumber "16" `
+-EndingStringLineNumber "24" `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
 -ReplacementType "newfile" `
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITH $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is UNIQUE, $EndingString is NOT UNIQUE, WITH $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
--BeginningString "user1" `
--BeginningStringLineNumber "8" `
+-BeginningString "`"/bin/bash`"1" `
+-BeginningStringLineNumber "16" `
 -EndingString "shell: `"/bin/bash`"" `
--EndingStringLineNumber "16" `
+-EndingStringLineNumber "24" `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
 -ReplacementType "newfile" `
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
@@ -2960,7 +3273,7 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
@@ -2972,7 +3285,7 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
@@ -2984,7 +3297,7 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESS
+# Block, $BeginningString is NOT UNIQUE, $EndingString is UNIQUE, WITH $BeginningStringLineNumber, WITH $EndingStringLineNumber = SUCCESSx2
 <#
 Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
 -TextFormationType "block" `
@@ -3114,39 +3427,11 @@ if ($OccurrenceOfEndingString -eq "first") {
             # End Determine $FinalStringLineNumber #
 #>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHJ8y/Q6RhtMNDOq1ZoFnEsYY
-# 486gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUibL0RnYmkCtURaIw34qvr02P
+# /2qgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3201,11 +3486,11 @@ if ($OccurrenceOfEndingString -eq "first") {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRjjaG2ClqO
-# cK+1uYLyVsZKwUzSETANBgkqhkiG9w0BAQEFAASCAQA/VZK5Mb40BOmEdbn0eUja
-# uvEZVaJuRDitlEb+C7rNIKdlmyiVWyDloj2Ax3iyr91zoppg2xcEZPbfEp52vu1y
-# O6P7cLMiKC7brSiNonkx98j6UKLTUkQ1DWVU1C5myl2GPvmxXz+zi2hd8T1IQQbl
-# DXkxBhIuMqn4QCAfmCYG2F9sPCik7ai/JyxmvkRJceFkmA8qol369QPEDotdECmh
-# 9nSTStldXdz0RKqcLIAZGINDYCQW9lOMJMYDww3L3Ix6aE/6dbtMixvrbWk0GGCK
-# tFlATVW5WdhVeg4Pp5pbgK1XS8GsMklfiTSyYVZiuRyk9T45IlZ2qFmMVo4tswO3
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQmYDwUkGrQ
+# KvVrkeTNVyEIvqzBYDANBgkqhkiG9w0BAQEFAASCAQBqAhSn3590/vVXpLrkTeme
+# ZTFrsnqSJE6Xnl88GZrcPT/ksTYdoAjB75Uin54nTB9eD/xEE0DXx/zP0eJcZ2j0
+# 0FEZBbrjiPCdD8IMgdh10GBpMg02rwiHSkulNi0AmLaWJ7p88b/rxyBaFlpyTp9Y
+# G7gE/cXnFhzT4fbtP6Gg6hNGT4bLTmrBk6sYcfOsXvBQYJ3wVR4dye2S6EH6vxKo
+# JLur3ZEJj4ExiM7QW6TPegQLG4XO+9gBpBgydrGXy8ZE+H5yL8u1qfFqj/TeIIpR
+# hS0sLKXe0ticTFJJb5QFs9tsd5Wrnfq4JkXNfaizaeTtlWvWYCkPzBF3zjQLK80S
 # SIG # End signature block
