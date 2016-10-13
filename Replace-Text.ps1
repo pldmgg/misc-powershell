@@ -89,7 +89,10 @@ function Replace-Text {
         $EndingStringOccurrenceOfLine,
 
         [Parameter(Mandatory=$False)]
-        $EndingStringLineNumber
+        $EndingStringLineNumber,
+
+        [Parameter(Mandatory=$False)]
+        $Inclusive = "Yes"
 
     )
 
@@ -2466,7 +2469,12 @@ function Replace-Text {
             [int]$BeginningStringLineNumber = $($TextFileSourceContent | Select-String -Pattern "$BeginningString").LineNumber
             [int]$EndingStringLineNumber = $($TextFileSourceContent | Select-String -Pattern "$EndingString").LineNumber
 
-            $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+            }
+            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
+            }
         }
         # If we've already determined $BeginningStringLineNumber and $EndingStringLineNumber...
         if ($BeginningStringLineNumber.Count -eq 1 -and $EndingStringLineNumber.Count -eq 1) {
@@ -2489,7 +2497,12 @@ function Replace-Text {
                 }
             }
 
-            $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+            }
+            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
+            }
         }
         # If ONLY $BeginningString is Unique and we haven't determined $EndingStringLineNumber using the
         # $EndingOccurrenceOfLine parameter, perform the following
@@ -2567,7 +2580,12 @@ function Replace-Text {
             }
             # End Determine $EndingStringLineNumber #
 
-            $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+            }
+            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
+            }
         }
         # If ONLY $EndingString is Unique and we haven't determined $BeginningStringLineNumber using the
         # $BeginningOccurrenceOfLine parameter, perform the following
@@ -2646,7 +2664,12 @@ function Replace-Text {
             }
             # End Determine $BeginningStringLineNumber #
 
-            $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber))
+            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+            }
+            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                $BlockToReplace = $TextFileSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
+            }
         }
         # If neither $EndingString nor $BeginningString are Unique and we haven't determined $BeginningStringLineNumber
         # or $EndingStringLineNumber using the 'OccurrenceOfLine' parameters, perform the following
@@ -2674,7 +2697,12 @@ function Replace-Text {
                     if ($UpdatedPossibleLineNumbers[$loop] -lt $obj1) {
                         $PotentialBeginningStringLineNumber = $UpdatedPossibleLineNumbers[$loop]
                         $PotentialEndingStringLineNumber = $obj1
-                        New-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -Value $($TextFileSourceContent | Select-Object -Index ($PotentialBeginningStringLineNumber..$PotentialEndingStringLineNumber))
+                        if ($Inclusive -eq "Yes") {
+                            New-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -Value $($TextFileSourceContent | Select-Object -Index ($PotentialBeginningStringLineNumber..$PotentialEndingStringLineNumber))
+                        }
+                        if ($Inclusive -eq "No") {
+                            New-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -Value $($TextFileSourceContent | Select-Object -Index ($PotentialBeginningStringLineNumber+1..$PotentialEndingStringLineNumber-1))
+                        }
                         $PossibleBlockToReplaceArray += , $(Get-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -ValueOnly)
                         $StartAndFinishLineNumbersArray += "Line $PotentialBeginningStringLineNumber to Line $PotentialEndingStringLineNumber`:`n$($TextFileSourceContent[$PotentialBeginningStringLineNumber])`n...`n$($TextFileSourceContent[$PotentialEndingStringLineNumber])"
                     }
@@ -2718,10 +2746,6 @@ function Replace-Text {
             }
 
             $BlockToReplace = $PossibleBlockToReplaceArray[$($SelectedBlockToReplace-1)]
-            Write-Host ""
-            Write-Host "Writing `$BlockToReplace"
-            Write-Host ""
-            $BlockToReplace
 
         }
 
@@ -2801,8 +2825,9 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
-# String, ReplaceSome, WITHOUT specifying $StringLineNumber, WITHOUT $StringInLineOccurrence, WITH $StringOccurrenceOfLineVSStringOccurrenceInLineHashTable
-
+# String, ReplaceSome, WITHOUT specifying $StringLineNumber, WITHOUT $StringInLineOccurrence, 
+# WITH $StringOccurrenceOfLineVSStringOccurrenceInLineHashTable = SUCCESS
+<#
 $PassedHashTable = @{
     "1" = @("1","2")
     "2" = @("2","3")
@@ -2816,6 +2841,8 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 -ReplacementText "Hi" `
 -ReplacementType "newfile" `
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
 
 #### END STRING OCCURRENCE OF LINE TESTING #####
 
@@ -3830,6 +3857,55 @@ Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml"
 -NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
 #>
 
+
+
+
+
+
+
+
+# Begin Block "Inclusive" Parameter Testing #
+
+# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber
+# WITH Inclusive YES = SUCCESS
+<#
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "block" `
+-BeginningString "`"/bin/bash`"1" `
+-EndingString "shell: `"/bin/bash`"2" `
+-Inclusive "Yes" `
+-ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
+# Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber
+# WITH Inclusive NO = SUCCESS
+<#
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "block" `
+-BeginningString "`"/bin/bash`"1" `
+-EndingString "shell: `"/bin/bash`"2" `
+-Inclusive "No" `
+-ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+#>
+
+# Block, $BeginningString is NOT UNIQUE, $EndingString is NOT UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber
+Replace-Text -TextFileSource "V:\powershell\Testing\updated-phase1-template.yml" `
+-TextFormationType "block" `
+-BeginningString "`"/bin/bash`"" `
+-EndingString "docker" `
+-Inclusive "Yes" `
+-ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
+-ReplacementType "newfile" `
+-NewFileWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+
+
+# End Block "Inclusive" Parameter Testing #
+
+
     ##### BEGIN Archived Code #####
 <#
 $BeginningLineIndexPositionArray = $TextFileSourceContent.LastIndexOf("$BeginningString")
@@ -4072,16 +4148,11 @@ if (! $BeginningStringLineNumber.Count -gt 0 -and ! $BeginningStringOccurrenceOf
 
 
 
-
-
-
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgeE2xHJtD4N0/sdFzSs4U27x
-# IsygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKMS1tin5Tr+eD26R15TOqlva
+# UFCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4136,11 +4207,11 @@ if (! $BeginningStringLineNumber.Count -gt 0 -and ! $BeginningStringOccurrenceOf
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSPsG2bmTzB
-# Qgli1VbpSzrTJ4DZ2TANBgkqhkiG9w0BAQEFAASCAQBmdWsRVjRsO1dLt9SRCY+5
-# wME39SsUCspaycX/LVGVWEvvU2VTCMrl/8rAcdAjb04YEcJt1beO8bY7SeJoB65A
-# +V5zSzN4+zx8d36fZMRyj65fAIyW2xdIVW8rof9gKzbhVm+/rK8+Cgj4cIg0ZKPz
-# tBphFUYYXk279Q/r5AgZe84tHdl0b6+hzZpN9dcu6qM6g3aNus0WXXOUgYYWiA00
-# ZjPXJILBtkQr5KOjlfREMwsH03+g5cHNnRNfyVmom/WpHLzlZLKoRTOEF3JuZ5sU
-# cZeyGF2YdGuDNW13kV50DTiZb/O9Tra8Z2gsfgNSsz4TeeDMce2PJCXcSSvalK0+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRVyG/VoLEm
+# mAkltjOnXtlhCeliKDANBgkqhkiG9w0BAQEFAASCAQBVuYAioHmDboMxc1kR/x9N
+# 0bWF658qdykEPYEICimvdur96kc1nBPxYKZFA1DZb705lnPXcjdye8IB66qRjhKW
+# Jm8yebXVSEkN4ONIKXphFYjzYd7pTlUT14FxT9aw+ZlxNcWkw7WTceeEXm8PhxjU
+# JFuxSNHlmim+02kE1phagcowfqrflFb5ttMqyiv65d5/2pbrFqbqdaOda5tbkrlL
+# Si4dpoFb0tX3WEYc/xdcbREZi4lRBCCokLhOvogqmlxTz5ky/8fVKr2LtUx3SGWO
+# 4Nge49vhD8A5NtP18hMiWJ2t02eBlP1Bazh7KTv3WwiHEhpufK1hTpTqVnJJChOn
 # SIG # End signature block
