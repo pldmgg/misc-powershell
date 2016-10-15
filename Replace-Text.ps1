@@ -474,11 +474,239 @@
 .PARAMETER BlockToReplace
     This parameter is OPTIONAL.
 
-    TODO
+    This parameter takes a string or an array object (i.e. array of lines of text). If found in $TextSource, it will be replaced
+    by $ReplacementText. If the provided string/array of lines is not found in $TextSource, the function will throw an error.
+
+    WARNING: If a string is provided to this parameter, please pay close attention to line breaks.
+
+    This parameter should ONLY BE USED IF $TextFormationType = "Block"
 
 .EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml contains many occurrences of the string '- name:' on
+    many different lines throughout the file.
+
+    Goal: Replace all occurrences of the string '- name:' with the string 'Hi' in the file 
+    V:\powershell\Testing\updated-phase1-template.yml
+
+    Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
+    -TextFormationType "string" `
+    -StringToReplace "- name:" `
+    -ReplaceAll "Yes" `
+    -ReplacementText "Hi" `
+    -ReplacementType "inplace"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml contains many occurrences of the string '- name:' on
+    many different lines throughout the file. Line Number 8 contains only one occurrence of the string '- name:'
+
+    Goal: Replace the occurrence of the string '- name:' in ONLY line 8 and write the updated content to a new file.
+
+    Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
+    -TextFormationType "string" `
+    -StringToReplace "- name:" `
+    -StringLineNumber "8" `
+    -ReplaceOne "Yes" `
+    -ReplacementText "Hi" `
+    -ReplacementType "new" `
+    -OutputWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml contains many occurrences of the string '- name:' on
+    many different lines throughout the file. The file is dynamically generated, so line numbers in which the string '- name:'
+    appears are not necessarily consistent. However, we do know that the third line that ends up containing '- name:' is the one
+    that requires the string be replaced. The string '- name:' appears only once in that line.
+
+    Goal: Replace the string '- name:' in the third line that contains said string and write the updated content back to the original file.
+
+    Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
+    -TextFormationType "string" `
+    -StringToReplace "- name:" `
+    -StringOccurrenceOfLine "3" `
+    -ReplaceOne "Yes" `
+    -ReplacementText "Hi" `
+    -ReplacementType "inplace"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml contains many occurrences of the string '- name:' on
+    many different lines throughout the file. The file is dynamically generated, so line numbers in which the string '- name:'
+    appears are not necessarily consistent. However, we do know that the third line that ends up containing '- name:' is the one
+    that requires the string be replaced. The string '- name:' appears multiple times in that line.
+
+    Goal: In the third line that contains the string '- name:', replace the first and second occurrences of said string and write
+    the updated content to a new file.
+
+    Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
+    -TextFormationType "string" `
+    -StringToReplace "- name:" `
+    -StringOccurrenceOfLine "3" `
+    -StringOccurrenceInLine "1, 2"
+    -ReplaceSome "Yes" `
+    -ReplacementText "Hi" `
+    -ReplacementType "new" `
+    -OutputWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml contains many occurrences of the string '- name:' on
+    many different lines throughout the file. The file is dynamically generated, so line numbers in which the string '- name:'
+    appears are not necessarily consistent. However, we do know that the third and fifth lines that end up containing '- name:' 
+    are the ones that require the string be replaced. The string '- name:' appears multiple times in each aforementioned line.
+
+    Goal: Replace the second and fourth occurrence of '- name:' in the third line that contains the string. Replace the 
+    first and third occurrence of '- name:' in the fifth line that contains the string. Write the updated content to a new
+    file.
+
+    $ReplacementMap = @{
+        "3" = @("2","4")
+        "5" = @("1","3")
+    }
+
+    Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
+    -TextFormationType "string" `
+    -StringToReplace "- name:" `
+    -StringOccurrenceOfLineVSStringOccurrenceInLineHashTable $ReplacementMap `
+    -ReplaceSome "Yes" `
+    -ReplacementText "Hi" `
+    -ReplacementType "new" `
+    -OutputWithUpdatedText "V:\powershell\Testing\newfile_with_updated_text.yml"
+
+.EXAMPLE
+    Scenario: The PowerShell array object $DocumentContent has previously been created, and each array element is a line of text.
+    We are not sure exactly what the content of the object is exactly, but we know we want to replace lines 6, 10, and 15 with 
+    the line "This is a new line". (NOTE: Line Numbers 6, 10, and 15 are array elements 5, 9, and 14)
+
+    Goal: Replace lines 6, 10, and 15 with $ReplacementText and create a new PowerShell array object called $UpdatedDocumentContent.
+
+    Replace-Text -TextSource "$DocumentContent" `
+    -TextFormationType "line" `
+    -LineLineNumber "6, 10, 15" `
+    -ReplaceSome "Yes" `
+    -ReplacementText "This is a new line" `
+    -ReplacementType "new" `
+    -OutputWithUpdatedText "UpdatedDocumentContent"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml contains multiple lines which contain or match the string
+    'This powershell stuff is crazy'. We only want to replace the first, fifth, and tenth lines that end up matching or containing 
+    this string.
+
+    Goal: Replace the first, fifth, and tenth lines that contain the string 'This powershell stuff is crazy' and write the updated
+    content back to the original file.
+
+    Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
+    -TextFormationType "line" `
+    -LineToReplace "This powershell stuff is crazy" `
+    -LineOccurrenceOfLine "1, 5, 10"
+    -ReplaceSome "Yes" `
+    -ReplacementText "Hi" `
+    -ReplacementType "inplace"
+
+.EXAMPLE
+    Scenario: The PowerShell array object $DocumentContent has previously been created, and each array element is a line of text.
+    Multiple lines (i.e. array elements) contain the string 'This powershell stuff is crazy'. We want to replace the second and 
+    ninth lines that end up matching or containing this string.
+
+    Goal: Replace the second and ninth occurrences of lines that match or contain the string 'This powershell stuff is crazy'
+    and updated the original PowerShell array object $DocumentContent.
+
+    Replace-Text -TextSource "$DocumentContent" `
+    -TextFormationType "line" `
+    -LineOccurrenceOfLine "2, 9" `
+    -ReplaceSome "Yes" `
+    -ReplacementText "This is a new line" `
+    -ReplacementType "inplace" `
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml is a file that contains hundreds of lines of text. There is a 
+    specific block of text that you would like to replace.
+
+    Goal: Replace that specific block of text and create a new PowerShell array object called NewContent with the updated content 
+    available in the current scope.
+
+    $SourceContent = Get-Content -Path "V:\powershell\Testing\updated-phase1-template.yml" -Encoding Ascii
+    $BlockToReplace = Get-Content -Path "V:\powershell\Testing\OLD-phase1-template.yml" | Select-Object -Index (16..24)
+
+    Replace-Text -TextSource "$SourceContent" `
+    -TextFormationType "block" `
+    -BlockToReplace $BlockToReplace `
+    -Inclusive "No" `
+    -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
+    -ReplacementType "new" `
+    -OutputWithUpdatedText "NewContent"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\updated-phase1-template.yml is a file that contains hundreds of lines of text. There is a 
+    specific block of text that you would like to replace that begins on line number 5 and ends on line number 9.
+
+    Goal: Replace lines 5 through 9 INCLUSIVE and write the updated content back to the original file.
+
+    Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
+    -TextFormationType "block" `
+    -BeginningStringLineNumber "5" `
+    -EndingStringLineNumber "9" `
+    -Inclusive "Yes" `
+    -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
+    -ReplacementType "inplace" `
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\IT-Policy.docx is a document that contains thousands of lines of text. There is a 
+    block of text 100 lines long that begins with the line 'The IT Manager shall be respnsible for IT.' and ends with the line
+    'So, everyone gets a new laptop.'
+
+    Goal: Replace the 100 lines of text BETWEEN the lines 'The IT Manager shall be respnsible for IT.' and 'So, everyone gets a
+    new laptop.' and write the updated content to a new file.
+
+    Replace-Text -TextSource "V:\powershell\Testing\IT_Policy.docx" `
+    -TextFormationType "block" `
+    -BeginningString "The IT Manager shall be respnsible for IT." `
+    -EndingString "So, everyone gets a new laptop." `
+    -Inclusive "No" `
+    -RepalcementText "The IT Manager is a rockstar.`nSenior leadership shall support all his/her decisions" `
+    -ReplacementType "new" `
+    -NewFileWithUpdatedText "V:\powershell\Testing\Updated_IT_Policy"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\IT-Policy.docx is a document that contains thousands of lines of text. There is a 
+    block of text N lines long that begins with the line 'Section Summary:' and ends with the line 'Section 2: Responsibilities'. The
+    The line 'Section Summary:' occurs multiple times throughout the document, but it only appears once before the line
+    'Section 2: Responsibilities'. The line 'Section 2: Responsibilities' is unique and only appears once in the document.
+
+    Goal: Replace all lines BETWEEN the first occurrence of the line 'Section Summary:' and 'Section 2: Responsibilities' and 
+    update the original file.
+
+    $UpdatedSectionParagraph = Get-Content V:\powershell\Testing\updated_paragraph.txt
+
+    Replace-Text -TextSource "V:\powershell\Testing\IT_Policy.docx" `
+    -TextFormationType "block" `
+    -BeginningString "Section Summary:" `
+    -EndingString "Section 2: Responsibilities" `
+    -Inclusive "No" `
+    -RepalcementText "$UpdatedSectionParagraph" `
+    -ReplacementType "inplace"
+
+.EXAMPLE
+    Scenario: The file V:\powershell\Testing\IT-Policy.docx is a document that contains thousands of lines of text. There is a 
+    block of text N lines long that begins with the line 'Section Summary:' and ends with the line 'Section 12: SLA'. The
+    The line 'Section Summary:' occurs multiple times throughout the document, but it only appears once before the line
+    'Section 12: SLA'. The line 'Section 12: SLA' is unique and only appears once in the document.
+
+    Goal: Replace all lines BETWEEN the occurrence of the line 'Section Summary:' immediately preceding the line
+    'Section 2: Responsibilities' and update the original file.
+
+    $UpdatedSectionParagraph = Get-Content V:\powershell\Testing\updated_paragraph.txt
+
+    Replace-Text -TextSource "V:\powershell\Testing\IT_Policy.docx" `
+    -TextFormationType "block" `
+    -BeginningString "Section Summary:" `
+    -EndingString "Section 2: Responsibilities" `
+    -Inclusive "No" `
+    -RepalcementText "$UpdatedSectionParagraph" `
+    -ReplacementType "inplace"
+
+    [User will now receive an interactive prompt to specify which occurrence of $BeginningString will be the upper bound of the
+    block of text. Context will be provided.]
 
 .OUTPUTS
+    
 
 .NOTES
     None
@@ -2926,409 +3154,439 @@ function Replace-Text {
 
     # Outputs $UpdatedTextSourceContent
     if ($TextFormationType -eq "block") {
-        # Make sure $BeginningString and $EndingString are defined
-        if ($BeginningString -eq $null) {
-            Write-Host "In order to replace a block of text, you must use the `$BeginningString and `$EndingString parameters."
-            Write-Host "The `$BeginningString parameter is currently not defined"
-            $BeginningString = Read-Host -Prompt "Please enter the string of text that marks the beginning of the block of text you would like to replace"
-        }
-        if ($EndingString -eq $null) {
-            Write-Host "In order to replace a block of text, you must use the `$BeginningString and `$EndingString parameters."
-            Write-Host "The `$EndingString parameter is currently not defined"
-            $EndingString = Read-Host -Prompt "Please enter the string of text that marks the end of the block of text you would like to replace"
-        }
-
-        # IMPORTANT NOTE: If your $TextSource contains the exact string ;;splithere;; then this function will break!!
-        $TextSourceContentJoined = $TextSourceContent -join ";;splithere;;"
-
-        if ($BeginningStringOccurrenceOfLine.Count -ge 1 -and ! $BeginningStringLineNumber.Count -gt 0) {
-            Write-Host "HELLO THERE TOP"
-            # Begin determine $BeginningStringLineNumber #
-            $PossibleBeginningStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
-            $PossibleBeginningStringLineNumbersContent = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
-                $TextSourceContent[$obj1-1]
-            }
-            $PossibleBeginningStringLineNumbersChoices = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
-                "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
-            }
-
-            if ($BeginningStringOccurrenceOfLine.Count -eq 1) {
-                if ($BeginningStringOccurrenceOfLine[0] -eq "last") {
-                    [array]$BeginningStringLineNumber = $($PossibleBeginningStringLineNumbers | Measure-Object -Maximum -Minimum).Maximum
-                }
-                if ($BeginningStringOccurrenceOfLine[0] -eq "first") {
-                    [array]$BeginningStringLineNumber = $($PossibleBeginningStringLineNumbers | Measure-Object -Maximum -Minimum).Minimum
-                }
-                if ($BeginningStringOccurrenceOfLine[0] -match "[\d]{1,10}") {
-                   $BeginningStringLineNumber = @()
-                    for ($loop=0; $loop -lt $PossibleBeginningStringLineNumbers.Count; $loop++) {
-                        foreach ($obj1 in $BeginningStringOccurrenceOfLine) {
-                            if ($($loop+1) -eq $obj1) {
-                                $BeginningStringLineNumber += $PossibleBeginningStringLineNumbers[$loop]
-                            }
-                        }
-                        
-                    }
-                }
-            }
-            if ($BeginningStringOccurrenceOfLine.Count -gt 1) {
-                $BeginningStringLineNumber = for ($loop=0; $loop -lt $PossibleBeginningStringLineNumbers.Count; $loop++) {
-                    foreach ($obj2 in $BeginningStringOccurrenceOfLine) {
-                        if ($($loop+1) -eq $obj2) {
-                            $PossibleBeginningStringLineNumbers[$loop]
-                        }
-                    }
-                }
-            }
-            if ($PossibleBeginningStringLineNumbers.Count -eq 1 -and ! $BeginningStringOccurrenceOfLine.Count -gt 0) {
-                $BeginningStringLineNumber = $PossibleBeginningStringLineNumbers[0]
-            }
-            if ($PossibleBeginningStringLineNumbers.Count -gt 1 -and ! $BeginningStringOccurrenceOfLine.Count -gt 0) {
-                Write-Host "placeholder"
-            }
-
-            # End determine $BeginningStringLineNumber #
-        }
-        
-        if ($EndingStringOccurrenceOfLine.Count -ge 1 -and ! $EndingStringLineNumber.Count -gt 0) {
-            # Begin Determine $EndingStringLineNumber #
-            $PossibleEndingStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
-            $PossibleEndingStringLineNumbersContent = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
-                $TextSourceContent[$obj1-1]
-            }
-            $PossibleEndingStringLineNumbersChoices = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
-                "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
-            }
-
-            if ($EndingStringOccurrenceOfLine.Count -eq 1) {
-                if ($EndingStringOccurrenceOfLine -eq "last") {
-                    [array]$EndingStringLineNumber = $($PossibleEndingStringLineNumbers | Measure-Object -Maximum -Minimum).Maximum
-                }
-                if ($EndingStringOccurrenceOfLine -eq "first") {
-                    [array]$EndingStringLineNumber = $($PossibleEndingStringLineNumbers | Measure-Object -Maximum -Minimum).Minimum
-                }
-                if ($EndingStringOccurrenceOfLine[0] -match "[\d]{1,10}") {
-                   $EndingStringLineNumber = @()
-                    for ($loop=0; $loop -lt $PossibleEndingStringLineNumbers.Count; $loop++) {
-                        foreach ($obj1 in $EndingStringOccurrenceOfLine) {
-                            if ($($loop+1) -eq $obj1) {
-                                $EndingStringLineNumber += $PossibleEndingStringLineNumbers[$loop]
-                            }
-                        }
-                        
-                    }
-                }
-            }
-            if ($EndingStringOccurrenceOfLine.Count -gt 1) {
-                $EndingStringLineNumber = for ($loop=0; $loop -lt $PossibleEndingStringLineNumbers.Count; $loop++) {
-                    foreach ($obj2 in $EndingStringOccurrenceOfLine) {
-                        if ($($loop+1) -eq $obj2) {
-                            $PossibleEndingStringLineNumbers[$loop]
-                        }
-                    }
-                }
-            }
-            if ($PossibleEndingStringLineNumbers.Count -eq 1 -and ! $EndingStringOccurrenceOfLine.Count -gt 0) {
-                $EndingStringLineNumber = $PossibleEndingStringLineNumbers[0]
-            }
-            if ($PossibleEndingStringLineNumbers.Count -gt 1 -and ! $EndingStringOccurrenceOfLine.Count -gt 0) {
-                Write-Host "placeholder"
-            }
-            # End Determine $EndingStringLineNumber #
-        }
-
-        # If BOTH $EndingString and $BeginningString are Unique, and we haven't determined $BeginningStringLineNumber or
-        # $EndingStringLineNumber using the 'OccurrenceOfLine' parameters, perform the following
-        if ($($TextSourceContent | Select-String -Pattern "$BeginningString").Count -eq 1 `
-        -and $($TextSourceContent | Select-String -Pattern "$EndingString").Count -eq 1 `
-        -and ! $BeginningStringLineNumber.Count -gt 0 -and ! $EndingStringLineNumber.Count -gt 0) {
-            [int]$BeginningStringLineNumber = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
-            [int]$EndingStringLineNumber = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
-
-            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
-            }
-            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
-            }
-        }
-        # If we've already determined $BeginningStringLineNumber and $EndingStringLineNumber...
-        if ($BeginningStringLineNumber.Count -eq 1 -and $EndingStringLineNumber.Count -eq 1) {
-            [int]$BeginningStringLineNumber = $BeginningStringLineNumber[0]
-            [int]$EndingStringLineNumber = $EndingStringLineNumber[0]
-
-            # Check to make srue $BeginningStringLineNumber comes BEFORE $EndingStringLineNumber
-            if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
-                Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource"
-                Write-Host "Please select an Ending Line Number that comes AFTER the Beginning Line Number $BeginningStringLineNumber"
-                Write-Host "Line Numbers that contain `$EndingString are as follows:"
-                Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
-                $PossibleEndingStringLineNumbersChoices
-                [int]$EndingStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
-                if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
-                    Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource. Halting!"
-                    Write-Error "The Beginning String `"$BeginningString`" appears AFTER the Ending String `"$EndingString`" in `$TextSource. Halting!"
+        if ($BlockToReplace -ne $null) {
+            if ($($BlockToReplace.GetType()).Name -eq "String") {
+                $TestTextSourceContentJoined = $TextSourceContent -join "`n"
+                if (! $($TestTextSourceContentJoined | Select-String -Pattern $BlockToReplace).Matches.Success) {
+                    Write-Verbose "WARNING: The block of text provided to the 'BlockToReplace' parameter is a string as opposed to an array of lines. Did you mark your line breaks properly?"
+                    Write-Host "The block of text provided to the parameter `$BlockToReplace was not found in `$TextSource. Please check line breaks in the string provided and try again. Halting!"
+                    Write-Error "The block of text provided to the parameter `$BlockToReplace was not found in `$TextSource. Please check line breaks in the string provided and try again. Halting!"
                     $global:FunctionResult = "1"
                     return
                 }
             }
-
-            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
-            }
-            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
-            }
-        }
-        # If ONLY $BeginningString is Unique and we haven't determined $EndingStringLineNumber using the
-        # $EndingOccurrenceOfLine parameter, perform the following
-        if ($($TextSourceContent | Select-String -Pattern "$BeginningString").Count -eq 1 `
-        -and $($TextSourceContent | Select-String -Pattern "$EndingString").Count -gt 1 `
-        -and ! $EndingStringLineNumber.Count -gt 0 -or $BeginningStringLineNumber.Count -gt 0 -and ! $EndingStringLineNumber.Count -gt 0) {
-            Write-Host "HELLO Beginning String Unique"
-            if (! $BeginningStringLineNumber.Count -gt 0) {
-                Write-Host "`$BeginningString is unique. Continuing..."
-                # Since $BeginningString is unique, nothing special needs to be done to identify $BeginningLine
-                $BeginningLine = $($TextSourceContent | Select-String -Pattern "$BeginningString").Line
-                [int]$BeginningStringLineNumber = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
-            }
-            if ($BeginningStringLineNumber.Count -eq 1) {
-                [int]$BeginningStringLineNumber = $BeginningStringLineNumber[0]
-            }
-
-            $AllPossibleEndingStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
-            $PossibleEndingStringLineNumbers = foreach ($obj1 in $AllPossibleEndingStringLineNumbers) {
-                if ($obj1 -gt $BeginningStringLineNumber) {
-                    $obj1
-                }
-            }
-
-            if (! $PossibleEndingStringLineNumbers -gt 0) {
-                Write-Host "The Ending String '$EndingString' appears multiple times in `$TextSource, however, all occurrences appear BEFORE the first occurence of Beginning String '$BeginningString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
-                Write-Error "The Ending String '$EndingString' appears multiple times in `$TextSource, however, all occurrences appear BEFORE the first occurence of Beginning String '$BeginningString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-
-            $PossibleEndingStringLineNumbersContent = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
-                $TextSourceContent[$obj1-1]
-            }
-            $PossibleEndingStringLineNumbersChoices = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
-                "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
-            }
-
-            if ($PossibleEndingStringLineNumbers.Count -eq 1) {
-                [int]$EndingStringLineNumber = $PossibleEndingStringLineNumbers[0]
-            }
-            if (! $EndingStringLineNumber.Count -gt 0 -and ! $EndingStringOccurrenceOfLine.Count -gt 0 -and $PossibleEndingStringLineNumbers.Count -gt 1) {
-                Write-Host "The Ending String '$EndingString' appears multiple times in `$TextSource"
-                Write-Host "You must enter the line number that contains `$EndingString that will bound the block of text that you would like to replace."
-                Write-Host "Line Numbers that contain `$EndingString are as follows:"
-                Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
-                $PossibleEndingStringLineNumbersChoices
-                [int]$EndingStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
-                if ($PossibleEndingStringLineNumbers -notcontains $EndingStringLineNumber) {
-                    Write-Host "$EndingStringLineNumber is not a valid choice."
-                    Write-Host "Line Numbers that contain `$EndingString are as follows:"
-                    $PossibleEndingStringLineNumbersChoices
-                    if ($PossibleEndingStringLineNumbers -notcontains $EndingStringLineNumber) {
-                        Write-Host "$EndingStringLineNumber is not a valid choice. Halting!"
-                        Write-Error "$EndingStringLineNumber is not a valid choice. Halting!"
-                        $global:FunctionResult = "1"
-                        return
-                    }
-                }
-            }
-            # Check to make sure $BeginningStringLineNumber is before $EndingStringLineNumber
-            if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
-                Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource"
-                Write-Host "Please select an Ending Line Number that comes AFTER the Beginning Line Number $BeginningStringLineNumber"
-                Write-Host "Line Numbers that contain `$EndingString are as follows:"
-                Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
-                $PossibleEndingStringLineNumbersChoices
-                [int]$EndingStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
-                if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
-                    Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource. Halting!"
-                    Write-Error "The Beginning String `"$BeginningString`" appears AFTER the Ending String `"$EndingString`" in `$TextSource. Halting!"
+            if ($($BlockToReplace.GetType()).Name -like "*Object*" -and $($TextSource.GetType()).BaseType -like "*Array*") {
+                if (! $(Compare-Arrays -LargerArray $TextSourceContent -SmallerArray $BlockToReplace)) {
+                    Write-Host "The block of text provided to the parameter `$BlockToReplace was not found in `$TextSource. Halting!"
+                    Write-Error "The block of text provided to the parameter `$BlockToReplace was not found in `$TextSource. Halting!"
                     $global:FunctionResult = "1"
                     return
                 }
             }
-            # End Determine $EndingStringLineNumber #
-
-            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
-            }
-            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
-            }
         }
-        # If ONLY $EndingString is Unique and we haven't determined $BeginningStringLineNumber using the
-        # $BeginningOccurrenceOfLine parameter, perform the following
-        if ($($TextSourceContent | Select-String -Pattern "$EndingString").Count -eq 1 `
-        -and $($TextSourceContent | Select-String -Pattern "$BeginningString").Count -gt 1 `
-        -and ! $BeginningStringLineNumber.Count -gt 0 -or $EndingStringLineNumber.Count -gt 0 -and ! $BeginningStringLineNumber.Count -gt 0) {
-            Write-Host "HELLO Ending String Unique"
-            if (! $EndingStringLineNumber.Count -gt 0) {
-                Write-Host "`$EndingString is unique. Continuing..."
-                # Since $EndingString is unique, nothing special needs to be done to identify $EndingLine
-                $EndingLine = $($TextSourceContent | Select-String -Pattern "$EndingString").Line
-                [int]$EndingStringLineNumber = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
+
+        if ($BlockToReplace -eq $null) {
+            # Make sure $BeginningString and $EndingString are defined
+            if ($BeginningString -eq $null) {
+                Write-Host "In order to replace a block of text, you must use the `$BeginningString and `$EndingString parameters."
+                Write-Host "The `$BeginningString parameter is currently not defined"
+                $BeginningString = Read-Host -Prompt "Please enter the string of text that marks the beginning of the block of text you would like to replace"
             }
-            if ($EndingStringLineNumber.Count -eq 1) {
-                [int]$EndingStringLineNumber = $EndingStringLineNumber[0]
+            if ($EndingString -eq $null) {
+                Write-Host "In order to replace a block of text, you must use the `$BeginningString and `$EndingString parameters."
+                Write-Host "The `$EndingString parameter is currently not defined"
+                $EndingString = Read-Host -Prompt "Please enter the string of text that marks the end of the block of text you would like to replace"
             }
 
-            $AllPossibleBeginningStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
+            # IMPORTANT NOTE: If your $TextSource contains the exact string ;;splithere;; then this function will break!!
+            $TextSourceContentJoined = $TextSourceContent -join ";;splithere;;"
+
+            if ($BeginningStringOccurrenceOfLine.Count -ge 1 -and ! $BeginningStringLineNumber.Count -gt 0) {
+                Write-Host "HELLO THERE TOP"
+                # Begin determine $BeginningStringLineNumber #
+                $PossibleBeginningStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
+                $PossibleBeginningStringLineNumbersContent = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
+                    $TextSourceContent[$obj1-1]
+                }
+                $PossibleBeginningStringLineNumbersChoices = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
+                    "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
+                }
+
+                if ($BeginningStringOccurrenceOfLine.Count -eq 1) {
+                    if ($BeginningStringOccurrenceOfLine[0] -eq "last") {
+                        [array]$BeginningStringLineNumber = $($PossibleBeginningStringLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                    }
+                    if ($BeginningStringOccurrenceOfLine[0] -eq "first") {
+                        [array]$BeginningStringLineNumber = $($PossibleBeginningStringLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                    }
+                    if ($BeginningStringOccurrenceOfLine[0] -match "[\d]{1,10}") {
+                       $BeginningStringLineNumber = @()
+                        for ($loop=0; $loop -lt $PossibleBeginningStringLineNumbers.Count; $loop++) {
+                            foreach ($obj1 in $BeginningStringOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj1) {
+                                    $BeginningStringLineNumber += $PossibleBeginningStringLineNumbers[$loop]
+                                }
+                            }
+                            
+                        }
+                    }
+                }
+                if ($BeginningStringOccurrenceOfLine.Count -gt 1) {
+                    $BeginningStringLineNumber = for ($loop=0; $loop -lt $PossibleBeginningStringLineNumbers.Count; $loop++) {
+                        foreach ($obj2 in $BeginningStringOccurrenceOfLine) {
+                            if ($($loop+1) -eq $obj2) {
+                                $PossibleBeginningStringLineNumbers[$loop]
+                            }
+                        }
+                    }
+                }
+                if ($PossibleBeginningStringLineNumbers.Count -eq 1 -and ! $BeginningStringOccurrenceOfLine.Count -gt 0) {
+                    $BeginningStringLineNumber = $PossibleBeginningStringLineNumbers[0]
+                }
+                if ($PossibleBeginningStringLineNumbers.Count -gt 1 -and ! $BeginningStringOccurrenceOfLine.Count -gt 0) {
+                    Write-Host "placeholder"
+                }
+
+                # End determine $BeginningStringLineNumber #
+            }
             
-            $PossibleBeginningStringLineNumbers = foreach ($obj1 in $AllPossibleBeginningStringLineNumbers) {
-                if ($obj1 -lt $EndingStringLineNumber) {
-                    $obj1
+            if ($EndingStringOccurrenceOfLine.Count -ge 1 -and ! $EndingStringLineNumber.Count -gt 0) {
+                # Begin Determine $EndingStringLineNumber #
+                $PossibleEndingStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
+                $PossibleEndingStringLineNumbersContent = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
+                    $TextSourceContent[$obj1-1]
+                }
+                $PossibleEndingStringLineNumbersChoices = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
+                    "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
+                }
+
+                if ($EndingStringOccurrenceOfLine.Count -eq 1) {
+                    if ($EndingStringOccurrenceOfLine -eq "last") {
+                        [array]$EndingStringLineNumber = $($PossibleEndingStringLineNumbers | Measure-Object -Maximum -Minimum).Maximum
+                    }
+                    if ($EndingStringOccurrenceOfLine -eq "first") {
+                        [array]$EndingStringLineNumber = $($PossibleEndingStringLineNumbers | Measure-Object -Maximum -Minimum).Minimum
+                    }
+                    if ($EndingStringOccurrenceOfLine[0] -match "[\d]{1,10}") {
+                       $EndingStringLineNumber = @()
+                        for ($loop=0; $loop -lt $PossibleEndingStringLineNumbers.Count; $loop++) {
+                            foreach ($obj1 in $EndingStringOccurrenceOfLine) {
+                                if ($($loop+1) -eq $obj1) {
+                                    $EndingStringLineNumber += $PossibleEndingStringLineNumbers[$loop]
+                                }
+                            }
+                            
+                        }
+                    }
+                }
+                if ($EndingStringOccurrenceOfLine.Count -gt 1) {
+                    $EndingStringLineNumber = for ($loop=0; $loop -lt $PossibleEndingStringLineNumbers.Count; $loop++) {
+                        foreach ($obj2 in $EndingStringOccurrenceOfLine) {
+                            if ($($loop+1) -eq $obj2) {
+                                $PossibleEndingStringLineNumbers[$loop]
+                            }
+                        }
+                    }
+                }
+                if ($PossibleEndingStringLineNumbers.Count -eq 1 -and ! $EndingStringOccurrenceOfLine.Count -gt 0) {
+                    $EndingStringLineNumber = $PossibleEndingStringLineNumbers[0]
+                }
+                if ($PossibleEndingStringLineNumbers.Count -gt 1 -and ! $EndingStringOccurrenceOfLine.Count -gt 0) {
+                    Write-Host "placeholder"
+                }
+                # End Determine $EndingStringLineNumber #
+            }
+
+            # If BOTH $EndingString and $BeginningString are Unique, and we haven't determined $BeginningStringLineNumber or
+            # $EndingStringLineNumber using the 'OccurrenceOfLine' parameters, perform the following
+            if ($($TextSourceContent | Select-String -Pattern "$BeginningString").Count -eq 1 `
+            -and $($TextSourceContent | Select-String -Pattern "$EndingString").Count -eq 1 `
+            -and ! $BeginningStringLineNumber.Count -gt 0 -and ! $EndingStringLineNumber.Count -gt 0) {
+                [int]$BeginningStringLineNumber = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
+                [int]$EndingStringLineNumber = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
+
+                if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+                }
+                if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
                 }
             }
+            # If we've already determined $BeginningStringLineNumber and $EndingStringLineNumber...
+            if ($BeginningStringLineNumber.Count -eq 1 -and $EndingStringLineNumber.Count -eq 1) {
+                [int]$BeginningStringLineNumber = $BeginningStringLineNumber[0]
+                [int]$EndingStringLineNumber = $EndingStringLineNumber[0]
 
-            if (! $PossibleBeginningStringLineNumbers -gt 0) {
-                Write-Host "The Beginning String '$BeginningString' appears multiple times in `$TextSource, however, all occurrences appear AFTER the last occurence of Ending String '$EndingString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
-                Write-Error "The Beginning String '$BeginningString' appears multiple times in `$TextSource, however, all occurrences appear AFTER the last occurence of Ending String '$EndingString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-
-            $PossibleBeginningStringLineNumbersContent = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
-                $TextSourceContent[$obj1-1]
-            }
-            $PossibleBeginningStringLineNumbersChoices = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
-                "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
-            }
-
-            if ($PossibleBeginningStringLineNumbers.Count -eq 1) {
-                [int]$BeginningStringLineNumber = $PossibleBeginningStringLineNumbers[0]
-            }
-            if (! $BeginningStringLineNumber.Count -gt 0 -and ! $BeginningStringOccurrenceOfLine.Count -gt 0 -and $PossibleBeginningStringLineNumbers.Count -gt 1) {
-                Write-Host "The Beginning String '$BeginningString' appears multiple times in `$TextSource"
-                Write-Host "You must enter the line number that contains `$BeginningString that will bound the block of text that you would like to replace."
-                Write-Host "Line Numbers that contain `$BeginningString are as follows:"
-                Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
-                $PossibleBeginningStringLineNumbersChoices
-                [int]$BeginningStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
-                if ($PossibleBeginningStringLineNumbers -notcontains $BeginningStringLineNumber) {
-                    Write-Host "$BeginningStringLineNumber is not a valid choice."
-                    Write-Host "Line Numbers that contain `$BeginningString are as follows:"
-                    $PossibleBeginningStringLineNumbersChoices
-                    if ($PossibleBeginningStringLineNumbers -notcontains $BeginningStringLineNumber) {
-                        Write-Host "$BeginningStringLineNumber is not a valid choice. Halting!"
-                        Write-Error "$BeginningStringLineNumber is not a valid choice. Halting!"
+                # Check to make srue $BeginningStringLineNumber comes BEFORE $EndingStringLineNumber
+                if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
+                    Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource"
+                    Write-Host "Please select an Ending Line Number that comes AFTER the Beginning Line Number $BeginningStringLineNumber"
+                    Write-Host "Line Numbers that contain `$EndingString are as follows:"
+                    Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
+                    $PossibleEndingStringLineNumbersChoices
+                    [int]$EndingStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
+                    if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
+                        Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource. Halting!"
+                        Write-Error "The Beginning String `"$BeginningString`" appears AFTER the Ending String `"$EndingString`" in `$TextSource. Halting!"
                         $global:FunctionResult = "1"
                         return
                     }
                 }
-            }
-            # Check to make sure $BeginningStringLineNumber is before $EndingStringLineNumber
-            if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
-                Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource"
-                Write-Host "Please select a Beginning Line Number that comes BEFORE the Ending Line Number $EndingStringLineNumber"
-                Write-Host "Line Numbers that contain `$BeginningString are as follows:"
-                Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
-                $PossibleBeginningStringLineNumbersChoices
-                [int]$BeginningStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
-                if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
-                    Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource. Halting!"
-                    Write-Error "The Beginning String `"$BeginningString`" appears AFTER the Ending String `"$EndingString`" in `$TextSource. Halting!"
-                    $global:FunctionResult = "1"
-                    return
+
+                if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+                }
+                if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
                 }
             }
-            # End Determine $BeginningStringLineNumber #
+            # If ONLY $BeginningString is Unique and we haven't determined $EndingStringLineNumber using the
+            # $EndingOccurrenceOfLine parameter, perform the following
+            if ($($TextSourceContent | Select-String -Pattern "$BeginningString").Count -eq 1 `
+            -and $($TextSourceContent | Select-String -Pattern "$EndingString").Count -gt 1 `
+            -and ! $EndingStringLineNumber.Count -gt 0 -or $BeginningStringLineNumber.Count -gt 0 -and ! $EndingStringLineNumber.Count -gt 0) {
+                Write-Host "HELLO Beginning String Unique"
+                if (! $BeginningStringLineNumber.Count -gt 0) {
+                    Write-Host "`$BeginningString is unique. Continuing..."
+                    # Since $BeginningString is unique, nothing special needs to be done to identify $BeginningLine
+                    $BeginningLine = $($TextSourceContent | Select-String -Pattern "$BeginningString").Line
+                    [int]$BeginningStringLineNumber = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
+                }
+                if ($BeginningStringLineNumber.Count -eq 1) {
+                    [int]$BeginningStringLineNumber = $BeginningStringLineNumber[0]
+                }
 
-            if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
-            }
-            if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
-                $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
-            }
-        }
-        # If neither $EndingString nor $BeginningString are Unique and we haven't determined $BeginningStringLineNumber
-        # or $EndingStringLineNumber using the 'OccurrenceOfLine' parameters, perform the following
-        if ($($TextSourceContent | Select-String -Pattern "$EndingString").Count -gt 1 `
-        -and $($TextSourceContent | Select-String -Pattern "$BeginningString").Count -gt 1 `
-        -and ! $BeginningStringLineNumber.Count -gt 0 -and ! $EndingStringLineNumber.Count -gt 0) {
-            # Output possible results and ask the user which one they want to use
-            # Create $BeginningStringIndex
-            $PossibleBeginningStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
-            $PossibleBeginningStringLineNumbers = $PossibleBeginningStringLineNumbers | Sort-Object
-            $PossibleEndingStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
-            $PossibleEndingStringLineNumbers = $PossibleEndingStringLineNumbers | Sort-Object
-
-            $UpdatedPossibleLineNumbers = $PossibleBeginningStringLineNumbers+$PossibleEndingStringLineNumbers | Sort-Object | Get-Unique
-
-            $PossibleBlockToReplaceArray = @()
-            $StartAndFinishLineNumbersArray = @()
-            for ($loop=0; $loop -lt $UpdatedPossibleLineNumbers.Count; $loop++) {
-                $UpdatedPossibleLineNumbersWithoutCurrentLoopElement = foreach ($obj1 in $UpdatedPossibleLineNumbers) {
-                    if ($obj1 -ne $($UpdatedPossibleLineNumbers[$loop])) {
+                $AllPossibleEndingStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
+                $PossibleEndingStringLineNumbers = foreach ($obj1 in $AllPossibleEndingStringLineNumbers) {
+                    if ($obj1 -gt $BeginningStringLineNumber) {
                         $obj1
                     }
                 }
-                foreach ($obj1 in $UpdatedPossibleLineNumbersWithoutCurrentLoopElement) {
-                    if ($UpdatedPossibleLineNumbers[$loop] -lt $obj1) {
-                        $PotentialBeginningStringLineNumber = $UpdatedPossibleLineNumbers[$loop]
-                        $PotentialEndingStringLineNumber = $obj1
-                        if ($Inclusive -eq "Yes") {
-                            New-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -Value $($TextSourceContent | Select-Object -Index ($PotentialBeginningStringLineNumber..$PotentialEndingStringLineNumber))
-                        }
-                        if ($Inclusive -eq "No") {
-                            New-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -Value $($TextSourceContent | Select-Object -Index ($PotentialBeginningStringLineNumber+1..$PotentialEndingStringLineNumber-1))
-                        }
-                        $PossibleBlockToReplaceArray += , $(Get-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -ValueOnly)
-                        $StartAndFinishLineNumbersArray += "Line $PotentialBeginningStringLineNumber to Line $PotentialEndingStringLineNumber`:`n$($TextSourceContent[$PotentialBeginningStringLineNumber])`n...`n$($TextSourceContent[$PotentialEndingStringLineNumber])"
-                    }
-                }
-            }
 
-            if (! $PossibleBlockToReplaceArray.Count -gt 0) {
-                Write-Host "No valid blocks of text beginning with $BeginningString and ending with $EndingString were found."
-                Write-Host "Please check to ensure that the Beginning String $BeginningString appears BEFORE the Ending String $EndingString in $TextSource"
-                Write-Error "No valid blocks of text beginning with $BeginningString and ending with $EndingString were found. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-
-            $OutputPossibleBlocksToReplaceContent = For ($loop=0; $loop -lt $PossibleBlockToReplaceArray.Count; $loop++) {
-                "Possible Block To Replace Choice #$($loop+1)"+"`n"
-                $PossibleBlockToReplaceArray[$loop]+"`n"
-            }
-
-            $OutputPossibleBlocksToReplaceLineNumbers = For ($loop=0; $loop -lt $StartAndFinishLineNumbersArray.Count; $loop++) {
-                "Possible Block To Replace Choice #$($loop+1)"+"`n"
-                $StartAndFinishLineNumbersArray[$loop]+"`n"
-            }
-
-            Write-Host "Possible Blocks to Replace Are As Follows:"
-            Write-Host ""
-            $OutputPossibleBlocksToReplaceLineNumbers
-
-            $ValidBlockToReplaceChoices = For ($loop=0; $loop -lt $PossibleBlockToReplaceArray.Count; $loop++) {$loop+1}
-            [string]$PossibleBlockToReplaceChoices = For ($loop=0; $loop -lt $StartAndFinishLineNumbersArray.Count; $loop++) {"$($loop+1) = $($StartAndFinishLineNumbersArray[$loop])"}
-            $SelectedBlockToReplace = Read-Host -Prompt "Please select the 'Possible Block To Replace Choice #' that represents the block text that you would like to replace [$($([string]$ValidBlockToReplaceChoices) -replace " ",", ")]"
-            # Validate $SelectedBlockToReplace
-            if ($ValidBlockToReplaceChoices -notcontains $SelectedBlockToReplace) {
-                Write-Host "$SelectedBlockToReplace is not a valid choice. Please select one of the following values:"
-                $ValidBlockToReplaceChoices
-                if ($ValidBlockToReplaceChoices -notcontains $SelectedBlockToReplace) {
-                    Write-Host "$SelectedBlockToReplace is not a valid choice. Halting!"
+                if (! $PossibleEndingStringLineNumbers -gt 0) {
+                    Write-Host "The Ending String '$EndingString' appears multiple times in `$TextSource, however, all occurrences appear BEFORE the first occurence of Beginning String '$BeginningString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
+                    Write-Error "The Ending String '$EndingString' appears multiple times in `$TextSource, however, all occurrences appear BEFORE the first occurence of Beginning String '$BeginningString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
                     $global:FunctionResult = "1"
                     return
                 }
+
+                $PossibleEndingStringLineNumbersContent = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
+                    $TextSourceContent[$obj1-1]
+                }
+                $PossibleEndingStringLineNumbersChoices = foreach ($obj1 in $PossibleEndingStringLineNumbers) {
+                    "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
+                }
+
+                if ($PossibleEndingStringLineNumbers.Count -eq 1) {
+                    [int]$EndingStringLineNumber = $PossibleEndingStringLineNumbers[0]
+                }
+                if (! $EndingStringLineNumber.Count -gt 0 -and ! $EndingStringOccurrenceOfLine.Count -gt 0 -and $PossibleEndingStringLineNumbers.Count -gt 1) {
+                    Write-Host "The Ending String '$EndingString' appears multiple times in `$TextSource"
+                    Write-Host "You must enter the line number that contains `$EndingString that will bound the block of text that you would like to replace."
+                    Write-Host "Line Numbers that contain `$EndingString are as follows:"
+                    Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
+                    $PossibleEndingStringLineNumbersChoices
+                    [int]$EndingStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
+                    if ($PossibleEndingStringLineNumbers -notcontains $EndingStringLineNumber) {
+                        Write-Host "$EndingStringLineNumber is not a valid choice."
+                        Write-Host "Line Numbers that contain `$EndingString are as follows:"
+                        $PossibleEndingStringLineNumbersChoices
+                        if ($PossibleEndingStringLineNumbers -notcontains $EndingStringLineNumber) {
+                            Write-Host "$EndingStringLineNumber is not a valid choice. Halting!"
+                            Write-Error "$EndingStringLineNumber is not a valid choice. Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                }
+                # Check to make sure $BeginningStringLineNumber is before $EndingStringLineNumber
+                if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
+                    Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource"
+                    Write-Host "Please select an Ending Line Number that comes AFTER the Beginning Line Number $BeginningStringLineNumber"
+                    Write-Host "Line Numbers that contain `$EndingString are as follows:"
+                    Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
+                    $PossibleEndingStringLineNumbersChoices
+                    [int]$EndingStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
+                    if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
+                        Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource. Halting!"
+                        Write-Error "The Beginning String `"$BeginningString`" appears AFTER the Ending String `"$EndingString`" in `$TextSource. Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                }
+                # End Determine $EndingStringLineNumber #
+
+                if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+                }
+                if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
+                }
             }
+            # If ONLY $EndingString is Unique and we haven't determined $BeginningStringLineNumber using the
+            # $BeginningOccurrenceOfLine parameter, perform the following
+            if ($($TextSourceContent | Select-String -Pattern "$EndingString").Count -eq 1 `
+            -and $($TextSourceContent | Select-String -Pattern "$BeginningString").Count -gt 1 `
+            -and ! $BeginningStringLineNumber.Count -gt 0 -or $EndingStringLineNumber.Count -gt 0 -and ! $BeginningStringLineNumber.Count -gt 0) {
+                Write-Host "HELLO Ending String Unique"
+                if (! $EndingStringLineNumber.Count -gt 0) {
+                    Write-Host "`$EndingString is unique. Continuing..."
+                    # Since $EndingString is unique, nothing special needs to be done to identify $EndingLine
+                    $EndingLine = $($TextSourceContent | Select-String -Pattern "$EndingString").Line
+                    [int]$EndingStringLineNumber = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
+                }
+                if ($EndingStringLineNumber.Count -eq 1) {
+                    [int]$EndingStringLineNumber = $EndingStringLineNumber[0]
+                }
 
-            $BlockToReplace = $PossibleBlockToReplaceArray[$($SelectedBlockToReplace-1)]
+                $AllPossibleBeginningStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
+                
+                $PossibleBeginningStringLineNumbers = foreach ($obj1 in $AllPossibleBeginningStringLineNumbers) {
+                    if ($obj1 -lt $EndingStringLineNumber) {
+                        $obj1
+                    }
+                }
 
+                if (! $PossibleBeginningStringLineNumbers -gt 0) {
+                    Write-Host "The Beginning String '$BeginningString' appears multiple times in `$TextSource, however, all occurrences appear AFTER the last occurence of Ending String '$EndingString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
+                    Write-Error "The Beginning String '$BeginningString' appears multiple times in `$TextSource, however, all occurrences appear AFTER the last occurence of Ending String '$EndingString'. Please revise the boundaries of the text block you would like to replace and try again. Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+
+                $PossibleBeginningStringLineNumbersContent = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
+                    $TextSourceContent[$obj1-1]
+                }
+                $PossibleBeginningStringLineNumbersChoices = foreach ($obj1 in $PossibleBeginningStringLineNumbers) {
+                    "$obj1"+") "+"$($TextSourceContent[$obj1-1])"
+                }
+
+                if ($PossibleBeginningStringLineNumbers.Count -eq 1) {
+                    [int]$BeginningStringLineNumber = $PossibleBeginningStringLineNumbers[0]
+                }
+                if (! $BeginningStringLineNumber.Count -gt 0 -and ! $BeginningStringOccurrenceOfLine.Count -gt 0 -and $PossibleBeginningStringLineNumbers.Count -gt 1) {
+                    Write-Host "The Beginning String '$BeginningString' appears multiple times in `$TextSource"
+                    Write-Host "You must enter the line number that contains `$BeginningString that will bound the block of text that you would like to replace."
+                    Write-Host "Line Numbers that contain `$BeginningString are as follows:"
+                    Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
+                    $PossibleBeginningStringLineNumbersChoices
+                    [int]$BeginningStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
+                    if ($PossibleBeginningStringLineNumbers -notcontains $BeginningStringLineNumber) {
+                        Write-Host "$BeginningStringLineNumber is not a valid choice."
+                        Write-Host "Line Numbers that contain `$BeginningString are as follows:"
+                        $PossibleBeginningStringLineNumbersChoices
+                        if ($PossibleBeginningStringLineNumbers -notcontains $BeginningStringLineNumber) {
+                            Write-Host "$BeginningStringLineNumber is not a valid choice. Halting!"
+                            Write-Error "$BeginningStringLineNumber is not a valid choice. Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                }
+                # Check to make sure $BeginningStringLineNumber is before $EndingStringLineNumber
+                if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
+                    Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource"
+                    Write-Host "Please select a Beginning Line Number that comes BEFORE the Ending Line Number $EndingStringLineNumber"
+                    Write-Host "Line Numbers that contain `$BeginningString are as follows:"
+                    Write-Host "NOTE: There is one (1) space after the ')' character in each entry below before the actual pattern begins."
+                    $PossibleBeginningStringLineNumbersChoices
+                    [int]$BeginningStringLineNumber = Read-Host -Prompt "Please enter the line number that will bound the block of text that you would like to replace."
+                    if ($BeginningStringLineNumber -gt $EndingStringLineNumber) {
+                        Write-Host "The Beginning String `"$BeginningString`" on line $BeginningStringLineNumber appears AFTER the Ending String `"$EndingString`" on line $EndingStringLineNumber in `$TextSource. Halting!"
+                        Write-Error "The Beginning String `"$BeginningString`" appears AFTER the Ending String `"$EndingString`" in `$TextSource. Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                }
+                # End Determine $BeginningStringLineNumber #
+
+                if ($Inclusive -eq "Yes" -or $Inclusive -eq "y") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber-1)..$($EndingStringLineNumber-1))
+                }
+                if ($Inclusive -eq "No" -or $Inclusive -eq "n") {
+                    $BlockToReplace = $TextSourceContent | Select-Object -Index ($($BeginningStringLineNumber)..$($EndingStringLineNumber-2))
+                }
+            }
+            # If neither $EndingString nor $BeginningString are Unique and we haven't determined $BeginningStringLineNumber
+            # or $EndingStringLineNumber using the 'OccurrenceOfLine' parameters, perform the following
+            if ($($TextSourceContent | Select-String -Pattern "$EndingString").Count -gt 1 `
+            -and $($TextSourceContent | Select-String -Pattern "$BeginningString").Count -gt 1 `
+            -and ! $BeginningStringLineNumber.Count -gt 0 -and ! $EndingStringLineNumber.Count -gt 0) {
+                # Output possible results and ask the user which one they want to use
+                # Create $BeginningStringIndex
+                $PossibleBeginningStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$BeginningString").LineNumber
+                $PossibleBeginningStringLineNumbers = $PossibleBeginningStringLineNumbers | Sort-Object
+                $PossibleEndingStringLineNumbers = $($TextSourceContent | Select-String -Pattern "$EndingString").LineNumber
+                $PossibleEndingStringLineNumbers = $PossibleEndingStringLineNumbers | Sort-Object
+
+                $UpdatedPossibleLineNumbers = $PossibleBeginningStringLineNumbers+$PossibleEndingStringLineNumbers | Sort-Object | Get-Unique
+
+                $PossibleBlockToReplaceArray = @()
+                $StartAndFinishLineNumbersArray = @()
+                for ($loop=0; $loop -lt $UpdatedPossibleLineNumbers.Count; $loop++) {
+                    $UpdatedPossibleLineNumbersWithoutCurrentLoopElement = foreach ($obj1 in $UpdatedPossibleLineNumbers) {
+                        if ($obj1 -ne $($UpdatedPossibleLineNumbers[$loop])) {
+                            $obj1
+                        }
+                    }
+                    foreach ($obj1 in $UpdatedPossibleLineNumbersWithoutCurrentLoopElement) {
+                        if ($UpdatedPossibleLineNumbers[$loop] -lt $obj1) {
+                            $PotentialBeginningStringLineNumber = $UpdatedPossibleLineNumbers[$loop]
+                            $PotentialEndingStringLineNumber = $obj1
+                            if ($Inclusive -eq "Yes") {
+                                New-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -Value $($TextSourceContent | Select-Object -Index ($PotentialBeginningStringLineNumber..$PotentialEndingStringLineNumber))
+                            }
+                            if ($Inclusive -eq "No") {
+                                New-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -Value $($TextSourceContent | Select-Object -Index ($PotentialBeginningStringLineNumber+1..$PotentialEndingStringLineNumber-1))
+                            }
+                            $PossibleBlockToReplaceArray += , $(Get-Variable -Name "PossibleBlockToReplace$PotentialBeginningStringLineNumber$PotentialEndingStringLineNumber" -ValueOnly)
+                            $StartAndFinishLineNumbersArray += "Line $PotentialBeginningStringLineNumber to Line $PotentialEndingStringLineNumber`:`n$($TextSourceContent[$PotentialBeginningStringLineNumber])`n...`n$($TextSourceContent[$PotentialEndingStringLineNumber])"
+                        }
+                    }
+                }
+
+                if (! $PossibleBlockToReplaceArray.Count -gt 0) {
+                    Write-Host "No valid blocks of text beginning with $BeginningString and ending with $EndingString were found."
+                    Write-Host "Please check to ensure that the Beginning String $BeginningString appears BEFORE the Ending String $EndingString in $TextSource"
+                    Write-Error "No valid blocks of text beginning with $BeginningString and ending with $EndingString were found. Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+
+                $OutputPossibleBlocksToReplaceContent = For ($loop=0; $loop -lt $PossibleBlockToReplaceArray.Count; $loop++) {
+                    "Possible Block To Replace Choice #$($loop+1)"+"`n"
+                    $PossibleBlockToReplaceArray[$loop]+"`n"
+                }
+
+                $OutputPossibleBlocksToReplaceLineNumbers = For ($loop=0; $loop -lt $StartAndFinishLineNumbersArray.Count; $loop++) {
+                    "Possible Block To Replace Choice #$($loop+1)"+"`n"
+                    $StartAndFinishLineNumbersArray[$loop]+"`n"
+                }
+
+                Write-Host "Possible Blocks to Replace Are As Follows:"
+                Write-Host ""
+                $OutputPossibleBlocksToReplaceLineNumbers
+
+                $ValidBlockToReplaceChoices = For ($loop=0; $loop -lt $PossibleBlockToReplaceArray.Count; $loop++) {$loop+1}
+                [string]$PossibleBlockToReplaceChoices = For ($loop=0; $loop -lt $StartAndFinishLineNumbersArray.Count; $loop++) {"$($loop+1) = $($StartAndFinishLineNumbersArray[$loop])"}
+                $SelectedBlockToReplace = Read-Host -Prompt "Please select the 'Possible Block To Replace Choice #' that represents the block text that you would like to replace [$($([string]$ValidBlockToReplaceChoices) -replace " ",", ")]"
+                # Validate $SelectedBlockToReplace
+                if ($ValidBlockToReplaceChoices -notcontains $SelectedBlockToReplace) {
+                    Write-Host "$SelectedBlockToReplace is not a valid choice. Please select one of the following values:"
+                    $ValidBlockToReplaceChoices
+                    if ($ValidBlockToReplaceChoices -notcontains $SelectedBlockToReplace) {
+                        Write-Host "$SelectedBlockToReplace is not a valid choice. Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                }
+
+                $BlockToReplace = $PossibleBlockToReplaceArray[$($SelectedBlockToReplace-1)]
+            }
         }
 
         # Define $UpdatedTextSourceContent
-        $TextSourceContentJoined = $TextSourceContent -join ";;splithere;;"
-        $BlockToReplaceJoined = $BlockToReplace -join ";;splithere;;"
-        $UpdatedTextSourceContent = $($TextSourceContentJoined.Replace("$BlockToReplaceJoined","$ReplacementText")) -split ";;splithere;;"
+        # If $TestTextSourceContentJoined is defined, that means $BlockToReplace was provided as a string 
+        # via the -BlockToReplace parameter
+        if ($TestTextSourceContentJoined -ne $null) {
+            $TextSourceContentJoined = $TextSourceContent -join "`n"
+            $UpdatedTextSourceContent = $($TextSourceContentJoined.Replace("$BlockToReplace","$ReplacementText"))
+        }
+        if ($TestTextSourceContentJoined -eq $null) {
+            $TextSourceContentJoined = $TextSourceContent -join ";;splithere;;"
+            $BlockToReplaceJoined = $BlockToReplace -join ";;splithere;;"
+            $UpdatedTextSourceContent = $($TextSourceContentJoined.Replace("$BlockToReplaceJoined","$ReplacementText")) -split ";;splithere;;"
+        }
     }
 
     # If $TextSource is a file path...
@@ -4503,7 +4761,7 @@ Replace-Text -TextSource "V:\powershell\Testing\updated-phase1-template.yml" `
 
 # Block, $BeginningString is UNIQUE, $EndingString is UNIQUE, WITHOUT $BeginningStringLineNumber, WITHOUT $EndingStringLineNumber
 # WITH Inclusive YES
-
+<#
 $RandomTextArrayOfLinesObject = Get-Content -Path "V:\powershell\Testing\updated-phase1-template.yml" -Encoding Ascii
 
 Replace-Text -TextSource $RandomTextArrayOfLinesObject `
@@ -4514,9 +4772,24 @@ Replace-Text -TextSource $RandomTextArrayOfLinesObject `
 -ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
 -ReplacementType "new" `
 -OutputWithUpdatedText "Woop"
+#>
 
+# End PSObject vs New File Testing #
 
-# Begin PSObject vs New File Testing #
+# Begin BlockToReplace Testing #
+$RandomTextArrayOfLinesObject = Get-Content -Path "V:\powershell\Testing\updated-phase1-template.yml" -Encoding Ascii
+#$BlockToReplace = Get-Content -Path "V:\powershell\Testing\updated-phase1-template.yml" | Select-Object -Index (16..24)
+$BlockToReplace = "#cloud-config`nhostname: `"aws-coreos`""
+
+Replace-Text -TextSource $RandomTextArrayOfLinesObject `
+-TextFormationType "block" `
+-BlockToReplace $BlockToReplace `
+-Inclusive "No" `
+-ReplacementText "Hi there`nThis is new stuff`nIndeed, it is" `
+-ReplacementType "new" `
+-OutputWithUpdatedText "Woop"
+
+# End BlockToReplace Testing #
 
     ##### BEGIN Archived Code #####
 <#
@@ -4753,15 +5026,11 @@ if (! $BeginningStringLineNumber.Count -gt 0 -and ! $BeginningStringOccurrenceOf
 
 
 
-
-
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU7F61PCeere0alySmCwyqBVU
-# +BWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjsgS82iVfQbyinRQD3eE+r4P
+# QhWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4816,11 +5085,11 @@ if (! $BeginningStringLineNumber.Count -gt 0 -and ! $BeginningStringOccurrenceOf
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSDbtxt5oww
-# JK63hd2VTgKh3vmZvTANBgkqhkiG9w0BAQEFAASCAQBhNICH6S8P1EEgJaF/oCVW
-# TfbqPoAxNGKG/R84gCx1B1kYFRdjHiOpAdV/EO1Tuqy5GTlfL6CbL6phKpx8eKrc
-# aiuuZDSfogJ1wIlF8J9V1TLMO0dTIqZxkX0tYz2UGWBHsUWd4hPdUsAM4b9QfBT5
-# zyDiSMDvJPzWM+IAkpoWiU73KzvsgSKEyokTmWlsmBmJ1YoiF5ZoftYrrKWg2YKX
-# NdvlZm0Yj+Lfz2iRZKDfTzTxUEBp3kIGoRGTJ8jksHUCPlZb9GcqyYBIrylxj/hT
-# dqZQRey8sT/7SnkFKMDnKKZgHMsuV/B6WUbhrcpweM8xw9N3Uo+rkFyEgZmp6eYg
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBREVGC3DK2v
+# XNOBuT/m5VnKicV4jzANBgkqhkiG9w0BAQEFAASCAQBzpI3zAi8uJzXNQOrS2ixS
+# l/QKCWNOMwn1poNk1VEo/ZmekgicOP19kbgPQJlHBZ7ek5J5513uI/88wzMbFivD
+# xqfO9Sd3NV/D+0eLajssWARJqV5Zky3aV/7K07FnVXm/mqxEEc0WHebL1QnGnB2z
+# d0rpMHifMpbGh2rankCC4B36KEQ39K0DOS4urnDv2K9J/poANTtL36Gru6p5C2Rr
+# 1wLE369axrdmZRZi3ohLTl7G8GlEZn1d2l9Hha0RuQkfnRzeDYmMEIImWnxrk9kT
+# Fb6fy03dZP2thdvh6x7pCBpbVCrKjx4u4ya0EQn8ZfuZcIcmK7Q+Cqy36FU5jE4a
 # SIG # End signature block
