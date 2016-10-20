@@ -16,7 +16,7 @@
 
     Advanced features allow for complex targeting of specific occurrences of $StringToReplace.
     
-    2) Line - Specifying '-TextFormationType "Line"' will result in replacing one or more ENTIRE LINES with $Replacementtext
+    2) Line - Specifying '-TextFormationType "Line"' will result in replacing one or more ENTIRE LINES with $ReplacementText
     depending on parameters used. The parameter $LineToReplace is used to specify either:
         A) All characters that make up an entire line
         B) Some characters that make up a line
@@ -755,7 +755,7 @@ function Replace-Text {
         [Parameter(Mandatory=$False)]
         $ReplacementType = $(Read-Host -Prompt "Please enter 'inplace' to replace text directly in `$TextSource or 'new' to create a new PSObject or file with the updated text [inplace/new]"),
 
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         $OutputWithUpdatedText, # Either file path or string the represents the name of the new array object to be created
 
         [Parameter(Mandatory=$False)]
@@ -825,7 +825,7 @@ function Replace-Text {
         $BeginningStringOccurrencePreEndingString,
 
         [Parameter(Mandatory=$False)]
-        $Inclusive = "Yes",
+        $Inclusive,
 
         [Parameter(Mandatory=$False)]
         $BlockToReplace
@@ -869,7 +869,7 @@ function Replace-Text {
         $TextSourceContent = Get-Content -Path $TextSource -Encoding Ascii
 
         # Since $TextSource is a file path, validate $OutputWithUpdatedText
-        # But first, need to validate $ReplaementType
+        # But first, need to validate $ReplacementType
         $ValidReplacementTypeValues = @("inplace","new")
         if ($ValidReplacementTypeValues -notcontains $ReplacementType) {
             Write-Host "'$ReplacementType' is not a valid value for the parameter `$ReplacementType. Valid values are as follows:"
@@ -894,7 +894,7 @@ function Replace-Text {
             }
             if ($OutputWithUpdatedText -ne $null) {
                 if ($($OutputWithUpdatedText | Select-String -Pattern "\\").Matches.Success -ne $true `
-                -or $($OutputWithUpdatedText | Select-String -Pattern "/").Matches.Success -ne $true) {
+                -and $($OutputWithUpdatedText | Select-String -Pattern "/").Matches.Success -ne $true) {
                     Write-Host "Since `$TextSource is a file path, `$OutputWithUpdatedText must be a valid file path. Please check the path for `$OutputWithUpdatedText and try again. Halting!"
                     Write-Error "Since `$TextSource is a file path, `$OutputWithUpdatedText must be a valid file path. Please check the path for `$OutputWithUpdatedText and try again. Halting!"
                     $global:FunctionResult = "1"
@@ -947,6 +947,10 @@ function Replace-Text {
                 $OutputWithUpdatedText = Read-Host -Prompt "Please provide a name for the new array object variable that will be available in the current scope after the Replace-Text function completes"
             }
         }
+    }
+
+    if ($TextFormationType -eq "block" -and $Inclusive -eq $null) {
+        $Inclusive = "Yes"
     }
 
     if ($($StringLineNumber | Select-String -Pattern ",").Matches.Success) {
@@ -3773,7 +3777,10 @@ function Replace-Text {
         }
     }
     ##### END Main Body #####
+
+    $global:FunctionResult = "0"
 }
+
 
 
 
@@ -3784,8 +3791,8 @@ function Replace-Text {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUtgj2hC0C9k9oMHwInfAl9+zq
-# 1CSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwKp/Qdt3teqHDZ3jUEKrV4NA
+# OsigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3840,11 +3847,11 @@ function Replace-Text {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTh35hyZiIa
-# igHyHUht4xBg8zq/HTANBgkqhkiG9w0BAQEFAASCAQAT3a4XWlHN86GXtmwtMMgJ
-# sQMNS81RvOFh9v9VUy1V7NjEHr8w7A8QosUCKpNcBo2WvsDqLRgiiv3FaUPaIqp2
-# AWl1lTzRxqkaAXBZZ0vddGwnl6oZKZxs7Ngg1I+Y+gYLFyvXDcKSdwDtr3Be9DxD
-# gV9E5J7z7hn+nYKLRbcE/fl/FmUh+Ugw0EmFb6J8wJK30amEbJ8h3UMddDaC3I/F
-# lJQ26uUgWhnQpe2keeW+RUknahbnCQC8IVjvzs5gHbQ2GxO6fzOW88kWp2yNdZ46
-# 6zgXQ3DzgnUfvlj4ChxH0S7C9Vl22yTUeIVXZFYYcKqh8E8th6xneF+yMN1hekC1
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRMg6VCPtNi
+# VfS1Tv5KahFAWX4r2TANBgkqhkiG9w0BAQEFAASCAQAyL7OxpNmKowVy8Iig2Bd8
+# 7c2WJJuJ/OHNIW2qbYQdmk+AwleCqbJMplIYMYCZFeHJ2ionXluMaxHjAHanueAs
+# wTgu1GuQLdvXX2K05HOUIJ26L0xBWaLG2JnvK14H7CpQ3PUfkuVpfJvCytO7dXjW
+# C7ZDrzZTSctk/JMAHuv02z110NBAeEm38DO4auMkGuLjRIUibwdyhu56/aKVfssD
+# PdO/lWTH1I5IVbEv1KeKd90JS3aE+iEm9AGu1haLCwwtc4KymgHl5GWnps79dnNu
+# EmJw0FvDDXH4BSF+WkwuFKc2mb1oXW0CCf5EiLqe7w7SdwtlWblCJPTnBbBflxv2
 # SIG # End signature block
