@@ -417,6 +417,19 @@
 
     This parameter should ONLY BE USED IF $TextFormationType = "Block"
 
+.PARAMETER EndingStringOccurrencePostBeginningString
+    This parameter is OPTIONAL.
+    This parameter must be used in tandem with $BeginningString and $EndingString.
+
+    This parameter takes one (1) number that represents the Nth occurrence of a line that contains the string $EndingString AFTER
+    the line targeted line that contains $BeginningString.
+
+    In other words, an index is created that starts at the targeted line that $BeginningString and works its way towards
+    the end of $TextSource. For example, the first line that contains $EndingString after the targeted line that
+    contains $BeginningString would be "1".
+
+    This parameter should ONLY BE USED IF $TextFormationType = "Block"
+
 .PARAMETER EndingString
     This parameter is MANDATORY IF $TextFormationType = "Block".
 
@@ -453,6 +466,19 @@
 
     The ENTIRE LINE that contains the string $EndingString will be replaced if $Inclusive = "Yes". The ENTIRE LINE that contains 
     the string $EndingString will NOT BE TOUCHED if $Inclusive = "No".
+
+    This parameter should ONLY BE USED IF $TextFormationType = "Block"
+
+.PARAMETER BeginningStringOccurrencePreEndingString
+    This parameter is OPTIONAL.
+    This parameter must be used in tandem with $BeginningString and $EndingString.
+
+    This parameter takes one (1) number that represents the Nth occurrence of a line that contains the string $BeginningString BEFORE
+    the line targeted that contains $EndingString.
+
+    In other words, an index is created that starts at the targeted line that contains $EndingString and works its way towards
+    the beginning of $TextSource. For example, the first line that contains $BeginningString that precedes the targeted line that
+    contains $EndingString would be "1".
 
     This parameter should ONLY BE USED IF $TextFormationType = "Block"
 
@@ -660,7 +686,7 @@
     -BeginningString "The IT Manager shall be respnsible for IT." `
     -EndingString "So, everyone gets a new laptop." `
     -Inclusive "No" `
-    -RepalcementText "The IT Manager is a rockstar.`nSenior leadership shall support all his/her decisions" `
+    -ReplacementText "The IT Manager is a rockstar.`nSenior leadership shall support all his/her decisions" `
     -ReplacementType "new" `
     -NewFileWithUpdatedText "V:\powershell\Testing\Updated_IT_Policy"
 
@@ -680,7 +706,7 @@
     -BeginningString "Section Summary:" `
     -EndingString "Section 2: Responsibilities" `
     -Inclusive "No" `
-    -RepalcementText "$UpdatedSectionParagraph" `
+    -ReplacementText "$UpdatedSectionParagraph" `
     -ReplacementType "inplace"
 
 .EXAMPLE
@@ -697,10 +723,10 @@
     Replace-Text -TextSource "V:\powershell\Testing\IT_Policy.docx" `
     -TextFormationType "block" `
     -BeginningString "Section Summary:" `
-    -EndingString "Section 2: Responsibilities" `
+    -EndingString "Section 12: SLA" `
     -BeginningStringOccurrencePreEndingString "1" `
     -Inclusive "No" `
-    -RepalcementText "$UpdatedSectionParagraph" `
+    -ReplacementText "$UpdatedSectionParagraph" `
     -ReplacementType "inplace"
 
 .OUTPUTS
@@ -748,7 +774,7 @@ function Replace-Text {
         [array]$StringOccurrenceOfLine,
 
         [Parameter(Mandatory=$False)]
-        [array]$StringInLineOccurrence,
+        [array]$StringOccurrenceInLine,
 
         [Parameter(Mandatory=$False)]
         $StringLineNumberVSStringOccurrenceInLineHashTable,
@@ -1041,7 +1067,9 @@ function Replace-Text {
 
     # If $TextFormationType = "string", make sure only those parameters specific to this scenario are used
     if ($TextFormationType -eq "string") {
-        $ParametersForFormationTypeString = @("StringToReplace","StringLineNumber","StringInLineOccurrence","StringOccurrenceOfLine","ReplaceAll","ReplaceSome","ReplaceOne")
+        $ParametersForFormationTypeString = @("StringToReplace","StringLineNumber","StringOccurrenceOfLine","StringOccurrenceInLine",`
+        "StringLineNumberVSStringOccurrenceInLineHashTable","StringOccurrenceOfLineVSStringOccurrenceInLineHashTable",`
+        "ReplaceAll","ReplaceSome","ReplaceOne")
         if ($LineToReplace -ne $null) {
             Write-Host "The parameter `$LineToReplace is meant for use with `$TextFormationType = `"line`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"string`" are as follows:"
@@ -1063,14 +1091,6 @@ function Replace-Text {
             Write-Host "Parameters available when `$TextFormationType = `"string`" are as follows:"
             $ParametersForFormationTypeString
             Write-Error "The parameter `$LineOccurrenceOfLine is meant for use with `$TextFormationType = `"line`". Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        if ($BlockToReplace -ne $null) {
-            Write-Host "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
-            Write-Host "Parameters available when `$TextFormationType = `"string`" are as follows:"
-            $ParametersForFormationTypeString
-            Write-Error "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1098,6 +1118,14 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
+        if ($EndingStringOccurrencePostBeginningString.Count -ge 1) {
+            Write-Host "The parameter `$EndingStringOccurrencePostBeginningString is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$EndingStringOccurrencePostBeginningString = `"string`" are as follows:"
+            $ParametersForFormationTypeString
+            Write-Error "The parameter `$EndingStringOccurrencePostBeginningString is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
         if ($EndingString -ne $null) {
             Write-Host "The parameter `$EndingString is meant for use with `$TextFormationType = `"block`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"string`" are as follows:"
@@ -1122,15 +1150,41 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
+        if ($BeginningStringOccurrencePreEndingString.Count -ge 1) {
+            Write-Host "The parameter `$BeginningStringOccurrencePreEndingString is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"string`" are as follows:"
+            $ParametersForFormationTypeString
+            Write-Error "The parameter `$BeginningStringOccurrencePreEndingString is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($Inclusive -ne $null) {
+            Write-Host "The parameter `$Inclusive is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"string`" are as follows:"
+            $ParametersForFormationTypeString
+            Write-Error "The parameter `$Inclusive is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($BlockToReplace -ne $null) {
+            Write-Host "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"string`" are as follows:"
+            $ParametersForFormationTypeString
+            Write-Error "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        # BEGIN parameter relationships within $TextFormationType = "String"
         if ($StringOccurrenceOfLine.Count -ge 1 -and $StringLineNumber.Count -ge 1) {
             Write-Host "Please use EITHER the parameter StringOccurrenceOfLine OR the parameter StringLineNumber. Halting!"
             Write-Error "Please use EITHER the parameter StringOccurrenceOfLine OR the parameter StringLineNumber. Halting!"
             $global:FunctionResult = "1"
             return
         }
-        if ($StringInLineOccurrence.Count -ge 1 -and $StringLineNumberVSStringOccurrenceInLineHashTable -ne $null) {
-            Write-Host "Please use EITHER the parameter StringInLineOccurrence OR the parameter StringLineNumberVSStringOccurrenceInLineHashTable. Halting!"
-            Write-Error "Please use EITHER the parameter StringInLineOccurrence OR the parameter StringLineNumberVSStringOccurrenceInLineHashTable. Halting!"
+        if ($StringOccurrenceInLine.Count -ge 1 -and $StringLineNumberVSStringOccurrenceInLineHashTable -ne $null) {
+            Write-Host "Please use EITHER the parameter StringOccurrenceInLine OR the parameter StringLineNumberVSStringOccurrenceInLineHashTable. Halting!"
+            Write-Error "Please use EITHER the parameter StringOccurrenceInLine OR the parameter StringLineNumberVSStringOccurrenceInLineHashTable. Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1140,9 +1194,9 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
-        if ($StringInLineOccurrence.Count -ge 1 -and $StringOccurrenceOfLineVSStringOccurrenceInLineHashTable -ne $null) {
-            Write-Host "Please use EITHER the parameter StringInLineOccurrence OR the parameter StringOccurrenceOfLineVSStringOccurrenceInLineHashTable. Halting!"
-            Write-Error "Please use EITHER the parameter StringInLineOccurrence OR the parameter StringOccurrenceOfLineVSStringOccurrenceInLineHashTable. Halting!"
+        if ($StringOccurrenceInLine.Count -ge 1 -and $StringOccurrenceOfLineVSStringOccurrenceInLineHashTable -ne $null) {
+            Write-Host "Please use EITHER the parameter StringOccurrenceInLine OR the parameter StringOccurrenceOfLineVSStringOccurrenceInLineHashTable. Halting!"
+            Write-Error "Please use EITHER the parameter StringOccurrenceInLine OR the parameter StringOccurrenceOfLineVSStringOccurrenceInLineHashTable. Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1178,11 +1232,11 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
-        if ($StringInLineOccurrence.Count -ge 1) {
-            Write-Host "The parameter `$StringInLineOccurrence is meant for use with `$TextFormationType = `"string`". Halting!"
+        if ($StringOccurrenceInLine.Count -ge 1) {
+            Write-Host "The parameter `$StringOccurrenceInLine is meant for use with `$TextFormationType = `"string`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
             $ParametersForFormationTypeLine
-            Write-Error "The parameter `$StringInLineOccurrence is meant for use with `$TextFormationType = `"string`". Halting!"
+            Write-Error "The parameter `$StringOccurrenceInLine is meant for use with `$TextFormationType = `"string`". Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1194,11 +1248,19 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
-        if ($BlockToReplace -ne $null) {
-            Write-Host "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
+        if ($StringLineNumberVSStringOccurrenceInLineHashTable.Count -ge 1) {
+            Write-Host "The parameter `$StringLineNumberVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
             $ParametersForFormationTypeLine
-            Write-Error "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Error "The parameter `$StringLineNumberVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($StringOccurrenceOfLineVSStringOccurrenceInLineHashTable.Count -ge 1) {
+            Write-Host "The parameter `$StringOccurrenceOfLineVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
+            $ParametersForFormationTypeLine
+            Write-Error "The parameter `$StringOccurrenceOfLineVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1226,6 +1288,14 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
+        if ($EndingStringOccurrencePostBeginningString.Count -ge 1) {
+            Write-Host "The parameter `$EndingStringOccurrencePostBeginningString is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
+            $ParametersForFormationTypeLine
+            Write-Error "The parameter `$EndingStringOccurrencePostBeginningString is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
         if ($EndingString -ne $null) {
             Write-Host "The parameter `$EndingString is meant for use with `$TextFormationType = `"block`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
@@ -1250,6 +1320,32 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
+        if ($BeginningStringOccurrencePreEndingString.Count -ge 1) {
+            Write-Host "The parameter `$BeginningStringOccurrencePreEndingString is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
+            $ParametersForFormationTypeLine
+            Write-Error "The parameter `$BeginningStringOccurrencePreEndingString is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($Inclusive -ne $null) {
+            Write-Host "The parameter `$Inclusive is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
+            $ParametersForFormationTypeLine
+            Write-Error "The parameter `$Inclusive is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($BlockToReplace -ne $null) {
+            Write-Host "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"line`" are as follows:"
+            $ParametersForFormationTypeLine
+            Write-Error "The parameter `$BlockToReplace is meant for use with `$TextFormationType = `"block`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        # BEGIN parameter relationships within $TextFormationType = "Line"
         if ($LineOccurrenceOfLine.Count -ge 1 -and $LineLineNumber.Count -ge 1) {
             Write-Host "Please use EITHER the parameter LineOccurrenceOfLine OR the parameter LineLineNumber. Halting!"
             Write-Error "Please use EITHER the parameter LineOccurrenceOfLine OR the parameter LineLineNumber. Halting!"
@@ -1259,7 +1355,10 @@ function Replace-Text {
     }
     # If $TextFormationType = "block", make sure only those parameters specific to this scenario are used
     if ($TextFormationType -eq "block") {
-        $ParametersForFormationTypeBlock = @("BlockToReplace","BeginningString","BeginningStringLineNumber","BeginningStringOccurrenceOfLine","EndingString","EndingStringLineNumber","EndingStringOccurrenceOfLine")
+        $ParametersForFormationTypeBlock = @("BeginningString","BeginningStringLineNumber",`
+        "BeginningStringOccurrenceOfLine","EndingStringOccurrencePostBeginningString","EndingString",`
+        "EndingStringLineNumber","EndingStringOccurrenceOfLine","BeginningStringOccurrencePreEndingString","Inclusive",`
+        "BlockToReplace")
         if ($StringToReplace -ne $null) {
             Write-Host "The parameter `$StringToReplace is meant for use with `$TextFormationType = `"string`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"block`" are as follows:"
@@ -1271,16 +1370,16 @@ function Replace-Text {
         if ($StringLineNumber.Count -ge 1) {
             Write-Host "The parameter `$StringLineNumber is meant for use with `$TextFormationType = `"string`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"block`" are as follows:"
-            $ParametersForFormationTypeBlock
+            $ParametersForFormationTypeblock
             Write-Error "The parameter `$StringLineNumber is meant for use with `$TextFormationType = `"string`". Halting!"
             $global:FunctionResult = "1"
             return
         }
-        if ($StringInLineOccurrence.Count -ge 1) {
-            Write-Host "The parameter `$StringInLineOccurrence is meant for use with `$TextFormationType = `"string`". Halting!"
+        if ($StringOccurrenceInLine.Count -ge 1) {
+            Write-Host "The parameter `$StringOccurrenceInLine is meant for use with `$TextFormationType = `"string`". Halting!"
             Write-Host "Parameters available when `$TextFormationType = `"block`" are as follows:"
             $ParametersForFormationTypeBlock
-            Write-Error "The parameter `$StringInLineOccurrence is meant for use with `$TextFormationType = `"string`". Halting!"
+            Write-Error "The parameter `$StringOccurrenceInLine is meant for use with `$TextFormationType = `"string`". Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1289,6 +1388,22 @@ function Replace-Text {
             Write-Host "Parameters available when `$TextFormationType = `"block`" are as follows:"
             $ParametersForFormationTypeBlock
             Write-Error "The parameter `$StringOccurrenceOfLine is meant for use with `$TextFormationType = `"string`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($StringLineNumberVSStringOccurrenceInLineHashTable.Count -ge 1) {
+            Write-Host "The parameter `$StringLineNumberVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"block`" are as follows:"
+            $ParametersForFormationTypeBlock
+            Write-Error "The parameter `$StringLineNumberVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($StringOccurrenceOfLineVSStringOccurrenceInLineHashTable.Count -ge 1) {
+            Write-Host "The parameter `$StringOccurrenceOfLineVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
+            Write-Host "Parameters available when `$TextFormationType = `"block`" are as follows:"
+            $ParametersForFormationTypeBlock
+            Write-Error "The parameter `$StringOccurrenceOfLineVSStringOccurrenceInLineHashTable is meant for use with `$TextFormationType = `"string`". Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1334,6 +1449,8 @@ function Replace-Text {
             $global:FunctionResult = "1"
             return
         }
+
+        # BEGIN parameter relationship within $TextFormationType = "block"
         if ($BeginningStringOccurrenceOfLine.Count -ge 1 -and $BeginningStringLineNumber.Count -ge 1) {
             Write-Host "Please use EITHER the parameter BeginningStringOccurrenceOfLine OR the parameter BeginningStringLineNumber. Halting!"
             Write-Error "Please use EITHER the parameter BeginningStringOccurrenceOfLine OR the parameter BeginningStringLineNumber. Halting!"
@@ -1343,6 +1460,12 @@ function Replace-Text {
         if ($EndingStringOccurrenceOfLine.Count -ge 1 -and $EndingStringLineNumber.Count -ge 1) {
             Write-Host "Please use EITHER the parameter EndingStringOccurrenceOfLine OR the parameter EndingStringLineNumber. Halting!"
             Write-Error "Please use EITHER the parameter EndingStringOccurrenceOfLine OR the parameter EndingStringLineNumber. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($EndingStringOccurrencePostBeginningString.Count -ge 1 -and $BeginningStringOccurrencePreEndingString.Count -ge 1) {
+            Write-Host "Please use EITHER the parameter EndingStringOccurrencePostBeginningString OR the parameter BeginningStringOccurrencePreEndingString. Halting!"
+            Write-Error "Please use EITHER the parameter EndingStringOccurrencePostBeginningString OR the parameter BeginningStringOccurrencePreEndingString. Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -1435,8 +1558,8 @@ function Replace-Text {
                 }
             }
         }
-        if ($StringInLineOccurrence.Count -ge 1) {
-            Write-Verbose "The parameter `$StringInLineOccurrence is meant to be used in cases where a single line contains multiple occurrences of `$StringToReplace" -Verbose
+        if ($StringOccurrenceInLine.Count -ge 1) {
+            Write-Verbose "The parameter `$StringOccurrenceInLine is meant to be used in cases where a single line contains multiple occurrences of `$StringToReplace" -Verbose
             Write-Verbose "The `$ReplaceAll parameter is meant to be used in cases where the goal is to replace EVERY occurrence of the line `$LineToReplace in `$TextSource" -Verbose
             Write-Verbose "Removing the parameter `$ReplaceAll" -Verbose
             Remove-Variable -Name "ReplaceAll"
@@ -2656,39 +2779,39 @@ function Replace-Text {
                 $ValidStringToReplaceInLineChoices = For ($loop=0; $loop -lt $StringToReplaceInLineIndexes.Count; $loop++) {
                     $loop+1
                 }
-                if (! $StringInLineOccurrence.Count -gt 0) {
+                if (! $StringOccurrenceInLine.Count -gt 0) {
                     Write-Host "The line number $FinalStringLineNumber contains $($StringToReplaceInLineIndexes.Count) occurrences of the string $StringToReplace"
                     Write-Host "Context for these occurrences is as follows:"
                     $StringToReplaceInLineChoices
-                    [string]$StringInLineOccurrence = Read-Host -Prompt "Please select one (1) choice representing the Nth occurrence of the string '$StringToReplace' in line number $FinalStringLineNumber [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]"
-                    if ($ValidStringToReplaceInLineChoices -notcontains $StringInLineOccurrence) {
-                        Write-Host "$StringInLineOccurrence is not a valid choice. Valid choices are as follows:"
+                    [string]$StringOccurrenceInLine = Read-Host -Prompt "Please select one (1) choice representing the Nth occurrence of the string '$StringToReplace' in line number $FinalStringLineNumber [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]"
+                    if ($ValidStringToReplaceInLineChoices -notcontains $StringOccurrenceInLine) {
+                        Write-Host "$StringOccurrenceInLine is not a valid choice. Valid choices are as follows:"
                         $ValidStringToReplaceInLineChoices
-                        [string]$StringInLineOccurrence = Read-Host -Prompt "Please select the context for the string '$StringToReplace' in line number $FinalStringLineNumber [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]"
-                        if ($ValidStringToReplaceInLineChoices -notcontains $StringInLineOccurrence) {
-                            Write-Host "$StringInLineOccurrence is not a valid choice. Halting!"
-                            Write-Error "$StringInLineOccurrence is not a valid choice. Halting!"
+                        [string]$StringOccurrenceInLine = Read-Host -Prompt "Please select the context for the string '$StringToReplace' in line number $FinalStringLineNumber [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]"
+                        if ($ValidStringToReplaceInLineChoices -notcontains $StringOccurrenceInLine) {
+                            Write-Host "$StringOccurrenceInLine is not a valid choice. Halting!"
+                            Write-Error "$StringOccurrenceInLine is not a valid choice. Halting!"
                             $global:FunctionResult = "1"
                             return
                         }
                     }
-                    $UpdatedStringToReplace = $StringToReplaceInLineContext[$StringInLineOccurrence-1]
+                    $UpdatedStringToReplace = $StringToReplaceInLineContext[$StringOccurrenceInLine-1]
                     $UpdatedReplacementString = $UpdatedStringToReplace -replace "$StringToReplace","$ReplacementText"
                 }
-                if ($StringInLineOccurrence.Count -gt 0) {
-                    # Validate $StringInLineOccurrence
-                    if ($ValidStringToReplaceInLineChoices -notcontains $StringInLineOccurrence) {
-                        Write-Host "$StringInLineOccurrence is not a valid choice. Valid choices are as follows:"
+                if ($StringOccurrenceInLine.Count -gt 0) {
+                    # Validate $StringOccurrenceInLine
+                    if ($ValidStringToReplaceInLineChoices -notcontains $StringOccurrenceInLine) {
+                        Write-Host "$StringOccurrenceInLine is not a valid choice. Valid choices are as follows:"
                         $StringToReplaceInLineChoices
-                        [string]$StringInLineOccurrence = Read-Host -Prompt "Please select one (1) choice representing the Nth occurrence of the string '$StringToReplace' in line number $FinalStringLineNumber [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]"
-                        if ($ValidStringToReplaceInLineChoices -notcontains $StringInLineOccurrence) {
-                            Write-Host "$StringInLineOccurrence is not a valid choice. Halting!"
-                            Write-Error "$StringInLineOccurrence is not a valid choice. Halting!"
+                        [string]$StringOccurrenceInLine = Read-Host -Prompt "Please select one (1) choice representing the Nth occurrence of the string '$StringToReplace' in line number $FinalStringLineNumber [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]"
+                        if ($ValidStringToReplaceInLineChoices -notcontains $StringOccurrenceInLine) {
+                            Write-Host "$StringOccurrenceInLine is not a valid choice. Halting!"
+                            Write-Error "$StringOccurrenceInLine is not a valid choice. Halting!"
                             $global:FunctionResult = "1"
                             return
                         }
                     }
-                    $UpdatedStringToReplace = $StringToReplaceInLineContext[$StringInLineOccurrence-1]
+                    $UpdatedStringToReplace = $StringToReplaceInLineContext[$StringOccurrenceInLine-1]
                     $UpdatedReplacementString = $UpdatedStringToReplace -replace "$StringToReplace","$ReplacementText"
                 }
             }
@@ -2885,17 +3008,17 @@ function Replace-Text {
                             }
                         }
                     }
-                    if ($StringInLineOccurrence.Count -ge 1) {
-                        New-Variable -Name "StringInLineOccurrence$obj1" -Value $StringInLineOccurrence
+                    if ($StringOccurrenceInLine.Count -ge 1) {
+                        New-Variable -Name "StringOccurrenceInLine$obj1" -Value $StringOccurrenceInLine
                         
-                        if ($($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
-                            New-Variable -Name "StringInLineOccurrence$obj1" -Value $($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly).Split(",").Trim()) -Force
+                        if ($($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
+                            New-Variable -Name "StringOccurrenceInLine$obj1" -Value $($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly).Split(",").Trim()) -Force
                         }
-                        if (! $($StringInLineOccurrence | Select-String -Pattern ",").Matches.Success) {
-                            New-Variable -Name "StringInLineOccurrence$obj1" -Value $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) -Force
+                        if (! $($StringOccurrenceInLine | Select-String -Pattern ",").Matches.Success) {
+                            New-Variable -Name "StringOccurrenceInLine$obj1" -Value $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) -Force
                         }
                         $InLineOccurrenceValidation = @()
-                        foreach ($Occurrence in $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly)) {
+                        foreach ($Occurrence in $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly)) {
                             if ($ValidStringToReplaceInLineChoices -notcontains $Occurrence) {
                                 Write-Host "$Occurrence is NOT a valid choice."
                                 $InLineOccurrenceValidation += $Occurrence
@@ -2906,16 +3029,16 @@ function Replace-Text {
                             Write-Host "Context for occurrences of the string '$StringToReplace' are as follows:"
                             $StringToReplaceInLineChoices
 
-                            New-Variable -Name "StringInLineOccurrence$obj1" -Value $(Read-Host -Prompt "Please select one or more numbers (separated by commas) that represent the Nth occurrence of the string '$StringToReplace' in line number $obj1 that you would like to replace.`nNOTE: These numbers also represent the first, second, third, etc time that '$StringToReplace' appears within line number $obj1 [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]") -Force
+                            New-Variable -Name "StringOccurrenceInLine$obj1" -Value $(Read-Host -Prompt "Please select one or more numbers (separated by commas) that represent the Nth occurrence of the string '$StringToReplace' in line number $obj1 that you would like to replace.`nNOTE: These numbers also represent the first, second, third, etc time that '$StringToReplace' appears within line number $obj1 [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]") -Force
                             
-                            if ($($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
-                                New-Variable -Name "StringInLineOccurrence$obj1" -Value $($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly).Split(",").Trim()) -Force
+                            if ($($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
+                                New-Variable -Name "StringOccurrenceInLine$obj1" -Value $($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly).Split(",").Trim()) -Force
                             }
-                            if (! $($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
-                                New-Variable -Name "StringInLineOccurrence$obj1" -Value $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) -Force
+                            if (! $($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
+                                New-Variable -Name "StringOccurrenceInLine$obj1" -Value $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) -Force
                             }
                             $InLineOccurrenceValidation = @()
-                            foreach ($Occurrence in $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly)) {
+                            foreach ($Occurrence in $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly)) {
                                 if ($ValidStringToReplaceInLineChoices -notcontains $Occurrence) {
                                     Write-Host "$Occurrence is NOT a valid choice."
                                     $InLineOccurrenceValidation += $Occurrence
@@ -2928,7 +3051,7 @@ function Replace-Text {
                                 return
                             }
                         }
-                        foreach ($Occurrence in $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly)) {
+                        foreach ($Occurrence in $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly)) {
                             $UpdatedStringToReplace = $StringToReplaceInLineContext[$Occurrence-1]
                             $UpdatedStringToReplaceWithReplacementText = $UpdatedStringToReplace -replace "$StringToReplace","$ReplacementText"
 
@@ -2947,22 +3070,22 @@ function Replace-Text {
                             $UpdatedStringToReplaceObjects += $(Get-Variable -Name "UpdatedStringToReplaceLine$obj1$Occurrence" -ValueOnly)
                         }
                     }
-                    if (! $StringInLineOccurrence.Count -gt 0 -and $StringLineNumberVSStringOccurrenceInLineHashTable -eq $null `
+                    if (! $StringOccurrenceInLine.Count -gt 0 -and $StringLineNumberVSStringOccurrenceInLineHashTable -eq $null `
                     -and $StringOccurrenceOfLineVSStringOccurrenceInLineHashTable -eq $null) {
                         Write-Host "The line number $obj1 contains $($StringToReplaceInLineIndexes.Count) occurrences of the string $StringToReplace"
                         Write-Host "Context for occurrences of the string '$StringToReplace' are as follows:"
                         $StringToReplaceInLineChoices
 
-                        New-Variable -Name "StringInLineOccurrence$obj1" -Value $(Read-Host -Prompt "Please select one or more numbers (separated by commas) that represent the Nth occurrence of the string '$StringToReplace' in line number $obj1 that you would like to replace.`nNOTE: These numbers also represent the first, second, third, etc time that '$StringToReplace' appears within line number $obj1 [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]") -Force
+                        New-Variable -Name "StringOccurrenceInLine$obj1" -Value $(Read-Host -Prompt "Please select one or more numbers (separated by commas) that represent the Nth occurrence of the string '$StringToReplace' in line number $obj1 that you would like to replace.`nNOTE: These numbers also represent the first, second, third, etc time that '$StringToReplace' appears within line number $obj1 [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]") -Force
 
-                        if ($($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
-                            New-Variable -Name "StringInLineOccurrence$obj1" -Value $($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly).Split(",").Trim()) -Force
+                        if ($($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
+                            New-Variable -Name "StringOccurrenceInLine$obj1" -Value $($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly).Split(",").Trim()) -Force
                         }
-                        if (! $($StringInLineOccurrence | Select-String -Pattern ",").Matches.Success) {
-                            New-Variable -Name "StringInLineOccurrence$obj1" -Value $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) -Force
+                        if (! $($StringOccurrenceInLine | Select-String -Pattern ",").Matches.Success) {
+                            New-Variable -Name "StringOccurrenceInLine$obj1" -Value $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) -Force
                         }
                         $InLineOccurrenceValidation = @()
-                        foreach ($Occurrence in $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly)) {
+                        foreach ($Occurrence in $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly)) {
                             if ($ValidStringToReplaceInLineChoices -notcontains $Occurrence) {
                                 Write-Host "$Occurrence is NOT a valid choice."
                                 $InLineOccurrenceValidation += $Occurrence
@@ -2973,16 +3096,16 @@ function Replace-Text {
                             Write-Host "Context for occurrences of the string '$StringToReplace' are as follows:"
                             $StringToReplaceInLineChoices
 
-                            New-Variable -Name "StringInLineOccurrence$obj1" -Value $(Read-Host -Prompt "Please select one or more numbers (separated by commas) that represent the Nth occurrence of the string '$StringToReplace' in line number $obj1 that you would like to replace.`nNOTE: These numbers also represent the first, second, third, etc time that '$StringToReplace' appears within line number $obj1 [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]") -Force
+                            New-Variable -Name "StringOccurrenceInLine$obj1" -Value $(Read-Host -Prompt "Please select one or more numbers (separated by commas) that represent the Nth occurrence of the string '$StringToReplace' in line number $obj1 that you would like to replace.`nNOTE: These numbers also represent the first, second, third, etc time that '$StringToReplace' appears within line number $obj1 [$($([string]$ValidStringToReplaceInLineChoices) -replace " ","/")]") -Force
                             
-                            if ($($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
-                                New-Variable -Name "StringInLineOccurrence$obj1" -Value $($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly).Split(",").Trim()) -Force
+                            if ($($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
+                                New-Variable -Name "StringOccurrenceInLine$obj1" -Value $($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly).Split(",").Trim()) -Force
                             }
-                            if (! $($(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
-                                New-Variable -Name "StringInLineOccurrence$obj1" -Value $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly) -Force
+                            if (! $($(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) | Select-String -Pattern ",").Matches.Success) {
+                                New-Variable -Name "StringOccurrenceInLine$obj1" -Value $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly) -Force
                             }
                             $InLineOccurrenceValidation = @()
-                            foreach ($Occurrence in $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly)) {
+                            foreach ($Occurrence in $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly)) {
                                 if ($ValidStringToReplaceInLineChoices -notcontains $Occurrence) {
                                     Write-Host "$Occurrence is NOT a valid choice."
                                     $InLineOccurrenceValidation += $Occurrence
@@ -2995,7 +3118,7 @@ function Replace-Text {
                                 return
                             }
                         }
-                        foreach ($Occurrence in $(Get-Variable -Name "StringInLineOccurrence$obj1" -ValueOnly)) {
+                        foreach ($Occurrence in $(Get-Variable -Name "StringOccurrenceInLine$obj1" -ValueOnly)) {
                             $UpdatedStringToReplace = $StringToReplaceInLineContext[$Occurrence-1]
                             $UpdatedStringToReplaceWithReplacementText = $UpdatedStringToReplace -replace "$StringToReplace","$ReplacementText"
 
@@ -3651,12 +3774,12 @@ function Replace-Text {
     }
     ##### END Main Body #####
 
-}
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUDwW15sZiO23SmNO0SdVI17Me
-# /PygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbvhilZxCjysLcOayGvxUW3up
+# /FmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3711,11 +3834,11 @@ function Replace-Text {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR9vLr7dAsF
-# KG2SDT+oT3vzPiwuijANBgkqhkiG9w0BAQEFAASCAQBBv4a2i1V9Ld4G7mLZt1al
-# mbpUyFsmL+L1bthDgfuynvjXy6L2ItVpugI7FMc0xa2AuIgzbAXYXXuSHFHVOwMd
-# HWP1hUN3+HtVSosF/Njy0mBEw1Lzi+VEacpHtpLchePTLKDDwRdRat5uotNDMzft
-# PDQ1FmOomJD/Ez9GpDZz+ukLJ1ZUFjAE4xVllkCloBMWtzhB8simXdth8JdA6o7S
-# ged5NhpDs3hEwKqdbrh2GP7NM8ZmdZt+FgbG5IDUqFY3KrfhCe6L1LKGnvH2gcyB
-# Pm9D+OC+LoBcavu2YcCcDjG8cwXgqGPyPK7rG7m/7nOHzkkfesJwQgTpGyKUsmCr
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS21TnEXLrM
+# nQQHRTdm5xMurE5g3jANBgkqhkiG9w0BAQEFAASCAQArGmyKjhbu4tRJHfhyG0yA
+# af4QvvyWbwQlRPx6RsH9CvcP9bLdxBxQ9mjGhdizNVbhclYgcFEF8OVWG3nILY1H
+# zLjoSW8+37P0BW4A29Q2apVTPYy/NNxQ7Dx0wRy1PjQxxNvIpc5uA4SI0Xc6VDvp
+# sBdVt9q3bz/U6wO3Ey0GG80s5je1ba1bonxcuv39KCbVxfpXX4gqEWPdbNWZmFHH
+# z56xW1HrKzaReHMLs3xFRn+M7pIql9XSrr31DxclI0c6U5hah4X9Ul4BRxKbeXHB
+# pVcwvmDyN6D6a32/0zHSf1+MdrB/ENU0n3rSTc3G+NKgPrX4tpHbV0heRmBEjlEr
 # SIG # End signature block
