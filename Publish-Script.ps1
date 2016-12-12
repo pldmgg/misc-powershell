@@ -1,23 +1,63 @@
 <#
 .SYNOPSIS
-    Short description
+    Copy script from working directory to local github repository. Optionally commit and push to GitHub.
 .DESCRIPTION
-    Long description
+    If your workflow involves using a working directory that is NOT an initialized git repo for first
+    drafts of scripts/functions, this function will assist with "publishing" your script/function from
+    your working directory to the appropriate local git repo. Additional parameters will commit all
+    changes to the local git repo and push these deltas to the appropriate repo on GitHub.
+
+    IMPORTANT NOTE: Using the $gitpush switch runs the following git commands which effectively 
+    commmit and push ALL changes made to the local git repo since the last commit. The only change
+    made by this script is the copy/paste operation from working directory to the specified local
+    git repo. However, other changes outside the scope of this function may have occurred since
+    the last commit. EVERYTHING will be committed and pushed if the $gitpush switch is used. 
 .NOTES
     DEPENDENCEIES
-        Helper scripts/functions and/or binaries needed for the function to work.
-.PARAMETER
-    N parameter
-.PARAMETER
-    N+1 parameter
+        None
+.PARAMETER SourceFilePath
+    This parameter is MANDATORY.
+
+    This parameter takes a string that represents a file path to the script/function that you
+    would like to publish.
+
+.PARAMETER DestinationLocalGitRepoName
+    This parameter is MANDATORY.
+
+    This parameter takes a string that represents the name of the Local Git Repository that
+    your script/function will be copied to. This parameter is NOT a file path. It is just
+    the name of the Local Git Repository.
+
+.PARAMETER SigningCertFilePath
+    This parameter is OPTIONAL.
+
+    This parameter takes a string that represents a file path to a certificate that can be used
+    to digitally sign your script/function.
+
+.PARAMETER gitpush
+    This parameter is OPTIONAL.
+
+    This parameter is a switch. If it is provided in the command line, then the function will 
+    not only copy the source script/function from the working directory to the Local Git Repo,
+    it will also commit changes to the Local Git Repo and push updates the corresponding repo
+    on GitHub.
+
+.PARAMETER gitmessage
+    This parameter is OPTIONAL.
+
+    If the $gitpush parameter is used, this parameter is MANDATORY.
+
+    This parameter takes a string that represents a message that accompanies a git commit
+    operation. The message should very briefly describe the changes that were made to the
+    Git Repository.
+
 .EXAMPLE
-    Example of how to use this cmdlet
-.EXAMPLE
-    Another example of how to use this cmdlet
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
+    Publish-Script -SourceFilePath "V:\powershell\testscript.ps1"`
+    -DestinationLocalGitRepo "misc-powershell"`
+    -SigningCertFilePath "R:\zero\ZeroCode.pfx"`
+    -gitpush`
+    -gitmessage "Initial commit for testscript.ps1"
+    -Confirm
 #>
 
 function Publish-Script {
@@ -27,47 +67,41 @@ function Publish-Script {
         SupportsShouldProcess=$true,
         PositionalBinding=$true,
         ConfirmImpact='Medium'
-        )
-    ]
+    )]
     [Alias('pubscript')]
     Param(
         [Parameter(
             Mandatory=$False,
             ParameterSetName='Parameter Set 1'
-            )
-        ]
+        )]
         [Alias("source")]
         [string]$SourceFilePath = $(Read-Host -Prompt "Please enter the full file path to the script that you would like to publish to your LOCAL GitHub Project Repository."),
 
         [Parameter(
             Mandatory=$False,
             ParameterSetName='Parameter Set 1'
-            )
-        ]
+        )]
         [Alias("dest")]
         [string]$DestinationLocalGitRepoName = $(Read-Host -Prompt "Please enter the name of the LOCAL Git Repo to which the script/function will be published."),
 
         [Parameter(
             Mandatory=$False,
             ParameterSetName='Parameter Set 1'
-            )
-        ]
+        )]
         [Alias("cert")]
         [string]$SigningCertFilePath,
 
         [Parameter(
             Mandatory=$False,
             ParameterSetName='Parameter Set 1'
-            )
-        ]
+        )]
         [Alias("push")]
         [switch]$gitpush,
 
         [Parameter(
             Mandatory=$False,
             ParameterSetName='Parameter Set 1'
-            )
-        ]
+        )]
         [Alias("message")]
         [string]$gitmessage
     )
@@ -166,12 +200,11 @@ function Publish-Script {
 
 }
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUa8BH5Lrngazl30dia6z1UqHr
-# P9ugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUk9QxwjBphdqkxxwmyfkpobEN
+# 7AygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -226,11 +259,11 @@ function Publish-Script {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQCgtN1xiWw
-# ID7gWmynr/IMPuOsYzANBgkqhkiG9w0BAQEFAASCAQB79vAxA5r10ayZC0KDz5jL
-# C2gdpBCRo+bBAlTfHkMhO1Wb4vywBprhhYUbXU22P9AapF9kmXCY2AH18o+t6B1y
-# ZuXCRXTTezXjcmwo3w6SoP4TS7J+6Ykc3THfuzERApLAgSAeg2576bQVlIEDTNe4
-# Db3hb+ICQCotlIINJTygeXaNfh9870qycgiA6jW0cKsn3yZn54vYpu8ujxHDVWfy
-# kNs1KoVdBO26ZpIzRFwZnpeqawydhYl6bVDDRW4idJfM6/0pacHJ5lyU2d++RIwh
-# SRgPQVVEPPo1M51Vx8kOvnQj+eZwpeCCPvcaYyZ2rdBwADhOk00UFYitxm51TwC1
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSK7dvG4XFL
+# x04flWhYkswdtoMAGTANBgkqhkiG9w0BAQEFAASCAQBJqvkXoP0stdR/2jDzpm/T
+# F9VPZS92ATzoqvzYbO/IZ54i/e/p6Yeim02cKrokYpGL3WLj8Oqwy2rgqFhdEHm1
+# U8BFi79KYjnDqjhOXL6GJeGK4xlx/5H0UyB1zo0rLpQxDuDt2B5m1O/eKq4d26KU
+# Ukql0TZU+20BEU49zIV5XOJs1OXwl8QqkAyQ9ddp4e0FPAzOy8VyYTak2q7X8NDK
+# kZShRKZN2dM24wXhHlgq956MTiA8XFpSra/5DwAON/z7+m17ZyyQhWoho2jp6fgB
+# HjWOEUHYuxlBqBmNT2t/AqTT3tzhyjtpAU6MZqEfxz3s3uwyl2SrAD50yVzixrqD
 # SIG # End signature block
