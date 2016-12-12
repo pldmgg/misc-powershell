@@ -7,12 +7,21 @@
     your working directory to the appropriate local git repo. Additional parameters will commit all
     changes to the local git repo and push these deltas to the appropriate repo on GitHub.
 
-    IMPORTANT NOTE: Using the $gitpush switch runs the following git commands which effectively 
-    commmit and push ALL changes made to the local git repo since the last commit. The only change
-    made by this script is the copy/paste operation from working directory to the specified local
-    git repo. However, other changes outside the scope of this function may have occurred since
-    the last commit. EVERYTHING will be committed and pushed if the $gitpush switch is used. 
 .NOTES
+    IMPORTANT NOTES
+
+    1) Using the $gitpush switch runs the following git commands which effectively 
+    commmit and push ALL changes made to the local git repo since the last commit.
+    
+    git -C $DestinationLocalGitRepoDir add -A
+    git -C $DestinationLocalGitRepoDir commit -a -m "$gitmessage"
+    git -C $DestinationLocalGitRepoDir push
+
+    The only change made by this script is the copy/paste operation from working directory to
+    the specified local git repo. However, other changes outside the scope of this function may
+    have occurred since the last commit. EVERYTHING will be committed and pushed if the $gitpush
+    switch is used.
+
     DEPENDENCEIES
         None
 .PARAMETER SourceFilePath
@@ -199,12 +208,11 @@ function Publish-Script {
     ##### END Main Body #####
 
 }
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUk9QxwjBphdqkxxwmyfkpobEN
-# 7AygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv6N7bty30W2mh23dEvNRMEBt
+# WKigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -259,11 +267,11 @@ function Publish-Script {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSK7dvG4XFL
-# x04flWhYkswdtoMAGTANBgkqhkiG9w0BAQEFAASCAQBJqvkXoP0stdR/2jDzpm/T
-# F9VPZS92ATzoqvzYbO/IZ54i/e/p6Yeim02cKrokYpGL3WLj8Oqwy2rgqFhdEHm1
-# U8BFi79KYjnDqjhOXL6GJeGK4xlx/5H0UyB1zo0rLpQxDuDt2B5m1O/eKq4d26KU
-# Ukql0TZU+20BEU49zIV5XOJs1OXwl8QqkAyQ9ddp4e0FPAzOy8VyYTak2q7X8NDK
-# kZShRKZN2dM24wXhHlgq956MTiA8XFpSra/5DwAON/z7+m17ZyyQhWoho2jp6fgB
-# HjWOEUHYuxlBqBmNT2t/AqTT3tzhyjtpAU6MZqEfxz3s3uwyl2SrAD50yVzixrqD
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQyrXJlb2/n
+# hH3BBReirYkZs3ZY+jANBgkqhkiG9w0BAQEFAASCAQBmUXJb452eVh+Fm25iLu5J
+# HzcZRkZYSmTX2WJS76aixrR8g4dGtYdypuKQJOLLcccRAOwL0lDvszs72gfAVhUE
+# +6VZmB4WmS3FlmOg+yD6yFbe61rv33SEaaH5E++XSOjXv4hxEQmnFNVOgak3Ep6B
+# KwqZhYAgAgEz4Zlo6kQJucQI3vJ+jFUGGiDZDPEMvsMuIFvzfYGOI0weTbG13wbF
+# TGj0x8aNIsdjsJorV32+QAMsiT3iyyG9mGhWvAsDB3zQPv2W9E0LvNNfHDwkxnmx
+# AVJ0gkC2bQjKLmbocYhzrkb5osRkiVSK89BqmOeYYdFE3KeYTmbwlG+d9kBEOV1J
 # SIG # End signature block
