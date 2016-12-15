@@ -468,12 +468,11 @@ function New-VNCConnection {
     $ExistingConnectionUsingLocalPortPIDs
     $ExistingConnectionUsingLocalPortRemoteHost = foreach ($PIDobj in $ExistingConnectionUsingLocalPortPIDs) {
         $PotentialRemoteAddress = $(Get-NetTCPConnection | Where-Object {
-                $_.OwningProcess -eq "$PIDobj" -and `
-                $_.RemoteAddress -ne "::" -and `
-                $_.RemoteAddress -ne "0.0.0.0" -and `
-                $_.RemoteAddress -ne "127.0.0.1"
-            }
-        ).RemoteAddress
+            $_.OwningProcess -eq "$PIDobj" -and `
+            $_.RemoteAddress -ne "::" -and `
+            $_.RemoteAddress -ne "0.0.0.0" -and `
+            $_.RemoteAddress -ne "127.0.0.1"
+        }).RemoteAddress
         if ($PotentialRemoteAddress -ne $null)
         {
             $PotentialRemoteAddress
@@ -488,12 +487,11 @@ function New-VNCConnection {
         if ($VNCViewerPIDs) {
             $VNCSessionsUsingPortForwarding = foreach ($VNCPID in $VNCViewerPIDs) {
                 $(Get-NetTCPConnection | Where-Object {
-                        $_.OwningProcess -eq "$VNCPID" -and `
-                        $_.RemotePort -eq "$LocalPortForSSHTunnel" -and `
-                        $_.State -ne "TimeWait" -and `
-                        $_.State -ne "CloseWait"
-                    }
-                ).OwningProcess
+                    $_.OwningProcess -eq "$VNCPID" -and `
+                    $_.RemotePort -eq "$LocalPortForSSHTunnel" -and `
+                    $_.State -ne "TimeWait" -and `
+                    $_.State -ne "CloseWait"
+                }).OwningProcess
             }
 
             $VNCProcessesToKill = $VNCSessionsUsingPortForwarding | Sort-Object | Get-Unique
@@ -676,12 +674,11 @@ function New-VNCConnection {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3HjoirmfwN6dQa23MUBI5MHT
-# fgmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/CDrz6frRiWGQVna+btXjo7o
+# OQ6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -736,11 +733,11 @@ function New-VNCConnection {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSeDuA+j0Pi
-# 69hKevdYKpw51fqtYTANBgkqhkiG9w0BAQEFAASCAQAihRZopSqQmT0gyH5jGgxr
-# QRXUBZmd2sdZn5TH9utF0qWCI4kyOknPJgsfQCEIoqGRYUtW+QQFwfJNqnThgjMi
-# lXDhSwEezAukyJW69APmONRRuB79pQZXHa6E0q0HdBYb/hunoYObR7hJ1GaFo7Gr
-# pWFK02QmfbmeJABTigv9aY/PoYS4L5bv0OsRWr6vO5V9W+kegt4LwGAgO+rewyHY
-# erUqm3Tw7dBv1hDIfLuVm3NUxW8wsS/w+0Nm69eNg18H8sRYQxckj+YARykBoLng
-# xwwglp5oA6+1/QduwP2EEBeZfQ1UAIe753pshgDK7ynuYNVICdPSMo0YLz6EM3C+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRjm6zWSRSv
+# K4zeeXTUnRJBVMiQ+DANBgkqhkiG9w0BAQEFAASCAQAiWAz2VLjmRUi/GHrn/dj1
+# 81FH0ivK8KbdiGgHd0BFq/9FnjNbdTYiDi9j+TmeqvwjHGgv4ul00mI4p27I4ulL
+# Xy8tgfmT2RSb5V9hfk+s761a1bHgYWdABmZYDO4FzvwR36TTP6T6LZM8nqP1z6kM
+# 1RUc5UP37u05YxvX75hTk/q+/cmgKq2tvS24if0njzl4lijy8be8a+teYKrx7Ctt
+# ft8cGyjEssNa7hazIejwJsD+IgR7v1w00AVPP8rc8k1+XZQo2aVGFWvlqHM0QZ2j
+# eMhbto3/VfA2KWc54416ZRhpuB19/OKt05mQ2gInxOrq2K1lv343MBjhtnotjaqU
 # SIG # End signature block
