@@ -1,23 +1,120 @@
 <#
 .SYNOPSIS
-    Short description
+    Start a new encrypted or unencrypted VNC session with a remote host
 .DESCRIPTION
-    Long description
+    The free version of the Windows VNC Client provided by RealVNC called VNC Connect does not allow for encrypted connections
+    to remote VNC servers. This function uses Putty to create an SSH tunnel in order to encrypt VNC traffic when the 
+    switch "encrypted" is used.
+
+    The function also has logic to validate ports being used on local and remote hosts. This prevents unintentional closing
+    of existing Putty or VNC sessions.
 .NOTES
     DEPENDENCEIES
-        Helper scripts/functions and/or binaries needed for the function to work.
-.PARAMETER
-    N parameter
-.PARAMETER
-    N+1 parameter
+        1) VNC Connect - https://www.realvnc.com/download/vnc/windows/
+        2) Putty - http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html
+
+.PARAMETER VNCViewerDir
+    This parameter is MANDATORY.
+
+    This parameter takes a string that represents the full path to the directory that contains vncviewer.exe
+
+.PARAMETER RemoteHost
+    This parameter is MANDATORY.
+
+    This parameter takes a string that represents either a DNS-resolvable address or IP Address running a VNC server.
+
+.PARAMETER RemoteVNCPort
+    This parameter is MANDATORY.
+
+    This parameter takes an interger that represents the port number listening on the remote VNC server.
+
+.PARAMETER encrypted
+    This parameter is OPTIONAL.
+
+    This parameter is a switch.
+
+    If it is not used, the VNC connection will not be encrypted, and only mandatory parameters
+    are needed.
+
+    If it is used, the following additional parameters become mandatory:
+    1) LocalPortForSSHTunnel
+    2) PuttyDir
+    3) SSHUsername
+    4) SSHKeyPath
+
+.PARAMETER KillExistingPuttyPortForwarding
+    This parameter is OPTIONAL. It should ONLY BE USED iF the "encrypted" switch is used.
+
+    This parameter is a switch.
+
+    If it is used, existing Putty sessions performing port forwarding using $LocalPortForSSHTunnel
+    to $RemoteHost`:$RemoteVNCPort will be closed (i.e. the putty.exe PID will be killed). After existing Putty sessions are
+    killed, a fesh Putty sessions performing port forwarding using $LocalPortForSSHTunnel to $RemoteHost`:$RemoteVNCPort will be
+    created.
+
+    If it is not used, if there is an existing Putty session performing port forwarding using $LocalPortForSSHTunnel
+    to $RemoteHost`:$RemoteVNCPort, it will be used. If there is not an existing Putty session performing port forwarding
+    using $LocalPortForSSHTunnel to $RemoteHost`:$RemoteVNCPort, one will be created.
+
+.PARAMETER LocalPortForSSHTunnel
+    This parameter is OPTIONAL.
+
+    This parameter becomes MANDATORY IF the "encrypted" switch is used.
+
+    This parameter takes an interger that represents the local port to be used for SSH tunnelling.
+
+.PARAMETER PuttyDir
+    This parameter is OPTIONAL.
+
+    This parameter becomes MANDATORY IF the "encrypted" switch is used.
+
+    This parameter takes a string the represents the full path to the directory that contains putty.exe
+
+.PARAMETER SSHUsername
+    This parameter is OPTIONAL.
+
+    This parameter becomes MANDATORY IF the "encrypted" switch is used.
+
+    This parameter takes a string that represents the SSH username to be used to access the remote host.
+
+.PARAMETER SSHKeyPath
+    This parameter is OPTIONAL.
+
+    This parameter becomes MANDATORY IF the "encrypted" switch is used.
+
+    This parameter takes a string that represents the file path to $SSHUsername's SSH Key.
+
+    WARNING. The SSH Key must be in Putty's .ppk format!
+
 .EXAMPLE
-    Example of how to use this cmdlet
+    $params1 = @{
+        VNCViewerDir = "C:\Program Files\RealVNC\VNC Viewer"
+        RemoteHost = "centos7-ws.test2.lab"
+        RemoteVNCPort = "5904"
+        LocalPortForSSHTunnel = "5999"
+        PuttyDir = "C:\Program Files (x86)\PuTTY"
+        SSHKeypath = "$HOME\.ssh\centos7-ws_keypair.ppk"
+        SSHUserName = "pdadmin"
+    }
+
+    New-VNCConnection @params1 -encrypted
+
 .EXAMPLE
-    Another example of how to use this cmdlet
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
+    $params2 = @{
+        VNCViewerDir = "C:\Program Files\RealVNC\VNC Viewer"
+        RemoteHost = "192.168.2.101"
+        RemoteVNCPort = "5900"
+        LocalPortForSSHTunnel = "5998"
+        PuttyDir = "C:\Program Files (x86)\PuTTY"
+        SSHKeypath = "$HOME\.ssh\pdadminmacz-pc_keypair.ppk"
+        SSHUserName = "pdadmin"
+    }
+
+    New-VNCConnection @params2 -encrypted
+
+.EXAMPLE
+    New-VNCConnection -VNCViewerDir "C:\Program Files\RealVNC\VNC Viewer"` -RemoteHost "centos7-ws.test2.lab"` -RemoteVNCPort "5904"
+
 #>
 
 function New-VNCConnection {
@@ -346,6 +443,16 @@ function New-VNCConnection {
             $global:FunctionResult = "1"
             return
         }
+        $pos1 = $SSHKeyFile.LastIndexOf("\")
+        $SSHKeyFile = $SSHKeyFile.Substring($pos+1)
+        $pos2 = $SSHKeyFile.LastIndexOf(".")
+        $SSHKeyFileExtension = $SSHKeyFile.Substring($pos+1)
+        if ($SSHKeyFileExtension -ne "ppk") {
+            Write-Host "The SSH Key File must be in Putty's .ppk format! Halting!"
+            Write-Error "The SSH Key File must be in Putty's .ppk format! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
     ##### END Parameter Validation #####
 
@@ -570,12 +677,11 @@ function New-VNCConnection {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUN5kbMmHrMSUilkcoX5uNZvgd
-# gX2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3HjoirmfwN6dQa23MUBI5MHT
+# fgmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -630,11 +736,11 @@ function New-VNCConnection {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSUfWlYkrf8
-# YwE2l5g9VDjSdjk1EDANBgkqhkiG9w0BAQEFAASCAQAaed9xummHNYTV40PqmAhO
-# e/x3JLfiyUDbz1eCvWs73Tjajl4NBD4A7CIOugloi3znsA9acJV4LhL/C2DlgD/h
-# BYGeJl+eW97x1+qGVnKfaq8+Q5f052HHjRmjh6kHzaMsjTmm0CwILdxyXcs4hG4d
-# TOg6k+78+LLNyfej4SaIHITJfFJBbDdkrxfIQ0fV2km1nAThTLLYGcAeu89n7lhZ
-# W0ugwj+0H3FOXKa1ABXkH2WqwCkeWwtMUKs/mDX+ySDfPQc8AMJ0byja7zBizsQ9
-# 9EtPVl7iKD1FXG2oV/1YgZ9MbDgwA+2N0+vj8C9xguRRYE3+UhpLvDb3RWSrehEv
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSeDuA+j0Pi
+# 69hKevdYKpw51fqtYTANBgkqhkiG9w0BAQEFAASCAQAihRZopSqQmT0gyH5jGgxr
+# QRXUBZmd2sdZn5TH9utF0qWCI4kyOknPJgsfQCEIoqGRYUtW+QQFwfJNqnThgjMi
+# lXDhSwEezAukyJW69APmONRRuB79pQZXHa6E0q0HdBYb/hunoYObR7hJ1GaFo7Gr
+# pWFK02QmfbmeJABTigv9aY/PoYS4L5bv0OsRWr6vO5V9W+kegt4LwGAgO+rewyHY
+# erUqm3Tw7dBv1hDIfLuVm3NUxW8wsS/w+0Nm69eNg18H8sRYQxckj+YARykBoLng
+# xwwglp5oA6+1/QduwP2EEBeZfQ1UAIe753pshgDK7ynuYNVICdPSMo0YLz6EM3C+
 # SIG # End signature block
