@@ -493,87 +493,6 @@ function New-VNCConnection {
 }
 
 
-# TESTING
-# Encrypted, No killputty = SUCCESS
-<#
-$params = @{
-    VNCViewerDir = "C:\Program Files\RealVNC\VNC Viewer"
-    RemoteHost = "192.168.2.101"
-    RemoteVNCPort = "5900"
-    LocalPortForSSHTunnel = "5998"
-    PuttyDir = "C:\Program Files (x86)\PuTTY"
-    SSHKeypath = "$HOME\.ssh\pdadminmacz-pc_keypair.ppk"
-    SSHUserName = "pdadmin"
-}
-
-New-VNCConnection @params -encrypted
-#>
-
-# Encrypted, killputty = SUCCESS
-<#
-$params = @{
-    VNCViewerDir = "C:\Program Files\RealVNC\VNC Viewer"
-    RemoteHost = "192.168.2.101"
-    RemoteVNCPort = "5900"
-    LocalPortForSSHTunnel = "5999"
-    PuttyDir = "C:\Program Files (x86)\PuTTY"
-    SSHKeypath = "$HOME\.ssh\pdadminmacz-pc_keypair.ppk"
-    SSHUserName = "pdadmin"
-}
-
-New-VNCConnection @params -encrypted -killputty
-#>
-
-# Unencrypted
-<#
-New-VNCConnection -VNCViewerDir "C:\Program Files\RealVNC\VNC Viewer"`
--RemoteHost "192.168.2.101"`
--RemoteVNCPort "5900"
-#>
-
-
-# Different RemoteHost, Same LocalPortForSSHTunnel
-# Encrypted, No killputty = SUCCESS
-$params = @{
-    VNCViewerDir = "C:\Program Files\RealVNC\VNC Viewer"
-    RemoteHost = "192.168.2.34"
-    RemoteVNCPort = "5904"
-    LocalPortForSSHTunnel = "5999"
-    PuttyDir = "C:\Program Files (x86)\PuTTY"
-    SSHKeypath = "$HOME\.ssh\centos7-ws_keypair.ppk"
-    SSHUserName = "pdadmin"
-}
-
-New-VNCConnection @params -encrypted
-
-
-# Unencrypted
-<#
-New-VNCConnection -VNCViewerDir "C:\Program Files\RealVNC\VNC Viewer"`
--RemoteHost "192.168.2.34"`
--RemoteVNCPort "5904"
-#>
-
-
-#### ARCHIVE #####
-<#
-$PuttySessionsUsingVNCPortForwardingPrep = Get-NetTCPConnection | Where-Object {$_.RemoteAddress -eq "$RemoteHostIP" -or $_.LocalPort -eq "$LocalPortForSSHTunnel" `
--and $_.State -ne "TimeWait" -and $_.State -ne "CloseWait"}
-$PuttySessionsUsingVNCPortForwardingPrep2 = $($PuttySessionsUsingVNCPortForwardingPrep | Group-Object -Property OwningProcess | Where-Object {$_.Count -gt 1})
-$PuttySessionsUsingVNCPortForwarding = $($PuttySessionsUsingVNCPortForwardingPrep2.Name) | Sort-Object | Get-Unique
-
-if ($($PuttySessionsUsingVNCPortForwardingPrep2.Group | Where-Object {$_.LocalPort -eq "$LocalPortForSSHTunnel"}).Count -gt 1)
-{
-    Write-Host "SSH Tunnel from local port $LocalPortForSSHTunnel to remote host $RemoteHost port $RemoteVNCPort is already open!"
-}
-if (! $PuttySessionsUsingVNCPortForwardingPrep -or `
-    $($PuttySessionsUsingVNCPortForwardingPrep2.Group | Where-Object {$_.LocalPort -eq "$LocalPortForSSHTunnel"}).Count -le 1)
-#>
-
-##### ARCHIVE #####
-
-
-
 
 
 
@@ -585,8 +504,8 @@ if (! $PuttySessionsUsingVNCPortForwardingPrep -or `
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULq3xpTDk4+mQmONV8DvftUkK
-# I5mgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBVEjLgnVBs7Jlz91gEjhs6wm
+# KpKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -641,11 +560,11 @@ if (! $PuttySessionsUsingVNCPortForwardingPrep -or `
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSN5xTwCyGm
-# x73BwrmWZ3ZfTrwSDjANBgkqhkiG9w0BAQEFAASCAQCIpSC+YfPwabSy/2orMMP0
-# azOd+wajmoejTsM79NHP65EjToJ2rUahghi3jLAIMncb/FmVQfjm3GvKguZfYct/
-# O/SQMPvRrE75YMO6V0mLALVSJkMQwMN9IIv8sA2+Ycpf5BLZh7LcOYCV3mF25BAY
-# pJ2zS/RWOXk6n0BgnlFHF+jzc5pRnZL24fNBR1mT5fagAY+BxGxRRFfULmnCvxn9
-# wPWlZ7bpURCcGMiDot9O5JZkTC90B1Y3TVwfuX5QJa+oC8IWjoE5FHUF/kwTTQfb
-# 27AfL1MNjNiujNYMSGWdgcHIknYVaFDehnvlyIL3UjuQH5mZxyWND4AAv87Zxm6P
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTdPgejdCYa
+# QvQp2f2ZjPVZ7yLCGzANBgkqhkiG9w0BAQEFAASCAQBZ2SLq9c1uan44NJI3wzAE
+# fr45Gdt+VpEiT0oLhXWsg7LNSCk4TetSV5xbMIzZGBzgnfsNQgaJgZ0dd4RZVMUy
+# a038UPoUaQloAPGzDYLFOU5RbPP3fBnIyvuFeHU9mYfWtmyLW1/pZDzRAuitV9+S
+# QW7aUFRWwAnBTYztRyUHIjH5qlhwaLjTjf7FIC2rKcPBBV7h1fQqhiJ0UeAIJ3+9
+# YLa4gOxAhVQI97TYzkYVjwTL0MxdIhZ7mDEuEJvpXBIR40+pgLwf+hwDn82hzG23
+# y6qcBiycqlInES9Dml1vI8oicjCUOx5+xzinJuezAGDHDvwp2mf13vBrS3ChtP8U
 # SIG # End signature block
