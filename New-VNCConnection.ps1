@@ -126,55 +126,37 @@ function New-VNCConnection {
     )]
     [Alias('vnc')]
     Param(
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("vncdir")]
         [string]$VNCViewerDir = $(Read-Host -Prompt "Please enter the full path to the directory that contains vncviewer.exe"),
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         $RemoteHost = $(Read-Host -Prompt "Please enter the IP Address or DNS-resolvable name of the remote host."),
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("remoteport")]
         [int]$RemoteVNCPort = $(Read-Host -Prompt "Please enter the port number listening on the remote VNC Server."),
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("enc")]
         [switch]$encrypted,
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("killputty")]
         [switch]$KillExistingPuttyPortForwarding,
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("localport")]
         [int]$LocalPortForSSHTunnel,
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [string]$PuttyDir,
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("sshuname")]
         [string]$SSHUserName,
 
-        [Parameter(
-            Mandatory=$False,
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("sshkey")]
         [string]$SSHKeyPath
     )
@@ -643,12 +625,11 @@ function New-VNCConnection {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUMykIfR43THMkbsQWPDQskOXy
-# hlagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTmNtc/6ruRsZKBb5vS5BAcng
+# AVGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -703,11 +684,11 @@ function New-VNCConnection {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQI6KaPQwFP
-# S4PN+QO8vtknlCVHlTANBgkqhkiG9w0BAQEFAASCAQCGD2e+2uX93HaLLDshdhG0
-# 4Ws7lC7iK3cV/iT4LK4EAjNBpuqBBuCOwkRlJ4BWUauKhJ1nIKWwmqSfFjCRGlSw
-# F0YO2fpNtwDmwIXCg8/V4oxKTNCx8f0duzMVkLGQ8p7XuyEf6D63MUT57pAA47b0
-# qqNy74uqqaqoaEkMdgePw19LWjL/oC2nqpIldFum5SWmyVvnKZEimNuuHdtYfFab
-# wKD3FuUC8lR6PK5ndWegCKKIrnbwB1wOb0EtYUadoOpK0hoLbDlpt8PwEB6zjPeO
-# 2ShRb8T6sGfD/MWsb0zMGuVfW02KkC8LG9DRJStvYxnZLL43VgnLPtLA3oJEq8/r
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQfKH420crG
+# h1aghTGqVz3swL1aHDANBgkqhkiG9w0BAQEFAASCAQBZBKPy2jZm/VSD1OVcsmRC
+# ODADBGn07ZEc4OoqmhJcAdkv0j3LXu/NAqECa5boS3LnjmenJnSwIvUTAzAt5SiB
+# 4VMU/OHfWye8CoVFwm7smJQtt0PvGYPd7pk58yJbKmMVWrOwmwKAWmuU+9tvlYK0
+# bsLHih/Eox+IQ3Z36rpoyB5nbbq4M0NNJ0Nl445YIOAEh1RpHRVqsk5wK/WTKi8U
+# PeIrKAIvzzJ1k9Z9Yi3v4kZ7YZcrfLjESSqO2HP04d+zQ8mztY/WPAi/umZyl8lw
+# f/l4qAToR3082iKN4b5fS97CjjnJViM2OPBKXkneUMKgL6BFxLdxgd4Wd4nqFhBh
 # SIG # End signature block
