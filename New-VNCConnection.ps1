@@ -128,71 +128,58 @@ function New-VNCConnection {
     Param(
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [Alias("vncdir")]
         [string]$VNCViewerDir = $(Read-Host -Prompt "Please enter the full path to the directory that contains vncviewer.exe"),
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         $RemoteHost = $(Read-Host -Prompt "Please enter the IP Address or DNS-resolvable name of the remote host."),
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [Alias("remoteport")]
         [int]$RemoteVNCPort = $(Read-Host -Prompt "Please enter the port number listening on the remote VNC Server."),
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [Alias("enc")]
         [switch]$encrypted,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [Alias("killputty")]
         [switch]$KillExistingPuttyPortForwarding,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [Alias("localport")]
         [int]$LocalPortForSSHTunnel,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [string]$PuttyDir,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [Alias("sshuname")]
         [string]$SSHUserName,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
         )]
         [Alias("sshkey")]
         [string]$SSHKeyPath
     )
 
     ##### REGION Helper Functions and Libraries #####
-
-    ## BEGIN Sourced Helper Functions ##
-
-    ## END Sourced Helper Functions ##
 
     ## BEGIN Native Helper Functions ##
     function Test-Port
@@ -201,7 +188,7 @@ function New-VNCConnection {
         [Alias('testport')]
         Param(
             [Parameter(Mandatory=$False)]
-            $RemoteMachine = $(Read-Host -Prompt "Please enter the IP Address or DNS-resolvable name of the remote host."),
+            $RemoteMachine = $(Read-Host -Prompt "Please enter the IP Address of the remote host."),
 
             [Parameter(Mandatory=$False)]
             [int]$RemotePort = $(Read-Host -Prompt "Please enter the port number listening on the remote host.")
@@ -213,9 +200,9 @@ function New-VNCConnection {
             ##### END Variable/Parameter Transforms and PreRun Prep #####
         }
 
+        ##### BEGIN Main Body #####
         Process {
             if ($pscmdlet.ShouldProcess("$RemoteMachine","Test Connection on $RemoteMachine`:$RemotePort")) {
-                ##### BEGIN Main Body #####
                 try {
                     $tcp.Connect($RemoteMachine, $RemotePort)
                 }
@@ -230,13 +217,13 @@ function New-VNCConnection {
                 }
 
                 $PortTestResult = [pscustomobject]@{
-                    IP      = $RemoteMachine
+                    Address      = $RemoteMachine
                     Port    = $RemotePort
                     Open    = $open
                 }
                 $PortTestResult
-                ##### END Main Body #####
             }
+            ##### END Main Body #####
         }
     }
 
@@ -252,10 +239,10 @@ function New-VNCConnection {
         )
 
         $ECULPS1 = Get-NetTCPConnection | Where-Object {
-            $_.LocalAddress -eq "127.0.0.1" -and `
-            $_.RemoteAddress -eq "127.0.0.1" -and `
-            $_.LocalPort -eq "$LocalPort" -and `
-            $_.State -ne "TimeWait" -and `
+            $_.LocalAddress -eq "127.0.0.1" -and
+            $_.RemoteAddress -eq "127.0.0.1" -and
+            $_.LocalPort -eq "$LocalPort" -and
+            $_.State -ne "TimeWait" -and
             $_.State -ne "CloseWait"
         }
         New-Variable -Name "ExistingConnectionUsingLocalPortScenario1" -Scope Private -Value $(
@@ -266,10 +253,10 @@ function New-VNCConnection {
         )
         
         $ECULPS2 = Get-NetTCPConnection | Where-Object {
-            $_.LocalAddress -eq "127.0.0.1" -and `
-            $_.RemoteAddress -eq "0.0.0.0" -and `
-            $_.LocalPort -eq "$LocalPort" -and `
-            $_.State -ne "TimeWait" -and `
+            $_.LocalAddress -eq "127.0.0.1" -and
+            $_.RemoteAddress -eq "0.0.0.0" -and
+            $_.LocalPort -eq "$LocalPort" -and
+            $_.State -ne "TimeWait" -and
             $_.State -ne "CloseWait"
         }
         New-Variable -Name "ExistingConnectionUsingLocalPortScenario2" -Scope Private -Value $(
@@ -280,10 +267,10 @@ function New-VNCConnection {
         )
 
         $ECULPS3 = Get-NetTCPConnection | Where-Object {
-            $_.LocalAddress -eq "127.0.0.1" -and `
-            $_.RemoteAddress -eq "127.0.0.1" -and `
-            $_.RemotePort -eq "$LocalPort" -and `
-            $_.State -ne "TimeWait" -and `
+            $_.LocalAddress -eq "127.0.0.1" -and
+            $_.RemoteAddress -eq "127.0.0.1" -and
+            $_.RemotePort -eq "$LocalPort" -and
+            $_.State -ne "TimeWait" -and
             $_.State -ne "CloseWait"
         }
         New-Variable -Name "ExistingConnectionUsingLocalPortScenario3" -Scope Private -Value $(
@@ -294,11 +281,11 @@ function New-VNCConnection {
         )
 
         $ECULPS4 = Get-NetTCPConnection | Where-Object {
-            $_.RemoteAddress -ne "$RemoteIP" -and `
-            $_.RemoteAddress -ne "127.0.0.1" -and `
-            $_.RemoteAddress -ne "::" -and `
-            $_.RemotePort -eq "$LocalPort" -and `
-            $_.State -ne "TimeWait" -and `
+            $_.RemoteAddress -ne "$RemoteIP" -and
+            $_.RemoteAddress -ne "127.0.0.1" -and
+            $_.RemoteAddress -ne "::" -and
+            $_.RemotePort -eq "$LocalPort" -and
+            $_.State -ne "TimeWait" -and
             $_.State -ne "CloseWait"
         }
         New-Variable -Name "ExistingConnectionUsingLocalPortScenario4" -Scope Private -Value $(
@@ -309,11 +296,11 @@ function New-VNCConnection {
         )
 
         $ECULPS5 = Get-NetTCPConnection | Where-Object {
-            $_.RemoteAddress -ne "$RemoteIP" -and `
-            $_.RemoteAddress -ne "0.0.0.0" -and `
-            $_.RemoteAddress -ne "::" -and `
-            $_.LocalPort -eq "$LocalPort" -and `
-            $_.State -ne "TimeWait" -and `
+            $_.RemoteAddress -ne "$RemoteIP" -and
+            $_.RemoteAddress -ne "0.0.0.0" -and
+            $_.RemoteAddress -ne "::" -and
+            $_.LocalPort -eq "$LocalPort" -and
+            $_.State -ne "TimeWait" -and
             $_.State -ne "CloseWait"
         }
         New-Variable -Name "ExistingConnectionUsingLocalPortScenario5" -Scope Private -Value $(
@@ -324,7 +311,7 @@ function New-VNCConnection {
         )
 
         $ECULPS6 = Get-NetTCPConnection | Where-Object {
-            $_.RemoteAddress -eq "$RemoteIP" -and `
+            $_.RemoteAddress -eq "$RemoteIP" -and
             $_.OwningProcess -eq $($ExistingConnectionUsingLocalPortScenario2.OwningProcess)
         }
         New-Variable -Name "ExistingConnectionUsingLocalPortScenario6" -Scope Private -Value $(
@@ -341,20 +328,13 @@ function New-VNCConnection {
         $NetworkScenarioArray += $ExistingConnectionUsingLocalPortScenario4
         $NetworkScenarioArray += $ExistingConnectionUsingLocalPortScenario5
         $NetworkScenarioArray += $ExistingConnectionUsingLocalPortScenario6
+
         $OwningProcessArray = @()
-        $OwningProcessArray += $ExistingConnectionUsingLocalPortScenario1.Value.OwningProcess
-        $OwningProcessArray += $ExistingConnectionUsingLocalPortScenario2.Value.OwningProcess
-        $OwningProcessArray += $ExistingConnectionUsingLocalPortScenario3.Value.OwningProcess
-        $OwningProcessArray += $ExistingConnectionUsingLocalPortScenario4.Value.OwningProcess
-        $OwningProcessArray += $ExistingConnectionUsingLocalPortScenario5.Value.OwningProcess
-        $OwningProcessArray += $ExistingConnectionUsingLocalPortScenario6.Value.OwningProcess
         $RemoteAddressArray = @()
-        $RemoteAddressArray += $ExistingConnectionUsingLocalPortScenario1.Value.RemoteAddress
-        $RemoteAddressArray += $ExistingConnectionUsingLocalPortScenario2.Value.RemoteAddress
-        $RemoteAddressArray += $ExistingConnectionUsingLocalPortScenario3.Value.RemoteAddress
-        $RemoteAddressArray += $ExistingConnectionUsingLocalPortScenario4.Value.RemoteAddress
-        $RemoteAddressArray += $ExistingConnectionUsingLocalPortScenario5.Value.RemoteAddress
-        $RemoteAddressArray += $ExistingConnectionUsingLocalPortScenario6.Value.RemoteAddress
+        foreach ($ECULPS in $NetworkScenarioArray) {
+            $OwningProcessArray += $ECULPS.Value.OwningProcess
+            $RemoteAddressArray += $ECULPS.Value.RemoteAddress
+        }
 
         New-Variable -Name "NetworkState" -Scope Global -Value $(
             New-Object PSObject -Property @{
@@ -364,7 +344,7 @@ function New-VNCConnection {
             }
         )
 
-        Write-Host "The PSObject `$NetworkState is now available in the current scope."
+        Write-Verbose "The PSObject `$NetworkState is now available in the current scope."
 
         $global:FunctionResult = "0"
     }
@@ -376,7 +356,7 @@ function New-VNCConnection {
     ##### BEGIN Parameter Validation #####
     # Validate $VNCViewerDir
     if (! $(Test-Path $VNCViewerDir)) {
-        Write-Host "The path $VNCViewerDir was not found! Halting!"
+        Write-Verbose "The path $VNCViewerDir was not found! Halting!"
         Write-Error "The path $VNCViewerDir was not found! Halting!"
         $global:FunctionResult = "1"
         return
@@ -384,7 +364,7 @@ function New-VNCConnection {
 
     # Validate $RemoteHost
     if (! $(Test-Connection $RemoteHost -Count 1 -Quiet)) {
-        Write-Host "Unable to connect to $RemoteHost. Please ensure $RemoteHost can be resolved and try again. Halting!"
+        Write-Verbose "Unable to connect to $RemoteHost. Please ensure $RemoteHost can be resolved and try again. Halting!"
         Write-Error "Unable to connect to $RemoteHost. Please ensure $RemoteHost can be resolved and try again. Halting!"
         $global:FunctionResult = "1"
         return
@@ -406,7 +386,7 @@ function New-VNCConnection {
     # Validate $RemoteVNCPort
     #if (! $(Test-NetConnection -ComputerName $RemoteHostIP -Port $RemoteVNCPort).TcpTestSucceeded)
     if (! $(Test-Port -RemoteMachine $RemoteHostIP -RemotePort $RemoteVNCPort).Open) {
-        Write-Host "The port $RemoteVNCPort on remote host $RemoteHost is not open. Halting!"
+        Write-Verbose "The port $RemoteVNCPort on remote host $RemoteHost is not open. Halting!"
         Write-Error "The port $RemoteVNCPort on remote host $RemoteHost is not open. Halting!"
         $global:FunctionResult = "1"
         return
@@ -422,7 +402,7 @@ function New-VNCConnection {
             $PuttyDir = Read-Host -Prompt "Please enter the full path to the directory that contains putty.exe."
         }
         if (! $(Test-Path $PuttyDir)) {
-            Write-Host "The path $PuttyDir was not found! Halting!"
+            Write-Verbose "The path $PuttyDir was not found! Halting!"
             Write-Error "The path $PuttyDir was not found! Halting!"
             $global:FunctionResult = "1"
             return
@@ -438,7 +418,7 @@ function New-VNCConnection {
             $SSHKeyPath = Read-Host -Prompt "Please enter the file path to the Putty .ppk key used to access $RemoteHost"
         }
         if (! $(Test-Path $SSHKeyPath)) {
-            Write-Host "The path $SSHKeyPath was not found! Halting!"
+            Write-Verbose "The path $SSHKeyPath was not found! Halting!"
             Write-Error "The path $SSHKeyPath was not found! Halting!"
             $global:FunctionResult = "1"
             return
@@ -448,7 +428,7 @@ function New-VNCConnection {
         $pos2 = $SSHKeyFile.LastIndexOf(".")
         $SSHKeyFileExtension = $SSHKeyFile.Substring($pos+1)
         if ($SSHKeyFileExtension -ne "ppk") {
-            Write-Host "The SSH Key File must be in Putty's .ppk format! Halting!"
+            Write-Verbose "The SSH Key File must be in Putty's .ppk format! Halting!"
             Write-Error "The SSH Key File must be in Putty's .ppk format! Halting!"
             $global:FunctionResult = "1"
             return
@@ -468,9 +448,9 @@ function New-VNCConnection {
     $ExistingConnectionUsingLocalPortPIDs
     $ExistingConnectionUsingLocalPortRemoteHost = foreach ($PIDobj in $ExistingConnectionUsingLocalPortPIDs) {
         $PotentialRemoteAddress = $(Get-NetTCPConnection | Where-Object {
-            $_.OwningProcess -eq "$PIDobj" -and `
-            $_.RemoteAddress -ne "::" -and `
-            $_.RemoteAddress -ne "0.0.0.0" -and `
+            $_.OwningProcess -eq "$PIDobj" -and
+            $_.RemoteAddress -ne "::" -and
+            $_.RemoteAddress -ne "0.0.0.0" -and
             $_.RemoteAddress -ne "127.0.0.1"
         }).RemoteAddress
         if ($PotentialRemoteAddress -ne $null)
@@ -481,15 +461,19 @@ function New-VNCConnection {
     Write-Host "Writing `$ExistingConnectionUsingLocalPortRemoteHost IP Address:"
     $ExistingConnectionUsingLocalPortRemoteHost
 
+    # Re-Used Error Messages
+    $LocalPortInUseErrorMsg = "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
+    $LocalPortInUseLiveVNCSessionError = "There is already an active VNC session using an SSH tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
+
     $VNCViewerPIDs = $(Get-Process -Name vncviewer -ErrorAction SilentlyContinue).Id
 
     if ($encrypted) {
         if ($VNCViewerPIDs) {
             $VNCSessionsUsingPortForwarding = foreach ($VNCPID in $VNCViewerPIDs) {
                 $(Get-NetTCPConnection | Where-Object {
-                    $_.OwningProcess -eq "$VNCPID" -and `
-                    $_.RemotePort -eq "$LocalPortForSSHTunnel" -and `
-                    $_.State -ne "TimeWait" -and `
+                    $_.OwningProcess -eq "$VNCPID" -and
+                    $_.RemotePort -eq "$LocalPortForSSHTunnel" -and
+                    $_.State -ne "TimeWait" -and
                     $_.State -ne "CloseWait"
                 }).OwningProcess
             }
@@ -510,9 +494,9 @@ function New-VNCConnection {
         # Determine if there is already an active VNC Session over an SSH Tunnel to $RemoteHost
         # If so, kill the corresponding VNC PID and Putty PID
         $PuttySessionsUsingVNCPortForwardingPrep = Get-NetTCPConnection | Where-Object {
-            $_.RemoteAddress -eq "$RemoteHostIP" -or `
-            $_.LocalPort -eq "$LocalPortForSSHTunnel" -and `
-            $_.State -ne "TimeWait" -and `
+            $_.RemoteAddress -eq "$RemoteHostIP" -or
+            $_.LocalPort -eq "$LocalPortForSSHTunnel" -and
+            $_.State -ne "TimeWait" -and
             $_.State -ne "CloseWait"
         }
         if ($PuttySessionsUsingVNCPortForwardingPrep) {
@@ -524,7 +508,7 @@ function New-VNCConnection {
             if ($KillExistingPuttyPortForwarding) {
                 $PuttyProcessesToKill = foreach ($PuttyPID in $PuttySessionsUsingVNCPortForwarding) {
                     $NumberOfConnections = $($PuttySessionsUsingVNCPortForwardingPrep2.Group | Where-Object {
-                        $_.OwningProcess -eq $PuttyPID -and `
+                        $_.OwningProcess -eq $PuttyPID -and
                         $_.LocalPort -eq "$LocalPortForSSHTunnel"
                     }).Count
                     if ($NumberofConnections -gt 1) {
@@ -547,8 +531,8 @@ function New-VNCConnection {
     if (! $encrypted) {
         if ($VNCViewerPIDs) {
             $VNCProcessesToKill = $(Get-NetTCPConnection | Where-Object {
-                $_.RemotePort -eq "$RemoteVNCPort" -and `
-                $_.State -ne "TimeWait" -and `
+                $_.RemotePort -eq "$RemoteVNCPort" -and
+                $_.State -ne "TimeWait" -and
                 $_.State -ne "CloseWait"
             }).OwningProcess
         }
@@ -571,19 +555,19 @@ function New-VNCConnection {
         if ($RemoteAddressArray -contains $RemoteHostIP) {
             Write-Warning "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost)."
         }
-        if ($RemoteAddressArray -notcontains $RemoteHostIP -and `
+        if ($RemoteAddressArray -notcontains $RemoteHostIP -and
         $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario6"}).Value -ne $null) {
-            Write-Host "Hello"
-            Write-Host "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
-            Write-Error "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
+            Write-Verbose "Msg 1"
+            Write-Verbose "$LocalPortInUseErrorMsg"
+            Write-Error "$LocalPortInUseErrorMsg"
             $global:FunctionResult = "1"
             return
         }
         if ($pscmdlet.ShouldProcess("$env:ComputerName","Set Up SSH Tunnel on Local Port $LocalPortForSSHTunnel")) {
-            if (! $($($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -ne $null -or `
-            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -or `
-            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value -ne $null -or `
-            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario4"}).Value -ne $null -or `
+            if (! $($($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -ne $null -or
+            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -or
+            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value -ne $null -or
+            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario4"}).Value -ne $null -or
             $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario5"}).Value -ne $null)) {
                 & "$PuttyDir\putty.exe" -ssh $RemoteHost -l $SSHUserName -i $SSHKeyPath -L $LocalPortForSSHTunnel`:$RemoteHost`:$RemoteVNCPort
                 Start-Sleep -Seconds 2
@@ -596,60 +580,45 @@ function New-VNCConnection {
             Remove-Variable -Name "NetworkState" -Scope Global
         }
         
-        if ($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -ne $null -and `
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -and `
+        if ($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -ne $null -and
+        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -and
         $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value -ne $null) {
-            Write-Host "Hi"
-            Write-Host "There is already an active VNC session using an SSH tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
-            Write-Error "There is already an active VNC session using an SSH tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
+            Write-Verbose "Msg 2"
+            Write-Verbose "$LocalPortInUseLiveVNCSessionError"
+            Write-Error "$LocalPortInUseLiveVNCSessionError"
             $global:FunctionResult = "1"
             return
         }
 
-        <#
-        Write-Host "Writing ECULPS1"
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value
-        Write-Host "Writing ECULPS2"
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value
-        Write-Host "Writing ECULPS3"
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value
-        Write-Host "Writing ECULPS4"
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario4"}).Value
-        Write-Host "Writing ECULPS5"
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario5"}).Value
-        Write-Host "Writing ECULPS6"
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario6"}).Value
-        #>
-
-        if ($NewNetworkState.RemoteAddressArray -notcontains $RemoteHostIP -and `
-        ! $($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -eq $null -and `
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -and `
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value -eq $null -and `
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario4"}).Value -eq $null -and `
-        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario5"}).Value -eq $null -and `
+        if ($NewNetworkState.RemoteAddressArray -notcontains $RemoteHostIP -and
+        ! $($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -eq $null -and
+        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -and
+        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value -eq $null -and
+        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario4"}).Value -eq $null -and
+        $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario5"}).Value -eq $null -and
         $($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario6"}).Value -eq $null)) {
-            Write-Host "bonjour"
-            Write-Host "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
-            Write-Error "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
+            Write-Verbose "Msg 3"
+            Write-Host "$LocalPortInUseErrorMsg"
+            Write-Error "$LocalPortInUseErrorMsg"
             $global:FunctionResult = "1"
             return
         }
-        if ($ExistingConnectionUsingLocalPortRemoteHost -ne $RemoteHostIP -and `
-        $($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value).LocalPort -eq $LocalPortForSSHTunnel -and `
+        if ($ExistingConnectionUsingLocalPortRemoteHost -ne $RemoteHostIP -and
+        $($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value).LocalPort -eq $LocalPortForSSHTunnel -and
         $ExistingConnectionUsingLocalPortRemoteHost -ne $null) {
-            Write-Host "aloha"
-            Write-Host "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
-            Write-Error "There is already a tunnel using local port $LocalPortForSSHTunnel! (It's connected to remote host $ExistingConnectionUsingLocalPortRemoteHost). Halting!"
+            Write-Verbose "Msg 4"
+            Write-Host "$LocalPortInUseErrorMsg"
+            Write-Error "$LocalPortInUseErrorMsg"
             $global:FunctionResult = "1"
             return
         }
         if ($pscmdlet.ShouldProcess("$env:ComputerName","Start VNC Connection via SSH Tunnel on $LocalPortForSSHTunnel")) {
-            if ($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -or `
-            $($($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -eq $null -and `
-            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -eq $null -and `
-            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value -eq $null -and `
-            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario4"}).Value -eq $null -and `
-            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario5"}).Value -eq $null -and `
+            if ($($NewNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -ne $null -or
+            $($($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario1"}).Value -eq $null -and
+            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario2"}).Value -eq $null -and
+            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario3"}).Value -eq $null -and
+            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario4"}).Value -eq $null -and
+            $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario5"}).Value -eq $null -and
             $($OldNetworkState.Scenarios | Where-Object {$_.Name -eq "ExistingConnectionUsingLocalPortScenario6"}).Value -eq $null)) {
                 & "$VNCViewerDir\vncviewer.exe" -useaddressbook 127.0.0.1:$LocalPortForSSHTunnel
             }
@@ -662,8 +631,9 @@ function New-VNCConnection {
 
     ##### END Main Body #####
 
-}
+    $global:FunctionResult = "0"
 
+}
 
 
 
@@ -677,8 +647,8 @@ function New-VNCConnection {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/CDrz6frRiWGQVna+btXjo7o
-# OQ6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUMykIfR43THMkbsQWPDQskOXy
+# hlagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -733,11 +703,11 @@ function New-VNCConnection {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRjm6zWSRSv
-# K4zeeXTUnRJBVMiQ+DANBgkqhkiG9w0BAQEFAASCAQAiWAz2VLjmRUi/GHrn/dj1
-# 81FH0ivK8KbdiGgHd0BFq/9FnjNbdTYiDi9j+TmeqvwjHGgv4ul00mI4p27I4ulL
-# Xy8tgfmT2RSb5V9hfk+s761a1bHgYWdABmZYDO4FzvwR36TTP6T6LZM8nqP1z6kM
-# 1RUc5UP37u05YxvX75hTk/q+/cmgKq2tvS24if0njzl4lijy8be8a+teYKrx7Ctt
-# ft8cGyjEssNa7hazIejwJsD+IgR7v1w00AVPP8rc8k1+XZQo2aVGFWvlqHM0QZ2j
-# eMhbto3/VfA2KWc54416ZRhpuB19/OKt05mQ2gInxOrq2K1lv343MBjhtnotjaqU
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQI6KaPQwFP
+# S4PN+QO8vtknlCVHlTANBgkqhkiG9w0BAQEFAASCAQCGD2e+2uX93HaLLDshdhG0
+# 4Ws7lC7iK3cV/iT4LK4EAjNBpuqBBuCOwkRlJ4BWUauKhJ1nIKWwmqSfFjCRGlSw
+# F0YO2fpNtwDmwIXCg8/V4oxKTNCx8f0duzMVkLGQ8p7XuyEf6D63MUT57pAA47b0
+# qqNy74uqqaqoaEkMdgePw19LWjL/oC2nqpIldFum5SWmyVvnKZEimNuuHdtYfFab
+# wKD3FuUC8lR6PK5ndWegCKKIrnbwB1wOb0EtYUadoOpK0hoLbDlpt8PwEB6zjPeO
+# 2ShRb8T6sGfD/MWsb0zMGuVfW02KkC8LG9DRJStvYxnZLL43VgnLPtLA3oJEq8/r
 # SIG # End signature block
