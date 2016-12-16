@@ -8,6 +8,10 @@
 
     The function also has logic to validate ports being used on local and remote hosts. This prevents unintentional closing
     of existing Putty or VNC sessions.
+
+    WARNING: When the "encrypted" switch is used, VNC Connect will still display a message saying that the connection is
+    unencrypted, but it is, in fact, encrypted. Once this session has been created in VNC Connect, you can change its
+    Properties for all future sessions to prevent this message from appearing in the future.
 .NOTES
     DEPENDENCEIES
         1) VNC Connect - https://www.realvnc.com/download/vnc/windows/
@@ -622,12 +626,11 @@ function New-VNCConnection {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyE4vl/xIFMeyi7cENv9YFNbD
-# Df+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUFBU86Hob/qJpoDVhzd5QNTf3
+# aEmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -682,11 +685,11 @@ function New-VNCConnection {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQVaEm3INR0
-# T9giJ3e7KZKW9IeCLDANBgkqhkiG9w0BAQEFAASCAQAvSa9QJ80GqyP09cOwc+/2
-# 4FdjcWll9Ojpnv1VsxBe7nPGcfg1NVbb4+77qwpdv8fxGel5FOtnthNhTeRaiE7O
-# ux+GG/Yh2dcAeokt1VXdQ04+Fk+/XnjWImtZQK2vHu46VP9jiKKEAxJbbComPXjJ
-# pZp2e5jYMyJfw3532iXD0D3BIK/nrsEZet6GEOavVEoxwkMPMmFICl1OtcYSdAjr
-# 5vc7dbErHBH0UVBxrhsHUmzSG0b9XPx1A5heoQwtMxxqFFX7yHefSp8gHrBPI6O2
-# JJUxWFqTOEoAi5oQ/F6rGtDKNhSLh5EE8k4yHabZV12AiL77NSi78WZcmHPpVfk2
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSMJVpRql5t
+# ZNseq90gIz9y3DnPazANBgkqhkiG9w0BAQEFAASCAQBv8nwoZO3pkwgCtP0E/Itm
+# 5BImbye5Qg4mlaacgbnnOFZmdu2+Z2uE18GI9ImGw/P/LbGtyh8zIZDZmy25Qn+m
+# Fz1gPpSI6DVFlOjMYeXQvrm9B9B0hC8l1bm5rEKZ5IPo+/ktToMIX1ATkFm+WOeI
+# 2LXYSu5chzDhXdOU0UncO1PZ2VH364vpUyEs/yQdIsFRh7+2gCRZVetJRskS+9Ht
+# WrHhKcntTonRcrmX31uqrwvBPnWKejlMoq1XfBeg7gi8jr3sZ1SF1073Gk3M2oeU
+# qQLWX0dpdK524OHfbTYyiFssJa087xS3cD4pSR5OzLkaNjZ9SPtdQcgG0VA3vM5+
 # SIG # End signature block
