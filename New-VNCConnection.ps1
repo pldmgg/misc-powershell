@@ -406,9 +406,9 @@ function New-VNCConnection {
             return
         }
         $pos1 = $SSHKeyPath.LastIndexOf("\")
-        $SSHKeyFile = $SSHKeyPath.Substring($pos+1)
+        $SSHKeyFile = $SSHKeyPath.Substring($pos1+1)
         $pos2 = $SSHKeyFile.LastIndexOf(".")
-        $SSHKeyFileExtension = $SSHKeyFile.Substring($pos+1)
+        $SSHKeyFileExtension = $SSHKeyFile.Substring($pos2+1)
         if ($SSHKeyFileExtension -ne "ppk") {
             Write-Verbose "The SSH Key File must be in Putty's .ppk format! Halting!"
             Write-Error "The SSH Key File must be in Putty's .ppk format! Halting!"
@@ -623,12 +623,11 @@ function New-VNCConnection {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW4mlA+sDQfn6NiNj7FIpAvQF
-# 4uugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyE4vl/xIFMeyi7cENv9YFNbD
+# Df+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -683,11 +682,11 @@ function New-VNCConnection {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRHkf64QFto
-# 3HxOdKST3iEz5T7C/TANBgkqhkiG9w0BAQEFAASCAQCLhvq9WpmljLXpUh4+hT0L
-# QdmsI30F8CC0ntBwSVRLYYD15vF3KL3/dr79WOGv3mYM8v+ljCfCra8dEZ82Cii1
-# nXjuPWe05yLEam5qdTYxEzpk7n+IY3WGp7Rmudy+JueQar9TK2sT7lWOHgv6BVWq
-# D5igAdZ5HvAgGKGol0PWevAprzL+bBr8rRNS9xEZzd113vbFm/fbjxA3s+wxp7/v
-# MZ8oRVU3XEPwTNFSYT+z08Hv01vRv5U9tHshMgrNB03nNG48EEsutfzeWW2ady9F
-# xEfR6gsibiQRoyPHZrCmDyN/GGmk6wF5M54F4UyNvLgGMkzNRB+6PPH6FpmuLoGW
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQVaEm3INR0
+# T9giJ3e7KZKW9IeCLDANBgkqhkiG9w0BAQEFAASCAQAvSa9QJ80GqyP09cOwc+/2
+# 4FdjcWll9Ojpnv1VsxBe7nPGcfg1NVbb4+77qwpdv8fxGel5FOtnthNhTeRaiE7O
+# ux+GG/Yh2dcAeokt1VXdQ04+Fk+/XnjWImtZQK2vHu46VP9jiKKEAxJbbComPXjJ
+# pZp2e5jYMyJfw3532iXD0D3BIK/nrsEZet6GEOavVEoxwkMPMmFICl1OtcYSdAjr
+# 5vc7dbErHBH0UVBxrhsHUmzSG0b9XPx1A5heoQwtMxxqFFX7yHefSp8gHrBPI6O2
+# JJUxWFqTOEoAi5oQ/F6rGtDKNhSLh5EE8k4yHabZV12AiL77NSi78WZcmHPpVfk2
 # SIG # End signature block
