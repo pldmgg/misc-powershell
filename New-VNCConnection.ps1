@@ -405,8 +405,8 @@ function New-VNCConnection {
             $global:FunctionResult = "1"
             return
         }
-        $pos1 = $SSHKeyFile.LastIndexOf("\")
-        $SSHKeyFile = $SSHKeyFile.Substring($pos+1)
+        $pos1 = $SSHKeyPath.LastIndexOf("\")
+        $SSHKeyFile = $SSHKeyPath.Substring($pos+1)
         $pos2 = $SSHKeyFile.LastIndexOf(".")
         $SSHKeyFileExtension = $SSHKeyFile.Substring($pos+1)
         if ($SSHKeyFileExtension -ne "ppk") {
@@ -624,12 +624,11 @@ function New-VNCConnection {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTmNtc/6ruRsZKBb5vS5BAcng
-# AVGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW4mlA+sDQfn6NiNj7FIpAvQF
+# 4uugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -684,11 +683,11 @@ function New-VNCConnection {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQfKH420crG
-# h1aghTGqVz3swL1aHDANBgkqhkiG9w0BAQEFAASCAQBZBKPy2jZm/VSD1OVcsmRC
-# ODADBGn07ZEc4OoqmhJcAdkv0j3LXu/NAqECa5boS3LnjmenJnSwIvUTAzAt5SiB
-# 4VMU/OHfWye8CoVFwm7smJQtt0PvGYPd7pk58yJbKmMVWrOwmwKAWmuU+9tvlYK0
-# bsLHih/Eox+IQ3Z36rpoyB5nbbq4M0NNJ0Nl445YIOAEh1RpHRVqsk5wK/WTKi8U
-# PeIrKAIvzzJ1k9Z9Yi3v4kZ7YZcrfLjESSqO2HP04d+zQ8mztY/WPAi/umZyl8lw
-# f/l4qAToR3082iKN4b5fS97CjjnJViM2OPBKXkneUMKgL6BFxLdxgd4Wd4nqFhBh
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRHkf64QFto
+# 3HxOdKST3iEz5T7C/TANBgkqhkiG9w0BAQEFAASCAQCLhvq9WpmljLXpUh4+hT0L
+# QdmsI30F8CC0ntBwSVRLYYD15vF3KL3/dr79WOGv3mYM8v+ljCfCra8dEZ82Cii1
+# nXjuPWe05yLEam5qdTYxEzpk7n+IY3WGp7Rmudy+JueQar9TK2sT7lWOHgv6BVWq
+# D5igAdZ5HvAgGKGol0PWevAprzL+bBr8rRNS9xEZzd113vbFm/fbjxA3s+wxp7/v
+# MZ8oRVU3XEPwTNFSYT+z08Hv01vRv5U9tHshMgrNB03nNG48EEsutfzeWW2ady9F
+# xEfR6gsibiQRoyPHZrCmDyN/GGmk6wF5M54F4UyNvLgGMkzNRB+6PPH6FpmuLoGW
 # SIG # End signature block
