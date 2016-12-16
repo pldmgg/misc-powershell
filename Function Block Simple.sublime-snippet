@@ -1,0 +1,59 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+function Verb-Noun
+{
+    [CmdletBinding()]
+    [Alias('vn','verbn','vnoun')]
+    Param( 
+        [Parameter(Mandatory=\$False)]
+        \$HelperFunctionSourceDirectory = \$(Read-Host -Prompt "Please enter the full path to the directory that contains the [HELPER] script(s)/function(s)"),
+
+        [Parameter(Mandatory=\$False)]
+        \$OutputDirectory = \$(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written")
+
+    )
+
+    ##### REGION Helper Functions and Libraries #####
+
+    ## BEGIN Sourced Helper Functions ##
+
+    ## END Sourced Helper Functions ##
+
+    ## BEGIN Native Helper Functions ##
+
+    ## END Native Helper Functions ##
+
+    ##### REGION END Helper Functions and Libraries #####
+
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+
+    ##### BEGIN Parameter Validation #####
+
+    ##### END Parameter Validation #####
+
+
+    ##### BEGIN Main Body #####
+
+    ##### END Main Body #####
+
+}
+
+
+    ##### BEGIN Archived Code #####
+
+    <#
+
+    #>
+
+    ##### END Archived Code #####
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>funsim</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

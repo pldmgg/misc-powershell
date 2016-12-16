@@ -1,0 +1,91 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+<#
+.SYNOPSIS
+    Short description
+.DESCRIPTION
+    Long description
+.NOTES
+    DEPENDENCEIES
+        Helper scripts/functions and/or binaries needed for the function to work.
+.PARAMETER
+    N parameter
+.PARAMETER
+    N+1 parameter
+.EXAMPLE
+    Example of how to use this cmdlet
+.EXAMPLE
+    Another example of how to use this cmdlet
+.INPUTS
+    Inputs to this cmdlet (if any)
+.OUTPUTS
+    Output from this cmdlet (if any)
+#>
+
+function Verb-Noun {
+
+    [CmdletBinding(
+        DefaultParameterSetName='Parameter Set 1', 
+        PositionalBinding=\$true,
+        ConfirmImpact='Medium'
+    )]
+    [Alias('vn','verbn','vnoun')]
+    Param(
+        [Parameter(
+            Mandatory=\$False,
+            ParameterSetName='Parameter Set 1'
+        )]
+        [Alias("asdf")]
+        [string]\$HelperFunctionSourceDirectory = \$(Read-Host -Prompt "Please enter the full path to the directory that contains the [HELPER] script(s)/function(s)"),
+
+        [Parameter(
+            Mandatory=\$False,
+            ParameterSetName='Parameter Set 1'
+        )]
+        [Alias("qwer")]
+        [string]\$OutputDirectory = \$(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written")
+    )
+
+    ##### REGION Helper Functions and Libraries #####
+
+    ## BEGIN Sourced Helper Functions ##
+
+    ## END Sourced Helper Functions ##
+
+    ## BEGIN Native Helper Functions ##
+
+    ## END Native Helper Functions ##
+
+    ##### REGION END Helper Functions and Libraries #####
+
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+
+    ##### BEGIN Parameter Validation #####
+
+    ##### END Parameter Validation #####
+
+
+    ##### BEGIN Main Body #####
+
+    ##### END Main Body #####
+
+}
+
+    ##### BEGIN Archived Code #####
+
+    <#
+
+    #>
+
+    ##### END Archived Code #####
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>funadv</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

@@ -1,0 +1,133 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+<#
+.SYNOPSIS
+    Short description
+.DESCRIPTION
+    Long description
+.NOTES
+    DEPENDENCIES
+        Helper scripts/functions and/or binaries needed for the function to work.
+.PARAMETER
+    N parameter
+.PARAMETER
+    N+1 parameter
+.EXAMPLE
+    Example of how to use this cmdlet
+.EXAMPLE
+    Another example of how to use this cmdlet
+.INPUTS
+    Inputs to this cmdlet (if any)
+.OUTPUTS
+    Output from this cmdlet (if any)
+.COMPONENT
+    The component this cmdlet belongs to
+.ROLE
+    The role this cmdlet belongs to
+.FUNCTIONALITY
+    The functionality that best describes this cmdlet
+#>
+function Verb-Noun {
+    [CmdletBinding(
+        DefaultParameterSetName='Parameter Set 1', 
+        SupportsShouldProcess=\$true, 
+        PositionalBinding=\$false,
+        HelpUri = 'http://www.microsoft.com/',
+        SupportsPaging = \$false,
+        ConfirmImpact='Medium'
+    )]
+    [Alias('vn','verbn','vnoun')]
+    [OutputType([String])]
+    Param
+    (
+        # \$HelperFunctionSourceDirectory help description
+        [Parameter(
+            Mandatory=\$true, 
+            ValueFromPipeline=\$true,
+            ValueFromPipelineByPropertyName=\$true, 
+            ValueFromRemainingArguments=\$false, 
+            Position=0,
+            ParameterSetName='Parameter Set 1'
+        )]
+        [ValidateNotNull()]
+        [ValidateNotNullOrEmpty()]
+        [ValidateCount(0,5)]
+        [ValidateSet("sun", "moon", "earth")]
+        [Alias("hfsd")] 
+        [string]\$HelperFunctionSourceDirectory = \$(Read-Host -Prompt "Please enter the full path to the directory that contains the [HELPER] script(s)/function(s)"),
+
+        # \$Number help description
+        [Parameter(
+            Position=1,
+            ParameterSetName='Parameter Set 1'
+        )]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [ValidateScript({\$true})]
+        [ValidateRange(0,5)]
+        [int]\$Number,
+
+        # \$OutputDirectory help description
+        [Parameter(
+            Position=2,
+            ParameterSetName='Another Parameter Set'
+        )]
+        [ValidatePattern("[a-z]*")]
+        [ValidateLength(0,15)]
+        [string]\$OutputDirectory = \$(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written")
+    )
+
+    Begin {
+    ##### REGION Helper Functions and Libraries #####
+
+    ## BEGIN Sourced Helper Functions ##
+
+    ## END Sourced Helper Functions ##
+
+    ## BEGIN Native Helper Functions ##
+
+    ## END Native Helper Functions ##
+
+    ##### REGION END Helper Functions and Libraries #####
+
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+
+    ##### BEGIN Parameter Validation #####
+
+    ##### END Parameter Validation #####
+    }
+
+    Process {
+        if (\$pscmdlet.ShouldProcess("Target")) {
+        ##### BEGIN Main Body #####
+
+        ##### END Main Body #####
+        }
+    }
+
+    End {
+        ##### BEGIN Cleanup #####
+
+        ##### END Cleanup #####
+    }
+}
+
+    ##### BEGIN Archived Code #####
+
+    <#
+
+    #>
+
+    ##### END Archived Code #####
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>funadvcom</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>
