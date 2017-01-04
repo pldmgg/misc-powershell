@@ -2,10 +2,7 @@ function Check-SameObject {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
-        $VariableNameA = $(Read-Host -Prompt "Please enter the name of the first variable you would like to compare"),
-
-        [Parameter(Mandatory=$False)]
-        $VariableNameB = $(Read-Host -Prompt "Please enter the name of the second variable you would like to compare")
+        $VariableName = $(Read-Host -Prompt "Please enter the name of the variable that you believe points to the same object as one or more other variables")
     )
 
     $ArrayOfShadowVariablesPrep = Get-Variable| Where-Object {
@@ -43,12 +40,16 @@ function Check-SameObject {
 
     $SameObjectHashCode = $($ArrayOfShadowVariables.VariableHashCode | Group-Object | Where-Object {$_.Count -gt 1}).Name
 
-    $SameObjects = foreach ($obj1 in $SameObjectHashCode) {
+    # $SameObjectsPrep is an array of PSCustomObjects where two or more elements (i.e. variables in the current session
+    # global scope) point to the same object
+    $SameObjectsPrep = foreach ($obj1 in $SameObjectHashCode) {
         $ArrayOfShadowVariables | Where-Object {$_.VariableHashCode -eq $obj1}
     }
 
     # Return True if VariableName1 and VariableName2 have the same HashCode
-    $($SameObjects | Where-Object {$_.Name -eq "$VariableNameA"}).VariableHashCode -eq $($SameObjects | Where-Object {$_.Name -eq "$VariableNameB"}).VariableHashCode
+    $HashCodeToSearchFor = $($SameObjectsPrep | Where-Object {$_.VariableName -eq "$VariableName"}).VariableHashCode
+    $VariablesThatPointToSameObject = $($SameObjectsPrep | Where-Object {$_.VariableHashCode -eq "$HashCodeToSearchFor"}).VariableName
+    $VariablesThatPointToSameObject
 
     # Cleanup
     $ShadowVariables = Get-Variable | Where-Object {$_.Name -like "*Shadow"}
@@ -56,11 +57,19 @@ function Check-SameObject {
         Remove-Variable -Name "$($shadowvariable.Name)" -Scope Global -Force
     }
 }
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8+8+A5RNlvKFdALBv8LKTMwk
-# Kl2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURVRDABN83WXuneX9wTOpIZIv
+# ToKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -115,11 +124,11 @@ function Check-SameObject {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSaM+VvJpJw
-# 13TXaUeLnR9s17wS3jANBgkqhkiG9w0BAQEFAASCAQAn5jgWA4MJ8Gew6Ik60Eqm
-# awfxtNhCyOgFKBhvIJC2GQ2b3vKis9wExLo2fhElgnHnToj3bGdH4H4C0dr7s6vm
-# jTLxbvp6VPQOsl65xIG7zuCLsFel2ZpGM7ZrukD606bCeLrTJv9wSXtuCVj70MQ1
-# ObxgboKuLUTf28TmqGHsiVQtc91vwFHKz/PrJoCQVNYcTwDK2S+LLzAxWBApsfoG
-# EZWwKkTjjiv/QCUvdGmz4isg6s6isgEBNRtFMH9op1YcucZxIdfh82fCcqpluorf
-# 9/ZXuMWoClAOOSgQJ6BGb2DrAgtNNVYW6Chktxckd5WuBFpp1a5QrDCtB/rFJHFe
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQWSGh661kH
+# 5cP3jSa8FN76HqTa3jANBgkqhkiG9w0BAQEFAASCAQBFdM0YGSsscqmYHm2xlKnT
+# mYhUwiM0hRwkRmXDyBLazxnOXSaodeVjzzG5zA5Gwte1Btl9WMw6Z9SiaqDBdkhO
+# 2r38fyviFNc3V+VwZ2YwE1Po4MVvV4ErD8ooxk7hp31C7Uw9zQ6wKKBRIgHHEDnx
+# laoPsV4/5J5YdBZxVH/QRkQXyvLe3BgGdF7Oa1tX54RssASH9fWiJDOxCabQHAL8
+# bXDfyGqRG6rG3jkHvzzTwahqossDGyh/IfbsgLIBWF+9ctGfa4dt1UwJyCB7WKuw
+# O03wk3snHE39lc3sGwVtur//ibenHQ97nAw4LQyYw2aZ8peR+kKvscHyYQ/RH8R+
 # SIG # End signature block
