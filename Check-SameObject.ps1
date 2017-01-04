@@ -46,7 +46,7 @@ function Check-SameObject {
         $ArrayOfShadowVariables | Where-Object {$_.VariableHashCode -eq $obj1}
     }
 
-    # Return True if VariableName1 and VariableName2 have the same HashCode
+    # Return Array $VariablesThatPointToSameObject that point to the same object. This is determined by a shared HashCode.
     $HashCodeToSearchFor = $($SameObjectsPrep | Where-Object {$_.VariableName -eq "$VariableName"}).VariableHashCode
     $VariablesThatPointToSameObject = $($SameObjectsPrep | Where-Object {$_.VariableHashCode -eq "$HashCodeToSearchFor"}).VariableName
     $VariablesThatPointToSameObject
@@ -68,8 +68,8 @@ function Check-SameObject {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURVRDABN83WXuneX9wTOpIZIv
-# ToKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8SafbAzQltcJpXvAXFHt7QZX
+# kvKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -124,11 +124,11 @@ function Check-SameObject {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQWSGh661kH
-# 5cP3jSa8FN76HqTa3jANBgkqhkiG9w0BAQEFAASCAQBFdM0YGSsscqmYHm2xlKnT
-# mYhUwiM0hRwkRmXDyBLazxnOXSaodeVjzzG5zA5Gwte1Btl9WMw6Z9SiaqDBdkhO
-# 2r38fyviFNc3V+VwZ2YwE1Po4MVvV4ErD8ooxk7hp31C7Uw9zQ6wKKBRIgHHEDnx
-# laoPsV4/5J5YdBZxVH/QRkQXyvLe3BgGdF7Oa1tX54RssASH9fWiJDOxCabQHAL8
-# bXDfyGqRG6rG3jkHvzzTwahqossDGyh/IfbsgLIBWF+9ctGfa4dt1UwJyCB7WKuw
-# O03wk3snHE39lc3sGwVtur//ibenHQ97nAw4LQyYw2aZ8peR+kKvscHyYQ/RH8R+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR5esxd/H8u
+# ZaGmSiQc4qxK+JSh+zANBgkqhkiG9w0BAQEFAASCAQAhHVcS9KZ6crHLGUdKdITZ
+# KsK5yk26bDlUBm45GYStbDwkO3y+AZGTQdGqXs1CzEcLn6uIXyI5JlV20WnKezK3
+# JMyHn00XojSqfgJoKEG5CzirG0UV5zi13B2rVcJLkDzyrgB/cB5RXX4pLVddjznV
+# GDoZEGhHwQX8ZVvWT474aSO4qEZMp5J7riIM6rfp7NqU3PIaDA9TQ7yglHEOUmKC
+# MQn7+FAcTKM1pqnAcXq67iM4lvW7q+MV1YtNFGqRFYc8mpf5gTH+x1Hp9FESMeDt
+# Ce/9yHpPPGLamWM7C8t4bTcy2Q/019YPIfaUGWaw+8mDAzhQfcfHDpzG7vxXCuFH
 # SIG # End signature block
