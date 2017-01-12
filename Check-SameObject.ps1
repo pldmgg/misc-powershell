@@ -2,8 +2,28 @@ function Check-SameObject {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
-        $VariableName = $(Read-Host -Prompt "Please enter the name of the variable that you believe points to the same object as one or more other variables")
+        $VariableName,
+
+        [Parameter(Mandatory=$False)]
+        $HashCode
     )
+
+    ##### BEGIN Parameter Validation #####
+
+    if ($VariableName -eq $null -and $HashCode -eq $null) {
+        Write-Verbose "You must use either the parameter `$VariableName or `$HashCode! Halting!"
+        Write-Error "You must use either the parameter `$VariableName or `$HashCode! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    if ($VariableName -ne $null -and $HashCode -ne $null) {
+        Write-Verbose "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
+        Write-Error "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    ##### END Parameter Validation #####
 
     $ArrayOfShadowVariablesPrep = Get-Variable| Where-Object {
         $_.Name -ne "`$" -and
@@ -26,9 +46,9 @@ function Check-SameObject {
         if (!$HashCodeDNE) {
             New-Variable -Name "$($_.Name)Shadow" -Scope Global -Value $(
                 New-Object PSObject -Property @{
-                    VariableName        = "$($_.Name)"
-                    VariableHashCode    = "$($(Get-Variable -Name "$($_.Name)" -ValueOnly).GetHashCode())"
-                    VariableValue       = "$($_.Value)"
+                    VariableName        = $_.Name
+                    VariableHashCode    = $(Get-Variable -Name $_.Name -ValueOnly).GetHashCode()
+                    VariableValue       = $_.Value
                 }
             ) -Force
             $ArrayOfShadowVariables +=, $(Get-Variable -Name "$($_.Name)Shadow" -ValueOnly)
@@ -47,7 +67,12 @@ function Check-SameObject {
     }
 
     # Return Array $VariablesThatPointToSameObject that point to the same object. This is determined by a shared HashCode.
-    $HashCodeToSearchFor = $($SameObjectsPrep | Where-Object {$_.VariableName -eq "$VariableName"}).VariableHashCode
+    if ($VariableName) {
+        $HashCodeToSearchFor = $($SameObjectsPrep | Where-Object {$_.VariableName -eq "$VariableName"}).VariableHashCode
+    }
+    if ($HashCode) {
+        $HashCodeToSearchFor = "$HashCode"
+    }
     $VariablesThatPointToSameObject = $($SameObjectsPrep | Where-Object {$_.VariableHashCode -eq "$HashCodeToSearchFor"}).VariableName
     $VariablesThatPointToSameObject
 
@@ -68,8 +93,8 @@ function Check-SameObject {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8SafbAzQltcJpXvAXFHt7QZX
-# kvKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTVhdVgGSwutLht+qozmh31pM
+# oNagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -124,11 +149,11 @@ function Check-SameObject {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR5esxd/H8u
-# ZaGmSiQc4qxK+JSh+zANBgkqhkiG9w0BAQEFAASCAQAhHVcS9KZ6crHLGUdKdITZ
-# KsK5yk26bDlUBm45GYStbDwkO3y+AZGTQdGqXs1CzEcLn6uIXyI5JlV20WnKezK3
-# JMyHn00XojSqfgJoKEG5CzirG0UV5zi13B2rVcJLkDzyrgB/cB5RXX4pLVddjznV
-# GDoZEGhHwQX8ZVvWT474aSO4qEZMp5J7riIM6rfp7NqU3PIaDA9TQ7yglHEOUmKC
-# MQn7+FAcTKM1pqnAcXq67iM4lvW7q+MV1YtNFGqRFYc8mpf5gTH+x1Hp9FESMeDt
-# Ce/9yHpPPGLamWM7C8t4bTcy2Q/019YPIfaUGWaw+8mDAzhQfcfHDpzG7vxXCuFH
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRPTTqg+68U
+# xGD/03AuJix+TLjUZjANBgkqhkiG9w0BAQEFAASCAQBfm19td5oK69igwHN+Molk
+# ToKDnIQtp0mmyiH7Z0R4C92RrLXUEUYudgTKq+hWE59KkKAmE9tRoMsNyd8rparx
+# 1i7Oqa1hKUQcehNuVB9MNt/56TY6clUUGIwvX//gpduneLY+SegE8aOiWfClF6cs
+# oYhzGxf5jBTY8xm4J0VtS3S1U6dLPi5EWao61UU9VguSaTrmNpbven8WjF1Azq8q
+# XI10Wl9DgWv4nNYvfjV+LrAIX4DCw/KjjIm2GfEiW8jopeWUzikLQaOam0oum79K
+# KolpjgpqtPoVvV48hyarZ5qOIbW/U0Uh5AoCkbiYCXvj/jxh40dFm4F1WWZxx/WW
 # SIG # End signature block
