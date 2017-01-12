@@ -58,7 +58,7 @@ function Check-SameObject {
 
     $SameObjectHashCode = $($ArrayOfShadowVariables.VariableHashCode | Group-Object | Where-Object {$_.Count -gt 1}).Name
 
-    # $SameObjectsPrep is an array of PSCustomObjects where two or more elements (i.e. variables in the current session
+    # $AllSameObjectsInSession is an array of PSCustomObjects where two or more elements (i.e. variables in the current session
     # global scope) point to the same object
     $AllSameObjectsInSession = foreach ($obj1 in $SameObjectHashCode) {
         $ArrayOfShadowVariables | Where-Object {$_.VariableHashCode -eq $obj1}
@@ -91,8 +91,8 @@ function Check-SameObject {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURoBVwLfzwwPivzpjiCdaNa7+
-# WvqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9/oW5MQC+0O28QfWL4HU6WE5
+# BLigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -147,11 +147,11 @@ function Check-SameObject {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSb0GyaUQ36
-# uFSWOHzV4WV57LZFnjANBgkqhkiG9w0BAQEFAASCAQAO11XBNMv3HBxt5bacAl00
-# hz+Xq8Ix66r9adybzt6QgKXeYojD/kKMolvEbLbGEI9Xy9gbF6mjsQaTrWwX1AxM
-# yq3PrWfcFKZ1J6xV5hpAz1OXm31iIeQvQggrdQv4wlVknEEdDtKcWgkHKq5+Vezh
-# OybH5cbo+MKZbFWQh94q65rXQwK0f/+98JPb7W14AIoKSvIZEu5Z3XbTluqYWsRg
-# mZmHM2NKpufPsqNWUgnvD9OnauzBx9vVvPl9g31mSWvC5ghFPMc8Yca8BcYVUHd9
-# C9s3eFC9Mv2dJviwRZWEtU9WoREzVpkcORxkXRCPL003xUXpFd4uOJywgWCOcy9R
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSZt4nNqfcI
+# WmGhLA3EhtrfMJOiWzANBgkqhkiG9w0BAQEFAASCAQCU4e+EQGZbqk60KSpaecF9
+# uCv7nFhQTBVDZKfpa2XTSvxkI1NyqmceP6Gj5NoMs2hYScZETIcfvKHcI4AdQf/z
+# INBuH5i+2XAsZ3Qdo3WyG/oXcaGDLXXvM0pW3u5Bmfc74Kbuqvlss+eEF66MDmEw
+# b932tabEVaCpxL90domJhD9UDXROa9IvdNrk307U0xj2vcgH2nuXL0Gvrkxgkjoz
+# PXJc0tLBEgwdg7bALGi1e0Xy5ify1uRd2RE/k4p2frWGsf9Ua31itf5nei0iV/yb
+# GBkGTaC3cy0CEocLg6vgznGh5VVwNHFn+kCGaw3bQA8vHW5TtuFmq0Berdd4dn++
 # SIG # End signature block
