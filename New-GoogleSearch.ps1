@@ -30,6 +30,7 @@ function New-GoogleSearch {
     )
 
     ## BEGIN Native Helper Functions ##
+    
     function New-GoogleURL {
         [CmdletBinding(PositionalBinding=$true)]
         Param(
@@ -51,6 +52,7 @@ function New-GoogleSearch {
             $url
         }
     }
+
     ## END Native Helper Functions ##
 
 
@@ -58,10 +60,12 @@ function New-GoogleSearch {
 
     $TargetURL = New-GoogleURL -SearchArgs $SearchString
     Write-Verbose "The Google search URL is $TargetURL"
+
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
     ##### BEGIN Main Body #####
+
     if ($JavaScriptUsed -eq "Yes" -or $JavaScriptUsed -eq "y") {
         $ie = New-Object -com InternetExplorer.Application
         $ie.visible=$false
@@ -165,8 +169,8 @@ function New-GoogleSearch {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjzIvIfYcCsbc1bpjUm3sWMHJ
-# rymgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcO5SvTDe1OlRxPe6V1MRlgyx
+# YF6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -221,11 +225,11 @@ function New-GoogleSearch {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTc++mb3nT7
-# i/78pVWB2QoIobel1zANBgkqhkiG9w0BAQEFAASCAQBS1nQ3DV+eg8hXaDS+5/7T
-# uU2D9uf0wCouWykWdQjBegGBAESev/pBwd/Xt4QBbL1ctw7uAKjetNLQbVx1ZfFN
-# tq8IQU3O8zEkGKmzXsjvkpH5mc6EWIyx3MnLm1NnPv6fV8U7NPstrH3nW1cwKtPl
-# cyNKpVztxBJOyk20//HBJrGWIutou8VhW1VMh2q6K2U1QL7E8fzUK7qWo49ZcEqs
-# y7kSXSamix9K4+cj3jTkRJ43sbvcS8bXY/pXJ4lDwOYU6rBFcITYQo8cZ6rsLGfb
-# e7x+McrJTthVvJTs+GiiGGAMPhz/454cd8QJjVr2+1DvV4DAZrueKKm11sXm+xgF
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTML5dgMdNL
+# R6M5ts8jWJnaVKzM+zANBgkqhkiG9w0BAQEFAASCAQB5jpNVAK8giwlpI/7TX2Nt
+# GxKBLaa/vNSNjwx9fxoMM6MuaOrbzY1LuL+O71cTLhUzF02CEnfLkmkOwpz27d93
+# oLFnUZQB0pwSVYakM8oEajMDP3dT0vv9ykBUinVrbD9kNR52TltGS9HP5GyrMaZJ
+# zjpFR1BDO+NkbsslGnkS5sTSC44pvU2S6aQKMGCGrWUS6wfm+fSv1TEds2jdFj/X
+# 8inIByVIBvPeRfA8sf0flSVKtswV/2aKYMWzevHP13dHdJfln2DH6MknN1L0ydYX
+# JqmxyR204UDxXot11QyQZ2wiQfYvlI5d8FrzH+dcG+ZELUdMhx+KLcNbyiq3g6dw
 # SIG # End signature block
