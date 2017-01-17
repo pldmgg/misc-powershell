@@ -78,24 +78,41 @@ function New-GoogleSearch {
         $RawHTML = Invoke-WebRequest -Uri "$TargetURL" -UseBasicParsing | Select-Object -ExpandProperty RawContent
     }
 
-    # Confirmed working on PowerShell 4 and 5
-    $NewHTMLObject = New-Object -com "HTMLFILE"
-    $NewHTMLObject.designMode = "on"
-    $RawHTML = [System.Text.Encoding]::Unicode.GetBytes($RawHTML)
-    $NewHTMLObject.write($RawHTML)
-    $NewHTMLObject.Close()
-    $NewHTMLObjectBody = $NewHTMLObject.body
-
-    # Alternate method - Requires Visual Studio be installed:
+    # Depending on the version of C:\Windows\System32\mshtml.dll, $($NewHTMLObject.GetType()).Name will either
+    # be "__ComObject" or "HTMLDocumentClass" (most likely as a result of Visual Studio or similar installation on the system)
+    #
+    # It is also possible that C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll exists
+    # on the system (most likely as a result of Visual Studio install). If you want to use Microsoft.mshtml.dll instead of
+    # mshtml.dll under System32, then Add-Type must be used as follows:
+    # Add-Type -Path "C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll"
+    #
+    # In any case, $($NewHTMLObject.GetType()).Name will always either be "__ComObject" or "HTMLDocumentClass"
+    #
+    # Explore further Using the following:
     <#
-    Add-Type -Path "C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll"
+    # Get All Available Com Objects
+    $GetComClasses = gwmi -Class win32_classiccomclasssetting -ComputerName .
+    $GetComClasses | Where-Object {$_.progid -like "*html*"}
+
+    # Create New Com Object by referencing ProgID
+    $NewHTMLObject = New-Object -ComObject "htmlfile"
+
+    # Create New Com Object by referencing GUID
+    $clsid = New-Object Guid '25336920-03F9-11cf-8FD0-00AA00686F13'
+    $type = [Type]::GetTypeFromCLSID($clsid)
+    $NewHTMLObject = [Activator]::CreateInstance($type)
+    #>
     $NewHTMLObject = New-Object -com "HTMLFILE"
     $NewHTMLObject.designMode = "on"
     $RawHTML = [System.Text.Encoding]::Unicode.GetBytes($RawHTML)
-    $NewHTMLObject.IHTMLDocument2_write($RawHTML)
+    if ($($NewHTMLObject.GetType()).Name -eq "HTMLDocumentClass") {
+        $NewHTMLObject.IHTMLDocument2_write($RawHTML)
+    }
+    if ($($NewHTMLObject.GetType()).Name -like "*ComObject") {
+        $NewHTMLObject.write($RawHTML)
+    }
     $NewHTMLObject.Close()
     $NewHTMLObjectBody = $NewHTMLObject.body
-    #>
 
     # Get Search Results
     $SearchResultTitleObjectsArray = $NewHTMLObjectBody.GetElementsByTagName("h3")
@@ -169,8 +186,8 @@ function New-GoogleSearch {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJDim6b86DHAiKMOZeH3KA++7
-# oQqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqqOt8dc3iwhXYmwvGL4NqMV2
+# uqmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -225,11 +242,11 @@ function New-GoogleSearch {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTVB0wxmVCp
-# MwOgCJUm8WEpk7Xb3jANBgkqhkiG9w0BAQEFAASCAQBRkr5kgCrFJ1fBaKC0O10C
-# ZOv3geGFtmyfBAwu+73idnmUVlLhtKy8fXR+FmXP9wBgZfoI3IN1MtwdnA6K8tYk
-# L9N+eP+WV6FoTbEMCH//hXKSIK5JfPLNiLI3XmIotZqFTSDHoTeFz+9iNg2Q5O8w
-# jK1EQNsaaDa/7RIZwE49vd1xA8O0XuMd8y6fnkrVpTqv+507xbUGO+F1OQRmGRAC
-# 71MtdCfc2z7YxCDM80+IriALn5AvsL20VZ5N85efIHnkFrZ8citVTLaRtweysFmL
-# lXqEI1xgFasn/09r/8sQHt1HYlXC0gje+0ZYDnAno1brq8wukeZG+53fSvJ7GMKd
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMiMmU8mh8
+# Yc2U0S/9wOgOay0wiTANBgkqhkiG9w0BAQEFAASCAQBgT6YZFRYjn/mTTaoI9/b5
+# fWsWIR5eau47e1VvSpjYo+ljNHX2b9NNI8RvF8tHe+KcUWlBZFyVqXUMFcP0hWg2
+# rVm4rTD8y6j++bAfZngUj/hKtcEyR7WNwyKByBLbg8wQ0ywJKXhIVUAXTeTqkRGt
+# Chu3XZYN6jFjj9n2aCAE042fzME3/0UFeP3kzdBKuWjwfKdOECxYSSbstlulrz5A
+# TsXlbnEw+ztTKaUhakjxwQdGWfo8ZWYVsqbUf1HJOrUZ2bn82c1B1DUD7qCrpg8V
+# Bxx9LRtc1G5bJ11d3FqWN4/UxGxMBGsJaNiwP1KdKkdvVG6wFKzCRj0j9CEUwj73
 # SIG # End signature block
