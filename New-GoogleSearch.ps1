@@ -173,7 +173,7 @@ function New-GoogleSearch {
     }
 
     Write-Verbose "The object `$global:ArrayOfSearchResultCustomObjects is now available in the current scope"
-    $global:ArrayOfSearchResultCustomObjects
+    $global:ArrayOfSearchResultCustomObjects | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks | Format-List
 
     ##### END Main Body #####
 
@@ -187,8 +187,8 @@ function New-GoogleSearch {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUc7kToPDndiq+QSbECF+KD3O8
-# yRmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2Bcg8ob/eONcgefLpjZngPLk
+# gB6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -243,11 +243,11 @@ function New-GoogleSearch {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSuSemDaqKD
-# 3CdtgSJmIulqWY1owzANBgkqhkiG9w0BAQEFAASCAQBbTBu9Fh8HDvd/bcPrr2ew
-# nxH2qB+QCDdyKuXV/zxj2mp64CFuR5ohPMau91tgi6hszhbdlsiamtNzLL4t2TgD
-# PLPv/ykB5VGQevEQk6GMoprhHAxNN1pDAd0XCB2m2ILGW+0o5loL1hGdQFgs5H6E
-# 480KWu3jFQ59Yvtw+92lC9Giw9Wty5/F88eQKLZ9peFrB9NSSmZ0mH+edRtMEcGr
-# mWNL8i2l/h1Vt6g6ribtmKabi22Z5lG/vQLzQzxlZmE89od1pa7KdNDR89ZiaVbr
-# sdgomxxhzrtE7RifM7WcSsIr9OsNAGJWpBwYj9RjU6d+qLZub3yeFkTr9kivj9y0
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRQTcok1UuU
+# /aLZJY0/VTxIjAl32zANBgkqhkiG9w0BAQEFAASCAQBT0YacI0goJp0/v0ozQDXS
+# KEf2wEwdNVxojLug6/bXxBhz0W6zRKG/KdWmmaDb9ShDPJMV3F6RXXc10iCQtz0l
+# 5RkMmA+ZUgoE3ZXlEZJZkM2IbXFqk9AjgM/1VVyG4yHHcyfrAIAKEXcL3o4z3dPH
+# SWp3/N69AI15EuVLCZYnr0qRFR+7dgk36+evSGq9KtBIuv7LrIFUPdSJ0Dl7Mbq6
+# 9AATA5AwpJwiexC/8dDS+kN9NnsFIxLBOcCZ0xepKpgUZa0qRRKWTcQLNwVwIZzb
+# 3W6szItOoIFfXiEjMiMGrafscrmZ+Bgrhg8By1lMiPpYCVIuNrCRBQQHMaMAg6qt
 # SIG # End signature block
