@@ -1,3 +1,23 @@
+<#
+.SYNOPSIS
+    Use PowerShell to search Google and return results to your current PowerShell Session.
+.DESCRIPTION
+    Search Google using PowerShell and return results as an array of custom PSObjects - one object per entry on Page 1 of Google 
+    search results. These custom objects can be easily leveraged for further scripting.
+.NOTES
+    None.
+.PARAMETER SearchString
+    This parameter is MANDATORY.
+
+    This parameter takes a string that represents your search terms.
+
+.EXAMPLE
+    New-GoogleSearch -SearchString "Test Search"
+    $global:ArrayOfSearchResultCustomObjects | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks | Format-List
+.OUTPUTS
+    Outputs an array of custom PSObjects called $global:ArrayOfSearchResultCustomObjects
+#>
+
 function New-GoogleSearch {
     [CmdletBinding(PositionalBinding=$true)]
     [Alias('google')]
@@ -23,7 +43,6 @@ function New-GoogleSearch {
 
         Process {
             $UpdatedSearchString = $SearchArgs.Split(" ")
-
             $UpdatedSearchString | % {$query = $query + "$_+"}
         }
 
@@ -37,9 +56,8 @@ function New-GoogleSearch {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    $UpdatedURL = New-GoogleURL -SearchArgs $SearchString
-    Write-Host "Updated URL is $UpdatedURL"
-    $TargetURL = $UpdatedURL
+    $TargetURL = New-GoogleURL -SearchArgs $SearchString
+    Write-Verbose "The Google search URL is $TargetURL"
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
@@ -50,38 +68,38 @@ function New-GoogleSearch {
         $ie.navigate("$TargetURL")
         Start-Sleep -Seconds 3
         while($ie.ReadyState -ne 4) {start-sleep -m 1000}
-        $global:RawHTML = $ie.Document.body.outerHTML
+        $RawHTML = $ie.Document.body.outerHTML
     }
     if ($JavaScriptUsed -eq "No" -or $JavaScriptUsed -eq "n") { 
-        $global:RawHTML = Invoke-WebRequest -Uri "$TargetURL" -UseBasicParsing | Select-Object -ExpandProperty RawContent
+        $RawHTML = Invoke-WebRequest -Uri "$TargetURL" -UseBasicParsing | Select-Object -ExpandProperty RawContent
     }
 
     # Confirmed working on PowerShell 4 and 5
     $NewHTMLObject = New-Object -com "HTMLFILE"
     $NewHTMLObject.designMode = "on"
-    $global:RawHTML = [System.Text.Encoding]::Unicode.GetBytes($global:RawHTML)
-    $NewHTMLObject.write($global:RawHTML)
+    $RawHTML = [System.Text.Encoding]::Unicode.GetBytes($RawHTML)
+    $NewHTMLObject.write($RawHTML)
     $NewHTMLObject.Close()
-    $global:NewHTMLObjectBody = $NewHTMLObject.body
+    $NewHTMLObjectBody = $NewHTMLObject.body
 
     # Alternate method - Requires Visual Studio be installed:
     <#
     Add-Type -Path "C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll"
     $NewHTMLObject = New-Object -com "HTMLFILE"
     $NewHTMLObject.designMode = "on"
-    $global:RawHTML = [System.Text.Encoding]::Unicode.GetBytes($global:RawHTML)
-    $NewHTMLObject.IHTMLDocument2_write($global:RawHTML)
+    $RawHTML = [System.Text.Encoding]::Unicode.GetBytes($RawHTML)
+    $NewHTMLObject.IHTMLDocument2_write($RawHTML)
     NewHTMLObject.Close()
-    $global:NewHTMLObjectBody = $NewHTMLObject.body
+    $NewHTMLObjectBody = $NewHTMLObject.body
     #>
 
     # Get Search Results
-    $SearchResultTitleObjectsArray = $($global:NewHTMLObjectBody).GetElementsByTagName("h3")
+    $SearchResultTitleObjectsArray = $NewHTMLObjectBody.GetElementsByTagName("h3")
     
     $global:ArrayOfSearchResultCustomObjects = @()
     # Since $SearchResultTitleObjectsArray is NOT actually an array (it's a __ComObject), need to use Length instead of Count...
     for ($i=0; $i -lt $SearchResultTitleObjectsArray.Length; $i++) {
-        $ResultHeader = $($global:NewHTMLObjectBody).GetElementsByTagName("h3") | Select-Object -Index $i
+        $ResultHeader = $($NewHTMLObjectBody).GetElementsByTagName("h3") | Select-Object -Index $i
         $URLDropdown = $($ResultHeader.nextSibling).firstChild
         $URL = $($URLDropdown.innerText).Split("`n")[0]
 
@@ -110,7 +128,7 @@ function New-GoogleSearch {
 
         New-Variable -Name "HeaderObject$i" -Scope Global -Value $(
             New-Object PSObject -Property @{
-                HeaderObject = $($global:NewHTMLObjectBody).GetElementsByTagName("h3") | Select-Object -Index $i
+                HeaderObject = $($NewHTMLObjectBody).GetElementsByTagName("h3") | Select-Object -Index $i
                 ResultHeader = $ResultHeader.innerText
                 URL = $URL
                 Cached = $Cached
@@ -133,19 +151,22 @@ function New-GoogleSearch {
         Remove-Variable -Name "OtherLinks" -Force -ErrorAction SilentlyContinue
     }
 
-    Write-Host "The object `$global:ArrayOfSearchResultCustomObjects is now available in the current scope"
+    Write-Verbose "The object `$global:ArrayOfSearchResultCustomObjects is now available in the current scope"
 
     ##### END Main Body #####
 
 }
 
-New-GoogleSearch -SearchString "Test Search"
-$global:ArrayOfSearchResultCustomObjects | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks | Format-List
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUH7/w93NXK4dzvIaIo8f8WUJO
-# 6dSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjzIvIfYcCsbc1bpjUm3sWMHJ
+# rymgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -200,11 +221,11 @@ $global:ArrayOfSearchResultCustomObjects | Select-Object ResultHeader,URL,Cached
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS9FUJyv/1G
-# KIUrdOvD/I1h3E3qwDANBgkqhkiG9w0BAQEFAASCAQAkAgKEeGFNion8ORrWWKiy
-# FgT+9i6hPI8L9gdEbnMiUMmU+EDza/0EqCvSkcfBO78ICVgcCh/O5xvXKpvWtRzo
-# oo9twgZslDhh9xTYEDipBeLDZG8oLAAyLkYeu7JwkGkjr9BTtPREUerv4U1jeAGU
-# lBsX/tuA0MCH0hg4lWwyf4KnGRpm2XGHT8oXHmByTmpfEhjW+5BsEk0auvLwV/lf
-# W84HstP9ZocftEu9gRfIJLwkCab13R3hYlY19ludSB5+QY99id/393B6yzJVvp2C
-# igW+e2iUlNMn1jbUM79av9G0iQBigpMxrvfQThRNOwIEOE9CpT9MUtI1449wd7/A
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTc++mb3nT7
+# i/78pVWB2QoIobel1zANBgkqhkiG9w0BAQEFAASCAQBS1nQ3DV+eg8hXaDS+5/7T
+# uU2D9uf0wCouWykWdQjBegGBAESev/pBwd/Xt4QBbL1ctw7uAKjetNLQbVx1ZfFN
+# tq8IQU3O8zEkGKmzXsjvkpH5mc6EWIyx3MnLm1NnPv6fV8U7NPstrH3nW1cwKtPl
+# cyNKpVztxBJOyk20//HBJrGWIutou8VhW1VMh2q6K2U1QL7E8fzUK7qWo49ZcEqs
+# y7kSXSamix9K4+cj3jTkRJ43sbvcS8bXY/pXJ4lDwOYU6rBFcITYQo8cZ6rsLGfb
+# e7x+McrJTthVvJTs+GiiGGAMPhz/454cd8QJjVr2+1DvV4DAZrueKKm11sXm+xgF
 # SIG # End signature block
