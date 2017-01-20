@@ -1,6 +1,57 @@
 function Check-SameObject {
     [CmdletBinding()]
     Param( 
+        [Parameter(
+            Mandatory=$False,
+            Position=1,
+        )]
+        [string]$VariableName,
+
+        [Parameter(
+            Mandatory=$False,
+            Position=1
+        )]
+        [int32]$HashCode
+    )
+
+    ##### BEGIN Parameter Validation #####
+
+    if (!$VariableName -and !$HashCode) {
+        Write-Verbose "You must use either the parameter `$VariableName or `$HashCode! Halting!"
+        Write-Error "You must use either the parameter `$VariableName or `$HashCode! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    if ($VariableName -and $HashCode) {
+        Write-Verbose "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
+        Write-Error "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    ##### END Parameter Validation #####
+
+    if ($VariableName) {
+        try {
+            $HashCode = $(Get-Variable $VariableName -ValueOnly -ErrorAction Stop).GetHashCode()
+        }
+        catch {
+            Write-Error "Variable $VariableName does not exist or does not have an associated HashCode"
+        }
+    }
+
+    # Get Variables where the variable has a value, and HashCode the equals $HashCode, and does NOT have a name that matches $VariableName or 'HashCode'
+    $VariableNameExclusionArray = @("$VariableName","HashCode")
+    $SameObjects = Get-Variable | Where-Object {$_.Value -and $_.Value.GetHashCode() -eq $HashCode -and $_.Name -notin $VariableNameExclusionArray}
+    $SameObjects
+}
+
+##### BEGIN Archived Code #####
+
+<#
+function Check-SameObject {
+    [CmdletBinding()]
+    Param( 
         [Parameter(Mandatory=$False)]
         $VariableName,
 
@@ -81,7 +132,7 @@ function Check-SameObject {
     }
 }
 
-
+##### END Archived Code #####
 
 
 
@@ -91,8 +142,8 @@ function Check-SameObject {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9/oW5MQC+0O28QfWL4HU6WE5
-# BLigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTtoAS2zoD3gH+MHG6trIha/L
+# ITCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -147,11 +198,11 @@ function Check-SameObject {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSZt4nNqfcI
-# WmGhLA3EhtrfMJOiWzANBgkqhkiG9w0BAQEFAASCAQCU4e+EQGZbqk60KSpaecF9
-# uCv7nFhQTBVDZKfpa2XTSvxkI1NyqmceP6Gj5NoMs2hYScZETIcfvKHcI4AdQf/z
-# INBuH5i+2XAsZ3Qdo3WyG/oXcaGDLXXvM0pW3u5Bmfc74Kbuqvlss+eEF66MDmEw
-# b932tabEVaCpxL90domJhD9UDXROa9IvdNrk307U0xj2vcgH2nuXL0Gvrkxgkjoz
-# PXJc0tLBEgwdg7bALGi1e0Xy5ify1uRd2RE/k4p2frWGsf9Ua31itf5nei0iV/yb
-# GBkGTaC3cy0CEocLg6vgznGh5VVwNHFn+kCGaw3bQA8vHW5TtuFmq0Berdd4dn++
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSJoeh7To1D
+# /I8axvY+0UZwbdc9rzANBgkqhkiG9w0BAQEFAASCAQB1m7romVESVUbtzcE4pZNB
+# f28eMLNLhzAJszZNPbYICJZQE+nsN+BOPah5Gm7duvkxKThZtRp33uwH/zlZhbP4
+# QVtpXD8hSxO2k08h4MoocOqco9RNf94chh9LToaef2hzODxpNqHpvFf+pfHx9Hi2
+# T9BYpZxvRpoaY2PpyXpUJWMAhsALuoK8SFy9neMwYOpsijdy2pe+9fFqLiTl1WnW
+# 4BtLaSKVbNZP5i9/cRLSpl/H9zbi+6Gn3PgtJpkpDi0Gys4TTblSkH/YhaXnuEuY
+# bu7wb6W0av0oMsJU4ArjNdQjzE6PvZ4Gsu/17D/ENZ2OEAK3UWDUv8j4qOStAWfW
 # SIG # End signature block
