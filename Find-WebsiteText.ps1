@@ -1,14 +1,17 @@
 <#
 .SYNOPSIS
-    Return the HTML elements that contain the text your want to find on the specified website.
+    Return information about the HTML element that contain the text your want to find on the specified website.
+
 .DESCRIPTION
     See Synopsis.
+
 .NOTES
     None
+
 .PARAMETER TargetUEL
     This parameter is MANDATORY.
 
-    This parameter takes a string that represents the URL of the website your are searching.
+    This parameter takes a string that represents the URL of the website you would like to search.
 
 .PARAMETER LetJavaScriptLoad
     This parameter is OPTIONAL.
@@ -19,7 +22,7 @@
     A positive value means that the script lets the website load all JavaScript before searching for the specified text. A negative
     value means that the search for the specified text will take place before JavaScript is loaded.
 
-    This parameter's default value is "Yes", i.e. search will take place AFTER JavaScript is loaded.
+    This parameter's default value is "Yes", i.e. search for text will take place AFTER JavaScript is loaded.
 
 .PARAMETER TextToSearchFor
     This parameter is MANDATORY.
@@ -32,7 +35,11 @@
 .INPUTS
     Inputs to this cmdlet (if any)
 .OUTPUTS
-    Output from this cmdlet (if any)
+    1) $global:FoundResultsArray.Text - An array of strings. Each string represents a full line of text that contains the string
+    that you searched for. This is displayed on STDOUT.
+
+    2) $global:FoundResultsArray - An array of Custom PSObjects made available for subsequent manipulation in the PowerShell
+    session's Global scope.
 #>
 
 function Find-WebsiteText {
@@ -180,7 +187,8 @@ function Find-WebsiteText {
         $global:FoundResultsArray +=, $(Get-Variable -Name "FoundTextElementInfo$i" -ValueOnly)
     }
 
-    $global:FoundResultsArray | Select-Object Class,Tag,Text | Format-List
+    # $global:FoundResultsArray | Select-Object Class,Tag,Text | Format-List
+    $global:FoundResultsArray.Text
     Write-Host "The object `$global:FoundResultsArray is available in current Scope"
 
 }
@@ -188,12 +196,11 @@ function Find-WebsiteText {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4f33DmSQ6HWcoFmxWUGhRJ1I
-# Z0qgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlRATdOYCPnRd7kTDP/Bm6iXi
+# tWygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -248,11 +255,11 @@ function Find-WebsiteText {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTiCw7xTjm2
-# o7acnQPb9B+taMA+ejANBgkqhkiG9w0BAQEFAASCAQARKfnyIUbqwcfXJbqE19AK
-# VLmDVYR0gsAEB0jKJ+HmPsUMCgI+p6+HcOJlPK+Lg3fP+MrMxuvp9iFQuYsJn7XA
-# oBcHynrXPoGxo0feDcuGLH2ivLJxI7Rc7BhV2sREsbsBKHU3RQBxMFvpjwQRl2vJ
-# pVakWz8RfQpEHR/Nj+qbiGKd3qsGihWkYYGz4IkWZNo8BswhEgrZt23iVgIMWY0j
-# Ds/rGxeAqA+QbshW4Ut38j06E75GcO8PhMRb5aSrA6WTAgDDgzOG8gpv0MFWgWAl
-# H6sY6YS/uD96Vl+YJe/totAg76992YbHK9DAoorjnTEQPwBtxA7bWJE7od+Ik4/r
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBREGSHFqpv7
+# TmecxLUCtMbijkZfvzANBgkqhkiG9w0BAQEFAASCAQBnMtzStoLp8m9MgpL3Nxok
+# +getjCj89raLcisons9hZocJI/GM0m3lwH+UsDlvGKqxlGhiuCmmjL228puYmQSG
+# /PJ7dpq+6vZ3F4UtyuitI8Xpko4nMc9AHHqEvL6U1aK0Vbm/FZ60aQxBMGUNCgDB
+# F3fhlyTUl+rYf6VMqAxBMdT3chZPZHManYxpIwOGn3Jn6v4OFEc6T4G1W/XKOY6y
+# Vm6ocjbg8/HAk1xKXSsB9FaJoq8p1S+gaQt93sLVSDfsesM9RX8tPo8UmOgbWjk/
+# NRfPR2RAvyQS5pDSrYR/uvWlb5/rgie22Dc/mdDB198A8EcyBpBJSuZgXmRLXdor
 # SIG # End signature block
