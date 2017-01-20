@@ -46,95 +46,6 @@ function Check-SameObject {
     $SameObjects
 }
 
-##### BEGIN Archived Code #####
-
-<#
-function Check-SameObject {
-    [CmdletBinding()]
-    Param( 
-        [Parameter(Mandatory=$False)]
-        $VariableName,
-
-        [Parameter(Mandatory=$False)]
-        $HashCode
-    )
-
-    ##### BEGIN Parameter Validation #####
-
-    if ($VariableName -eq $null -and $HashCode -eq $null) {
-        Write-Verbose "You must use either the parameter `$VariableName or `$HashCode! Halting!"
-        Write-Error "You must use either the parameter `$VariableName or `$HashCode! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    if ($VariableName -ne $null -and $HashCode -ne $null) {
-        Write-Verbose "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
-        Write-Error "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    ##### END Parameter Validation #####
-
-    $ArrayOfShadowVariablesPrep = Get-Variable| Where-Object {
-        $_.Name -ne "`$" -and
-        $_.Name -ne "`?" -and
-        $_.Name -ne "`^" -and
-        $_.Name -notlike "*Shadow"
-    }
-
-    $ArrayOfShadowVariables = @()
-    $ArrayOfShadowVariablesPrep | foreach {
-        try {
-            $(Get-Variable -Name "$($_.Name)" -ValueOnly).GetHashCode() | Out-Null
-        }
-        catch [System.Management.Automation.RuntimeException] {
-            $HashCodeDNE = "$($_.Name) HashCode does not exist"
-            Write-Verbose $HashCodeDNE
-        }
-        if (!$HashCodeDNE) {
-            New-Variable -Name "$($_.Name)Shadow" -Scope Global -Value $(
-                New-Object PSObject -Property @{
-                    VariableName        = $_.Name
-                    VariableHashCode    = $(Get-Variable -Name $_.Name -ValueOnly).GetHashCode()
-                    VariableValue       = $_.Value
-                }
-            ) -Force
-            $ArrayOfShadowVariables +=, $(Get-Variable -Name "$($_.Name)Shadow" -ValueOnly)
-        }
-        if ($HashCodeDNE) {
-            Remove-Variable -Name "HashCodeDNE"
-        }
-    }
-
-    $SameObjectHashCode = $($ArrayOfShadowVariables.VariableHashCode | Group-Object | Where-Object {$_.Count -gt 1}).Name
-
-    # $AllSameObjectsInSession is an array of PSCustomObjects where two or more elements (i.e. variables in the current session
-    # global scope) point to the same object
-    $AllSameObjectsInSession = foreach ($obj1 in $SameObjectHashCode) {
-        $ArrayOfShadowVariables | Where-Object {$_.VariableHashCode -eq $obj1}
-    }
-
-    # Return Array $VariablesThatPointToSameObject that point to the same object. This is determined by a shared HashCode.
-    if ($VariableName) {
-        $HashCodeToSearchFor = $($AllSameObjectsInSession | Where-Object {$_.VariableName -eq "$VariableName"}).VariableHashCode
-    }
-    if ($HashCode) {
-        $HashCodeToSearchFor = $HashCode
-    }
-    $VariablesThatPointToSpecifiedObject = $($AllSameObjectsInSession | Where-Object {$_.VariableHashCode -eq "$HashCodeToSearchFor"}).VariableName
-    $VariablesThatPointToSpecifiedObject
-
-    # Cleanup
-    $ShadowVariables = Get-Variable | Where-Object {$_.Name -like "*Shadow"}
-    foreach ($shadowvariable in $ShadowVariables) {
-        Remove-Variable -Name "$($shadowvariable.Name)" -Scope Global -Force
-    }
-}
-
-##### END Archived Code #####
-
-
 
 
 
@@ -142,8 +53,8 @@ function Check-SameObject {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTtoAS2zoD3gH+MHG6trIha/L
-# ITCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGM8XROLKzZfudamoQiu5nXy+
+# gKugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -198,11 +109,11 @@ function Check-SameObject {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSJoeh7To1D
-# /I8axvY+0UZwbdc9rzANBgkqhkiG9w0BAQEFAASCAQB1m7romVESVUbtzcE4pZNB
-# f28eMLNLhzAJszZNPbYICJZQE+nsN+BOPah5Gm7duvkxKThZtRp33uwH/zlZhbP4
-# QVtpXD8hSxO2k08h4MoocOqco9RNf94chh9LToaef2hzODxpNqHpvFf+pfHx9Hi2
-# T9BYpZxvRpoaY2PpyXpUJWMAhsALuoK8SFy9neMwYOpsijdy2pe+9fFqLiTl1WnW
-# 4BtLaSKVbNZP5i9/cRLSpl/H9zbi+6Gn3PgtJpkpDi0Gys4TTblSkH/YhaXnuEuY
-# bu7wb6W0av0oMsJU4ArjNdQjzE6PvZ4Gsu/17D/ENZ2OEAK3UWDUv8j4qOStAWfW
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTNNQbtCIOp
+# 6i1ugzXBjTubIL2sEjANBgkqhkiG9w0BAQEFAASCAQCaFOO8DkSJ8B5nhYpMi+Tz
+# csKVTXfVXsonzQYGmFGEKrMLKD8bOf5CFIDQP9a3O25xTBOo3KWDjFr+r/n6cIbN
+# v8ChEi57CMByo56rWCJ39F+KdApSYgXDReTSlSRxdgFc9OU60rrbKUF8a4NX5dAi
+# Bfjh3A+0MXXCObNacus3vQaZCXMiIsyOsiK9u5eWe5JlqcgKds6SuZtLxRtuPvDv
+# 7Z1I41qZLtvv8Fw6nNbFuAQ5wCyyVfm7CHXdetsklAdNAd8UwXfsdDOBY7l5KDx3
+# 5ajUmq6SAfWIi7YFJQQb1AKGdfy60F2O0qc0W7KFZpo5HzZQNvQ1QDdI0uuCiu8b
 # SIG # End signature block
