@@ -29,6 +29,11 @@
 
     This parameter takes a string that represents the text you would like to search for on the target website.
 
+.PARAMETER SuppressSTDOUT
+    This parameter is MANDATORY.
+
+    This parameter takes a string that represents the text you would like to search for on the target website.
+
 .EXAMPLE
     Find-WebsiteText -TargetURL "http://platinumgod.co.uk/afterbirth-plus" -LetJavaScriptLoad "Yes" -TextToSearchFor "UNLOCK:"
 
@@ -54,7 +59,10 @@ function Find-WebsiteText {
         [string]$LetJavaScriptLoad = "Yes",
 
         [Parameter(Mandatory=$False)]
-        [string]$TextToSearchFor
+        [string]$TextToSearchFor = $(Read-Host -Prompt "Please enter the text that you would like to search for."),
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SuppressSTDOUT
     )
 
     ## BEGIN Native Helper Functions ##
@@ -188,19 +196,22 @@ function Find-WebsiteText {
     }
 
     # $global:FoundResultsArray | Select-Object Class,Tag,Text | Format-List
-    $global:FoundResultsArray.Text
-    Write-Host "The object `$global:FoundResultsArray is available in current Scope"
-
+    if ($SuppressSTDOUT) {
+        Write-Verbose "The object `$global:FoundResultsArray is available in current Scope"
+    }
+    if (!$SuppressSTDOUT) {
+        $global:FoundResultsArray.Text
+        Write-Host "The object `$global:FoundResultsArray is available in current Scope"
+    }
 }
-
 
 
 
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlRATdOYCPnRd7kTDP/Bm6iXi
-# tWygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUysLCZTcNmV7Sls8GXiIa6y3b
+# TJSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -255,11 +266,11 @@ function Find-WebsiteText {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBREGSHFqpv7
-# TmecxLUCtMbijkZfvzANBgkqhkiG9w0BAQEFAASCAQBnMtzStoLp8m9MgpL3Nxok
-# +getjCj89raLcisons9hZocJI/GM0m3lwH+UsDlvGKqxlGhiuCmmjL228puYmQSG
-# /PJ7dpq+6vZ3F4UtyuitI8Xpko4nMc9AHHqEvL6U1aK0Vbm/FZ60aQxBMGUNCgDB
-# F3fhlyTUl+rYf6VMqAxBMdT3chZPZHManYxpIwOGn3Jn6v4OFEc6T4G1W/XKOY6y
-# Vm6ocjbg8/HAk1xKXSsB9FaJoq8p1S+gaQt93sLVSDfsesM9RX8tPo8UmOgbWjk/
-# NRfPR2RAvyQS5pDSrYR/uvWlb5/rgie22Dc/mdDB198A8EcyBpBJSuZgXmRLXdor
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQfv1J1yT3J
+# 2fjKMXRfwpKDT0tQ5TANBgkqhkiG9w0BAQEFAASCAQAxkYdhcGQ9e82FT/5Hr1tU
+# fNiqRUwOY76VnyBqluvTA6GSTCF+HmmCe31rz3T9MsN5oIn4eqJd7lRLLXtXrj5M
+# y0RAjUUuz3fs7u2aQ0K9lsgy1BNP0V1kpV7EGxH+u74TL2x4DS7FWpJS4hqkl0r+
+# FbBSxKwhHnI7qjCGHPo7fn2S14QhnkKNAfrknfIvnZQp4fc32RRnvtR3XL9E8306
+# 3SWxyz+dCU2146uI8S7bpePRK+E+9SRuOl6a99Gk45jXTqolWwwWsZPcWot8HdJO
+# dytADXJn3NcpAFSXuGwm5M9XV2oHJF5bi9CM202OHJNi42IpjVWS+uxWid6C9zFz
 # SIG # End signature block
