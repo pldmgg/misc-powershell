@@ -16,7 +16,7 @@
     (i.e. SIDE-BY-SIDE MODE) the older versions...because that's apparently how Microsoft wants to
     handle this for the time being.
 
-    At the conclusion of this script, the PowerShell Sessionw ill have the latest versions of the PackageManagement and 
+    At the conclusion of this script, the PowerShell Sessionw will have the latest versions of the PackageManagement and 
     PowerShellGet Modules loaded via Import-Module. (Verify with Get-Module).
 
 .NOTES
@@ -51,7 +51,7 @@
     .\Install-PackageManagement.ps1
 
 #>
- if ($PSVersionTable.PSVersion.Major -lt 5) {
+if ($PSVersionTable.PSVersion.Major -lt 5) {
     if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
         Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile "$HOME\Downloads\PackageManagement_x64.msi"
         msiexec /i "$HOME\Downloads\PackageManagement_x64.msi" /quiet /norestart ACCEPTEULA=1
@@ -120,12 +120,11 @@ Remove-Module -Name "PackageManagement"
 Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
 Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+dUUFIwWiP8Yvq0Pn0PB+8Fg
-# g86gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUL7rnwnXgtJMLdTvEy8XhKBtm
+# hDugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -180,11 +179,11 @@ Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvaila
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTO7sNi7Pvq
-# lYxiz0YDUAB14mixnzANBgkqhkiG9w0BAQEFAASCAQB1H5ye9xeU8PFcZ9FIcRTc
-# 0n4cfjqT32kk2M3ZbB7s/5X6rOzpiNnip8WBxa90jjryh46oUbf3eOwc9imdPmDx
-# xq587dqnVibT1XP4slTEx7vgf5avgjMBrt3ynBBJ8ke2df+rbzo97IvjdTsEB9E8
-# N10IzVVT3sD6NEjLPP087jyATdYciH8yvtK1WDuBxJgnyJS4uDrGybh3mUwvf7kt
-# /Kec116YPAjldmMYD8RJwUaAe1MY69AF84SiKAIC6/B56yVs6jRx2C832rLxVp2h
-# 76yVYpx8D+PoaHKcBBFfYJT1MG6b/30zwkj0x59a//aJe2Xtfk/mopyyxRFc8cde
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBScWBHSIIbN
+# ZbkU+xfEZBAiXRYDOzANBgkqhkiG9w0BAQEFAASCAQBYX5sier6V9qnusuphE1jL
+# lcES21kycnLpg+yTWCLhKzKQQVgMgpeM94e4iADmbJ7KiJrHXSbXoML0NQSuqMOS
+# kNhvd8a+aW3TD8lncbsk18mSytIJF5oWmBgixaZKKSucyOu8cMwZwbTJ7MiXO3Tw
+# PJZb9AvRlm7mKZFpP9iEmWpFbLlY2GlgyXPAR1UcJ0SZqKOx5x9JUq8Fj+x3Qf8T
+# nSkcBwUu55ojfUydkLxIJMPXioR3pfsz1u6pwv/uUxlcLO2c9DgWfy9fQW+hfwgX
+# ugDW8oOLN07stW3SbZwXLhoWcNh+cOFtCDvNzL2HeT86ls68PSZQDKih4CiqNTnB
 # SIG # End signature block
