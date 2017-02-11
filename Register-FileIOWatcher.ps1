@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    The Register-FileIOWatcher function watches one or more files and/or subdirectories within a specified Target Directory for
-    particular file events. When an event occurs, the specified action will be taken.
+    The Register-FileIOWatcher function watches one or more files and/or subdirectories (and their contents) within a specified
+    Target Directory for particular file events. When an event occurs, the specified action will be taken.
 
 .DESCRIPTION
     See SYNOPSIS and PARAMETER sections.
@@ -30,13 +30,14 @@
 .PARAMETER FilesToWatchEasyMatch
     This parameter is OPTIONAL
 
-    This parameter takes a string value that is pseudo-regex. It acepts wildcard characters. Examples:
-    *.*             matches    All files (default)
-    *.txt           matches    All files with a "txt" extension.
-    *recipe.doc     matches    All files ending in "recipe" with a "doc" extension.
-    win*.xml        matches    All files beginning with "win" with an "xml" extension.
-    Sales*200?.xls  matches    Files such as "Sales_July_2001.xls","Sales_Aug_2002.xls","Sales_March_2004.xls"
-    MyReport.Doc    matches    Only MyReport.doc
+    This parameter takes a string value that is pseudo-regex. It accepts wildcard characters. Examples:
+
+        *.*             matches    All files
+        *.txt           matches    All files with a "txt" extension.
+        *recipe.doc     matches    All files ending in "recipe" with a "doc" extension.
+        win*.xml        matches    All files beginning with "win" with an "xml" extension.
+        Sales*200?.xls  matches    Files such as "Sales_July_2001.xls","Sales_Aug_2002.xls","Sales_March_2004.xls"
+        MyReport.Doc    matches    Only MyReport.doc
 
     NOTE: You CANNOT use multiple filters such as "*.txt|*.doc". If you would like this functionality, use the
     FilesToWatchRegexMatch parameter.
@@ -64,7 +65,7 @@
     The scriptblock provided to this parameter defines specifically what action will take place when an event is triggered.
 
 .EXAMPLE
-    In in active PowerShell Console, try the following:
+    Try the following:
     (IMPORTANT: Make sure the characters '@ are justified all-the-way to the left regardless of indentations elsewhere)
 
     $TestTargetDir = "$HOME"
@@ -93,7 +94,7 @@ Write-Host "Bye!"
     Next, create/make a change to the file $HOME\SpecificDoc.txt and save it. This will trigger the
     $ActionToTake scriptblock. (Note that $ActionToTake is actually a string that is converted a scriptblock object 
     by the function). Anything in the scriptblock using the Write-Host cmdlet will appear in STDOUT in your active PowerShell 
-    session. If your scriptblock does NOT use the  Write-Host cmdlet, it will NOT appear in your active PowerShell session
+    session. If your scriptblock does NOT use the Write-Host cmdlet, it will NOT appear in your active PowerShell session
     (but, of course, the operations will still occur).
 
 .OUTPUTS
@@ -333,12 +334,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2fs6xdA9h9wSYF/I1M3Etlqv
-# ammgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsq6LK7PTXApTq0KRqFj8SFyo
+# Eb+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -393,11 +393,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMIImQnXUv
-# LxSlFZCS73QwQzl/PjANBgkqhkiG9w0BAQEFAASCAQCMinwPKlnorFR+RKv9iDSg
-# fV1HP/HT2nBA+atuKBas4l2zxEKiUscOgH81OS19zg+Sk6/bs3i84RSNjlM08u3a
-# E+9K+DUkMXO0xckhC6/DbO6s768XdZ6H24myCmX5lf9HwRt3FGJghf2HBEcgVJBD
-# CpmBulm9Ex8sfmWirvrDvde+r0dAdtbBcxq+El5SAMnz3/Nbe2hdqQ6vfwfvpTzI
-# 9TYaCY/21Gpl4n3NV4S0MzTYskgn+CbbSWr/XeeCt8NtZuMt4MAiAEyt9x3D9xJR
-# /IFZhgYB3K4fJ2cp2V8lTkfN9IMhJMFfA1cXqYYN3tYwzjolGEgv/Rw5lHZyYJYb
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBShwuvJIVG8
+# ZQjTt9PvYChgbv7uRDANBgkqhkiG9w0BAQEFAASCAQAr/7YQEIvFNVQwm+lLGge6
+# +FhgC0pXnu9hKK/S6gBIZ5H7lcOa7UVdd/qhi2iEHorQm+xXfoii4xv3Dx8yhR84
+# jH6edGP+8Xv6WyfSTDM/mUes9RkrP+rMUav7TLH5OtidpCE9O1Q1EN+ou+y03T6J
+# PB9FxQ9vAHYHQGqLqja1TXxpQJwA93Gxvw5POhTgLMxFtoWjkJ6MQEb70kph7aki
+# oA7dImzRD2aYmC4zLdAGQaCKfZWDhUW570pP3Jwka/ChRZaUUBel3t8nW4y56upf
+# 757o4e0KSdhEe2jqkgsju+L9iI2hojPTi9G8n21zQztr8EF+XlPp2ZHij+Wm7kUg
 # SIG # End signature block
