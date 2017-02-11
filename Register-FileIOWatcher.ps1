@@ -212,19 +212,7 @@ Function Register-FileIOWatcher {
     if ($IncludeSubdirectories) {
         $Watcher.IncludeSubdirectories = $True
     }
-    else {
-        $Watcher.IncludeSubdirectories = $False
-    }
     $Watcher.EnableRaisingEvents = $True
-
-    $ValidExistingVariablesPrep = $(Get-Variable).Name
-    [System.Collections.ArrayList]$ValidExistingVariables = $ValidExistingVariablesPrep
-    $FunctionParamVarsToPassToScriptBlock = @("TargetDir","FilesToWatchRegexMatch","FilesToWatchEasyMatch","IncludeSubdirectories","Trigger")
-    foreach ($ParamName in $FunctionParamVar) {
-        if ($ValidExistingVariables -notcontains $ParamName) {
-            $ValidExistingVariables.Add("$ParamName")
-        }
-    }
 
     # Adding Array elements in this manner becaue order is important
     [System.Collections.ArrayList]$FunctionParamVarsToPassToScriptBlock = @("TargetDir")
@@ -238,7 +226,6 @@ Function Register-FileIOWatcher {
         $FunctionParamVarsToPassToScriptBlock.Add("IncludeSubdirectories") | Out-Null
     }
     $FunctionParamVarsToPassToScriptBlock.Add("Trigger") | Out-Null
-    
 
     $FunctionArgsToBeUsedByActionToTakeScriptBlock = @()
     foreach ($VarName in $FunctionParamVarsToPassToScriptBlock) {
@@ -264,7 +251,7 @@ if (`$FilesOfConcern.Count -lt 1) {
     }
 
     # Always include the following in whatever scriptblock is passed to $ActionToTakeScriptBlock parameter
-    # NOTE: $Event is an automatic variable that becomes available in the context of the Regiter-ObjectEvent cmdlet
+    # NOTE: $Event is an automatic variable that becomes available in the context of the Register-ObjectEvent cmdlet
     # For more information, see:
     # https://msdn.microsoft.com/en-us/powershell/reference/5.1/microsoft.powershell.utility/register-objectevent
     # https://msdn.microsoft.com/en-us/powershell/reference/5.1/microsoft.powershell.core/about/about_automatic_variables
@@ -333,12 +320,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsq6LK7PTXApTq0KRqFj8SFyo
-# Eb+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhRp++nU/0GFmL/BjKMqc5Kly
+# m4WgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -393,11 +379,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBShwuvJIVG8
-# ZQjTt9PvYChgbv7uRDANBgkqhkiG9w0BAQEFAASCAQAr/7YQEIvFNVQwm+lLGge6
-# +FhgC0pXnu9hKK/S6gBIZ5H7lcOa7UVdd/qhi2iEHorQm+xXfoii4xv3Dx8yhR84
-# jH6edGP+8Xv6WyfSTDM/mUes9RkrP+rMUav7TLH5OtidpCE9O1Q1EN+ou+y03T6J
-# PB9FxQ9vAHYHQGqLqja1TXxpQJwA93Gxvw5POhTgLMxFtoWjkJ6MQEb70kph7aki
-# oA7dImzRD2aYmC4zLdAGQaCKfZWDhUW570pP3Jwka/ChRZaUUBel3t8nW4y56upf
-# 757o4e0KSdhEe2jqkgsju+L9iI2hojPTi9G8n21zQztr8EF+XlPp2ZHij+Wm7kUg
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS9s1hXZXO8
+# Aq28Grt2/2YLs/JGkTANBgkqhkiG9w0BAQEFAASCAQBc70ofSTdHHBXAzwEfySsv
+# dI4mhFithvt8JW0w9O02VvQZDgnrcTjvPYIVAnaDwUyWe4qZ7ds3smVUhfOiWuP0
+# R1iMbDqy3gwmVdk9EbzLrvGs3Dvn9aw5nI+k8rtCAFoTAyqRjA/AYgSrt4s2M3+e
+# fiYVx2toMhNxzLmnkZekjsLIc99Lodt0l/7LSn11pA8BHEomC0y+xKsV5YJ+USi/
+# E9Lqj2V1fSX7Z1E4Mwmf547HjfOG8UoDN82ZSn4GwS0sAAc1X3jpwnJzaPyLwReW
+# rhUyStOADjOWGo0RPPukOS8V2Yol1z/cAcgV6GvWfT05I34YZA9FjO/aFB9OaHZc
 # SIG # End signature block
