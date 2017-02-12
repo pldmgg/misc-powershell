@@ -6,14 +6,6 @@
 .DESCRIPTION
     See SYNOPSIS and PARAMETER sections.
 
-.NOTES
-    KNOWN BUG: There is a known bug with System.IO.FileSystemWatcher objects involving triggers firing multiple times for 
-    singular events. For details, see: http://stackoverflow.com/questions/1764809/filesystemwatcher-changed-event-is-raised-twice 
-
-    This function works around this bug by using Size as opposed to LastWrite time in the IO.FIleSystemWatcher object's
-    NotifyFilter property. However, there is one drawback to this workaround: If the file is modified and remains
-    EXACTLY the same size (not very likely, but still possible), then the event will NOT trigger.
-
 .PARAMETER TargetDir
     This parameter is MANDATORY.
 
@@ -57,6 +49,32 @@
 
     This parameter specifies when a particular event (and its associated action) are triggered.
 
+.PARAMETER LogDir
+    This parameter is MANDATORY.
+
+    This parameter takes a string that represents a path to a directory that will contain a folder called "FileIOWatcherEvents"
+    that contains .xml files that represent PSCustomObjects that contain the results of a triggered event. These PSCustomObjects
+    can be imported back into PowerShell at a future time for analysis by using:
+
+    $EventTriggerResultCustomObject = Import-Clixml "$LogDir\FileIOWatcherEvents\<FriendlyNameForEvent>_<SourceIdentifierLast4>_<EventIdentifier>.xml"
+
+    For more information on this, see the NOTES section.
+
+.PARAMETER FriendlyNameForEvent
+    This parameter is OPTIONAL.
+
+    This parameter takes a string that will become the name of the object that becomes available in the scope that runs this function after
+    the function concludes.
+
+    For example if the function is run as follows...
+        Register-FileIOWatcher -TargetDir "$TestTargetDir" `
+        -FilesToWatchEasyMatch "SpecificDoc.txt" `
+        -Trigger "Changed" `
+        -LogDir $LogDirectory `
+        -FriendlyNameForEvent "EventForSpecificDocChange" `
+        -ActionToTakeScriptBlock $ActionToTake
+    ...you will be able to see the result of the function by calling the variable $EventForSpecificDocChange.
+
 .PARAMETER ActionToTakeScriptBlock
     This parameter is MANDATORY.
 
@@ -69,6 +87,8 @@
     (IMPORTANT: Make sure the characters '@ are justified all-the-way to the left regardless of indentations elsewhere)
 
     $TestTargetDir = "$HOME"
+    $DirName = $HOME | Split-Path -Leaf
+    $LogDirectory = "M:\Logs\PowerShell"
     $GCITest = Get-ChildItem -Path "$HOME\Downloads"
 
     $ActionToTake = @'
@@ -89,6 +109,8 @@ Write-Host "Bye!"
     Register-FileIOWatcher -TargetDir "$TestTargetDir" `
     -FilesToWatchEasyMatch "SpecificDoc.txt" `
     -Trigger "Changed" `
+    -LogDir $LogDirectory `
+    -FriendlyNameForEvent "EventForSpecificDocChange" `
     -ActionToTakeScriptBlock $ActionToTake
 
     Next, create/make a change to the file $HOME\SpecificDoc.txt and save it. This will trigger the
@@ -98,29 +120,58 @@ Write-Host "Bye!"
     (but, of course, the operations will still occur).
 
 .OUTPUTS
-    At the conclusion of this function a new Global PSCustomObject is created called:
-        $global:FileIOWatcherFor<TARGETDIRECTORYNAME>
-    This PSCustomObject contains the following:
-    
+    Output for this function is a System.Management.Automation.PSEventJob object named after the string provided to the
+    -FriendlyNameForEvent parameter. If the -FriendlyNameForEvent parameter is not used, the System.Management.Automation.PSEventJob
+    object will be called $EventFor<TargetDirName>.
+
+.NOTES
+    KNOWN BUG:
+    There is a known bug with System.IO.FileSystemWatcher objects involving triggers firing multiple times for 
+    singular events. For details, see: http://stackoverflow.com/questions/1764809/filesystemwatcher-changed-event-is-raised-twice 
+
+    This function works around this bug by using Size as opposed to LastWrite time in the IO.FIleSystemWatcher object's
+    NotifyFilter property. However, there is one drawback to this workaround: If the file is modified and remains
+    EXACTLY the same size (not very likely, but still possible), then the event will NOT trigger.
+
+    HOW TO ANALYZE TRIGGERED EVENT RESULTS:
+    To analyze results of a triggered event, perform the following steps
+
+    Get the Event's SourceIdentifier and the last 4 characters of the SourceIdentifier. Assuming we are using the output from our
+    above EXAMPLE (i.e. $EventForSpecificDocChange), we get this information by doing the following:
+        $EventForSpecificDocChangeSourceIdentifier = $EventForSpecificDocChange.Name
+        $EventForSpecificDocChangeSourceIdentifierLast4 = $EventForSpecificFocChangeSourceIdentifier.Substring($EventForSpecificFocChangeSourceIdentifier.Length-4)
+
+    After a change is made to SpecificDoc.txt...
+
+    ...EITHER analyze the Subscriber Event itself:
+        $SubscriberEventForSpecificDocChange = Get-EventSubscriber | Where-Object {$_.SubscriberId -eq $EventForSpecificFocChangeSourceIdentifier}
+
+    ...OR (RECOMMENDED), import more comprehensive and friendly information from the log file generated when an event triggers:
+        $LogFileForLatestSpecificDocChangeTrigger = $(Get-ChildItem "$LogDirectory\FileIOWatcherEvents" | Where-Object {
+            $_.Name -like "*$EventForSpecificDocChangeSourceIdentifierLast4*"
+        } | Sort-Object -Property "LastWriteTime")[-1].FullName
+
+        $PSCustomObjectForSpecificDocChangeEvent = Import-Clixml $LogFileForLatestSpecificDocChangeTrigger
+
+    The contents of the PSCustomObject imported via Import-Clixml are as follows:
+
         Event                    : System.Management.Automation.PSEventArgs
         SubscriberEvent          : System.Management.Automation.PSEventSubscriber
+        SourceIdentifier         : f73d1f49-241e-40bc-a356-1bb02c79c162
+        FilesThatChanged         : SpecificDoc.txt
         TriggerType              : Changed
-        TimeStamp                : 2/11/2017 6:57:02 AM
-        FilesThatChanged         :
-        FilesThatChangedFullPath :
+        FilesThatChangedFullPath : C:\Users\testadmin\SpecificDoc.txt
+        TimeStamp                : 2/12/2017 11:58:40 AM
 
-    When the event is triggered (in this case, when a change to the file SpecificDoc.txt occurs), a NEW Global PSCustomObject
-    is created called:
-        $global:FileIOWatcherFor<TARGETDIRECTORYNAME><EventIdentifierNumber>
+    To review the scriptblock that was executed, either use:
+        $SubscriberEventForSpecificDocChange.Action.Command
 
-    Since you won't necessarily know the EventIdentifierNumber ahead of time, to get the variable created upon the most
-    recent trigger, use tab completion, or in a scripting context, use the following:
-        $TestTargetDirLeaf = $TestTargetDir | Split-Path -Leaf
-        $LatestEventVarName = $($(Get-Variable | Where-Object {$_.Name -like "FileIOWatcher*$TestTargetDirLeaf*[0-9+]"}).Name | Measure-Object -Maximum).Maximum
-        Get-Variable -Name "$LatestEventVarName" -ValueOnly
+    ...or, if you imported the log file to use the PSCustomObject:
+        $PSCustomObjectForSpecificDocChangeEvent.SubscriberEvent.Action.Command
 
-    To review the scriptblock that was executed, inspect the PSCustomObject as follows:
-        $(Get-Variable -Name "$LatestEventVarName" -ValueOnly).SubscriberEvent.Action.Command
+    TO UNREGISTER AN EVENT AFTER IT HAS BEEN CREATED USING THIS FUNCTION:
+    Unregister-Event -SourceIdentifier $EventForSpecificDocChangeSourceIdentifier
+
 #>
 
 Function Register-FileIOWatcher {
@@ -143,12 +194,20 @@ Function Register-FileIOWatcher {
         $Trigger,
 
         [Parameter(Mandatory=$True)]
+        [string]$LogDir, # Directory where logging of triggered events will be stored. A folder called FileIOWatcherEvents will be created and all logs will be saved inside. Logs XML representations of PSCustomObjects, so they can me imported back into PowerShell at a later time for analysis.
+
+        [Parameter(Mandatory=$False)]
+        [string]$FriendlyNameForEvent, # This string will be the name of the variable that this function outputs. If blank, the name will be "EventFor<TargetDirName>"
+
+        [Parameter(Mandatory=$True)]
         $ActionToTakeScriptBlock # Can be a string or a scriptblock. If string, the function will handle converting it to a scriptblock object.
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-    # Make sure $TargetPath is a valid path
+    # Make sure $TargetDir is a valid path
     $TargetDirNameOnly = $TargetDir | Split-Path -Leaf
+    $LogDirFileIOFolder = "FileIOWatcherEvents"
+    $FullLogDirLocation = "$LogDir\$LogDirFileIOFolder"
 
     if ( !$($([uri]$TargetDir).IsAbsoluteURI -and $($([uri]$TargetDir).IsLoopBack -or $([uri]$TargetDir).IsUnc)) ) {
         Write-Verbose "$TargetDir is not a valid directory path! Halting!"
@@ -161,6 +220,22 @@ Function Register-FileIOWatcher {
         Write-Error "The path $TargetDir was not found! Halting!"
         $global:FunctionResult = "1"
         return
+    }
+
+    if ( !$($([uri]$LogDir).IsAbsoluteURI -and $($([uri]$LogDir).IsLoopBack -or $([uri]$LogDir).IsUnc)) ) {
+        Write-Verbose "$LogDir is not a valid directory path! Halting!"
+        Write-Error "$LogDir is not a valid directory path! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    if (!$(Test-Path $LogDir)) {
+        Write-Verbose "The path $LogDir was not found! Halting!"
+        Write-Error "The path $LogDir was not found! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    if (!$(Test-Path $FullLogDirLocation)) {
+        New-Item -Path $FullLogDirLocation -ItemType Directory | Out-Null
     }
 
     if ($FilesToWatchRegexMatch -and $FilesToWatchEasyMatch) {
@@ -226,6 +301,9 @@ Function Register-FileIOWatcher {
         $FunctionParamVarsToPassToScriptBlock.Add("IncludeSubdirectories") | Out-Null
     }
     $FunctionParamVarsToPassToScriptBlock.Add("Trigger") | Out-Null
+    $FunctionParamVarsToPassToScriptBlock.Add("LogDir") | Out-Null
+    $FunctionParamVarsToPassToScriptBlock.Add("FullLogDirLocation") | Out-Null
+    $FunctionParamVarsToPassToScriptBlock.Add("FriendlyNameForEvent") | Out-Null
 
     $FunctionArgsToBeUsedByActionToTakeScriptBlock = @()
     foreach ($VarName in $FunctionParamVarsToPassToScriptBlock) {
@@ -250,6 +328,17 @@ if (`$FilesOfConcern.Count -lt 1) {
 "@
     }
 
+    if ($FriendlyNameForEvent) {
+        $NameForEventClause = @"
+`$NewVariableName = "$FriendlyNameForEvent_`$SourceIdentifierAbbrev_`$EventIdentifier"
+"@
+    }
+    if (!$FriendlyNameForEvent) {
+        $NameForEventClause = @"
+`$NewVariableName = "FileIOWatcherFor$TargetDirNameOnly_`$SourceIdentifierAbbrev_`$EventIdentifier"
+"@
+    }
+
     # Always include the following in whatever scriptblock is passed to $ActionToTakeScriptBlock parameter
     # NOTE: $Event is an automatic variable that becomes available in the context of the Register-ObjectEvent cmdlet
     # For more information, see:
@@ -269,21 +358,19 @@ $FilesToWatchRegexMatchClause
 
 `$PSEvent = `$Event
 `$SourceIdentifier = `$Event.SourceIdentifier
+`$SourceIdentifierAbbrev = `$SourceIdentifier.Substring(`$SourceIdentifier.Length - 4)
 `$PSEventSubscriber = Get-EventSubscriber | Where-Object {`$_.SourceIdentifier -eq `$SourceIdentifier}
 `$EventIdentifier = `$Event.EventIdentifier
 `$TriggerType = `$Event.SourceEventArgs.ChangeType
 `$TimeStamp = `$Event.TimeGenerated
 
-if (`$(Get-Variable).Name -notcontains "FileIOWatcherFor$TargetDirNameOnly") {
-    `$NewVariableName = "FileIOWatcherFor$TargetDirNameOnly"
-}
-if (`$(Get-Variable).Name -contains "FileIOWatcherFor$TargetDirNameOnly") {
-    `$NewVariableName = "FileIOWatcherFor$TargetDirNameOnly`$EventIdentifier"
-}
-New-Variable -Name "`$NewVariableName" -Scope Global -Value `$(
+$NameForEventClause
+
+New-Variable -Name "`$NewVariableName" -Value `$(
     New-Object PSObject -Property @{
         Event                      = `$PSEvent
         SubscriberEvent            = `$PSEventSubscriber
+        SourceIdentifier           = `$SourceIdentifier
         FilesThatChangedFullPath   = `$FilesThatChangedFullPath
         FilesThatChanged           = `$FilesThatChanged
         TriggerType                = `$TriggerType
@@ -297,6 +384,8 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 
 ##### END Function Args Passed To ScriptBlock  #####
 
+`$(Get-Variable -Name "`$NewVariableName" -ValueOnly) | Export-Clixml `$FullLogDirLocation\`$NewVariableName.xml
+
 ############################################################
 # END Always Included ScriptBlock
 ############################################################
@@ -309,7 +398,18 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 
     $Action = [scriptblock]::Create($AlwaysIncludeInScriptBlock+"`n"+$UpdatedActionToTakeScriptBlock.ToString())
 
-    Register-ObjectEvent -InputObject $Watcher -EventName "$Trigger" -Action $Action
+    if ($FriendlyNameForEvent) {
+        New-Variable -Name "$FriendlyNameForEvent" -Scope Script -Value $(
+            Register-ObjectEvent -InputObject $Watcher -EventName "$Trigger" -Action $Action
+        )
+        Get-Variable -Name "$FriendlyNameForEvent" -ValueOnly
+    }
+    if (!$FriendlyNameForEvent) {
+        New-Variable -Name "EventFor$TargetDirNameOnly" -Scope Script -Value $(
+            Register-ObjectEvent -InputObject $Watcher -EventName "$Trigger" -Action $Action
+        )
+        Get-Variable -Name "EventFor$TargetDirNameOnly" -ValueOnly
+    }
 
     ##### END Main Body #####
 }
@@ -319,12 +419,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhRp++nU/0GFmL/BjKMqc5Kly
-# m4WgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeP/nnX++8w122GadMbdgaYzG
+# yiSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -379,11 +478,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS9s1hXZXO8
-# Aq28Grt2/2YLs/JGkTANBgkqhkiG9w0BAQEFAASCAQBc70ofSTdHHBXAzwEfySsv
-# dI4mhFithvt8JW0w9O02VvQZDgnrcTjvPYIVAnaDwUyWe4qZ7ds3smVUhfOiWuP0
-# R1iMbDqy3gwmVdk9EbzLrvGs3Dvn9aw5nI+k8rtCAFoTAyqRjA/AYgSrt4s2M3+e
-# fiYVx2toMhNxzLmnkZekjsLIc99Lodt0l/7LSn11pA8BHEomC0y+xKsV5YJ+USi/
-# E9Lqj2V1fSX7Z1E4Mwmf547HjfOG8UoDN82ZSn4GwS0sAAc1X3jpwnJzaPyLwReW
-# rhUyStOADjOWGo0RPPukOS8V2Yol1z/cAcgV6GvWfT05I34YZA9FjO/aFB9OaHZc
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQR3MI6GGmL
+# ftOcJshkKdTHw+sH/DANBgkqhkiG9w0BAQEFAASCAQCHgmr0BoBv1ljoXdKp5pG9
+# Uq26Xlo+R9Oj/jGULRoBBuZfDmqH7LvCRbsvGDKZiOT64adkJIwKftSr0P+GF7wI
+# 3EvGgOM81ZPlRTbGoA1Zr4XWrTgt5spk/uH4jHihAa5JGrD4IXb8QKue5y4GlgkF
+# g7xtpMYP/utZziYxk42ZK/ajLxNDyibBc65UJap/Pk02fBRi8c6R/EIDiC+u3McC
+# OPwe5BtOSrjhr6qObvo4VQSwdZQC8lZfkjKjpOWFQ6gl1MXBRtLlNqKrqMZiK3cK
+# WY72TsXc+WmxrBFY1wea9YA9HnlhsuK4ZKfXuZl04mNzQ5FrkfRIuPB6T3p69K+3
 # SIG # End signature block
