@@ -48,83 +48,88 @@
     you want to use when you import the module(s) using Import-Module -RequiredVersion
 
 .EXAMPLE
-    .\Install-PackageManagement.ps1
+    Update-PackageManagement
 
 #>
-if ($PSVersionTable.PSVersion.Major -lt 5) {
-    if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
-        Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile "$HOME\Downloads\PackageManagement_x64.msi"
-        msiexec /i "$HOME\Downloads\PackageManagement_x64.msi" /quiet /norestart ACCEPTEULA=1
-        Start-Sleep -Seconds 3
-    }
-    while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
-        Write-Host "Waiting for PackageManagement and PowerShellGet Modules to become available"
-        Start-Sleep -Seconds 1
-    }
-    Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
-}
 
-$PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-$PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+function Update-PackageManagement {
+    if ($PSVersionTable.PSVersion.Major -lt 5) {
+        if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
+            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile "$HOME\Downloads\PackageManagement_x64.msi"
+            msiexec /i "$HOME\Downloads\PackageManagement_x64.msi" /quiet /norestart ACCEPTEULA=1
+            Start-Sleep -Seconds 3
+        }
+        while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
+            Write-Host "Waiting for PackageManagement and PowerShellGet Modules to become available"
+            Start-Sleep -Seconds 1
+        }
+        Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
+    }
 
-if ($(Get-Module).Name -notcontains "PackageManagement") {
+    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PackageManagement"}).Version | Measure-Object -Maximum).Maximum
+    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+
+    if ($(Get-Module).Name -notcontains "PackageManagement") {
+        Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+    }
+    if ($(Get-Module).Name -notcontains "PowerShellGet") {
+        Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+    }
+    # Determine if the NuGet Package Provider is available. If not, install it, because it needs it for some reason
+    # that is currently not clear to me. Point is, if it's not installed it will prompt you to install it, so just
+    # do it beforehand.
+    if ($(Get-PackageProvider).Name -notcontains "NuGet") {
+        Install-PackageProvider "NuGet" -Force
+    }
+    # Next, set the PSGallery PowerShellGet PackageProvider Source to Trusted
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+    # Next, update PackageManagement and PowerShellGet where possible
+    [version]$MinimumVer = "1.0.0.1"
+    $PackageManagementLatestVersion = $(Find-Module PackageManagement).Version
+    $PowerShellGetLatestVersion = $(Find-Module PowerShellGet).Version
+
+    # Take care of updating PowerShellGet before PackageManagement since PackageManagement won't be able to update with PowerShellGet
+    # still loaded in the current PowerShell Session
+    if ($PowerShellGetLatestVersion -gt $MinimumVer) {
+        if ($PSVersionTable.PSVersion.Major -lt 5) {
+            # Before Updating the PowerShellGet Module, we must unload it from the current PowerShell Session
+            Remove-Module -Name "PowerShellGet"
+            # Unless the force parameter is used, Install-Module will halt with a warning saying the 1.0.0.1 is already installed
+            # and it will not update it.
+            Install-Module -Name "PowerShellGet" -Force -WarningAction "SilentlyContinue"
+        }
+        if ($PSVersionTable.PSVersion.Major -ge 5) {
+            Install-Module -Name "PowerShellGet" -Force
+        }
+    }
+    if ($PackageManagementLatestVersion -gt $MinimumVer) {
+        if ($PSVersionTable.PSVersion.Major -lt 5) {
+            Write-Host "`nUnable to update the PackageManagement Module beyond $($MinimumVer.ToString()) on PowerShell versions lower than 5."
+        }
+        if ($PSVersionTable.PSVersion.Major -ge 5) {
+            Install-Module -Name "PackageManagement" -Force
+        }
+    }
+
+    # Reset the LatestLocallyAvailableVersion variables to reflect latest available, and then load them into the current session
+    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PackageManagement"}).Version | Measure-Object -Maximum).Maximum
+    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+
+    Remove-Module -Name "PowerShellGet"
+    Remove-Module -Name "PackageManagement"
+
     Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
-}
-if ($(Get-Module).Name -notcontains "PowerShellGet") {
     Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
-}
-# Determine if the NuGet Package Provider is available. If not, install it, because it needs it for some reason
-# that is currently not clear to me. Point is, if it's not installed it will prompt you to install it, so just
-# do it beforehand.
-if ($(Get-PackageProvider).Name -notcontains "NuGet") {
-    Install-PackageProvider "NuGet" -Force
-}
-# Next, set the PSGallery PowerShellGet PackageProvider Source to Trusted
-Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
-# Next, update PackageManagement and PowerShellGet where possible
-[version]$MinimumVer = "1.0.0.1"
-$PackageManagementLatestVersion = $(Find-Module PackageManagement).Version
-$PowerShellGetLatestVersion = $(Find-Module PowerShellGet).Version
-
-# Take care of updating PowerShellGet before PackageManagement since PackageManagement won't be able to update with PowerShellGet
-# still loaded in the current PowerShell Session
-if ($PowerShellGetLatestVersion -gt $MinimumVer) {
-    if ($PSVersionTable.PSVersion.Major -lt 5) {
-        # Before Updating the PowerShellGet Module, we must unload it from the current PowerShell Session
-        Remove-Module -Name "PowerShellGet"
-        # Unless the force parameter is used, Install-Module will halt with a warning saying the 1.0.0.1 is already installed
-        # and it will not update it.
-        Install-Module -Name "PowerShellGet" -Force -WarningAction "SilentlyContinue"
-    }
-    if ($PSVersionTable.PSVersion.Major -ge 5) {
-        Install-Module -Name "PowerShellGet" -Force
-    }
-}
-if ($PackageManagementLatestVersion -gt $MinimumVer) {
-    if ($PSVersionTable.PSVersion.Major -lt 5) {
-        Write-Host "`nUnable to update the PackageManagement Module beyond $($MinimumVer.ToString()) on PowerShell versions lower than 5."
-    }
-    if ($PSVersionTable.PSVersion.Major -ge 5) {
-        Install-Module -Name "PackageManagement" -Force
-    }
 }
 
-# Reset the LatestLocallyAvailableVersion variables to reflect latest available, and then load them into the current session
-$PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-$PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
-
-Remove-Module -Name "PowerShellGet"
-Remove-Module -Name "PackageManagement"
-
-Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
-Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
 
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUL7rnwnXgtJMLdTvEy8XhKBtm
-# hDugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUi0Ro07G/OqOFWcWS21TLyPYr
+# PLegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -179,11 +184,11 @@ Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvaila
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBScWBHSIIbN
-# ZbkU+xfEZBAiXRYDOzANBgkqhkiG9w0BAQEFAASCAQBYX5sier6V9qnusuphE1jL
-# lcES21kycnLpg+yTWCLhKzKQQVgMgpeM94e4iADmbJ7KiJrHXSbXoML0NQSuqMOS
-# kNhvd8a+aW3TD8lncbsk18mSytIJF5oWmBgixaZKKSucyOu8cMwZwbTJ7MiXO3Tw
-# PJZb9AvRlm7mKZFpP9iEmWpFbLlY2GlgyXPAR1UcJ0SZqKOx5x9JUq8Fj+x3Qf8T
-# nSkcBwUu55ojfUydkLxIJMPXioR3pfsz1u6pwv/uUxlcLO2c9DgWfy9fQW+hfwgX
-# ugDW8oOLN07stW3SbZwXLhoWcNh+cOFtCDvNzL2HeT86ls68PSZQDKih4CiqNTnB
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQkPsNTY3e3
+# PPyre/t9HAWSTv9eyjANBgkqhkiG9w0BAQEFAASCAQBbxeMyvobLte+FORa+z/un
+# gCNf/F0P7lsdHJOJAXCDChU1mR7O/xvI/Xq5AZoGEI0ZDPbp6o5RZA5LChRTdTVZ
+# R0NIDk+twpfR5yJNeIb2QzdHgq+WewO7aI74rn/Ks+lyq0ZP+YHvGAcF3W9jDJch
+# V8dOmjEWq8v1xftCt/6TfXFa0ZvtE+FBtilsiyJ5G6NxF8sbb3MPDQk17Au7XX4n
+# aK8yI2fomX3HdE43f8Y/APqDDojSm6+hbvuF9HyPUkF3u6JJPndrTMBVuNb2TKj8
+# wzhicGgXI331Jkg6uuKqK5xpCCpCi5t5/2OrRq8TvDdm7WzyNDOczBl6cECvYXtM
 # SIG # End signature block
