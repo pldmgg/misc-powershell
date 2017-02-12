@@ -44,7 +44,7 @@
 .PARAMETER Trigger
     This parameter is MANDATORY.
 
-    This parameter takes a string and must be one of the following values: 
+    This parameter takes a string and must be one of the following values:
     "Changed","Created","Deleted","Disposed","Error","Renamed"
 
     This parameter specifies when a particular event (and its associated action) are triggered.
