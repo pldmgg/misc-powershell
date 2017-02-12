@@ -5,9 +5,8 @@ function Convert-ToBase64 {
         [string]$InputString
     )
 
-    ##### BEGIN Parameter Validation #####
-    $RegexLocalOrUNCPath = '^(([a-zA-Z]:\\)|(\\\\))(((?![<>:"/\\|?*]).)+((?<![ .])\\)?)*$'
-    # If $InputString is a filepath...
+    ##### BEGIN Main Body #####
+    # If $InputString is a path to a file containing base64...
     if ([uri]$InputString.IsAbsoluteURI -and $([uri]$InputString.IsLoopBack -or [uri]$InputString.IsUnc)) {
         if (Test-Path $InputString) {
             try {
@@ -32,7 +31,7 @@ function Convert-ToBase64 {
             return
         }
     }
-    # Else, assume it's just a string of text...
+    # Else, assume it's just a string of text in base64...
     else {
         try {
             $Output = [System.Convert]::ToBase64String([System.Text.Encoding]::UNICODE.GetBytes($InputString))
@@ -56,8 +55,8 @@ function Convert-ToBase64 {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZmhP54/k7Treeo9rjsZXJ+Ik
-# JVmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvP3QIx3YkieL6CgiRESsybIG
+# OIegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -112,11 +111,11 @@ function Convert-ToBase64 {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSsr7oVEvOy
-# mlDFliqT9PshroUbzzANBgkqhkiG9w0BAQEFAASCAQBddXF2AevjJlkBYPfi7Bpk
-# FaXAErReI2l/ZP+eKdUGj6crC38WtPXfeOIkrjKVdrsAOnOElY7/jZGk1Z8JGrO/
-# ImpdU4xp6Xr/H2Q6pHn2zhCMImavGu7t77wx/Dhm7+aoXmjJWCAP+aVri14rUwIY
-# 1fuSL9Koz7CSvzcsL6SGry2eD+Mbzcx7RIAukDXY1JvJew8QGqu2+SYyvAAwpI0v
-# SedhOkmsjb3z6kI11DGVNsZueYUNbdsSk4izx2QdEXn4wGmAYWeWSzxMLZGNnFcU
-# n0aRVhJhcSTeNBWIGluA+8dLafnNFhlVneUUUzuak1RxPAfGJ28Cz0lugsLrK/uw
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTYBQWD7mfT
+# 7cEBzDJnYgKNA2xnuTANBgkqhkiG9w0BAQEFAASCAQBzLUkg3fCJTvcvOCQTOWn5
+# NMfxohwrM6SC702A31CsAnFze2lI9NpK4s61K4iqzIsjsPi4iYirqDWI6Z0kqLzH
+# UcXPHYgYLhlXUrSuoeGaclEDlM/eLx5r9sR1gQvZ7Y/Hi1j5W7lP/mQAeXam5c6P
+# wbf8oHfTvDqYHCSqg6mvYPWS+V8x522fZq1nNx9bjlDjvjSO3PcjNemR01voCXa7
+# 5CBrMY7A8gEHvNkZsn28FijN/WP67lbhnzzr8s76GzMk4fIEHFoFxYM7mqmnMhhP
+# AurkBwF7igeTpl9a0KG9yYX2HeQIWN+NNhs4DBbN2ty8cDEFozuzPhXWLEEIizWW
 # SIG # End signature block
