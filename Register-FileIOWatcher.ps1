@@ -330,12 +330,12 @@ if (`$FilesOfConcern.Count -lt 1) {
 
     if ($FriendlyNameForEvent) {
         $NameForEventClause = @"
-`$NewVariableName = "`$FriendlyNameForEvent_`$SourceIdentifierAbbrev_`$EventIdentifier"
+`$NewVariableName = "$FriendlyNameForEvent`_`$SourceIdentifierAbbrev`_`$EventIdentifier"
 "@
     }
     if (!$FriendlyNameForEvent) {
         $NameForEventClause = @"
-`$NewVariableName = "FileIOWatcherFor`$TargetDirNameOnly_`$SourceIdentifierAbbrev_`$EventIdentifier"
+`$NewVariableName = "FileIOWatcherFor$TargetDirNameOnly`_`$SourceIdentifierAbbrev`_`$EventIdentifier"
 "@
     }
 
@@ -364,13 +364,6 @@ $FilesToWatchRegexMatchClause
 `$TriggerType = `$Event.SourceEventArgs.ChangeType
 `$TimeStamp = `$Event.TimeGenerated
 
-##### BEGIN Function Args Passed To ScriptBlock #####
-
-$UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
-`$TargetDirNameOnly = `$TargetDir | Split-Path -Leaf
-
-##### END Function Args Passed To ScriptBlock  #####
-
 $NameForEventClause
 
 New-Variable -Name "`$NewVariableName" -Value `$(
@@ -384,6 +377,12 @@ New-Variable -Name "`$NewVariableName" -Value `$(
         TimeStamp                  = `$TimeStamp
     }
 )
+
+##### BEGIN Function Args Passed To ScriptBlock #####
+
+$UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
+
+##### END Function Args Passed To ScriptBlock  #####
 
 `$(Get-Variable -Name "`$NewVariableName" -ValueOnly) | Export-Clixml `$FullLogDirLocation\`$NewVariableName.xml
 
@@ -422,8 +421,8 @@ New-Variable -Name "`$NewVariableName" -Value `$(
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNwQZiDTUjelL0nQa/bKMmzxw
-# BzCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU70q3hH2amMT81dTaeyoskiRi
+# XtqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -478,11 +477,11 @@ New-Variable -Name "`$NewVariableName" -Value `$(
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTDBI6AoGpn
-# irowmayih83cMESyXjANBgkqhkiG9w0BAQEFAASCAQAo3lBGWGr0SiWcewMEFND8
-# sqsDDwpZ1dLUrnVE1b7VOUq+hE6ddZNTAIYSDZFu3tbEsnQjakkkBGEpQNT9b7I3
-# HgvwCmIFZ39lZJyO6pM/s8IuhB3pdZKSbuVCCM2kRCy0ElWsuLdV836TJG38j/Yj
-# SbUeCsqu4H0hTdbCZ2F3H5+E1gSaJdL6InRszIkvSQhUimaPDRhdjshNomxcAROv
-# 9MruqYFySE/UgPZkbmo6uK7OfyV5CxU0sxrui7gksLtUhl1yFSbSz3hufipfgFnf
-# NZ58MYEowplbF/Med1GNehD4xgNVi/sKDQ9z5PitJvMMsAby52cyBpA8a6UFEw1B
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ6bvc1ce7a
+# lkgBlAumblG6hdbKHjANBgkqhkiG9w0BAQEFAASCAQA+yKa6joGYzsxdj4aV9/XN
+# oZ0HxZreODNzcRlcB86FRyB6t0/soF6mlYQx62P/LNMVMM/xnd4OjE47J0AjQCA3
+# lL4YYZKVHERPYzQs/3SdB9XUP2cWPChqtn1CLcLAtmTXAw9YcoJUWf83jmCkZM7r
+# 3RlJxWgKM0lfgIPKLLg/MALh57OTDzFzsHauZE3DwKJOYaaxSoB/7KcAdO1mEBSr
+# uHUXSxGu52fjYTY9L14XM9WMDtB1eIJstRK5srYJ7fagL+BuvkxqjZh7xQydzBhi
+# Risxy5p5Ht+fltI2LM+Zen3DjqHGEv5XZn5yVsiPfB1rdcDCxO+As+gpxIw9P8hf
 # SIG # End signature block
