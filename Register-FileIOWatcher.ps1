@@ -330,12 +330,12 @@ if (`$FilesOfConcern.Count -lt 1) {
 
     if ($FriendlyNameForEvent) {
         $NameForEventClause = @"
-`$NewVariableName = "$FriendlyNameForEvent_`$SourceIdentifierAbbrev_`$EventIdentifier"
+`$NewVariableName = "`$FriendlyNameForEvent_`$SourceIdentifierAbbrev_`$EventIdentifier"
 "@
     }
     if (!$FriendlyNameForEvent) {
         $NameForEventClause = @"
-`$NewVariableName = "FileIOWatcherFor$TargetDirNameOnly_`$SourceIdentifierAbbrev_`$EventIdentifier"
+`$NewVariableName = "FileIOWatcherFor`$TargetDirNameOnly_`$SourceIdentifierAbbrev_`$EventIdentifier"
 "@
     }
 
@@ -364,6 +364,13 @@ $FilesToWatchRegexMatchClause
 `$TriggerType = `$Event.SourceEventArgs.ChangeType
 `$TimeStamp = `$Event.TimeGenerated
 
+##### BEGIN Function Args Passed To ScriptBlock #####
+
+$UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
+`$TargetDirNameOnly = `$TargetDir | Split-Path -Leaf
+
+##### END Function Args Passed To ScriptBlock  #####
+
 $NameForEventClause
 
 New-Variable -Name "`$NewVariableName" -Value `$(
@@ -377,12 +384,6 @@ New-Variable -Name "`$NewVariableName" -Value `$(
         TimeStamp                  = `$TimeStamp
     }
 )
-
-##### BEGIN Function Args Passed To ScriptBlock #####
-
-$UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
-
-##### END Function Args Passed To ScriptBlock  #####
 
 `$(Get-Variable -Name "`$NewVariableName" -ValueOnly) | Export-Clixml `$FullLogDirLocation\`$NewVariableName.xml
 
@@ -418,12 +419,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeP/nnX++8w122GadMbdgaYzG
-# yiSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNwQZiDTUjelL0nQa/bKMmzxw
+# BzCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -478,11 +478,11 @@ $UpdatedFunctionArgsToBeUsedByActionToTakeScriptBlockAsString
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQR3MI6GGmL
-# ftOcJshkKdTHw+sH/DANBgkqhkiG9w0BAQEFAASCAQCHgmr0BoBv1ljoXdKp5pG9
-# Uq26Xlo+R9Oj/jGULRoBBuZfDmqH7LvCRbsvGDKZiOT64adkJIwKftSr0P+GF7wI
-# 3EvGgOM81ZPlRTbGoA1Zr4XWrTgt5spk/uH4jHihAa5JGrD4IXb8QKue5y4GlgkF
-# g7xtpMYP/utZziYxk42ZK/ajLxNDyibBc65UJap/Pk02fBRi8c6R/EIDiC+u3McC
-# OPwe5BtOSrjhr6qObvo4VQSwdZQC8lZfkjKjpOWFQ6gl1MXBRtLlNqKrqMZiK3cK
-# WY72TsXc+WmxrBFY1wea9YA9HnlhsuK4ZKfXuZl04mNzQ5FrkfRIuPB6T3p69K+3
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTDBI6AoGpn
+# irowmayih83cMESyXjANBgkqhkiG9w0BAQEFAASCAQAo3lBGWGr0SiWcewMEFND8
+# sqsDDwpZ1dLUrnVE1b7VOUq+hE6ddZNTAIYSDZFu3tbEsnQjakkkBGEpQNT9b7I3
+# HgvwCmIFZ39lZJyO6pM/s8IuhB3pdZKSbuVCCM2kRCy0ElWsuLdV836TJG38j/Yj
+# SbUeCsqu4H0hTdbCZ2F3H5+E1gSaJdL6InRszIkvSQhUimaPDRhdjshNomxcAROv
+# 9MruqYFySE/UgPZkbmo6uK7OfyV5CxU0sxrui7gksLtUhl1yFSbSz3hufipfgFnf
+# NZ58MYEowplbF/Med1GNehD4xgNVi/sKDQ9z5PitJvMMsAby52cyBpA8a6UFEw1B
 # SIG # End signature block
