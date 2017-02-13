@@ -82,7 +82,9 @@ function Update-PackageManagement {
         Install-PackageProvider "NuGet" -Force
     }
     # Next, set the PSGallery PowerShellGet PackageProvider Source to Trusted
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    if ($(Get-PackageSource | Where-Object {$_.Name -eq "PSGallery"}).IsTrusted -eq $False) {
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    }
 
     # Next, update PackageManagement and PowerShellGet where possible
     [version]$MinimumVer = "1.0.0.1"
@@ -91,7 +93,7 @@ function Update-PackageManagement {
 
     # Take care of updating PowerShellGet before PackageManagement since PackageManagement won't be able to update with PowerShellGet
     # still loaded in the current PowerShell Session
-    if ($PowerShellGetLatestVersion -gt $MinimumVer) {
+    if ($PowerShellGetLatestVersion -gt $PowerShellGetLatestLocallyAvailableVersion -and $PowerShellGetLatestVersion -gt $MinimumVer) {
         if ($PSVersionTable.PSVersion.Major -lt 5) {
             # Before Updating the PowerShellGet Module, we must unload it from the current PowerShell Session
             Remove-Module -Name "PowerShellGet"
@@ -103,7 +105,7 @@ function Update-PackageManagement {
             Install-Module -Name "PowerShellGet" -Force
         }
     }
-    if ($PackageManagementLatestVersion -gt $MinimumVer) {
+    if ($PackageManagementLatestVersion -gt $PackageManagementLatestLocallyAvailableVersion -and $PackageManagementLatestVersion -gt $MinimumVer) {
         if ($PSVersionTable.PSVersion.Major -lt 5) {
             Write-Host "`nUnable to update the PackageManagement Module beyond $($MinimumVer.ToString()) on PowerShell versions lower than 5."
         }
@@ -125,11 +127,12 @@ function Update-PackageManagement {
 }
 
 
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUi0Ro07G/OqOFWcWS21TLyPYr
-# PLegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUk9TzhU/61b4LhowURtDH4563
+# 8aagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -184,11 +187,11 @@ function Update-PackageManagement {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQkPsNTY3e3
-# PPyre/t9HAWSTv9eyjANBgkqhkiG9w0BAQEFAASCAQBbxeMyvobLte+FORa+z/un
-# gCNf/F0P7lsdHJOJAXCDChU1mR7O/xvI/Xq5AZoGEI0ZDPbp6o5RZA5LChRTdTVZ
-# R0NIDk+twpfR5yJNeIb2QzdHgq+WewO7aI74rn/Ks+lyq0ZP+YHvGAcF3W9jDJch
-# V8dOmjEWq8v1xftCt/6TfXFa0ZvtE+FBtilsiyJ5G6NxF8sbb3MPDQk17Au7XX4n
-# aK8yI2fomX3HdE43f8Y/APqDDojSm6+hbvuF9HyPUkF3u6JJPndrTMBVuNb2TKj8
-# wzhicGgXI331Jkg6uuKqK5xpCCpCi5t5/2OrRq8TvDdm7WzyNDOczBl6cECvYXtM
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTCpeCo61Jo
+# tQrllpMHmnNsjTyrOzANBgkqhkiG9w0BAQEFAASCAQAxkAsB2icNy9mwrMNyCD/K
+# glgwjpe47zYNXu3pgz7jvsFMvf5Ip34iSs1JZoq0dQ90gIrFBX+X+AU4YyJCiX08
+# O3gYPsO+/byV1ZND5p+gKt5UY4OOPYKTSuxaA93nY8p9xcsVQ85572ih7m+alsFJ
+# JuzRu5NVj7rDfzNO3CC8gUBpXhPxe8hsiqzbWl+faLUInjm/hfyjVzZgwHuR1dUa
+# NsNqEDLt2k/vhBz2FCCOzZ+H74tc+1zzS8zu52nxZ74jRxnXfjm+lt1vs/btCewI
+# AofRm8Gpg34Ux2NxRizDWaNGAz8QjFAGkuFu7ydV0/nI2TrQ2AUtV2WX54PDRzrG
 # SIG # End signature block
