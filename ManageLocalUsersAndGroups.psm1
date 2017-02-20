@@ -429,7 +429,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
             $DirectoryEntryPath = "WinNT://NT AUTHORITY/$Member"
         }
         # If $Member is a Group, Create the $MemberGroupObject and get the $DirectoryEntryPath
-        if (!$MemberUserAccountObjectCheck -and !$MemberSystemAccountObjectCheck)
+        if (!$MemberUserAccountObjectCheck -and !$MemberSystemAccountObjectCheck) {
             try {
                 $MemberGroupObject = $ADSI.Children.Find($Member, "Group")
             }
@@ -594,13 +594,11 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
         catch {
             Write-Verbose "A Local Group with the name $Name does NOT already exist. Continuing..."
         }
-        finally {
-            if ($GroupObjectTest) {
-                Write-Verbose "A Group with the name $Name already exists on the Local Host! Halting!"
-                Write-Error "A Group with the name $Name already exists on the Local Host! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
+        if ($GroupObjectTest) {
+            Write-Verbose "A Group with the name $Name already exists on the Local Host! Halting!"
+            Write-Error "A Group with the name $Name already exists on the Local Host! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
 
         ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -680,19 +678,9 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
         $Computer = $env:COMPUTERNAME
         $ADSI = [ADSI]("WinNT://$Computer")
 
-        <#
-        The below $PasswordComplexityRegex is from:
-        https://blogs.technet.microsoft.com/poshchap/2016/10/14/regex-for-password-complexity-validation/
-        It enforces passwords of 8-16 characters and meet three out of four of the following conditions:
-            - Lowercase characters
-            - uppercase characters
-            - digits (0-9)
-            - one or more of the following symbols: @ # $ % ^ & * – _ + = [ ] { } | \ : ' , ? / ` ~ " ( ) ; . £
-        To change password length requirement, simply change {8,16} at the end of the regex string.
-        #>
-        $PasswordComplexityRegex = @"
+        $PasswordComplexityRegex = @'
 ^((?=.*[a-z])(?=.*[A-Z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9])|(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9])|(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]))([A-Za-z\d@#$%^&£*\-_+=[\]{}|\\:',?/`~"();!]|\.(?!@)){8,16}$
-"@
+'@
         $BSTR = [System.Runtime.Interopservices.Marshal]::SecureStringToBSTR($Password)
         $PTPwd = [System.Runtime.Interopservices.Marshal]::PtrToStringAuto($BSTR)
         
@@ -703,7 +691,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
             Write-Host "    - Lowercase characters"
             Write-Host "    - Uppercase characters"
             Write-Host "    - digits (0-9)"
-            Write-Host "    - One or more of the following symbols: `@ `# `$ `% `^ `& `* `– `_ `+ `= `[ `] `{ `} `| `\ `: `' `, `? `/ `` `~ `" `( `) `; `. `£"
+            Write-Host '    - One or more of the following symbols: @ # $ % ^ & * – _ + = [ ] { } | \ : , ? / ` ~ " ( ) ; . £'
             $Password = Read-Host -Prompt "Please enter a new password for the new user account $Name." -AsSecureString
             $BSTR = [System.Runtime.Interopservices.Marshal]::SecureStringToBSTR($Password)
             $PTPwd = [System.Runtime.Interopservices.Marshal]::PtrToStringAuto($BSTR)
@@ -910,16 +898,6 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
             return
         }
 
-        <#
-        The below $PasswordComplexityRegex is from:
-        https://blogs.technet.microsoft.com/poshchap/2016/10/14/regex-for-password-complexity-validation/
-        It enforces passwords of 8-16 characters and meet three out of four of the following conditions:
-            - Lowercase characters
-            - uppercase characters
-            - digits (0-9)
-            - one or more of the following symbols: @ # $ % ^ & * – _ + = [ ] { } | \ : ' , ? / ` ~ " ( ) ; . £
-        To change password length requirement, simply change {$($UserObject.MinPasswordLength),30} at the end of the regex string.
-        #>
         $PasswordComplexityRegex = @"
 ^((?=.*[a-z])(?=.*[A-Z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9])|(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9])|(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]))([A-Za-z\d@#$%^&£*\-_+=[\]{}|\\:',?/`~"();!]|\.(?!@)){$($UserObject.MinPasswordLength),30}$
 "@
@@ -933,7 +911,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
             Write-Host "    - Lowercase characters"
             Write-Host "    - Uppercase characters"
             Write-Host "    - digits (0-9)"
-            Write-Host "    - One or more of the following symbols: `@ `# `$ `% `^ `& `* `– `_ `+ `= `[ `] `{ `} `| `\ `: `' `, `? `/ `` `~ `" `( `) `; `. `£"
+            Write-Host '    - One or more of the following symbols: @ # $ % ^ & * – _ + = [ ] { } | \ : , ? / ` ~ " ( ) ; . £'
             $Password = Read-Host -Prompt "Please enter a new password for the new user account $Name." -AsSecureString
             $BSTR = [System.Runtime.Interopservices.Marshal]::SecureStringToBSTR($Password)
             $PTPwd = [System.Runtime.Interopservices.Marshal]::PtrToStringAuto($BSTR)
@@ -1019,16 +997,6 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
         ##### BEGIN Main Body #####
 
         if ($Password) {
-            <#
-            The below $PasswordComplexityRegex is from:
-            https://blogs.technet.microsoft.com/poshchap/2016/10/14/regex-for-password-complexity-validation/
-            It enforces passwords of $($UserObject.MinPasswordLength)-16 characters and meet three out of four of the following conditions:
-                - Lowercase characters
-                - uppercase characters
-                - digits (0-9)
-                - one or more of the following symbols: @ # $ % ^ & * – _ + = [ ] { } | \ : ' , ? / ` ~ " ( ) ; . £
-            To change password length requirement, simply change {$($UserObject.MinPasswordLength),16} at the end of the regex string.
-            #>
             $PasswordComplexityRegex = @"
 ^((?=.*[a-z])(?=.*[A-Z])(?=.*\d)|(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9])|(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9])|(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]))([A-Za-z\d@#$%^&£*\-_+=[\]{}|\\:',?/`~"();!]|\.(?!@)){$($UserObject.MinPasswordLength),30}$
 "@
@@ -1042,7 +1010,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
                 Write-Host "    - Lowercase characters"
                 Write-Host "    - Uppercase characters"
                 Write-Host "    - digits (0-9)"
-                Write-Host "    - One or more of the following symbols: `@ `# `$ `% `^ `& `* `– `_ `+ `= `[ `] `{ `} `| `\ `: `' `, `? `/ `` `~ `" `( `) `; `. `£"
+                Write-Host '    - One or more of the following symbols: @ # $ % ^ & * – _ + = [ ] { } | \ : , ? / ` ~ " ( ) ; . £'
                 $Password = Read-Host -Prompt "Please enter a new password for the new user account $Name." -AsSecureString
                 $BSTR = [System.Runtime.Interopservices.Marshal]::SecureStringToBSTR($Password)
                 $PTPwd = [System.Runtime.Interopservices.Marshal]::PtrToStringAuto($BSTR)
@@ -1139,11 +1107,14 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 
 
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsqLuyVriVxptL5JfR/YzIo09
-# KyygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0qBDVGtBS7V5wp2JCl/d7GRP
+# WNegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1198,11 +1169,11 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRQrPLw5q8P
-# SbqukIhJKqA7G6GyHjANBgkqhkiG9w0BAQEFAASCAQBZi3U6WWRFsSa5POsDgJih
-# W8krkxCARylT404RgNPjGtHIohUMCXY6RpuOBDe9NCe+ncnE0coLgc/ivLyAOgTI
-# GVT6vJdgRlWm4O9Q0PNcWC6gRe2MKTVfe/PDKTWxbpFxARxhyD4+Ql8SzCRHEy4R
-# cIWEcPkU3pb1eLYhkpHwdFHDt8aaetM5BpRM5hEom+1p+blMI/CXU3W7dU5op34B
-# DkBeuyrBb3rcSV7e9X7/bwNrad1v2ml991NZCkdyH9IJ/t0yVPniLjiTaWyVZ0ZL
-# M63FKO3w40KCzdssULqg1YTCmbahmt7E+L22AR2p79gGphkMb48his/b/1HA6fp+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS9CJb8aQsq
+# cS7B1dsDiLnckc7FETANBgkqhkiG9w0BAQEFAASCAQAwC06JakZXkDRviLIGZUwy
+# /pMluGS1+NCcc5k2p6wTiqyPcP0GbhGa11gy7aNadwvrO7Kp4v0RwzeSAfPoDgeo
+# 5mt6VyhIVff2PRu5LGiG1XQDYNGVDApngWJplVLNkUbhXtgu2INRaFIwSlWcpZxf
+# bqTm/cQ9rPwxJMuWEIML54GXav/lXmqsWyuh1HX+AYRA/2O8FQHGAJh/CPk6UNSf
+# cBo77LxIQ4/qvKon1RkYTDKbGompRJCMQKByNGtAluj2U7vONTbjI8uz2REdxzS0
+# iotp91X/n048NL8FQ0Xwt6gOnEem8FGCbpVofWwiMf0sfW17BpC5phbXg5ez1z8J
 # SIG # End signature block
