@@ -80,6 +80,27 @@ function Update-PackageManagement {
     # do it beforehand.
     if ($(Get-PackageProvider).Name -notcontains "NuGet") {
         Install-PackageProvider "NuGet" -Force
+        # The above Install-PackageProvider "NuGet" -Force does NOT register a PackageSource Repository
+        # We could do it manually with th below...
+        #    Register-PackageSource -Name 'NuGet' -Location 'https://api.nuget.org/v3/index.json' -ProviderName NuGet -Trusted -Force -ForceBootstrap
+        # ...but ultimately this is useless because Find-Package does NOT successfully search the NuGet Repo for NuGet packages
+        # Instead, we'll install the NuGet CLI from the Chocolatey repo...
+        Install-PackageProvider "Chocolatey" -Force
+        # The above Install-PackageProvider "Chocolatey" -Force DOES register a PackageSource Repository, so we need to trust it:
+        Set-PackageSource -Name Chocolatey -Trusted
+        # Next, install the NuGet CLI using the Chocolatey Repo
+        Install-Package Nuget.CommandLine
+        # Ensure $env:Path includes C:\Chocolatey\bin
+        if ($($env:Path -split ";") -notcontains "C:\Chocolatey\bin") {
+            $env:Path = "$env:Path;C:\Chocolatey\bin"
+        }
+        # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
+        $NuGetSymlinkTest = Get-ChildItem "$env:ChocolateyPath" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
+        $RealNuGetPath = $(Resolve-Path "$(Get-Location | Split-Path -Parent)\lib\*\*\NuGet.exe").Path
+        $TestRealNuGetPath = Test-Path $RealNuGetPath
+        if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
+            cmd.exe /c mklink C:\Chocolatey\bin\NuGet.exe $RealNuGetPath
+        }
     }
     # Next, set the PSGallery PowerShellGet PackageProvider Source to Trusted
     if ($(Get-PackageSource | Where-Object {$_.Name -eq "PSGallery"}).IsTrusted -eq $False) {
@@ -128,11 +149,20 @@ function Update-PackageManagement {
 
 
 
+
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUk9TzhU/61b4LhowURtDH4563
-# 8aagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9tx+FHgxfGr2wOrY8ilVGj8q
+# QXGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -187,11 +217,11 @@ function Update-PackageManagement {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTCpeCo61Jo
-# tQrllpMHmnNsjTyrOzANBgkqhkiG9w0BAQEFAASCAQAxkAsB2icNy9mwrMNyCD/K
-# glgwjpe47zYNXu3pgz7jvsFMvf5Ip34iSs1JZoq0dQ90gIrFBX+X+AU4YyJCiX08
-# O3gYPsO+/byV1ZND5p+gKt5UY4OOPYKTSuxaA93nY8p9xcsVQ85572ih7m+alsFJ
-# JuzRu5NVj7rDfzNO3CC8gUBpXhPxe8hsiqzbWl+faLUInjm/hfyjVzZgwHuR1dUa
-# NsNqEDLt2k/vhBz2FCCOzZ+H74tc+1zzS8zu52nxZ74jRxnXfjm+lt1vs/btCewI
-# AofRm8Gpg34Ux2NxRizDWaNGAz8QjFAGkuFu7ydV0/nI2TrQ2AUtV2WX54PDRzrG
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSZBFW/8iDZ
+# yHbptDMlZuP2VrRT3TANBgkqhkiG9w0BAQEFAASCAQBLkWujUuDxe8qhKNiBOvyi
+# M/eJpyOOaY6SzRH2ktKfybb9hC9CLp3mEMBjHbdSaB+S4e2urxZVwfdyD2ZA+tiJ
+# zDXZdpu7Oh4KzbnRPnom84xHweuJUEmjRz6diXxNusMl/jnkRbe78o5Z08EOXi7A
+# OpePLG06MiprZ9GoFGnVaglT0DthaEF4Gq/T5oKcsxS4w1id9cWGI9n0ErauQAI2
+# n8xxWrrGm/XIb6r315zjlDp3HMkW33QaZIGrY803Wb7fgZtMNZTbb5RzCq5w1C3M
+# gfXQ+UMsoRLnNwOBoQJY5TciepiNrK+RF+Q+E+6SurvJuj29QE5HviSz8J3MRvNQ
 # SIG # End signature block
