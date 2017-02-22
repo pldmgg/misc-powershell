@@ -7,7 +7,7 @@ opinion) goes the extra mile by returning the 5.1 cmdlet info as well as additio
 (such as Group Members that are themselves objects that can be further explored)
 #>
 Function Get-LocalGroup {
-    [Cmdletbinding(PositionalBinding=$True)]
+    [Cmdletbinding()]
     Param(
         [Parameter(
             Mandatory=$False,
@@ -51,75 +51,77 @@ Function Get-LocalGroup {
 
             $DomainPre = $(Get-WmiObject Win32_ComputerSystem).Domain.Split(".")[0]
 
-            foreach ($Member in $Members) {
-                # Check to See if $Member is a Local User Account
-                try {
-                    $MemberUserObject = $ADSI.Children.Find("$Member", "User")
-                }
-                catch {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is either NOT a User Account or IS a User Account from Active Directory applied to the Local Group $($GroupObject.Name) ."
-                }
-                if ($MemberUserObject) {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is a Local User Account applied to the Local Group $($GroupObject.Name)"
-                    $LocalUserAccounts +=, $MemberUserObject
-                    Remove-Variable -Name "MemberUserObject"
-                    continue
-                }
-                # Check To See if $Member is a Local System Account
-                $LocalSystemAccountCheck = Get-WmiObject -Class "Win32_SystemAccount" -NameSpace "root\cimv2" | Where-Object {$_.Name -eq "$Member"}
-                if ($LocalSystemAccountCheck) {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is a Local System Account applied to the Local Group $($GroupObject.Name)"
-                    $LocalSystemAccounts +=, $LocalSystemAccountCheck
-                }
+            if ($Members) {
+                foreach ($Member in $Members) {
+                    # Check to See if $Member is a Local User Account
+                    try {
+                        $MemberUserObject = $ADSI.Children.Find("$Member", "User")
+                    }
+                    catch {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is either NOT a User Account or IS a User Account from Active Directory applied to the Local Group $($GroupObject.Name) ."
+                    }
+                    if ($MemberUserObject) {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is a Local User Account applied to the Local Group $($GroupObject.Name)"
+                        $LocalUserAccounts +=, $MemberUserObject
+                        Remove-Variable -Name "MemberUserObject"
+                        continue
+                    }
+                    # Check To See if $Member is a Local System Account
+                    $LocalSystemAccountCheck = Get-WmiObject -Class "Win32_SystemAccount" -NameSpace "root\cimv2" | Where-Object {$_.Name -eq "$Member"}
+                    if ($LocalSystemAccountCheck) {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is a Local System Account applied to the Local Group $($GroupObject.Name)"
+                        $LocalSystemAccounts +=, $LocalSystemAccountCheck
+                    }
 
-                # Check to See if $Member is a Local Group
-                try {
-                    $MemberGroupObject = $ADSI.Children.Find("$Member", "Group")
-                }
-                catch {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is either NOT a Group or IS a Group from Active Directory applied to the Local Group $($GroupObject.Name)"
-                }
-                if ($MemberGroupObject) {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is a Local Group"
-                    $LocalGroupAccounts +=, $MemberGroupObject
-                    Remove-Variable -Name "MemberGroupObject"
-                    continue
-                }
+                    # Check to See if $Member is a Local Group
+                    try {
+                        $MemberGroupObject = $ADSI.Children.Find("$Member", "Group")
+                    }
+                    catch {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is either NOT a Group or IS a Group from Active Directory applied to the Local Group $($GroupObject.Name)"
+                    }
+                    if ($MemberGroupObject) {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is a Local Group"
+                        $LocalGroupAccounts +=, $MemberGroupObject
+                        Remove-Variable -Name "MemberGroupObject"
+                        continue
+                    }
 
-                # Start checking Active Directory
-                $ADSIForAD = [ADSI]"WinNT://$DomainPre"
+                    # Start checking Active Directory
+                    $ADSIForAD = [ADSI]"WinNT://$DomainPre"
 
-                # Check to see if $Member is an AD User
-                try {
-                    $MemberADUserObject = $ADSIForAD.Children.Find("$Member", "User")
-                }
-                catch {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is NOT an AD User Account, which means it MUST be an AD Group."
-                }
-                if ($MemberADUserObject) {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is an AD User Account"
-                    $ADUserAccountsAppliedLocally +=, $MemberADUserObject
-                    Remove-Variable -Name "MemberADUserObject"
-                    continue
-                }
+                    # Check to see if $Member is an AD User
+                    try {
+                        $MemberADUserObject = $ADSIForAD.Children.Find("$Member", "User")
+                    }
+                    catch {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is NOT an AD User Account, which means it MUST be an AD Group."
+                    }
+                    if ($MemberADUserObject) {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is an AD User Account"
+                        $ADUserAccountsAppliedLocally +=, $MemberADUserObject
+                        Remove-Variable -Name "MemberADUserObject"
+                        continue
+                    }
 
-                # Check to see if $Member is an AD Group
-                try {
-                    $MemberADGroupObject = $ADSIForAD.Children.Find("$Member", "Group")
-                }
-                catch {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is NOT an AD Group. At this point, this could only mean that it is an AD Group or AD User that previously existed and has since been deleted from Active Directory."
-                }
-                if ($MemberADGroupObject) {
-                    Write-Verbose "The $($GroupObject.Name) Group Member $Member is an AD Group"
-                    $ADGroupAccountsAppliedLocally +=, $MemberADGroupObject
-                    Remove-Variable -Name "MemberADGroupObject"
-                    continue
-                }
+                    # Check to see if $Member is an AD Group
+                    try {
+                        $MemberADGroupObject = $ADSIForAD.Children.Find("$Member", "Group")
+                    }
+                    catch {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is NOT an AD Group. At this point, this could only mean that it is an AD Group or AD User that previously existed and has since been deleted from Active Directory."
+                    }
+                    if ($MemberADGroupObject) {
+                        Write-Verbose "The $($GroupObject.Name) Group Member $Member is an AD Group"
+                        $ADGroupAccountsAppliedLocally +=, $MemberADGroupObject
+                        Remove-Variable -Name "MemberADGroupObject"
+                        continue
+                    }
 
-                if (!$MemberUserObject -and !$LocalSystemAccountCheck -and !$MemberGroupObject -and !$MemberADUserObject -and !$MemberADGroupObject) {
-                    Write-Warning "Unable to find the Account $Member on the Local Host or in AD. It is possible that $Member is an AD Group or AD User that previously existed on the Domain and has since been deleted from Active Directory."
-                    continue
+                    if (!$MemberUserObject -and !$LocalSystemAccountCheck -and !$MemberGroupObject -and !$MemberADUserObject -and !$MemberADGroupObject) {
+                        Write-Warning "Unable to find the Account $Member on the Local Host or in AD. It is possible that $Member is an AD Group or AD User that previously existed on the Domain and has since been deleted from Active Directory."
+                        continue
+                    }
                 }
             }
 
@@ -238,7 +240,7 @@ opinion) goes the extra mile by returning the 5.1 cmdlet info as well as additio
 (such as GroupsThatTheUserBelongsTo as objects that can be further explored)
 #>
 Function Get-LocalUser {
-    [Cmdletbinding(PositionalBinding=$True)]
+    [Cmdletbinding()]
     Param(
         [Parameter(
             Mandatory=$False,
@@ -311,7 +313,7 @@ Function Get-LocalUser {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Add-LocalGroupMember {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Member = $(Read-Host -Prompt "Please enter the name of the User or Group you would like to add to a Local Group"),
@@ -328,10 +330,10 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
         # Check to see if $Member is a Local or Domain Group
         $LocalAndDomainGroups = Get-WmiObject -Class "Win32_Group" -NameSpace "root\cimv2"
-        $LocalAndDomainGroupMatches = $LocalAndDomainGroups | Where-Object {$_.Name -eq "$Member"}
+        [array]$LocalAndDomainGroupMatches = $LocalAndDomainGroups | Where-Object {$_.Name -eq "$Member"}
 
         if ($LocalAndDomainGroupMatches) {
-            if ($LocalAndDomainGroupMatches.count -gt 1) {
+            if ($LocalAndDomainGroupMatches.Count -gt 1) {
                 Write-Host "There is a Local Group on $env:ComputerName called $Member as well as a Domain Group called $Member on $Domain"
                 $AddLocalOrDomainGroup = Read-Host -Prompt "Would you like to add the Local Group or the Domain Group to the Local Group $Group ? [Local/Domain]"
                 while ($AddLocalOrDomainGroup -notmatch "Local|Domain") {
@@ -345,7 +347,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
                     $ADSI = [ADSI]("WinNT://$DomainPre")
                 }
             }
-            if ($LocalAndDomainGroupMatches.count -eq 1) {
+            if ($LocalAndDomainGroupMatches.Count -eq 1) {
                 if ($LocalAndDomainGroupMatches.Domain -eq $DomainPre) {
                     $ADSI = [ADSI]("WinNT://$DomainPre")
                 }
@@ -364,7 +366,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
             $LocalSystemAccounts = Get-WmiObject -Class "Win32_SystemAccount" -NameSpace "root\cimv2"
             $MemberSystemAccountObjectCheck = $LocalSystemAccounts | Where-Object {$_.Name -eq "$Member"}
             $LocalAndDomainAccounts = $LocalAndDomainUserAccounts + $LocalSystemAccounts
-            $LocalAndDomainAccountMatches = $LocalAndDomainAccounts | Where-Object {$_.Name -eq "$Member"}
+            [array]$LocalAndDomainAccountMatches = $LocalAndDomainAccounts | Where-Object {$_.Name -eq "$Member"}
 
             if ($LocalAndDomainAccountMatches) {
                 if ($LocalAndDomainAccountMatches.Count -gt 1) {
@@ -471,7 +473,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Remove-LocalGroupMember {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Member = $(Read-Host -Prompt "Please enter the name of the User or Group you would like to remove from a Local Group"),
@@ -486,7 +488,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
         $Domain = $(Get-WmiObject Win32_ComputerSystem).Domain
         $DomainPre = $(Get-WmiObject Win32_ComputerSystem).Domain.Split(".")[0]
 
-        $MemberToRemove = Get-WmiObject Win32_GroupUser | Where-Object {$_.PartComponent -like "*Name=`"$Member`"*" -and $_.GroupComponent -like "*Name=`"$Group`"*" -and $_.GroupComponenet -like "*Domain=`"$Computer`"*"}
+        [array]$MemberToRemove = Get-WmiObject Win32_GroupUser | Where-Object {$_.PartComponent -like "*Name=`"$Member`"*" -and $_.GroupComponent -like "*Name=`"$Group`"*" -and $_.GroupComponenet -like "*Domain=`"$Computer`"*"}
         if ($MemberToRemove.Count -eq 1) {
             $MemberFromDomainBool = $($MemberToRemove.PartComponent | Select-String -Pattern "Domain=`"$DomainPre`"").Matches.Success
         }
@@ -573,7 +575,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function New-LocalGroup {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the name of the new group you would like to create on $env:COMPUTERNAME."),
@@ -607,8 +609,10 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
         # Prep the GroupObject
         $GroupObject = $ADSI.Create("Group", $Name)
-        $GroupObject.Description  = $Description
         # Actually Create the New Group
+        $GroupObject.SetInfo()
+
+        $GroupObject.Description  = $Description
         $GroupObject.SetInfo()
 
         ##### END Main Body #####
@@ -619,7 +623,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Remove-LocalGroup {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the name of the group you would like to delete from $env:COMPUTERNAME")
@@ -658,7 +662,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function New-LocalUser {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the name of the new user account would like to create on $env:COMPUTERNAME."),
@@ -702,13 +706,15 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
         ##### BEGIN Main Body #####
 
         # Create New User
-        $NewUser = $ADSIC.Create('User',$Name)
+        $NewUser = $ADSI.Create('User',$Name)
         $NewUser.SetPassword(($PTPwd))
-        if ($Description) {
-            $NewUser.Description = $Description
-        }
         if ($ChangePasswordOnFirstLogon) {
             $NewUser.PasswordExpired = 1
+        }
+        $NewUser.SetInfo()
+
+        if ($Description) {
+            $NewUser.Description = $Description
         }
         $NewUser.SetInfo()
 
@@ -724,7 +730,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Remove-LocalUser {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the name of the new user account would like to create on $env:COMPUTERNAME.")
@@ -764,7 +770,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Disable-LocalUser {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the name of the user account you would like disable on $env:COMPUTERNAME.")
@@ -814,7 +820,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Enable-LocalUser {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the name of the user account you would like enable on $env:COMPUTERNAME.")
@@ -865,7 +871,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 # For PowerShell Version 5.1 and higher, use: Set-LocalUser -Password <SecureString>
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Reset-LocalUserPassword {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$UserName = $(Read-Host -Prompt "Please enter the UserName of the account that you would like reset the password for on $env:COMPUTERNAME."),
@@ -942,7 +948,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Set-LocalUser {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the UserName of the account that you would like change properties for on $env:COMPUTERNAME."),
@@ -1033,11 +1039,13 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
             $UserObject.Put("AccountExpirationDate", [System.DateTime]::MaxValue)
         }
 
+        $UserObject.SetInfo()
+
         if ($Description) {
             $UserObject.Description = $Description
         }
 
-        $UserObject.SetInfo()
+        $UserObject.SetInfo()        
 
         if ($Password) {
             # Wipe all traces of the Password from Memory
@@ -1052,7 +1060,7 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     function Set-LocalGroup {
-        [CmdletBinding(PositionalBinding=$True)]
+        [CmdletBinding()]
         Param(
             [Parameter(Mandatory=$False)]
             [string]$Name = $(Read-Host -Prompt "Please enter the Name of the Local Group that you would like change properties for on $env:COMPUTERNAME."),
@@ -1089,6 +1097,8 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
         ##### BEGIN Main Body #####
 
+        $GroupObject.SetInfo()
+
         if ($Description) {
             $GroupObject.Description = $Description
         }
@@ -1109,12 +1119,11 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0qBDVGtBS7V5wp2JCl/d7GRP
-# WNegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURdbPRq66lKiIqd29kivqBJWX
+# h2mgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1169,11 +1178,11 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS9CJb8aQsq
-# cS7B1dsDiLnckc7FETANBgkqhkiG9w0BAQEFAASCAQAwC06JakZXkDRviLIGZUwy
-# /pMluGS1+NCcc5k2p6wTiqyPcP0GbhGa11gy7aNadwvrO7Kp4v0RwzeSAfPoDgeo
-# 5mt6VyhIVff2PRu5LGiG1XQDYNGVDApngWJplVLNkUbhXtgu2INRaFIwSlWcpZxf
-# bqTm/cQ9rPwxJMuWEIML54GXav/lXmqsWyuh1HX+AYRA/2O8FQHGAJh/CPk6UNSf
-# cBo77LxIQ4/qvKon1RkYTDKbGompRJCMQKByNGtAluj2U7vONTbjI8uz2REdxzS0
-# iotp91X/n048NL8FQ0Xwt6gOnEem8FGCbpVofWwiMf0sfW17BpC5phbXg5ez1z8J
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTLJL5UG1oo
+# 3xuDGFOM+/KWYrfUdDANBgkqhkiG9w0BAQEFAASCAQA7mXJOgbfbQp/CJ940/Lkb
+# 2ccg+ivjQPCGugOQedSb4PH2Znje75bEjdE9su2TVJ9hRiYNdHtcmOSEP0SWxfFj
+# VVzaj/a48aVRY+Jz0E0mY0/sGkq1U3AhZNp3e2fAwWRd9/cAr9mtZ1295LoxVRc8
+# CwwFoREUAzyWIJnwbN1imB/97SWAyYLdzATKiJc1QAk/qModPNlawC7CWbxuWwjs
+# SNHK9HnY79v28evAhxFCac3yoxoQwD1OAT56zpWa0GuWFOPnqeMqFMLSCAb6Yl6V
+# yuFcw2cmf5ZRxy4NOWv1tn2WvcWnMNGlte+X5FgipSwQLRxeH2P4C0hbKasHm3jt
 # SIG # End signature block
