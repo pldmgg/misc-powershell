@@ -142,7 +142,7 @@ Function Get-LocalGroup {
                 }
 
                 if (!$MemberUserObject -and !$LocalSystemAccountCheck -and !$MemberGroupObject -and !$MemberADUserObject -and !$MemberADGroupObject) {
-                    Write-Warning "Unable to find the Account $Member on the Local Host or in AD eventhough it is part of the Group $($GroupObject.Name). Either $Member is a database account (i.e. NT Service\$Member), or $Member is an AD Group or AD User that previously existed on the Domain and has since been deleted from Active Directory."
+                    Write-Verbose "Unable to find the Account $Member on the Local Host or in AD eventhough it is part of the Group $($GroupObject.Name). Either $Member is a database account (i.e. NT Service\$Member), or $Member is an AD Group or AD User that previously existed on the Domain and has since been deleted from Active Directory."
                     continue
                 }
             }
@@ -4455,12 +4455,11 @@ function Set-LocalGroup {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVBrcIXpn0B+raKhLIRNcM6pG
-# 1pegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQnCJ5UCoVqCtIZUv1ee7tPr2
+# YOqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4515,11 +4514,11 @@ function Set-LocalGroup {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQWrxLNpU6V
-# +i8e+tXaoLGsfDV70zANBgkqhkiG9w0BAQEFAASCAQAFdodhc3FgZQ+kQnnf6yhj
-# zRNqxBw8ZTm/UfGOV8iryN1OzYIQ1ke+bYQDanfbEiK0YBQhTGw6zZX2/a1W/Wzu
-# I2RNKpwvxbUUlK4R2k4Y1IAAqohcK2l11tQDtLze5kj+ZyCJOIvuyueHUr/NoKOx
-# XLqOmxU336pm3lWGwHJlIclWLezZDwrzHN/pHzb5WN/j8+h4K6m0GROhK9mJEr8L
-# xqkrVOC9syWC9ntFdZY1TKAYscNywIC95MA2E3OUXKeF88ySB+ijXnG2nRWGCT6t
-# OZaztCvznI/pYQ5bVbKXBwqPq/6PeTC5imt87ooxk9ckkOnYqJmpRA3M1yU1qXwx
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTin1TSNsTM
+# g4YNULNkKtwVpc5xYTANBgkqhkiG9w0BAQEFAASCAQB8HoExDFvN+a0UHTj4mma1
+# DcySCO3xRf53AeKDPAfXRX6XdtvPyQHImOudMdQO0TdX4jA5p8IBIwsa2BuEehMn
+# Turtg/SVs7INBqDB4lVyKt7GGUOZbRfzXog1SD6mZ4/55UP4jiHPqNz9YKrRSg52
+# obxt/6eaC1kNdnQ0Lu6NPnOrpz5bz7zcAaPm/btuZU7I+AhycDKdVJSl7sDdafm4
+# MVGG1riB1uJwyy7SQbSrG85VQ35ZSTWss23JLbuZssq/+rhCjil+yJtna9Uf+c8p
+# lMoZDorU/qciy1ntOFMEdAturEj56oVijhfyShUC7nk31MJNBFS8hHU82/E2FhXB
 # SIG # End signature block
