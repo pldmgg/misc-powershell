@@ -37,6 +37,46 @@ Function Update-Window {
 
 ##### END Helper Functions #####
 
+
+##### BEGIN Runspace Manager Runspace #####
+
+$script:JobCleanup = [hashtable]::Synchronized(@{})
+$script:Jobs = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
+
+$jobCleanup.Flag = $True
+$RunspaceMgrRunspace = [runspacefactory]::CreateRunspace()
+$RunspaceMgrRunspace.ApartmentState = "STA"
+$RunspaceMgrRunspace.ThreadOptions = "ReuseThread"
+$RunspaceMgrRunspace.Open()
+$RunspaceMgrRunspace.SessionStateProxy.SetVariable("jobCleanup",$jobCleanup)
+$RunspaceMgrRunspace.SessionStateProxy.SetVariable("jobs",$jobs)
+$jobCleanup.PowerShell = [PowerShell]::Create().AddScript({
+    # Routine to handle completed Runspaces
+    do {
+        foreach($runspace in $jobs) {
+            if ($runspace.Runspace.isCompleted) {
+                [void]$runspace.PowerShell.EndInvoke($runspace.Runspace)
+                $runspace.PowerShell.Dispose()
+                $runspace.Runspace = $null
+                $runspace.PowerShell = $null
+            }
+        }
+        # Clean Out Unused Runspace Jobs
+        $temphash = $jobs.clone()
+        $temphash | Where-Object {
+            $_.runspace -eq $null
+        } | foreach {
+            $jobs.remove($_)
+        }
+        Start-Sleep -Seconds 1
+    } while ($jobsCleanup.Flag)
+})
+$jobCleanup.PowerShell.Runspace = $RunspaceMgrRunspace
+$jobCleanup.Thread = $jobCleanup.PowerShell.BeginInvoke()
+
+##### END Runspace Manager Runspace #####
+
+
 ##### BEGIN GUI Runspace #####
 
 $GUIRunspace =[runspacefactory]::CreateRunspace()
@@ -44,6 +84,8 @@ $GUIRunspace.ApartmentState = "STA"
 $GUIRunspace.ThreadOptions = "ReuseThread"
 $GUIRunspace.Open()
 $GUIRunspace.SessionStateProxy.SetVariable("syncHash",$syncHash)
+$GUIRunspace.SessionStateProxy.SetVariable("JobCleanup",$script:JobCleanup)
+$GUIRunspace.SessionStateProxy.SetVariable("Jobs",$script:Jobs)
 
 $GUIPSInstance = [powershell]::Create()
 $GUIPSInstance.AddScript({
@@ -1386,7 +1428,7 @@ $GUIPSInstance.AddScript({
         $PSInstance.Runspace = $newRunspace
         $AsyncHandle = $PSInstance.BeginInvoke()
 
-        $script:Jobs +=, $PSInstance
+        $Jobs +=, $PSInstance
 
         $PBarRunspace =[runspacefactory]::CreateRunspace()
         $PBarRunspace.ApartmentState = "STA"
@@ -1472,7 +1514,7 @@ $GUIPSInstance.AddScript({
         $PBarPSInstance.Runspace = $PBarRunspace
         $PBarAsyncHandle = $PBarPSInstance.BeginInvoke()
 
-        $script:Jobs +=, $PBarPSInstance
+        $Jobs +=, $PBarPSInstance
 
         <#
         do {
@@ -1523,6 +1565,13 @@ $GUIPSInstance.AddScript({
     #$WPFxamlCancelButton.Add_Click({[System.Environment]::Exit(0)})
     $($syncHash.WPFxamlCancelButton).Add_Click({
         $($syncHash.Window).Close()
+        
+        Write-Verbose 'Halt RunSpaceMgr Runspace cleanup job processing'
+        $jobCleanup.Flag = $False
+
+        Write-Verbose 'Stopping All Runspaces'
+        $jobCleanup.PowerShell.Dispose()
+
         Stop-Process -Id $($syncHash.ParentThreadPID)
     })
 
@@ -1569,6 +1618,12 @@ $GUIPSInstance.AddScript({
         Start-Sleep -Seconds 5
     }
     if (!$($syncHash.Window).IsVisible) {
+        Write-Verbose 'Halt RunSpaceMgr Runspace cleanup job processing'
+        $jobCleanup.Flag = $False
+
+        Write-Verbose 'Stopping All Runspaces'
+        $jobCleanup.PowerShell.Dispose()
+
         Stop-Process -Id $($syncHash.ParentThreadPID)
     }
 })
@@ -1576,45 +1631,6 @@ $GUIPSInstance.Runspace = $GUIRunspace
 $GUIAsyncHandle = $GUIPSInstance.BeginInvoke()
 
 ##### END GUI Runspace #####
-
-
-##### BEGIN Runspace Manager Runspace #####
-
-$script:JobCleanup = [hashtable]::Synchronized(@{})
-$script:Jobs = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
-
-$jobCleanup.Flag = $True
-$RunspaceMgrRunspace = [runspacefactory]::CreateRunspace()
-$RunspaceMgrRunspace.ApartmentState = "STA"
-$RunspaceMgrRunspace.ThreadOptions = "ReuseThread"
-$RunspaceMgrRunspace.Open()
-$RunspaceMgrRunspace.SessionStateProxy.SetVariable("jobCleanup",$jobCleanup)
-$RunspaceMgrRunspace.SessionStateProxy.SetVariable("jobs",$jobs)
-$jobCleanup.PowerShell = [PowerShell]::Create().AddScript({
-    # Routine to handle completed Runspaces
-    do {
-        foreach($runspace in $jobs) {
-            if ($runspace.Runspace.isCompleted) {
-                [void]$runspace.PowerShell.EndInvoke($runspace.Runspace)
-                $runspace.PowerShell.Dispose()
-                $runspace.Runspace = $null
-                $runspace.PowerShell = $null
-            }
-        }
-        # Clean Out Unused Runspace Jobs
-        $temphash = $jobs.clone()
-        $temphash | Where-Object {
-            $_.runspace -eq $null
-        } | foreach {
-            $jobs.remove($_)
-        }
-        Start-Sleep -Seconds 1
-    } while ($jobsCleanup.Flag)
-})
-$jobCleanup.PowerShell.Runspace = $RunspaceMgrRunspace
-$jobCleanup.Thread = $jobCleanup.PowerShell.BeginInvoke()
-
-##### END Runspace Manager Runspace #####
 
 # Add the $GUIInstance Job (with its accompanying $GUIRunspace) and the $PSInstance Job (with its accompanying $newRunspace)
 # To the array of jobs (i.e. $script.Jobs) that the $RunspaceMgrRunspace is handling
@@ -1626,124 +1642,13 @@ do {
     Write-Host "Waiting for SyncHash To Populate"
 } until ($syncHash.InitialLoad -eq "Complete")
 
-##### BEGIN Form Controls Property Settings #####
+##### BEGIN Form Controls Initial Property Settings #####
 
 # Update-Window -Control $syncHash.WPFxamlBrowseButton -Property Content -Value "Doof"
 
 Update-Window -Control $syncHash.WPFxamlExcelSpreadSheetPathsListBox -Property AllowDrop -Value $True
 
-##### END Form Controls Property Settings #####
-
-##### Add SyncHash PBarMethod For OK Button #####
-
-<#
-do {
-    Start-Sleep -Milliseconds 500
-
-    if ($($syncHash.WPFxamlProgressBar1).Value -gt 0) {
-        Update-Window -Control $syncHash.WPFxamlProgressBar1 -Property Value -Value $($syncHash.WPFxamlProgressBar1).Value
-    }
-
-    if ($($syncHash.WPFxamlProgressBar1).Value -gt 0 -and $($syncHash.WPFxamlProgressBar1).Value -lt 20) {
-        #$WPFxamlPBarStatusLabel.Location = New-Object System.Drawing.Size(360,470)
-        Update-Window -Control $syncHash.WPFxamlPBarStatusLabel -Property Content -Value "Status: Fixing SpreadSheet Data..."
-    }
-    if ($($syncHash.WPFxamlProgressBar1).Value -gt 20 -and $($syncHash.WPFxamlProgressBar1).Value -lt 40) {
-        #$WPFxamlPBarStatusLabel.Location = New-Object System.Drawing.Size(330,470)
-        Update-Window -Control $syncHash.WPFxamlPBarStatusLabel -Property Content -Value "Status: Exporting Fixed SpreadSheet To ReportDirectory..."
-    }
-    if ($($syncHash.WPFxamlProgressBar1).Value -gt 40 -and $($syncHash.WPFxamlProgressBar1).Value -lt 60) {
-        #$WPFxamlPBarStatusLabel.Location = New-Object System.Drawing.Size(350,470)
-        Update-Window -Control $syncHash.WPFxamlPBarStatusLabel -Property Content -Value "Status: Filtering Data For Report Generation..."
-    }
-    if ($($syncHash.WPFxamlProgressBar1).Value -gt 60 -and $($syncHash.WPFxamlProgressBar1).Value -lt 100) {
-        #$WPFxamlPBarStatusLabel.Location = New-Object System.Drawing.Size(400,470)
-        Update-Window -Control $syncHash.WPFxamlPBarStatusLabel -Property Content -Value "Status: Generating Report..."
-    }
-
-    if ($syncHash.CompleteFlag -eq "Complete") {
-        [int]$pct = 100
-        # Update the progress bar
-        Update-Window -Control $syncHash.WPFxamlProgressBar1 -Property Value -Value $pct
-        Update-Window -Control $syncHash.WPFxamlPBarStatusLabel -Property Content -Value "COMPLETE"
-    }
-
-    # Thank God for this solution to actually force UI updates in a WPF Application
-    # See: http://stackoverflow.com/questions/5504244/how-do-i-refresh-visual-control-properties-textblock-text-set-inside-a-loop
-    # [System.Windows.Forms.Application]::DoEvents()
-
-} until ($syncHash.CompleteFlag -eq "Complete" -or $pct -ge 100)
-#>
-
-#Get-CallMetrics -ExcelSpreadSheetPaths "$HOME\Downloads\call_activity_2016 December.xlsx" -ReportDirectory "$HOME" -CalendarDay 31
+##### END Form Controls Initial Property Settings #####
 
 
 
-
-# SIG # Begin signature block
-# MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
-# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUy4NUbIY+6CWfty6XI4qcqErp
-# 7sygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
-# 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
-# CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
-# CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
-# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCmRIzy6nwK
-# uqvhoz297kYdDXs2Wom5QCxzN9KiqAW0VaVTo1eW1ZbwZo13Qxe+6qsIJV2uUuu/
-# 3jNG1YRGrZSHuwheau17K9C/RZsuzKu93O02d7zv2mfBfGMJaJx8EM4EQ8rfn9E+
-# yzLsh65bWmLlbH5OVA0943qNAAJKwrgY9cpfDhOWiYLirAnMgzhQd3+DGl7X79aJ
-# h7GdVJQ/qEZ6j0/9bTc7ubvLMcJhJCnBZaFyXmoGfoOO6HW1GcuEUwIq67hT1rI3
-# oPx6GtFfhCqyevYtFJ0Typ40Ng7U73F2hQfsW+VPnbRJI4wSgigCHFaaw38bG4MH
-# Nr0yJDM0G8XhAgMBAAGjggECMIH/MBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQW
-# BBQ4uUFq5iV2t7PneWtOJALUX3gTcTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMA
-# QTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBR2
-# lbqmEvZFA0XsBkGBBXi2Cvs4TTAxBgNVHR8EKjAoMCagJKAihiBodHRwOi8vcGtp
-# L2NlcnRkYXRhL1plcm9EQzAxLmNybDA8BggrBgEFBQcBAQQwMC4wLAYIKwYBBQUH
-# MAKGIGh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb0RDMDEuY3J0MA0GCSqGSIb3DQEB
-# CwUAA4IBAQAUFYmOmjvbp3goa3y95eKMDVxA6xdwhf6GrIZoAg0LM+9f8zQOhEK9
-# I7n1WbUocOVAoP7OnZZKB+Cx6y6Ek5Q8PeezoWm5oPg9XUniy5bFPyl0CqSaNWUZ
-# /zC1BE4HBFF55YM0724nBtNYUMJ93oW/UxsWL701c3ZuyxBhrxtlk9TYIttyuGJI
-# JtbuFlco7veXEPfHibzE+JYc1MoGF/whz6l7bC8XbgyDprU1JS538gbgPBir4RPw
-# dFydubWuhaVzRlU3wedYMsZ4iejV2xsf8MHF/EHyc/Ft0UnvcxBqD0sQQVkOS82X
-# +IByWP0uDQ2zOA1L032uFHHA65Bt32w8MIIFmzCCBIOgAwIBAgITWAAAADw2o858
-# ZSLnRQAAAAAAPDANBgkqhkiG9w0BAQsFADA9MRMwEQYKCZImiZPyLGQBGRYDTEFC
-# MRQwEgYKCZImiZPyLGQBGRYEWkVSTzEQMA4GA1UEAxMHWmVyb1NDQTAeFw0xNTEw
-# MjcxMzM1MDFaFw0xNzA5MDkxMDAwMjRaMD4xCzAJBgNVBAYTAlVTMQswCQYDVQQI
-# EwJWQTEPMA0GA1UEBxMGTWNMZWFuMREwDwYDVQQDEwhaZXJvQ29kZTCCASIwDQYJ
-# KoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ8LM3f3308MLwBHi99dvOQqGsLeC11p
-# usrqMgmEgv9FHsYv+IIrW/2/QyBXVbAaQAt96Tod/CtHsz77L3F0SLuQjIFNb522
-# sSPAfDoDpsrUnZYVB/PTGNDsAs1SZhI1kTKIjf5xShrWxo0EbDG5+pnu5QHu+EY6
-# irn6C1FHhOilCcwInmNt78Wbm3UcXtoxjeUl+HlrAOxG130MmZYWNvJ71jfsb6lS
-# FFE6VXqJ6/V78LIoEg5lWkuNc+XpbYk47Zog+pYvJf7zOric5VpnKMK8EdJj6Dze
-# 4tJ51tDoo7pYDEUJMfFMwNOO1Ij4nL7WAz6bO59suqf5cxQGd5KDJ1ECAwEAAaOC
-# ApEwggKNMA4GA1UdDwEB/wQEAwIHgDA9BgkrBgEEAYI3FQcEMDAuBiYrBgEEAYI3
-# FQiDuPQ/hJvyeYPxjziDsLcyhtHNeIEnofPMH4/ZVQIBZAIBBTAdBgNVHQ4EFgQU
-# a5b4DOy+EUyy2ILzpUFMmuyew40wHwYDVR0jBBgwFoAUOLlBauYldrez53lrTiQC
-# 1F94E3EwgeMGA1UdHwSB2zCB2DCB1aCB0qCBz4aBq2xkYXA6Ly8vQ049WmVyb1ND
-# QSxDTj1aZXJvU0NBLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxD
-# Tj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NlcnRp
-# ZmljYXRlUmV2b2NhdGlvbkxpc3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmli
-# dXRpb25Qb2ludIYfaHR0cDovL3BraS9jZXJ0ZGF0YS9aZXJvU0NBLmNybDCB4wYI
-# KwYBBQUHAQEEgdYwgdMwgaMGCCsGAQUFBzAChoGWbGRhcDovLy9DTj1aZXJvU0NB
-# LENOPUFJQSxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxD
-# Tj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NBQ2VydGlmaWNhdGU/YmFz
-# ZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9yaXR5MCsGCCsGAQUFBzAC
-# hh9odHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EuY3J0MBMGA1UdJQQMMAoGCCsG
-# AQUFBwMDMBsGCSsGAQQBgjcVCgQOMAwwCgYIKwYBBQUHAwMwDQYJKoZIhvcNAQEL
-# BQADggEBACbc1NDl3NTMuqFwTFd8NHHCsSudkVhuroySobzUaFJN2XHbdDkzquFF
-# 6f7KFWjqR3VN7RAi8arW8zESCKovPolltpp3Qu58v59qZLhbXnQmgelpA620bP75
-# zv8xVxB9/xmmpOHNkM6qsye4IJur/JwhoHLGqCRwU2hxP1pu62NUK2vd/Ibm8c6w
-# PZoB0BcC7SETNB8x2uKzJ2MyAIuyN0Uy/mGDeLyz9cSboKoG6aQibnjCnGAVOVn6
-# J7bvYWJsGu7HukMoTAIqC6oMGerNakhOCgrhU7m+cERPkTcADVH/PWhy+FJWd2px
-# ViKcyzWQSyX93PcOj2SsHvi7vEAfCGcxggH1MIIB8QIBATBUMD0xEzARBgoJkiaJ
-# k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
-# U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
-# AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSlh07mqxpS
-# 1aThTvFDdqz2YO5mCzANBgkqhkiG9w0BAQEFAASCAQBe48sQq1z3LmAMjLSUFvyh
-# mvv7a7079wUu0der3aT6azBdTn9K4N/EwcEUY6Ao8lHjsKzLJgWzl723zDxkJdDN
-# BAOiQNnPeJ9EdQMkHLY/VfMPhNQIcM90mXBDyHTbxYROnRwCYafc23WHcrIRzKDI
-# 5e5n/NOc4GYzrTLYm1Z+j/jIfaAu2XPbRgVjUmwXBh9RrHuyWq7wKFWVh3NWRFQa
-# xJ4dLQhy1XKR2YPm/7aewNkcSm0Fq7C0eabIcgqTiDk9auhhh0Vhz8NvWXpbXb6Z
-# apY60+xrzpuAN+RP6lXl0SaP3cACT1qkzGTblLpWl8odoA2V2incfbHNGP7/w/mn
-# SIG # End signature block
