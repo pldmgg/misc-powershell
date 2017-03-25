@@ -1,18 +1,18 @@
 <#
 .SYNOPSIS
-    Sets up the GitHub Git Shell Environment
+    Sets up the GitHub Git Shell Environment in PowerShell
+
 .DESCRIPTION
     Sets up the proper PATH and ENV to use GitHub for Window's shell environment
-    Don't edit this file directly, it is generated on install.
-    Generally you would run this from your Powershell Profile like this:
-
-    . (Resolve-Path "$env:LOCALAPPDATA\GitHub\shell.ps1")
+    
+    This is a refactored version of $env:LOCALAPPDATA\GitHub\shell.ps1 that gets installed
+    with GitDesktop for Windows.
 
 .PARAMETER SkipSSHSetup
     If true, skips calling GitHub.exe to autoset and upload ssh-keys
 
 .EXAMPLE
-    Initialize-GitEnvironment -SkipSSHSetup
+    Initialize-GitEnvironment
 
 #>
 
@@ -62,8 +62,8 @@ function Initialize-GitEnvironment {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwjcMJosOOPyC/Td350K9MJJA
-# CQOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjMEWC7uf63my1xKemHmkYQsH
+# KhWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -118,11 +118,11 @@ function Initialize-GitEnvironment {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS3Idhd0j+G
-# aHfVLUfe+JdiDSDQRTANBgkqhkiG9w0BAQEFAASCAQBhmuIrkv5zjNNyiVqMW06X
-# 2E1XY48PXRBPtRGSaw35esaT+XcMzGiIId9X4HLIh7XGZLhegY/HviHOqzdZ/6oH
-# ZsG8cK7SNXms9Xwdzq8Sox2jkLvRtKsKt971UFEn7OXlVLDPls43qPGRf///MwDd
-# wL+2OpQgJGsfA4CEq1np6XgboOdyjfMtFAvnxicZ5fA3RHXbxmXchutmi4CDaSn/
-# A/t3BU2jMxuXXGCrE21IyGtFslY8Le+YGvGhWNByBfzz7qNpALiO9pOoPkVV9fLN
-# n4DRcWXjHg99X4YObNLsJSxjq1WaCvo39JA8cdb0sLQiBFNQda3lgDEh6zH537Ct
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSkOb2n1aIf
+# I/tPENSBb396+525FzANBgkqhkiG9w0BAQEFAASCAQBwWau+cAcbrENKnpgprkB0
+# 2zJmc53wHAqRj2Ca2hAcm6kBsbcwDMu+E2jubm3ahKsGNnZhiAeMZdAPMhBS+j7K
+# +RM64akEyj7jj1zTvA/DWuMTtX6CoZxUO4hNhsZdJw2vjAkF24FD2S2O50N6okZW
+# pLKpSnXoE1thtP0SxPmtS3t2hXDIr6vvs98gR0d9RxzuJdgUDIubtimNax7WcLNf
+# +zflGORNZyyWfILaCxl/+Rx6NnkacnubUyk76cLqVKBSVf04Ww0f8pEF7SrsTLMj
+# II+FmeSn+7QlzEVX6nZl+zyecC+tK+Ya3o21NQc+hMIIGah7Bgnyza9LyqqisPui
 # SIG # End signature block
