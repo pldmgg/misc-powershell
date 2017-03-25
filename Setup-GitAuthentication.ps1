@@ -1,36 +1,40 @@
 <#
 .SYNOPSIS
-    Sets up the GitHub Git Shell Environment
+    Configures Git installed on Windows via GitDesktop to authenticate via https or ssh.
+    Optionally, clone all repos from the GitHub User you authenticate as.
+
 .DESCRIPTION
-    Sets up the proper PATH and ENV to use GitHub for Window's shell environment
-    Don't edit this file directly, it is generated on install.
-    Generally you would run this from your Powershell Profile like this:
-
-    . (Resolve-Path "$env:LOCALAPPDATA\GitHub\shell.ps1")
-
-.PARAMETER SkipSSHSetup
-    If true, skips calling GitHub.exe to autoset and upload ssh-keys
-
-.EXAMPLE
-    Setup-GitAuthentication -GitHubUserName pldmgg`
-    -GitHubEmail pldmgg@mykolab.com`
-    -AuthMethod https`
-    -PersonalAccessToken '234567ujhgfw456734567890okfd3456'
-    -CloneAllRepos
-
-.EXAMPLE
-    Setup-GitAuthentication -GitHubUserName pldmgg`
-    -GitHubEmail pldmgg@mykolab.com`
-    -AuthMethod ssh`
-    -NewSSHKeyName 'gitauth_rsa'
+    See Synopsis.
 
 .EXAMPLE
     $GitAuthParams = @{
         GitHubUserName = "pldmgg"
-        GitHubEmail = "pldmgg@mykolab.com"
+        GitHubEmail = "pldmgg@genericemailprovider.com"
+        AuthMethod = "https"
+        -PersonalAccessToken '234567ujhgfw456734567890okfd3456'
+        -CloneAllRepos
+    }
+
+    Setup-GitAuthentication @GitAuthParams
+
+.EXAMPLE
+    $GitAuthParams = @{
+        GitHubUserName = "pldmgg"
+        GitHubEmail = "pldmgg@genericemailprovider.com"
+        AuthMethod = "ssh"
+        NewSSHKeyName "gitauth_rsa"
+    }
+
+    Setup-GitAuthentication @GitAuthParams
+
+.EXAMPLE
+    $GitAuthParams = @{
+        GitHubUserName = "pldmgg"
+        GitHubEmail = "pldmgg@genericemailprovider.com"
         AuthMethod = "ssh"
         ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa" 
     }
+    
     Setup-GitAuthentication @GitAuthParams
 
 #>
@@ -1396,8 +1400,8 @@ function Setup-GitAuthentication {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsi/FYn000lP8QAcM1UGCKWgI
-# GeagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUa0RA0ZPY7i0DWR/M17HyrYU7
+# oJagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1452,11 +1456,11 @@ function Setup-GitAuthentication {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRZ3tlgWcJ1
-# oDe8A7OywFMhzN+tgzANBgkqhkiG9w0BAQEFAASCAQAl/RYX9uvRV7ON1F7P9KPa
-# 6TjOIOpCnmlzucoAuxEPl98qwsMTEktssRyY8cyjrW8RgakqxngjYyLN0roVfwYl
-# AoFYftFK6WLoqKq0tXrCPHgdpuJJJRJ6iLF54XTSSx9lq2P7IW1vttN7N0H/0J72
-# bFVHsZPkcsFn931iED7Px3hXZ0npMamu8Wy3UXSsYrBCrulQEidcpvID6mKz4jbx
-# ZSAgTekggqfXK4mDUhlGrrAYkOdoCwWewCS2k9ELaGzx36kG1bhkUF8oNatqCA21
-# X9u+VL0+8Alg37oZXyM6nUoy6h0XA7gOGXBY6qlpuikVobRSKYatcY79SnNE6YrK
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTk7G/Rz5MW
+# kG9t4/Hby35+HBCBpzANBgkqhkiG9w0BAQEFAASCAQBKgcYg+ewZD0X/C9fq7JJX
+# FYHwaD6sAJ6Nho610ssMdGvAoYVOGd7GPn4QQ2ZViSaTzFryBdMA47tK5mo62yrf
+# SgUYWuNwqGdJJOpmIXD6vZfBs36N30cGCaK5PufkoxbK6rpuV0GtsPvwXOmLEkY5
+# Eq3LMQ0MXlhAUasIbkgNC+PkMl1P6ZYhaX5q3mmziz5wIUCnuwT9Wkldls3qE+YF
+# +1zoyddNXm2ubv+Mw7WagOC2wIHcyqbsInyuIc9keNwqR+NiCBu3ddV/ELweXdrN
+# pp3I9HLZuLFLjCgO2edfiUDsWvix+o88BK8AcgV2LeuYyxihha8uGVAzVy5lqgW7
 # SIG # End signature block
