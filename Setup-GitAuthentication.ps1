@@ -1344,6 +1344,10 @@ function Setup-GitAuthentication {
                 }
                 Start-SshAgent
                 Add-SshKey $ExistingSSHPrivateKeyPath
+
+                if ($CloneAllRepos) {
+
+                }
             }
             if ($GitHubOnlineIsAware.Count -eq 0) {
                 Write-Verbose "The GitHub Online Account is not aware of the local public SSH key! Try the function again using the -NewSSHKeyName parameter to create a new key. Halting!"
@@ -1397,11 +1401,16 @@ function Setup-GitAuthentication {
     ##### END Main Body #####
 
 }
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUa0RA0ZPY7i0DWR/M17HyrYU7
-# oJagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7O9jDmQ8HQ2u0rgcPChcTVtQ
+# MpWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1456,11 +1465,11 @@ function Setup-GitAuthentication {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTk7G/Rz5MW
-# kG9t4/Hby35+HBCBpzANBgkqhkiG9w0BAQEFAASCAQBKgcYg+ewZD0X/C9fq7JJX
-# FYHwaD6sAJ6Nho610ssMdGvAoYVOGd7GPn4QQ2ZViSaTzFryBdMA47tK5mo62yrf
-# SgUYWuNwqGdJJOpmIXD6vZfBs36N30cGCaK5PufkoxbK6rpuV0GtsPvwXOmLEkY5
-# Eq3LMQ0MXlhAUasIbkgNC+PkMl1P6ZYhaX5q3mmziz5wIUCnuwT9Wkldls3qE+YF
-# +1zoyddNXm2ubv+Mw7WagOC2wIHcyqbsInyuIc9keNwqR+NiCBu3ddV/ELweXdrN
-# pp3I9HLZuLFLjCgO2edfiUDsWvix+o88BK8AcgV2LeuYyxihha8uGVAzVy5lqgW7
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQlvNEuMDw1
+# Qm/ypAWY3oOBz+zO4jANBgkqhkiG9w0BAQEFAASCAQA3oTrMismS4iG6AUhN/Fnf
+# PlBAiOjEImp91sUoIpbcmXbbHjA3PFj/bSN+yxJSDSdtONjmuPE2GYSwNZhgqWvK
+# vTi8BQ4A8lvfRX7HnUOX6p3w8ZpdHuGQmPAUn4/c7SMkxsuZqVaKKMTGtP8XD4cK
+# AFXAuALzN/69yfguagnd/6qmBuDK7RjiSdpbuLKaBbItb0ZtJeSsHZyHH080bnQx
+# FSW5oJd765ZjYGNtFoq/mF8QEKCv5rKs4hyZm71UD9RuDoQWd2gCamt3+enHwMTI
+# J+r5trJSmtTRYXhimeesVdYBH/bpBPdsrwzeNEyjtsqOE04NbPTI1eqTijYYaZuZ
 # SIG # End signature block

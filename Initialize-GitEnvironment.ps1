@@ -19,7 +19,12 @@
 function Initialize-GitEnvironment {
     [CmdletBinding()]
     Param(
-        [switch]$SkipSSHSetup = $false
+        [Parameter(Mandatory=$False)]
+        [switch]$SkipSSHSetup = $false,
+
+        [Parameter(Mandatory=$False)]
+        [string]$ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+
     )
 
     # Set the Git PowerShell Environment
@@ -53,17 +58,36 @@ function Initialize-GitEnvironment {
         # Setup SSH
         if (!$SkipSSHSetup) {
             & "$appPath\GitHub.exe" --set-up-ssh
+
+            if (!$(Get-Module -List -Name posh-git)) {
+                if ($PSVersionTable.PSVersion.Major -ge 5) {
+                    Install-Module posh-git -Scope CurrentUser
+                    Import-Module posh-git -Verbose
+                }
+                if ($PSVersionTable.PSVersion.Major -lt 5) {
+                    Update-PackageManagement
+                    Install-Module posh-git -Scope CurrentUser
+                    Import-Module posh-git -Verbose
+                }
+            }
+            Start-SshAgent
+            Add-SshKey $ExistingSSHPrivateKeyPath
         }
     } 
     else {
         Write-Verbose "GitHub shell environment already setup"
     }
 }
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjMEWC7uf63my1xKemHmkYQsH
-# KhWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6LxFQx1VD2kFArdgZy5eBA9l
+# 0AGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -118,11 +142,11 @@ function Initialize-GitEnvironment {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSkOb2n1aIf
-# I/tPENSBb396+525FzANBgkqhkiG9w0BAQEFAASCAQBwWau+cAcbrENKnpgprkB0
-# 2zJmc53wHAqRj2Ca2hAcm6kBsbcwDMu+E2jubm3ahKsGNnZhiAeMZdAPMhBS+j7K
-# +RM64akEyj7jj1zTvA/DWuMTtX6CoZxUO4hNhsZdJw2vjAkF24FD2S2O50N6okZW
-# pLKpSnXoE1thtP0SxPmtS3t2hXDIr6vvs98gR0d9RxzuJdgUDIubtimNax7WcLNf
-# +zflGORNZyyWfILaCxl/+Rx6NnkacnubUyk76cLqVKBSVf04Ww0f8pEF7SrsTLMj
-# II+FmeSn+7QlzEVX6nZl+zyecC+tK+Ya3o21NQc+hMIIGah7Bgnyza9LyqqisPui
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTHoIdfZN5Y
+# r59U0dXrUvk2OXSrjTANBgkqhkiG9w0BAQEFAASCAQBZ/JBPPdkt3SRVXp8jptOV
+# qcEIjid4W2NtQkrEFOjR0M6WTTaul5Q2e3pCe9WXXiERmyesJoyHgQEI4TXJo9BD
+# 7X3I8S79d5T0PpityVu0fdWGasdtOVYT0KhMGFgbUETx3GdZg+rETM9SNbLIIaJg
+# pI7Dp9fAh8dWUW7B+RESe3CeqVcsFVMJQCLo6Nr576QAT+8jf8AJlrOVK7q4CIDF
+# XHmrs+tyo9gubeniZ63OFVIJwWEUFy1cVoTwQ2cAAAiD0Endx6LhZ88FwGnxPTQ5
+# 7j46hopGH3iHo4GEbSS5pLTmojGJZMPg7yT9/P2nRRoyViFJ88aTwjhFq4isUyHm
 # SIG # End signature block
