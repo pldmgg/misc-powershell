@@ -11,8 +11,7 @@
         GitHubUserName = "pldmgg"
         GitHubEmail = "pldmgg@genericemailprovider.com"
         AuthMethod = "https"
-        -PersonalAccessToken '234567ujhgfw456734567890okfd3456'
-        -CloneAllRepos
+        PersonalAccessToken = "234567ujhgfw456734567890okfd3456"
     }
 
     Setup-GitAuthentication @GitAuthParams
@@ -65,23 +64,12 @@ function Setup-GitAuthentication {
         [string]$ExistingSSHPrivateKeyPath,
 
         [Parameter(Mandatory=$False)]
-        [string]$ExistingSSHPrivateKeyPwd,
-
-        [Parameter(Mandatory=$False)]
-        [switch]$CloneAllRepos
-
-
+        [string]$ExistingSSHPrivateKeyPwd
     )
 
     ##### BEGIN Parameter Validation #####
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
         $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication."
-    }
-    if ($AuthMethod -eq "ssh" -and $NewSSHKeyName -and $CloneAllRepos) {
-        Write-Verbose "When using the SSH, if you are creating a new SSH Key, you must upload it to your GitHub account via browser before authentication will work! Halting!"
-        Write-Error "When using the SSH, if you are creating a new SSH Key, you must upload it to your GitHub account via browser before authentication will work! Halting!"
-        $global:FunctionResult = "1"
-        return
     }
 
     if ($ExistingSSHPrivateKeyPath) {
@@ -1226,27 +1214,14 @@ function Setup-GitAuthentication {
         git config --global credential.helper wincred
 
 
-        $MngStoredCredsHashTable = @{
+        $ManageStoredCredsParams = @{
             Target  = "git:https://$PersonalAccessToken@github.com"
             User    = $PersonalAccessToken
             Pass    = 'x-oauth-basic'
             Comment = "Saved By Manage-StoredCredentials.ps1"
         }
 
-        Manage-StoredCredentials -AddCred @MngStoredCredsHashTable
-
-        $Page = "1"
-        $PublicRepos = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos?page=$Page&per_page=100"
-        $PublicAndPrivateRepos = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
-
-        if ($CloneAllRepos) {
-            cd "$HOME\Documents\GitHub"
-            foreach ($RepoObject in $PublicAndPrivateRepos) {
-                if (!$(Test-Path "$HOME\Documents\GitHub\$($RepoObject.Name)")) {
-                    git clone $RepoObject.html_url
-                }
-            }
-        }
+        Manage-StoredCredentials -AddCred @ManageStoredCredsParams
     }
 
     if ($AuthMethod -eq "ssh") {
@@ -1344,14 +1319,10 @@ function Setup-GitAuthentication {
                 }
                 Start-SshAgent
                 Add-SshKey $ExistingSSHPrivateKeyPath
-
-                if ($CloneAllRepos) {
-
-                }
             }
             if ($GitHubOnlineIsAware.Count -eq 0) {
-                Write-Verbose "The GitHub Online Account is not aware of the local public SSH key! Try the function again using the -NewSSHKeyName parameter to create a new key. Halting!"
-                Write-Error "The GitHub Online Account is not aware of the local public SSH key! Try the function again using the -NewSSHKeyName parameter to create a new key. Halting!"
+                Write-Verbose "The GitHub Online Account is not aware of the local public SSH key $ExistingSSHPrivateKeyPath.pub! Copy it to `"Settings`" -> `"SSH and GPG Keys`" on your GitHub Account via web browser. Halting!"
+                Write-Error "The GitHub Online Account is not aware of the local public SSH key $ExistingSSHPrivateKeyPath.pub! Copy it to `"Settings`" -> `"SSH and GPG Keys`" on your GitHub Account via web browser. Halting!"
                 $global:FunctionResult = "1"
                 return
             }
@@ -1409,8 +1380,8 @@ function Setup-GitAuthentication {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7O9jDmQ8HQ2u0rgcPChcTVtQ
-# MpWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUEGkfXEgW7aiO5EpcMbcamCTj
+# FZygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1465,11 +1436,11 @@ function Setup-GitAuthentication {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQlvNEuMDw1
-# Qm/ypAWY3oOBz+zO4jANBgkqhkiG9w0BAQEFAASCAQA3oTrMismS4iG6AUhN/Fnf
-# PlBAiOjEImp91sUoIpbcmXbbHjA3PFj/bSN+yxJSDSdtONjmuPE2GYSwNZhgqWvK
-# vTi8BQ4A8lvfRX7HnUOX6p3w8ZpdHuGQmPAUn4/c7SMkxsuZqVaKKMTGtP8XD4cK
-# AFXAuALzN/69yfguagnd/6qmBuDK7RjiSdpbuLKaBbItb0ZtJeSsHZyHH080bnQx
-# FSW5oJd765ZjYGNtFoq/mF8QEKCv5rKs4hyZm71UD9RuDoQWd2gCamt3+enHwMTI
-# J+r5trJSmtTRYXhimeesVdYBH/bpBPdsrwzeNEyjtsqOE04NbPTI1eqTijYYaZuZ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRhWxryikMu
+# ZPng8KvBL3RtXYO8OjANBgkqhkiG9w0BAQEFAASCAQBGNdmSsi5iB9lfE2OxpKJy
+# oV2N+OYvhVslq50K2jEPkviPYLoVnegZp46lSGcLyUTcsUdUxfMoGMEhZsp1thvr
+# NGcfaFjsXx7StokJcl7gzjV6ixEunEfAwJNSxSbjmvJxsSIl6SJrxTcp89jgNZji
+# /trcVtho7+UnA5b5V/cNpTisEYyZXwQFlMhPp3Dic/+cu9TKKX9dIIks41yWtNW6
+# W7fYSYG5nVycXVUm6d69dbdo4imcdIfnPSUGuL7ig4dWIxEjAu2UKjA5yMjooY6c
+# rn4droDYim1VCHtmLiJ2iV5H6YuqR8yB5lESjapQGUIvWY58k5/0PRSRSlvwn17e
 # SIG # End signature block

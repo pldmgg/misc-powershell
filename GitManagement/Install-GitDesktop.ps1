@@ -254,28 +254,32 @@ if (!$(Test-Path "$env:LocalAppData\GitHub\PoshGit*")) {
     if (!$(Get-Module -List -Name posh-git)) {
         if ($PSVersionTable.PSVersion.Major -ge 5) {
             Install-Module posh-git -Scope CurrentUser
-            Import-Module posh-git -Verbose
+            Import-Module posh-git
         }
         if ($PSVersionTable.PSVersion.Major -lt 5) {
             Update-PackageManagement
             Install-Module posh-git -Scope CurrentUser
-            Import-Module posh-git -Verbose
+            Import-Module posh-git
         }
     }
 }
 
 # Set the Git PowerShell Environment
 Initialize-GitEnvironment
+Import-Module posh-git -Verbose
 
 # Write-Host "See the following site for next steps:"
 # Write-Host "https://help.github.com/articles/set-up-git/"
+
+
+
 
 ##### END Main Body #####
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUa0yaCgoF8fBU2lOulwekEjBM
-# SH2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvITWOyf2I2y0FrbliMlUq8Su
+# gRygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -330,11 +334,11 @@ Initialize-GitEnvironment
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSfjLnw3xiw
-# QsdLohofo5+nGMNPETANBgkqhkiG9w0BAQEFAASCAQBjamvEl8H58oZPh5ycbFbw
-# n9VbA66EqH1I1mzFNeX16cmpx8pVfL+lbL4tsCFmFODJb/Y5zMg49QYIhtvuTIt/
-# kCIQl+3Oj3I5bD308kKwVv6ij75dCEoR8QXKm/0Y25dbfEycN1xdC+zGTep74WMA
-# RImQILQcNciwSVPNI6KyaD5yCZdnm0x3fPdtBbzxA7F+FlGMlpH0G1DbAwmlNwtI
-# +nUI+7AAGj124GNYcGxTvdII6tuRdaRV1iE+fW5o2vNobL1EDPZxy0PmmQ7ovpVx
-# E8Juxrd0VXZAIei08Hr2aGzle7gCxdAvkNxQd8GZlrnYiFUPbrJ3SOry4gy25KHK
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQtddd9Cym/
+# tNndf51NK7yDbVbQXDANBgkqhkiG9w0BAQEFAASCAQCMtPUo6RoE5EY730YhKAj6
+# hubqTDLwxLDUfMvCTQenTgG2vQcbymh0NiRf8I31Juj5gzWpzR87AhXzG1oNwPgZ
+# IzJHTZWUuEzUnEUQuK9qUtVJ/vCjEiW9dcj0qStR6kPteHG2yv9LSTxwd1ROtt0M
+# 1VNmqQOj4777PD5C+I2fkUyPhBAL5Q65QW7LpdvxzvANGT+Ic7Ds+4Qljp49+HFt
+# rnQiKhpgCd3AFEHRqupnGlrLmkeDuVc1CCNYfgow7pkXJGlF+Jb0bu7c9VhNZ1wu
+# snNNs4ekMSP0mtyFp1CXt0xqpo4NYiuoo+HVYVdnDyoz9pTmABOelBixyw1A8KFr
 # SIG # End signature block
