@@ -25,7 +25,7 @@
         - Does not capture all types of Logon Sessions (such as PowerShell Remoting or those initiated by service/system accounts)
         - Does not provide the properties "LogonId" or "AuthenticationPackage" (i.e. NTLM, Kerberos, etc)
 
-    The Get-SessionViaCim function is my take on parsing Get-CimInstance results from Win32_LogOnSession and Win32_LoggedOnUser.
+    The Get-UserSessionViaCim function is my take on parsing Get-CimInstance results from Win32_LogOnSession and Win32_LoggedOnUser.
     The helper function Get-LHSCimSession assists with using the Get-CimInstance cmdlet against machines that are not part of a
     domain, or in a different domain.
 
@@ -1153,12 +1153,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmNEaUXoR99v1+C36vaCQSIkg
-# SxCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhO0EArRUToMW8vDO50OeQVd6
+# 2VWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1213,11 +1212,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQdn4F3AGmS
-# EVqVN+nkgSPBEo57oTANBgkqhkiG9w0BAQEFAASCAQB1m2gzpcucKWMt9qA0mgO4
-# z7/CHa+aIC7EeqzCEBWcvke/oyqNkIBvT8lbNcbpt4o5zAAkwSMu/DJBH8vYC56+
-# bPPFwH1+uOPW1h7ScXEL/K3ri8XekDVpTgbGvZ0jLcxOOfqForUy2znufxUSTyar
-# xooXpl9FB3ZUE/NcBmoP0LkAuEddNPaXFup7kcdKq6gY2Kcmtkweh57NpUvI46J4
-# dhnXeBPcCcCdb4oIfDQoGeS/9QZLyuHHb+dMbajyS97OvYmxzKAHHDwqPqt4pH3W
-# d9Y0niJnKBruxfSrTit7lCOItkTv4p5EBtLc8Xlbw1Cm+Wyg8uXE40d7LiKYNP2H
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSBbApKW/Iz
+# yfj4Wdt0ijkO6PynDTANBgkqhkiG9w0BAQEFAASCAQCCmhvzYg9ocAIyFd5qvf5k
+# VSiy3q7Nie33lHMRVdOyek7dENJp4vMbyZx9TWMg34APYbAqFRnmDv+LwQaw9XoM
+# CbHtF7sN/K/3YJjp7JpOgHG4C6wCyDF4ss4o0DxUN89ceMEfcJ+vq/p/OITrwQ6c
+# yzyyrtAjh5Pw5OdAQHVU5IkjmbrrQuQDR6FdvC480t7Cipc+OrvIR9esZkN+4dCO
+# Z+YHd6C3OgaU33LN5ZDDiaZZFlw4xOtpnKTGBOimr8EHdZLJhH5bFQ13hBcdEwYP
+# mUphDoDzMUlyS3fXIZXhywgrgPbTNjqRXBS+aWqoyWr2b85fEg/e/KKYd4xHcYm0
 # SIG # End signature block
