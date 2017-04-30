@@ -6,7 +6,7 @@
 .DESCRIPTION
     The Get-UserSessionEx function is composed (primarily) of two functions: Get-UserSessionViaQuery and Get-UserSessionViaCim.
 
-    The Get-UserSesionViaQuery function is a *very slightly* modified version of RamblingCookieMonster's Get-Userssion function:
+    The Get-UserSessionViaQuery function is a *very slightly* modified version of RamblingCookieMonster's Get-UserSession function:
         https://github.com/RamblingCookieMonster/PowerShell/blob/master/Get-UserSession.ps1
     
     Sample output of Get-UserSessionViaQuery is as follows:
@@ -1154,12 +1154,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU63aK9cmViHIpXyp0a/7nPVPD
-# niCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmNEaUXoR99v1+C36vaCQSIkg
+# SxCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1214,11 +1213,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQCg1qxxUxG
-# P11gA5xxXMwtWIRs6TANBgkqhkiG9w0BAQEFAASCAQAKSnzN/6x4rMtUI2dFnjK6
-# Bi9UJjMPhustAaQ+D3T/olim7sw+aE+848Z6hJxFI4EoN6ElEfsRjG5yDGmX6Asj
-# HECafy2RpHLjfXvHtAQS27cueYgT6Evql3LHFZRujcwH7ggoBcKX3z7bZFtctD7y
-# 9MPZV95XTakdBieI4Yca2nd91OeCKPs3ErdHG1WLV3Za5xgoOjSL/MovukgL2ia2
-# N6nMP3VdWbY7SKq89K+0/8z45lVeaiTcdTDe9jAqXHlA8eWIqQOni7/UDjIUPgQg
-# UDZmUTZjbN7lNGdjHtKtGsubFlNe5CzGszv48UCQHYsoclrWw3MtGPF2E70gk8g+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQdn4F3AGmS
+# EVqVN+nkgSPBEo57oTANBgkqhkiG9w0BAQEFAASCAQB1m2gzpcucKWMt9qA0mgO4
+# z7/CHa+aIC7EeqzCEBWcvke/oyqNkIBvT8lbNcbpt4o5zAAkwSMu/DJBH8vYC56+
+# bPPFwH1+uOPW1h7ScXEL/K3ri8XekDVpTgbGvZ0jLcxOOfqForUy2znufxUSTyar
+# xooXpl9FB3ZUE/NcBmoP0LkAuEddNPaXFup7kcdKq6gY2Kcmtkweh57NpUvI46J4
+# dhnXeBPcCcCdb4oIfDQoGeS/9QZLyuHHb+dMbajyS97OvYmxzKAHHDwqPqt4pH3W
+# d9Y0niJnKBruxfSrTit7lCOItkTv4p5EBtLc8Xlbw1Cm+Wyg8uXE40d7LiKYNP2H
 # SIG # End signature block
