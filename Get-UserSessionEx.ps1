@@ -303,6 +303,12 @@ function Get-UserSessionEx {
                     Write-Verbose "Unable to resolve $($ComputerName[0])!"
                 }
                 if ($RemoteHostIP) {
+                    # Filter out any non IPV4 IP Addresses that are in $RemoteHostIP
+                    $RemoteHostIP = $RemoteHostIP | % {[ipaddress]$_} | % {if ($_.AddressFamily -eq "InterNetwork") {$_.IPAddressToString}}
+                    # If there is still more than one IPAddress string in $RemoteHostIP, just select the first one
+                    if ($RemoteHostIP.Count -gt 1) {
+                        $RemoteHostIP = $RemoteHostIP[0]
+                    }
                     $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostIP).NameHost
                     $pos = $RemoteHostNameFQDN.IndexOf(".")
                     $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
@@ -328,9 +334,15 @@ function Get-UserSessionEx {
                     Write-Verbose "Unable to resolve $($ComputerName[0])!"
                 }
                 if ($RemoteHostNameFQDN) {
-                    $pos = $RemoteHostNameFQDN.IndexOf(".")
-                    $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
-                    $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
+                    if ($($RemoteHostNameFQDN | Select-String -Pattern "\.").Matches.Success) {
+                        $pos = $RemoteHostNameFQDN.IndexOf(".")
+                        $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
+                        $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
+                    }
+                    else {
+                        $RemoteHostNameFQDNPre = $RemoteHostNameFQDN
+                        $RemoteHostNameFQDNPost = $RemoteHostNameFQDN
+                    }
                     $RemoteHostUserName = "$Uname@$RemoteHostNameFQDNPost"
 
                     $RemoteHostNetworkInfoArray += $RemoteHostIP
@@ -823,6 +835,12 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
                 Write-Verbose "Unable to resolve $($CompName[0])!"
             }
             if ($RemoteHostIP) {
+                # Filter out any non IPV4 IP Addresses that are in $RemoteHostIP
+                $RemoteHostIP = $RemoteHostIP | % {[ipaddress]$_} | % {if ($_.AddressFamily -eq "InterNetwork") {$_.IPAddressToString}}
+                # If there is still more than one IPAddress string in $RemoteHostIP, just select the first one
+                if ($RemoteHostIP.Count -gt 1) {
+                    $RemoteHostIP = $RemoteHostIP[0]
+                }
                 $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostIP).NameHost
                 $pos = $RemoteHostNameFQDN.IndexOf(".")
                 $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
@@ -848,9 +866,15 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
                 Write-Verbose "Unable to resolve $RemoteHost!"
             }
             if ($RemoteHostNameFQDN) {
-                $pos = $RemoteHostNameFQDN.IndexOf(".")
-                $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
-                $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
+                if ($($RemoteHostNameFQDN | Select-String -Pattern "\.").Matches.Success) {
+                    $pos = $RemoteHostNameFQDN.IndexOf(".")
+                    $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
+                    $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
+                }
+                else {
+                    $RemoteHostNameFQDNPre = $RemoteHostNameFQDN
+                    $RemoteHostNameFQDNPost = $RemoteHostNameFQDN
+                }
                 $RemoteHostUserName = "$UserName@$RemoteHostNameFQDNPost"
 
                 $RemoteHostNetworkInfoArray += $RemoteHostIP
@@ -1037,6 +1061,12 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
             Write-Verbose "Unable to resolve $($HostName[0])!"
         }
         if ($RemoteHostIP) {
+            # Filter out any non IPV4 IP Addresses that are in $RemoteHostIP
+            $RemoteHostIP = $RemoteHostIP | % {[ipaddress]$_} | % {if ($_.AddressFamily -eq "InterNetwork") {$_.IPAddressToString}}
+            # If there is still more than one IPAddress string in $RemoteHostIP, just select the first one
+            if ($RemoteHostIP.Count -gt 1) {
+                $RemoteHostIP = $RemoteHostIP[0]
+            }
             $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostIP).NameHost
             $pos = $RemoteHostNameFQDN.IndexOf(".")
             $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
@@ -1062,9 +1092,15 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
             Write-Verbose "Unable to resolve $HostName!"
         }
         if ($RemoteHostNameFQDN) {
-            $pos = $RemoteHostNameFQDN.IndexOf(".")
-            $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
-            $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
+            if ($($RemoteHostNameFQDN | Select-String -Pattern "\.").Matches.Success) {
+                $pos = $RemoteHostNameFQDN.IndexOf(".")
+                $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
+                $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
+            }
+            else {
+                $RemoteHostNameFQDNPre = $RemoteHostNameFQDN
+                $RemoteHostNameFQDNPost = $RemoteHostNameFQDN
+            }
             $RemoteHostUserName = "$UserAcct@$RemoteHostNameFQDNPost"
 
             $RemoteHostNetworkInfoArray += $RemoteHostIP
@@ -1152,12 +1188,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhO0EArRUToMW8vDO50OeQVd6
-# 2VWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV9h10UHr5Vo1biCRIBJgnAS1
+# GS6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1212,11 +1247,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSBbApKW/Iz
-# yfj4Wdt0ijkO6PynDTANBgkqhkiG9w0BAQEFAASCAQCCmhvzYg9ocAIyFd5qvf5k
-# VSiy3q7Nie33lHMRVdOyek7dENJp4vMbyZx9TWMg34APYbAqFRnmDv+LwQaw9XoM
-# CbHtF7sN/K/3YJjp7JpOgHG4C6wCyDF4ss4o0DxUN89ceMEfcJ+vq/p/OITrwQ6c
-# yzyyrtAjh5Pw5OdAQHVU5IkjmbrrQuQDR6FdvC480t7Cipc+OrvIR9esZkN+4dCO
-# Z+YHd6C3OgaU33LN5ZDDiaZZFlw4xOtpnKTGBOimr8EHdZLJhH5bFQ13hBcdEwYP
-# mUphDoDzMUlyS3fXIZXhywgrgPbTNjqRXBS+aWqoyWr2b85fEg/e/KKYd4xHcYm0
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRRgE4tCntP
+# RJnrKKtB8M6HIvGcBzANBgkqhkiG9w0BAQEFAASCAQAtNSn+M5OogPnwGpUeUk3/
+# pERmqC+bNn77i/WKu1Jc10o4mdRSy+zrJcIY+2V3uqnw5uc24CtmtFCa+1WoAw3p
+# 6X+Avm4Zynu67vCXMRcxNxycS/CLF3aHwowNZlRXRm7ubj2GosWXIqtQYKJ7s2WF
+# y7bM/dIBIiUX/Zu8Odlxps7cf9uxk7c6kbA9WtkRuQuAoyQnK/NSAFwbHGK8U0DR
+# v5H2Cmb8kAmDDz0uhyyKEm+7VCg6CXm0NM2ynfeb16kH9RDThkDZHuMDXaekSoTP
+# C6ThoiHJZ9zru4gP1pomW0y2mZn48R2ocsYqRMboDApTs7CwnyJnmP/9V0U79r8s
 # SIG # End signature block
