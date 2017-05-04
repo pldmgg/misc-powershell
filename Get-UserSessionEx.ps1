@@ -786,7 +786,7 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 	        [string[]]$CompName = $env:COMPUTERNAME,
 
 	        [Parameter(Mandatory=$False)]
-	        [string]$UserName,
+	        [string]$UserName = $($([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1]),
 	 
 	        [Parameter(Mandatory=$False)]
 	        $Password,
@@ -796,6 +796,12 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 	    )
 
 	    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+        if ($($UserName -or $Password) -and $Credential) {
+            Write-Verbose "Please use EITHER the Credential parameter OR the UserName and Password parameters! Halting!"
+            Write-Error "Please use EITHER the Credential parameter OR the UserName and Password parameters! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
 
         if ($UserName) {
             $UserNameFormatOne = $RemoteHostUser | Select-String -Pattern "\\"
@@ -807,23 +813,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
                 $UserName = $UserName.Split("@")[0]
             }
         }
-	    
-	    if ($($UserName -or $Password) -and $Credential) {
-	        Write-Verbose "Please use EITHER the Credential parameter OR the UserName and Password parameters! Halting!"
-	        Write-Error "Please use EITHER the Credential parameter OR the UserName and Password parameters! Halting!"
-	        $global:FunctionResult = "1"
-	        return
-	    }
 
-	    if ($UserName) {
-	        if (!$Password) {
-	            $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-	        }
-	    }
 	    if ($Password) {
-	        if (!$UserName) {
-	            $UserName = Read-Host -Prompt "Please enter a UserName with access to all Computers listed in the -CompName parameter"
-	        }
+	        if ($Password.GetType().FullName -eq "System.String") {
+                $Password = ConvertTo-SecureString $Passwd -AsPlainText -Force
+            }
 	    }
 
         $RemoteHostNetworkInfoArray = @()
@@ -888,17 +882,23 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
             }
         }
 
-        # If $CompName[0] is on a different Domain, change $UserName to $RemoteHostUserName
-        if ($(Get-WMIObject Win32_ComputerSystem).Domain -ne $RemoteHostNameFQDNPost) {
-            $UserName = $RemoteHostUserName
-        }
+        if ($UserAcct -ne $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1] -or
+        $HostName.Count -gt 1 -or $HostName -ne $env:COMPUTERNAME) {
+            if (!Password) {
+                $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+            }
+            # If $CompName[0] is on a different Domain, change $UserName to $RemoteHostUserName
+            if ($(Get-WMIObject Win32_ComputerSystem).Domain -ne $RemoteHostNameFQDNPost) {
+                $UserName = $RemoteHostUserName
+            }
 
-	    if ($Credential) {
-	        $FinalCreds = $Credential
-	    }
-	    else {
-	        $FinalCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
-	    }
+            if ($Credential) {
+                $FinalCreds = $Credential
+            }
+            else {
+                $FinalCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
+            }
+        }
 
 	    $LogonTypeTranslated = @{
 	        "0" = "Local System"
@@ -928,7 +928,13 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 
 	    $UserSessionInfoObjArray = @()
 	    foreach ($Comp in $CompName) {
-	        $CimSessionObj = Get-LHSCimSession -ComputerName $Comp -Creds $FinalCreds
+            if ($UserAcct -ne $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1] -or
+            $HostName.Count -gt 1 -or $HostName -ne $env:COMPUTERNAME) {
+	           $CimSessionObj = Get-LHSCimSession -ComputerName $Comp -Creds $FinalCreds
+            }
+            else {
+                $CimSessionObj = Get-LHSCimSession -ComputerName $Comp
+            }
 
 	        New-Variable -Name "$Comp`LoggedOnUserCimInfo" -Value $(Get-CimInstance -ClassName Win32_LoggedOnUser -CimSession $CimSessionObj.CimSession) -Force
 	        New-Variable -Name "$Comp`LogOnSessionCimInfo" -Value $(Get-CimInstance -ClassName Win32_LogOnSession -CimSession $CimSessionObj.CimSession) -Force
@@ -1019,6 +1025,12 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    if ($($UserAcct -or $Passwd) -and $Credentials) {
+        Write-Verbose "Please use EITHER the Credentials parameter OR the UserAcct and Passwd parameters! Halting!"
+        Write-Error "Please use EITHER the Credentials parameter OR the UserAcct and Passwd parameters! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
 
     if ($UserAcct) {
         $UserNameFormatOne = $UserAcct | Select-String -Pattern "\\"
@@ -1030,25 +1042,10 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
             $UserAcct = $UserAcct.Split("@")[0]
         }
     }
-    
-    if ($($UserAcct -or $Passwd) -and $Credentials) {
-        Write-Verbose "Please use EITHER the Credentials parameter OR the UserAcct and Passwd parameters! Halting!"
-        Write-Error "Please use EITHER the Credentials parameter OR the UserAcct and Passwd parameters! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
 
-    if ($UserAcct) {
-        if (!$Passwd) {
-            $Passwd = Read-Host -Prompt "Please enter the password for $UserAcct on $HostName" -AsSecureString
-        }
-    }
     if ($Passwd) {
         if ($Passwd.GetType().FullName -eq "System.String") {
             $Passwd = ConvertTo-SecureString $Passwd -AsPlainText -Force
-        }
-        if (!$UserAcct) {
-            $UserAcct = Read-Host -Prompt "Please enter the UserName that you would like to use to access $HostName"
         }
     }
 
@@ -1114,16 +1111,22 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
         }
     }
 
-    # If $CompName[0] is on a different Domain, change $UserName to $RemoteHostUserName
-    if ($(Get-WMIObject Win32_ComputerSystem).Domain -ne $RemoteHostNameFQDNPost) {
-        $UserAcct = $RemoteHostUserName
-    }
+    if ($UserAcct -ne $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1] -or
+    $HostName.Count -gt 1 -or $HostName -ne $env:COMPUTERNAME) {
+        if (!Passwd) {
+            $Passwd = Read-Host -Prompt "Please enter the password for $UserAcct" -AsSecureString
+        }
+        # If $CompName[0] is on a different Domain, change $UserName to $RemoteHostUserName
+        if ($(Get-WMIObject Win32_ComputerSystem).Domain -ne $RemoteHostNameFQDNPost) {
+            $UserAcct = $RemoteHostUserName
+        }
 
-    if ($Credentials) {
-        $FinalCreds = $Credentials
-    }
-    else {
-        $FinalCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserAcct, $Passwd
+        if ($Credential) {
+            $FinalCreds = $Credentials
+        }
+        else {
+            $FinalCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserAcct, $Passwd
+        }
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -1131,20 +1134,33 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 
     ##### BEGIN Main Body #####
 
-    $CimResults = Get-UserSessionViaCim -CompName $HostName -Credential $FinalCreds
-    if ($(Get-WMIObject Win32_ComputerSystem).Domain -ne $RemoteHostNameFQDNPost) {
-        $UserNameFormatOne = $UserAcct | Select-String -Pattern "\\"
-        $UserNameFormatTwo = $UserAcct | Select-String -Pattern "@"
-        if ($UserNameFormatOne) {
-            $UserAcct = $UserAcct.Split("\")[-1]
-        }
-        if ($UserNameFormatTwo) {
-            $UserAcct = $UserAcct.Split("@")[0]
-        }
+    if ($UserAcct -ne $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1] -or
+    $HostName.Count -gt 1 -or $HostName -ne $env:COMPUTERNAME) {
+        $CimResults = Get-UserSessionViaCim -CompName $HostName -Credential $FinalCreds
+    }
+    else {
+        $CimResults = Get-UserSessionViaCim -CompName $HostName
+    }
 
-        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Passwd)
-        $PTPwd = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-        $QueryResults = Get-UserSessionViaQuery -ComputerName $HostName -Uname $UserAcct -Pword $PTPwd
+    if ($UserAcct -ne $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1] -or
+    $HostName.Count -gt 1 -or $HostName -ne $env:COMPUTERNAME) {
+        if ($(Get-WMIObject Win32_ComputerSystem).Domain -ne $RemoteHostNameFQDNPost) {
+            $UserNameFormatOne = $UserAcct | Select-String -Pattern "\\"
+            $UserNameFormatTwo = $UserAcct | Select-String -Pattern "@"
+            if ($UserNameFormatOne) {
+                $UserAcct = $UserAcct.Split("\")[-1]
+            }
+            if ($UserNameFormatTwo) {
+                $UserAcct = $UserAcct.Split("@")[0]
+            }
+
+            $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Passwd)
+            $PTPwd = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+            $QueryResults = Get-UserSessionViaQuery -ComputerName $HostName -Uname $UserAcct -Pword $PTPwd
+        }
+        else {
+            $QueryResults = Get-UserSessionViaQuery -ComputerName $HostName
+        }
     }
     else {
         $QueryResults = Get-UserSessionViaQuery -ComputerName $HostName
@@ -1187,12 +1203,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV9h10UHr5Vo1biCRIBJgnAS1
-# GS6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIy2HH+mXw5+kaQD+HMtiykya
+# 0+qgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1247,11 +1262,11 @@ Failed to establish CimSession with $Computer! If $Computer is NOT on the same d
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRRgE4tCntP
-# RJnrKKtB8M6HIvGcBzANBgkqhkiG9w0BAQEFAASCAQAtNSn+M5OogPnwGpUeUk3/
-# pERmqC+bNn77i/WKu1Jc10o4mdRSy+zrJcIY+2V3uqnw5uc24CtmtFCa+1WoAw3p
-# 6X+Avm4Zynu67vCXMRcxNxycS/CLF3aHwowNZlRXRm7ubj2GosWXIqtQYKJ7s2WF
-# y7bM/dIBIiUX/Zu8Odlxps7cf9uxk7c6kbA9WtkRuQuAoyQnK/NSAFwbHGK8U0DR
-# v5H2Cmb8kAmDDz0uhyyKEm+7VCg6CXm0NM2ynfeb16kH9RDThkDZHuMDXaekSoTP
-# C6ThoiHJZ9zru4gP1pomW0y2mZn48R2ocsYqRMboDApTs7CwnyJnmP/9V0U79r8s
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ/BFwpMFQ9
+# 5XqRdBZ1PrJoUnL+rjANBgkqhkiG9w0BAQEFAASCAQBTUS1p8MUIa+VCmbzQaKYz
+# H4fMV79FVWKF1wVGEfJvALpKPap5vP51A3IOhVey76eBVrZgWGAi+OxTf0sgEeBs
+# TiQzoxFwIgxjnMymUxvrCSQB/GOmyX39PTdA3Lvd67hx39yDk/fs/NwaZQBoXouY
+# M4bjBPvf3cHq85NP/eSm29DxAUqkXXe7hFTm3LRxCSGNKhwIB3NVw6lJLLVGW5/5
+# cTWpLSL6vy5JmTMfRZXfXC+b54JDsZA28T8OaI/JPJ6B8IGGo0fJUx09SKUfX4mY
+# jXPnTyDvWW9es5L70HmJbtBy9XeKKob1ZCNDglg66nzFnccln4l3MwEHl8C1aniK
 # SIG # End signature block
