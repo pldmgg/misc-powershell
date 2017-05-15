@@ -1,119 +1,4 @@
-#############################################################################################################
-
-<#
-
-GNU LESSER GENERAL PUBLIC LICENSE
-Version 3, 29 June 2007
-
-Copyright © 2007 Free Software Foundation, Inc. <http://fsf.org/>
-
-Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
-
-This version of the GNU Lesser General Public License incorporates the terms and conditions of version 3 of the GNU General
-Public License, supplemented by the additional permissions listed below.
-
-0. Additional Definitions.
-
-As used herein, “this License” refers to version 3 of the GNU Lesser General Public License, and the “GNU GPL” refers to
-version 3 of the GNU General Public License.
-
-“The Library” refers to a covered work governed by this License, other than an Application or a Combined Work as defined below.
-
-An “Application” is any work that makes use of an interface provided by the Library, but which is not otherwise based on the
-Library. Defining a subclass of a class defined by the Library is deemed a mode of using an interface provided by the Library.
-
-A “Combined Work” is a work produced by combining or linking an Application with the Library. The particular version of the
-Library with which the Combined Work was made is also called the “Linked Version”.
-
-The “Minimal Corresponding Source” for a Combined Work means the Corresponding Source for the Combined Work, excluding any
-source code for portions of the Combined Work that, considered in isolation, are based on the Application, and not on the
-Linked Version.
-
-The “Corresponding Application Code” for a Combined Work means the object code and/or source code for the Application, including
-any data and utility programs needed for reproducing the Combined Work from the Application, but excluding the System Libraries
-of the Combined Work.
-
-1. Exception to Section 3 of the GNU GPL.
-
-You may convey a covered work under sections 3 and 4 of this License without being bound by section 3 of the GNU GPL.
-
-2. Conveying Modified Versions.
-
-If you modify a copy of the Library, and, in your modifications, a facility refers to a function or data to be supplied by an
-Application that uses the facility (other than as an argument passed when the facility is invoked), then you may convey a copy
-of the modified version:
-
-a) under this License, provided that you make a good faith effort to ensure that, in the event an Application does not supply
-the function or data, the facility still operates, and performs whatever part of its purpose remains meaningful, or
-b) under the GNU GPL, with none of the additional permissions of this License applicable to that copy.
-
-3. Object Code Incorporating Material from Library Header Files.
-
-The object code form of an Application may incorporate material from a header file that is part of the Library. You may convey
-such object code under terms of your choice, provided that, if the incorporated material is not limited to numerical parameters,
-data structure layouts and accessors, or small macros, inline functions and templates (ten or fewer lines in length), you do both
-of the following:
-
-a) Give prominent notice with each copy of the object code that the Library is used in it and that the Library and its use are
-covered by this License.
-b) Accompany the object code with a copy of the GNU GPL and this license document.
-
-4. Combined Works.
-
-You may convey a Combined Work under terms of your choice that, taken together, effectively do not restrict modification of the
-portions of the Library contained in the Combined Work and reverse engineering for debugging such modifications, if you also do
-each of the following:
-
-a) Give prominent notice with each copy of the Combined Work that the Library is used in it and that the Library and its use are
-covered by this License.
-b) Accompany the Combined Work with a copy of the GNU GPL and this license document.
-c) For a Combined Work that displays copyright notices during execution, include the copyright notice for the Library among these
-notices, as well as a reference directing the user to the copies of the GNU GPL and this license document.
-d) Do one of the following:
-0) Convey the Minimal Corresponding Source under the terms of this License, and the Corresponding Application Code in a form
-suitable for, and under terms that permit, the user to recombine or relink the Application with a modified version of the Linked
-Version to produce a modified Combined Work, in the manner specified by section 6 of the GNU GPL for conveying Corresponding Source.
-1) Use a suitable shared library mechanism for linking with the Library. A suitable mechanism is one that (a) uses at run time a
-copy of the Library already present on the user's computer system, and (b) will operate properly with a modified version of the
-Library that is interface-compatible with the Linked Version.
-e) Provide Installation Information, but only if you would otherwise be required to provide such information under section 6 of
-the GNU GPL, and only to the extent that such information is necessary to install and execute a modified version of the Combined
-Work produced by recombining or relinking the Application with a modified version of the Linked Version. (If you use option 4d0,
-the Installation Information must accompany the Minimal Corresponding Source and Corresponding Application Code. If you use option
-4d1, you must provide the Installation Information in the manner specified by section 6 of the GNU GPL for conveying Corresponding
-Source.)
-
-5. Combined Libraries.
-
-You may place library facilities that are a work based on the Library side by side in a single library together with other
-library facilities that are not Applications and are not covered by this License, and convey such a combined library under
-terms of your choice, if you do both of the following:
-
-a) Accompany the combined library with a copy of the same work based on the Library, uncombined with any other library facilities,
-conveyed under the terms of this License.
-b) Give prominent notice with the combined library that part of it is a work based on the Library, and explaining where to find
-the accompanying uncombined form of the same work.
-6. Revised Versions of the GNU Lesser General Public License.
-
-The Free Software Foundation may publish revised and/or new versions of the GNU Lesser General Public License from time to time.
-Such new versions will be similar in spirit to the present version, but may differ in detail to address new problems or concerns.
-
-Each version is given a distinguishing version number. If the Library as you received it specifies that a certain numbered version
-of the GNU Lesser General Public License “or any later version” applies to it, you have the option of following the terms and
-conditions either of that published version or of any later version published by the Free Software Foundation. If the Library as
-you received it does not specify a version number of the GNU Lesser General Public License, you may choose any version of the GNU
-Lesser General Public License ever published by the Free Software Foundation.
-
-If the Library as you received it specifies that a proxy can decide whether future versions of the GNU Lesser General Public
-License shall apply, that proxy's public statement of acceptance of any version is permanent authorization for you to choose
-that version for the Library.
-
-#>
-
-#############################################################################################################
-
-
-function Get-Elevation {
+function Check-Elevation {
    [System.Security.Principal.WindowsPrincipal]$CurrentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
          [System.Security.Principal.WindowsIdentity]::GetCurrent()
     )
@@ -176,6 +61,27 @@ function Verify-Directory {
 
 
 function Update-PackageManagement {
+    ##### BEGIN Helper Functions #####
+    function Check-Elevation {
+       [System.Security.Principal.WindowsPrincipal]$currentPrincipal = `
+          New-Object System.Security.Principal.WindowsPrincipal(
+             [System.Security.Principal.WindowsIdentity]::GetCurrent());
+
+       [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = `
+          [System.Security.Principal.WindowsBuiltInRole]::Administrator;
+
+       if($currentPrincipal.IsInRole($administratorsRole))
+       {
+          return $true;
+       }
+       else
+       {
+          return $false;
+       }
+    }
+    ##### END Helper Functions #####
+
+
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
             Write-Host "Downlaoding PackageManagement .msi installer..."
@@ -955,21 +861,12 @@ function Limit-DirectorySize {
     Event is triggered. In other words, it stores Register-FileIOWatcher function logs in .xml files.
 
 .EXAMPLE
-    $LogDir = "K:\Logs\PowerShell"
-    Start-PSLogging -LogDirectory $LogDir -SubDirectorySizeLimitInGB 1
-
-.EXAMPLE
-    $LogDir = "M:\Logs\PowerShell"
     Start-PSLogging -ConsoleHistDir "M:\Logs\Powershell\PS_Interactive_History" `
     -InteractivePSHistDir "M:\Logs\Powershell\PS_Interactive_History" `
     -UninteractivePSHistDir "M:\Logs\Powershell\PS_Uninteractive_History" `
     -SystemWidePSHistDir "M:\Logs\Powershell\PS_SystemWide_History" `
     -PSTranscriptDir "M:\Logs\Powershell\PS_Session_Transcripts" `
-    -FileIOWatcherEventLogDir "M:\Logs\Powershell" `
-    -SubDirectorySizeLimitInGB 2
-
-    NOTE: In the above example, the "FileIOWatcherEventLogDir" parameter creates a directory called FileIOWatcherEvents
-    under M:\Logs\PowerShell\
+    -FileIOWatcherEventLogDir "M:\Logs\Powershell"
 
 .OUTPUTS
     Outputs for this function are three (3) System.Management.Automation.PSEventJob objects that come as output from the 
@@ -1012,7 +909,7 @@ function Start-PSLogging {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     $whoamiSanitizedForFileName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -replace "\\","-"
-    if (Get-Elevation) {
+    if (Check-Elevation) {
         $PowerShellUserAccount = "Elevated_$whoamiSanitizedForFileName"
     }
     else {
@@ -1034,22 +931,6 @@ function Start-PSLogging {
     }
     if (!$FileIOWatcherEventLogDir) {
         $FileIOWatcherEventLogDir = "$LogDirectory"
-    }
-
-    if (!$(Test-Path $InteractivePSHistDir)) {
-        New-Item -Type Directory -Path $InteractivePSHistDir
-    }
-    if (!$(Test-Path $UninteractivePSHistDir)) {
-        New-Item -Type Directory -Path $UninteractivePSHistDir
-    }
-    if (!$(Test-Path $SystemWidePSHistDir)) {
-        New-Item -Type Directory -Path $SystemWidePSHistDir
-    }
-    if (!$(Test-Path $PSTranscriptDir)) {
-        New-Item -Type Directory -Path $PSTranscriptDir
-    }
-    if (!$(Test-Path $FileIOWatcherEventLogDir)) {
-        New-Item -Type Directory -Path $FileIOWatcherEventLogDir
     }
 
     Verify-Directory -DirectoryPath $LogDirectory
@@ -1105,11 +986,6 @@ function Start-PSLogging {
 
     ##### BEGIN Main Body #####
     # Setup File Watchers and Log Interactions
-    # Run each File Watcher in its own runspace (if appropriate)
-    # Add each Register-FileIOWatcher scriptblock to the below $ArrayOfFileIOWatcherPSObjects, and
-    # loop through them when creating Runspaces
-    $ArrayOfFileIOWatcherPSObjects = @()
-
 
     # The below ConsoleHistoryWatcher adds Interactive PowerShell Sessions to $InteractivePSHistoryPath when $ConsoleHistoryPath is "Changed"
     # NOTE: "Changed" triggers on file creation as well as modification, so no need for a separate Watcher Event on file creation.
@@ -1157,27 +1033,13 @@ if (!`$TryGettingHistory) {
     }
 }
 "@
-    
-    <#
-    $CHWParams = @{
-        TargetDir = "$ConsoleHistDir"
-        FilesToWatchEasyMatch = "$ConsoleHistoryFileName"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForPSReadlineConsoleHistoryChange"
-        ActionToTakeScriptBlock = $ConsoleHistoryWatcherScriptBlock
-    }
-    #>
 
-    $CHWRunspaceScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$ConsoleHistDir" `
-        -FilesToWatchEasyMatch "$ConsoleHistoryFileName" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForPSReadlineConsoleHistoryChange" `
-        -ActionToTakeScriptBlock $ConsoleHistoryWatcherScriptBlock -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $CHWRunspaceScriptBlock
+    Register-FileIOWatcher -TargetDir "$ConsoleHistDir" `
+    -FilesToWatchEasyMatch "$ConsoleHistoryFileName" `
+    -Trigger "Changed" `
+    -LogDir $FileIOWatcherEventLogDir `
+    -FriendlyNameForEvent "EventForPSReadlineConsoleHistoryChange" `
+    -ActionToTakeScriptBlock $ConsoleHistoryWatcherScriptBlock -Silent
 
 
     # The below InteractivePSWatcher adds Interactive PowerShell Sessions to $SystemWidePSHistoryPath upon 
@@ -1210,30 +1072,15 @@ if (`$TryGettingHistory) {
 }
 "@
 
-    <#
-    $IPSHParams = @{
-        TargetDir = "$InteractivePSHistDir"
-        FilesToWatchEasyMatch = "$InteractivePSHistoryFileName"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForInteractivePSHistoryChange"
-        ActionToTakeScriptBlock = $InteractivePSWatcherScriptBlock
-    }
-    #>
-
-    $IPSHRunspaceScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$InteractivePSHistDir" `
-        -FilesToWatchEasyMatch "$InteractivePSHistoryFileName" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForInteractivePSHistoryChange" `
-        -ActionToTakeScriptBlock $InteractivePSWatcherScriptBlock -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $IPSHRunspaceScriptBlock
+    Register-FileIOWatcher -TargetDir "$InteractivePSHistDir" `
+    -FilesToWatchEasyMatch "$InteractivePSHistoryFileName" `
+    -Trigger "Changed" `
+    -LogDir $FileIOWatcherEventLogDir `
+    -FriendlyNameForEvent "EventForInteractivePSHistoryChange" `
+    -ActionToTakeScriptBlock $InteractivePSWatcherScriptBlock -Silent
 
 
     # The below Register-EngineEvent PowerShell.Exiting adds Uninteractive PowerShell Sessions to $UninteractivePSHistoryPath
-    # This should NOT be in a Runspace
     $RegisterEngineEventScriptBlockAsString = @"
 if (!`$([Environment]::UserInteractive)) {
     Get-History | Export-Csv $UninteractivePSHistoryPath
@@ -1256,30 +1103,16 @@ else {
 }
 "@
 
-    <#
-    $UPSHParams = @{
-        TargetDir = "$UninteractivePSHistDir"
-        FilesToWatchEasyMatch = "$UninteractivePSHistoryFileName"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForUninteractivePSHistoryChange"
-        ActionToTakeScriptBlock = $PSExitActionWatcherScriptBlock
-    }
-    #>
-
-    $UPSHRunspaceScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" `
-        -FilesToWatchEasyMatch "$UninteractivePSHistoryFileName" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForUninteractivePSHistoryChange" `
-        -ActionToTakeScriptBlock $PSExitActionWatcherScriptBlock -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $UPSHRunspaceScriptBlock
+    Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" `
+    -FilesToWatchEasyMatch "$UninteractivePSHistoryFileName" `
+    -Trigger "Changed" `
+    -LogDir $FileIOWatcherEventLogDir `
+    -FriendlyNameForEvent "EventForUninteractivePSHistoryChange" `
+    -ActionToTakeScriptBlock $PSExitActionWatcherScriptBlock -Silent
 
 
      # Start-Transcript writes all of STDOUT from an Interactive PowerShell Session to $PSTranscriptPath
-     # ****upon closing the Interactive PowerShell Session.****. This should NOT be in a Runspace.
+     # ****upon closing the Interactive PowerShell Session.****
     if (!$(Test-Path $PSTranscriptPath)) {
         New-Item -Path $PSTranscriptPath -ItemType File
     }
@@ -1389,248 +1222,66 @@ function Limit-DirectorySize {
 }
 '@
 
-
     $SubDirectorySizeWatcherScriptBlock1 = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $InteractivePSHistDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
 
-    <#
-    $IPSHSizeWatcherParams = @{
-        TargetDir = "$InteractivePSHistDir"
-        FilesToWatchEasyMatch = "*.*"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForInteractivePSHistoryDirSize"
-        ActionToTakeScriptBlock = $SubDirectorySizeWatcherScriptBlock1
-    }
-    #>
-
-    $IPSHSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$InteractivePSHistDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForInteractivePSHistoryDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock1 -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $IPSHSizeWatcherScriptBlock
-
+    Register-FileIOWatcher -TargetDir "$InteractivePSHistDir" `
+    -FilesToWatchEasyMatch "*.*" `
+    -Trigger "Changed" `
+    -LogDir $FileIOWatcherEventLogDir `
+    -FriendlyNameForEvent "EventForInteractivePSHistoryDirSize" `
+    -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock1 -Silent
 
     $SubDirectorySizeWatcherScriptBlock2 = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $UninteractivePSHistDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
 
-    <#
-    $UPSHSizeWatcherParams = @{
-        TargetDir = "$UninteractivePSHistDir"
-        FilesToWatchEasyMatch = "*.*"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForUninteractivePSHistoryDirSize"
-        ActionToTakeScriptBlock = $SubDirectorySizeWatcherScriptBlock2
-    }
-    #>
-
-    $UPSHSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForUninteractivePSHistoryDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock2 -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $UPSHSizeWatcherScriptBlock
-
+    Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" `
+    -FilesToWatchEasyMatch "*.*" `
+    -Trigger "Changed" `
+    -LogDir $FileIOWatcherEventLogDir `
+    -FriendlyNameForEvent "EventForUninteractivePSHistoryDirSize" `
+    -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock2 -Silent
 
     $SubDirectorySizeWatcherScriptBlock3 = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $SystemWidePSHistDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
 
-    <#
-    $SWPSHSizeWatcherParams = @{
-        TargetDir = "$SystemWidePSHistDir"
-        FilesToWatchEasyMatch = "*.*"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForSystemWidePSHistDirSize"
-        ActionToTakeScriptBlock = $SubDirectorySizeWatcherScriptBlock3
-    }
-    #>
-
-    $SWPSHSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$SystemWidePSHistDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForSystemWidePSHistDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock3 -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $SWPSHSizeWatcherScriptBlock
-
+    Register-FileIOWatcher -TargetDir "$SystemWidePSHistDir" `
+    -FilesToWatchEasyMatch "*.*" `
+    -Trigger "Changed" `
+    -LogDir $FileIOWatcherEventLogDir `
+    -FriendlyNameForEvent "EventForSystemWidePSHistDirSize" `
+    -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock3 -Silent
 
     $SubDirectorySizeWatcherScriptBlock4 = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $PSTranscriptDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
 
-    <#
-    $TranscriptSizeWatcherParams = @{
-        TargetDir = "$PSTranscriptDir"
-        FilesToWatchEasyMatch = "*.*"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForPSTranscriptDirSize"
-        ActionToTakeScriptBlock = $SubDirectorySizeWatcherScriptBlock4
-    }
-    #>
-
-    $TranscriptSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$PSTranscriptDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForPSTranscriptDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock4 -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $TranscriptSizeWatcherScriptBlock
-
-
-
-    ##### BEGIN RUNSPACES #####
-
-    ##### BEGIN Runspace Manager Runspace #####
-    # Thanks to Boe Prox and Stephen Owen for this solution managing multiple Runspaces
-    # See: https://foxdeploy.com/2016/05/17/part-v-powershell-guis-responsive-apps-with-progress-bars/
-
-    $script:JobCleanup = [hashtable]::Synchronized(@{})
-    $script:Jobs = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
-
-    $jobCleanup.Flag = $True
-    $RunspaceMgrRunspace = [runspacefactory]::CreateRunspace()
-    $RunspaceMgrRunspace.ApartmentState = "STA"
-    $RunspaceMgrRunspace.ThreadOptions = "ReuseThread"
-    $RunspaceMgrRunspace.Open()
-    $RunspaceMgrRunspace.SessionStateProxy.SetVariable("jobCleanup",$jobCleanup)
-    $RunspaceMgrRunspace.SessionStateProxy.SetVariable("jobs",$jobs)
-    $jobCleanup.PowerShell = [PowerShell]::Create().AddScript({
-        # Routine to handle completed Runspaces
-        do {
-            foreach($runspace in $jobs) {
-                if ($runspace.Runspace.isCompleted) {
-                    [void]$runspace.PowerShell.EndInvoke($runspace.Runspace)
-                    $runspace.PowerShell.Dispose()
-                    $runspace.Runspace = $null
-                    $runspace.PowerShell = $null
-                }
-            }
-            # Clean Out Unused Runspace Jobs
-            $temphash = $jobs.clone()
-            $temphash | Where-Object {
-                $_.runspace -eq $null
-            } | foreach {
-                $jobs.remove($_)
-            }
-            Start-Sleep -Seconds 1
-        } while ($jobsCleanup.Flag)
-    })
-    $jobCleanup.PowerShell.Runspace = $RunspaceMgrRunspace
-    $jobCleanup.Thread = $jobCleanup.PowerShell.BeginInvoke()
-
-    ##### END Runspace Manager Runspace #####
-
-    ##### BEGIN Setup Runspace Creation Loop #####
-
-    $AllParams = $($PSBoundParameters.GetEnumerator())
-    $OtherVarsToPassToRunspaces = @("ConsoleHistDir","ConsoleHistoryFileName","ConsoleHistoryPath","InteractivePSHistoryFileName",
-    "InteractivePSHistoryPath","UninteractivePSHistoryFileName","UninteractivePSHistoryPath","SystemWidePSHistoryFileName",
-    "SystemWidePSHistoryPath","PSTranscriptFileName","PSTranscriptPath","FileIOWatcherEventLogDir")
-    $BlockVarsToPassToRunspaces = @("ConsoleHistoryWatcherScriptBlock","InteractivePSWatcherScriptBlock",
-    "PSExitActionWatcherScriptBlock","LimitDirSizeFunctionAsString","SubDirectorySizeWatcherScriptBlock1",
-    "SubDirectorySizeWatcherScriptBlock2","SubDirectorySizeWatcherScriptBlock3","SubDirectorySizeWatcherScriptBlock4",
-    "IPSHSizeWatcherScriptBlock","UPSHSizeWatcherScriptBlock","SWPSHSizeWatcherScriptBlock","TranscriptSizeWatcherScriptBlock")
-
-    $PSInstanceCollection = @()
-    $RunSpaceCollection = @()
-    $AsyncHandleCollection = @()
-    # Prepare and Create Runspaces for each Excel SpreadSheet
-    for ($i=0; $i -lt $ArrayOfFileIOWatcherPSObjects.Count; $i++)
-    {
-        New-Variable -Name "syncHash$i" -Value $([hashtable]::Synchronized(@{}))
-        $syncHashCollection +=, $(Get-Variable -Name "syncHash$i" -ValueOnly)
-
-        New-Variable -Name "Runspace$i" -Value $([runspacefactory]::CreateRunspace())
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).ApartmentState = "STA"
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).ThreadOptions = "ReuseThread"
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).Open()
-        # Pass all function Parameters to the Runspace
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable("AllParams",$AllParams)
-        foreach ($ParamKVP in $AllParams) {
-            $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable("$($ParamKVP.Key)",$(Get-Variable -Name "$($ParamKVP.Key)" -ValueOnly))
-        }
-        # Pass all other needed Variables to the Runspace
-        foreach ($VarName in $OtherVarsToPassToRunspaces) {
-            $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable($VarName,$(Get-Variable -Name $VarName -ValueOnly))
-        }
-        foreach ($VarName1 in $BlockVarsToPassToRunspaces) {
-            $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable($VarName1,$(Get-Variable -Name $VarName1 -ValueOnly))
-        }
-        # Pass syncHash$i to the Runspace
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable("syncHash",$(Get-Variable -Name "syncHash$i" -ValueOnly))
-        # Pass Runspace Manager Synchronized Hashtable and Synctronized Arraylist
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable("JobCleanup",$script:JobCleanup)
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable("Jobs",$script:Jobs)
-        # Pass the Register-FileIOWatcher ScriptBlock to the Runspace
-        #$(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable("FileIOWatcherEventLogDir",$FileIOWatcherEventLogDir)
-        $(Get-Variable -Name "Runspace$i" -ValueOnly).SessionStateProxy.SetVariable("FileIOWatcherScriptBlock",$ArrayOfFileIOWatcherPSObjects[$i])
-
-
-        New-Variable -Name "PSInstance$i" -Value $([System.Management.Automation.PowerShell]::Create())
-        $(Get-Variable -Name "PSInstance$i" -ValueOnly).AddScript({
-            ## BEGIN Main Code to run in Runspace ##
-
-            $syncHash.CompleteFlag = "Working"
-            
-            # Re-Import Any PS Modules
-
-            # Run the FileIO Watcher ScriptBlock
-            Invoke-Expression "$FileIOWatcherScriptBlock"
-
-            $syncHash.CompleteFlag = "Complete"
-
-            ## END Main Code to run in Runspace ##
-        })
-
-        # Start the Runspace in the PSInstance
-        $(Get-Variable -Name "PSInstance$i" -ValueOnly).Runspace = $(Get-Variable -Name "Runspace$i" -ValueOnly)
-        New-Variable -Name "AsyncHandle$i" -Value $($(Get-Variable -Name "PSInstance$i" -ValueOnly).BeginInvoke())
-
-        $RunSpaceCollection +=, $(Get-Variable -Name "Runspace$i" -ValueOnly)
-        $PSInstanceCollection +=, $(Get-Variable -Name "PSInstance$i" -ValueOnly)
-        $AsyncHandleCollection +=, $(Get-Variable -Name "AsyncHandle$i" -ValueOnly)
-
-        # Add the $PSInstance$i Job (with its accompanying $PSInstance$i.Runspace) to the array of jobs (i.e. $script.Jobs)
-        # that the Runspace Manager Runspace is handling
-        $script:Jobs +=, $(Get-Variable -Name "PSInstance$i" -ValueOnly)
-    }
-
-    ##### END Setup Runspace Creation Loop #####
-
-    ##### END RUNSPACES #####
-
+    Register-FileIOWatcher -TargetDir "$PSTranscriptDir" `
+    -FilesToWatchEasyMatch "*.*" `
+    -Trigger "Changed" `
+    -LogDir $FileIOWatcherEventLogDir `
+    -FriendlyNameForEvent "EventForPSTranscriptDirSize" `
+    -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock4 -Silent
 
     ##### END Main Body #####
 
 }
 
 
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUvKij2lnsw4EzgbOmYyOTk0r
-# T1ygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhwloIi+BQeBV1ZStxxs9PvY2
+# /sygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1685,11 +1336,11 @@ Limit-DirectorySize -Directory $PSTranscriptDir -SizeLimitInGB $SubDirectorySize
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS5bv2PgWiY
-# wlhtWwgeKLm1V50EMjANBgkqhkiG9w0BAQEFAASCAQA2K6CLLiYo7YrPsnS6uMMn
-# XSd7J+f6bfCxzJpvcCAiVzUzUdQRNS7mg/gGFhyDwmGOw3QQ5gVtOJTPpklkX2av
-# 9Q8jfP7RHQfZ09P0ETCoY8+rFvzilNQqOZwszTWQufC+R32W7Onvi7kLtlL4nISF
-# WKvdgQSRlAQLRNV1DoyM/cMjjih5NF4LFkXp+a+95bCYDzHrhyEBEnYGTRYhqKP0
-# kYbJuubyJGlfHzuSqbVNx1AF6Kr5kDW3BF+p65IHrNVV+0MXlfPmi2YPsIRSUizU
-# amunNy/7aKgpTELnzcryjAqSCqEiyO04SDjfqTfGiTVVPOYEKlvTEYysm2zuAUJ1
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS6Mz8/dRb8
+# 2lECDCQb5rRkLk7ONTANBgkqhkiG9w0BAQEFAASCAQB5GL9QQKGT2IwXERw/8FhB
+# qd026E/94GEFZaAg2sSvHyD+X/agLSdaTf9Suim5+VbRTaSrcGL9W9FnyDahxDeW
+# aSgjo/TbIM5McHtPiN+fb5smP9uY0ovgdprJV2AV+7qmK8Iiuy+K2Us0KZD6wtE7
+# Sm4Sn4Yg9KFmbcUsa5dttyxPUPwPtF/cTH54PgW+g3aOcHiC7avS2MuDaQrmusl3
+# GcYR14yJFSFULATNjTgDMNPwcgbNyMQq4quPzy1XkVfoHiH9cRNvS8fJTYNlCInL
+# B4fMCZebtwxUncd3bHhf6p417qWugoQIdX2P4b4yfAxAAG7zc3cj4556b81iyF0W
 # SIG # End signature block
