@@ -34,8 +34,6 @@ Function Check-InstalledPrograms {
         $ComputersArray = $HostName
     }
 
-    # Check each computer in $AllWindowsComputersArray to see if they are Online
-
     $Results = @()
     foreach ($computer in $ComputersArray) {
         if ($computer -eq $env:COMPUTERNAME -or $computer.Split("\.")[0] -eq $env:COMPUTERNAME) {
@@ -93,8 +91,8 @@ Function Check-InstalledPrograms {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUc1ejQsav1vE6R8LlcQ4y7wMv
-# JCqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxyQ3Vtd5I4wpx9TVqiuwSJ50
+# Tg+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -149,11 +147,11 @@ Function Check-InstalledPrograms {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTIidkmWGis
-# 7WiN3gGJNeV67pisDTANBgkqhkiG9w0BAQEFAASCAQCesu+2lpqB068iQ47clXLL
-# t8lf60KnhLikL017Yj7jDleb2+Om0UXZh0CHtp+RreBfJpJxjrHzlzn6K+TTuNHe
-# 1831wQ7nZoPqdTmZ6HlUk/JrA+q5awsCn0/XlwHxnHeMNn56gSrPkB1U5eTOqTb7
-# 74AibKhNOKR/D4vNCtFXcha4kXhx+KF6dOKikrvQ6eNJ11hro8gJ1Hmm95yvuTx6
-# NZGN6tBiCc5fJ4HBQ3cjRurQ/FBUP3KHmatQDSAJviZ2AOg84/DGSVhvxh2+I6/A
-# NzG5kB1X8eWfP/mLXnhm+RP4mLuslj1wCT6f6RHBnP/JZ9Q80xboBlFTaxRAqchW
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT9TYyJw7P6
+# 9bx+bMF77zH1NnqELDANBgkqhkiG9w0BAQEFAASCAQAGVXjamAWPJNpTX6XUuASS
+# BehBonTnjBFkjeoEkA0QHjxT18WglkAQVt7YTVvuxVAPo8u5rqY9AZvo+eoOujNs
+# QPRMEAHapxbM6gsaV+twgOJs8g3S2UIDYvXWfAHlruiiVgsZrVOwzWKa8DzGm8gl
+# ZQsSal5K2eabJ9cfssqliAmPqzkwRGNkXS7ni1ehRY3+ku+d/rk9s+g0c1MVbeMg
+# 6E9r2QoFzbh/7zbiwd1GmWO+aOTUJw76BJrEugrdME6sSgO3rH8/ZrttE2psnL3U
+# RliL/ZMGJGgp20iuJc1nFf8lLg1Sq3QNhvj+Mf+xT3zy9l56rd3MJasjiz8XZj23
 # SIG # End signature block
