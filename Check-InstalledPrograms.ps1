@@ -25,6 +25,12 @@ Function Check-InstalledPrograms {
 
     )
 
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    $RegPaths = @("HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*","HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*")
+    
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
     ##### BEGIN Main Body #####
     # Get a list of Windows Computers from AD
     if ($AllADWindowsComputers) {
@@ -38,20 +44,22 @@ Function Check-InstalledPrograms {
     foreach ($computer in $ComputersArray) {
         if ($computer -eq $env:COMPUTERNAME -or $computer.Split("\.")[0] -eq $env:COMPUTERNAME) {
             try {
-                $InstalledPrograms = Get-ItemProperty "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+                $InstalledPrograms = foreach ($regpath in $RegPaths) {Get-ItemProperty $regpath}
                 if (!$?) {
                     throw
                 }
             }
             catch {
-                Write-Warning "Unable to find registry path HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* on $computer. Skipping..."
+                Write-Warning "Unable to find registry path(s) on $computer. Skipping..."
                 continue
             }
         }
         else {
             try {
                 $InstalledPrograms = Invoke-Command -ComputerName $computer -ScriptBlock {
-                    Get-ItemProperty "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+                    foreach ($regpath in $RegPaths) {
+                        Get-ItemProperty $regpath
+                    }
                 } -ErrorAction SilentlyContinue
                 if (!$?) {
                     throw
@@ -91,8 +99,8 @@ Function Check-InstalledPrograms {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxyQ3Vtd5I4wpx9TVqiuwSJ50
-# Tg+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIQFZFyRlDsIBPJ80ebBnvyNQ
+# f7ugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -147,11 +155,11 @@ Function Check-InstalledPrograms {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT9TYyJw7P6
-# 9bx+bMF77zH1NnqELDANBgkqhkiG9w0BAQEFAASCAQAGVXjamAWPJNpTX6XUuASS
-# BehBonTnjBFkjeoEkA0QHjxT18WglkAQVt7YTVvuxVAPo8u5rqY9AZvo+eoOujNs
-# QPRMEAHapxbM6gsaV+twgOJs8g3S2UIDYvXWfAHlruiiVgsZrVOwzWKa8DzGm8gl
-# ZQsSal5K2eabJ9cfssqliAmPqzkwRGNkXS7ni1ehRY3+ku+d/rk9s+g0c1MVbeMg
-# 6E9r2QoFzbh/7zbiwd1GmWO+aOTUJw76BJrEugrdME6sSgO3rH8/ZrttE2psnL3U
-# RliL/ZMGJGgp20iuJc1nFf8lLg1Sq3QNhvj+Mf+xT3zy9l56rd3MJasjiz8XZj23
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQUWHoBLElX
+# zZ5sSYmE2x3AbF57zDANBgkqhkiG9w0BAQEFAASCAQBvrJYV9i4PqZiqT3Vih1sn
+# R5mUqYopsB/lRu2nZ3009uBMC8eOIzQKkkFNeewiTE9uTwvfCheYzhZz6uQMomP1
+# ZIaypX98j7nYbffB1SSv7V5g+JiI2T0W/gdVV7DVQAWqIO5USCgESm/a5mf1KNT2
+# gXMTI2a8o1FTmg/cNbWQRxmkscX3UneYlLLkxWR3kjrB0+bngSU3XhuRxpa95tXX
+# gwdShSIBSULOMVmwX80u5Vc0MF/Jp95qogx4eEzkaFtT+xxP3DXX+a3UYltoi0pY
+# JYV18ZlScG8O8le1lNr1fMyr9N76z+MuBTTHM9bUFdO1D9mfjvOmgWM26E7Laj9v
 # SIG # End signature block
