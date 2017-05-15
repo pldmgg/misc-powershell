@@ -27,6 +27,106 @@ function Initialize-GitEnvironment {
 
     )
 
+    ##### BEGIN Native Helper Functions #####
+
+    Function Check-InstalledPrograms {
+        [CmdletBinding(
+            PositionalBinding=$True,
+            DefaultParameterSetName='Default Param Set'
+        )]
+        Param(
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Default Param Set'
+            )]
+            [string]$ProgramTitleSearchTerm,
+
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Default Param Set'
+            )]
+            [string[]]$HostName = $env:COMPUTERNAME,
+
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Secondary Param Set'
+            )]
+            [switch]$AllADWindowsComputers
+
+        )
+
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+        $RegPaths = @("HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*","HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*")
+        
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+        ##### BEGIN Main Body #####
+        # Get a list of Windows Computers from AD
+        if ($AllADWindowsComputers) {
+            $ComputersArray = $(Get-ADComputer -Filter * -Property * | Where-Object {$_.OperatingSystem -like "*Windows*"}).Name
+        }
+        else {
+            $ComputersArray = $HostName
+        }
+
+        foreach ($computer in $ComputersArray) {
+            if ($computer -eq $env:COMPUTERNAME -or $computer.Split("\.")[0] -eq $env:COMPUTERNAME) {
+                try {
+                    $InstalledPrograms = foreach ($regpath in $RegPaths) {Get-ItemProperty $regpath}
+                    if (!$?) {
+                        throw
+                    }
+                }
+                catch {
+                    Write-Warning "Unable to find registry path(s) on $computer. Skipping..."
+                    continue
+                }
+            }
+            else {
+                try {
+                    $InstalledPrograms = Invoke-Command -ComputerName $computer -ScriptBlock {
+                        foreach ($regpath in $RegPaths) {
+                            Get-ItemProperty $regpath
+                        }
+                    } -ErrorAction SilentlyContinue
+                    if (!$?) {
+                        throw
+                    }
+                }
+                catch {
+                    Write-Warning "Unable to connect to $computer. Skipping..."
+                    continue
+                }
+            }
+
+            if ($ProgramTitleSearchTerm) {
+                $InstalledPrograms | Where-Object {$_.DisplayName -like "*$ProgramTitleSearchTerm*"}
+            }
+            else {
+                $InstalledPrograms
+            }
+        }
+
+        ##### END Main Body #####
+
+    }
+
+    ##### END Native Helper Functions #####
+
+    # Check to make sure Git Desktop is Installed
+    $GitDesktopCheck1 = Check-InstalledPrograms -ProgramTitleSearchTerm "GitDesktop"
+    $GitDesktopCheck2 = Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction SilentlyContinue
+    $GitDesktopCheck3 = Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction SilentlyContinue
+    $GitDesktopCheck4 = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
+    if (!$GitDesktopCheck1 -and !$GitDesktopCheck2 -and !$GitDesktopCheck3 -and !$GitDesktopCheck4) {
+        Write-Verbose "GitDesktop is NOT currently installed! Halting!"
+        Write-Error "GitDesktop is NOT currently installed! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+
     # Set the Git PowerShell Environment
     if ($env:github_shell -eq $null) {
         $env:github_posh_git = Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue
@@ -86,8 +186,8 @@ function Initialize-GitEnvironment {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6LxFQx1VD2kFArdgZy5eBA9l
-# 0AGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUt0iw6VSMelw972HWfeDJzPDw
+# +OWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -142,11 +242,11 @@ function Initialize-GitEnvironment {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTHoIdfZN5Y
-# r59U0dXrUvk2OXSrjTANBgkqhkiG9w0BAQEFAASCAQBZ/JBPPdkt3SRVXp8jptOV
-# qcEIjid4W2NtQkrEFOjR0M6WTTaul5Q2e3pCe9WXXiERmyesJoyHgQEI4TXJo9BD
-# 7X3I8S79d5T0PpityVu0fdWGasdtOVYT0KhMGFgbUETx3GdZg+rETM9SNbLIIaJg
-# pI7Dp9fAh8dWUW7B+RESe3CeqVcsFVMJQCLo6Nr576QAT+8jf8AJlrOVK7q4CIDF
-# XHmrs+tyo9gubeniZ63OFVIJwWEUFy1cVoTwQ2cAAAiD0Endx6LhZ88FwGnxPTQ5
-# 7j46hopGH3iHo4GEbSS5pLTmojGJZMPg7yT9/P2nRRoyViFJ88aTwjhFq4isUyHm
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMmL0YAzoT
+# Iu4f8m9wP/dEfnUwhTANBgkqhkiG9w0BAQEFAASCAQCQjj2P0dZ7Dag5WynnMPZu
+# A4SKOpWv0EDLGFEe7S5Kr5d680eE6AWfG1B6KMYBFpIANPS3lPs5rFhEKOYs3oW7
+# HPhKiMqHJuI9iCFlO5v4RYRo0uajjhOyNkJNJVHdbfZkxACMeg95vTF/AvMqallC
+# /RtvA341uO4YhLxTJf07fWhVZKXZPro+bZDqoXc7MaS40ApN7sMdUYw5TsPJAw/3
+# pKaEcvQsoqROKqqVGdIfFiJJjfxWtFdZeaGLT7992iGnD7GvhD99oA6MtDh5dJHF
+# 3n8IFt9K8TqTOfDoKcNsQtfqNDs2PvKD4h1OQ4VMmL9dzxZTO4olMSpOUKuLfuhD
 # SIG # End signature block
