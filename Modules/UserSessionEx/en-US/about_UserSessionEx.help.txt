@@ -1,0 +1,17 @@
+This is a rudimentary PowerShell module for working with Excel via the EPPlus library.
+
+Frequently Asked Questions:
+
+    TODO:
+    Placeholder
+
+Dependencies:
+
+    None
+
+References:
+    
+    TODO:
+    Placeholder
+
+
