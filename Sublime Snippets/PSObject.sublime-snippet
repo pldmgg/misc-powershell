@@ -1,0 +1,16 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+New-Variable -Name "VariableName" -Value \$(
+    [pscustomobject][ordered]@{
+        Key1   = "Value1"
+        Key2   = "Value2"
+        Key3   = "Value3"
+    }
+)
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>psobject</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

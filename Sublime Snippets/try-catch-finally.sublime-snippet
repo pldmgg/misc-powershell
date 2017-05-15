@@ -1,0 +1,50 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+<#
+	IMPORTANT NOTE 1: Before using try-catch-finally, make sure environment variable \$ErrorActionPreference = "Stop"
+	as opposed to "Continue"
+
+	IMPORTANT NOTE 2: Find the full Error Name by using the following command immediately after failed command:
+	\$Error[0].exception.GetType().fullname
+
+	IMPORTANT NOTE 3: For errors pertaining to the cmdlet Add-Type (for adding .Net Assemblies), use the following
+	to see what dependencies didn't load:
+	try
+	{
+		Add-Type -Path "C:\Users\testadmin\Downloads\EPPlus.Core.dll"
+	}
+	catch
+	{
+		\$Error[0].Exception.LoaderExceptions
+	}
+#>
+
+try
+{
+    1/0
+    #Test-Connection bleh
+}
+catch [DivideByZeroException]
+{
+    Write-Host "Divide by zero exception"
+}
+catch [System.Net.NetworkInformation.PingException]
+{
+    Write-Host "Ping exception"
+}
+catch
+{
+    Write-Host "General catch"
+    Write-Verbose "Error creating \$Name on \$Computer`:\$($Error[0].Exception.Message)"
+}
+finally
+{
+    Write-Host "cleaning up ..."
+}
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>trycatchfinally</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

@@ -1,0 +1,81 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+
+# Configure Service
+<#
+Set-Item -Path WSMan:\localhost\Service\MaxConcurrentOperations -Value 4294967295 # Configured by default
+Set-Item -Path WSMan:\localhost\Service\MaxConcurrentOperationsPerUser -Value 1500 # Configured by default
+Set-Item -Path WSMan:\localhost\Service\EnumerationTimeoutms -Value 240000 # Configured by default
+Set-Item -Path WSMan:\localhost\Service\MaxConnections -Value 300 # Configured by default
+Set-Item -Path WSMan:\localhost\Service\MaxPacketRetrievalTimeSeconds -Value 120 # Configured by default
+Set-Item -Path WSMan:\localhost\Service\AllowUnencrypted -Value \$false # Configured by default
+Set-Item -Path WSMan:\localhost\Service\IPv4Filter -Value "*" # Configured by default
+Set-Item -Path WSMan:\localhost\Service\IPv6Filter -Value "*" # Configured by default
+Set-Item -Path WSMan:\localhost\Service\EnableCompatibilityHttpListener -Value \$false # Configured by default
+Set-Item -Path WSMan:\localhost\Service\EnableCompatibilityHttpsListener -Value \$false # Configured by default
+Set-Item -Path WSMan:\localhost\Service\CertificateThumbprint -Value "" # Configured by default
+Set-Item -Path WSMan:\localhost\Service\AllowRemoteAccess -Value \$true # Configured by default
+#>
+
+# Configure Service Authentication
+Set-Item -Path WSMan:\localhost\Service\Auth\Basic -Value \$false # Configured by default
+Set-Item -Path WSMan:\localhost\Service\Auth\Digest -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Service\Auth\Kerberos -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Service\Auth\Negotiate -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Service\Auth\Certificate -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Service\Auth\CredSSP -Value \$false # Configured by default
+
+
+# Configure Client
+Set-Item -Path WSMan:\localhost\Client\Auth\Basic -Value \$false # Configured by default
+Set-Item -Path WSMan:\localhost\Client\Auth\Digest -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Client\Auth\Kerberos -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Client\Auth\Negotiate -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Client\Auth\Certificate -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Client\Auth\CredSSP -Value \$false # Configured by default
+#>
+
+# Configure Shell
+<#
+Set-Item -Path WSMan:\localhost\Shell\AllowRemoteShellAccess -Value \$true # Configured by default
+Set-Item -Path WSMan:\localhost\Shell\IdleTimeout -Value 7200000 # Configured by default
+Set-Item -Path WSMan:\localhost\Shell\MaxConcurrentUsers -Value 2147483647 # Configured by default
+Set-Item -Path WSMan:\localhost\Shell\MaxShellRunTime -Value 2147483647 # Configured by default
+Set-Item -Path WSMan:\localhost\Shell\MaxProcessesPerShell -Value 2147483647 # Configured by default
+Set-Item -Path WSMan:\localhost\Shell\MaxMemoryPerShellMB -Value 2147483647 # Configured by default
+Set-Item -Path WSMan:\localhost\Shell\MaxShellsPerUser -Value 2147483647 # Configured by default
+#>
+
+# Configure Trusted Hosts
+if (Get-Elevation) {
+    \$CurrentTrustedHosts = \$(ls WSMan:\localhost\Client\TrustedHosts).Value
+    \$UpdatedTrustedHostsArrayPrep = \$CurrentTrustedHosts -split ", "
+    [System.Collections.ArrayList]\$UpdatedTrustedHostsArray = \$UpdatedTrustedHostsArrayPrep
+    \$NeededUpdates = @()
+    foreach (\$obj1 in \$RemoteHostNetworkInfoArray) {
+        if (\$UpdatedTrustedHostsArrayPrep -notcontains \$obj1) {
+            \$UpdatedTrustedHostsArray.Add("\$obj1")
+            \$NeededUpdates += \$obj1
+        }
+    }
+    if (\$NeededUpdates.Count -gt 0) {
+        \$UpdatedTrustedHostsArray = \$UpdatedTrustedHostsArray | % {if (\$_ -match "[\w]") {\$_}}
+        \$UpdatedTrustedHostsArrayString = \$UpdatedTrustedHostsArray -join ", "
+        Set-Item WSMan:\localhost\Client\TrustedHosts \$UpdatedTrustedHostsArrayString
+        Remove-Variable -Name NeededUpdates -Force
+    }
+    else {
+        Write-Host "The current winrm config already trusts \$RemoteHost. Continuing..."
+    }
+}
+
+# Create New WinRM Listener
+New-Item -Path WSMan:\localhost\Listener -Address "*" -Transport "HTTP" -Port "5985" -Enabled \$true -URLPrefix "wsman"
+
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>winrmconfig</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

@@ -1,0 +1,11 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+Finally
+{
+	$1
+}
+$0]]></content>
+    <tabTrigger>fin</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

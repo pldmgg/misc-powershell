@@ -1,0 +1,28 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+[DscResource()]
+class NameOfResource {
+    [DscProperty(Key)]
+    [string] \$KeyName
+    
+    # Gets the resource's current state.
+    [NameOfResource] Get() {
+        
+        return \$this
+    }
+    
+    # Sets the desired state of the resource.
+    [void] Set() {
+        
+    }
+    
+    # Tests if the resource is in the desired state.
+    [bool] Test() {
+        
+    }
+}
+$0]]></content>
+    <tabTrigger>dscprovclass</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

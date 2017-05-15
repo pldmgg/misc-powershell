@@ -1,0 +1,31 @@
+<snippet>
+	<content><![CDATA[
+$array = @(
+	"obj1"
+	"obj2"
+	"obj3"
+)
+
+# Delete old \$array object and create new \$array object with same name and string "obj4" added
+\$array += \"obj4"
+
+# Delete old \$array object and create new \$array object with the same name while retaining the 
+# original object (and its type/property info) as opposed to simply adding the object's value to the array
+\$array +=, \$obj5
+# As a result of the above, assuming that \$obj5.GetType().Name -eq "DirectoryInfo",
+# \$array[4].GetType().Name should also -eq "DirectoryInfo" as opposed to "String" or some other type.
+
+# Convert Array to Systems.Collection.ArrayList to allow use of Add/Remove Methods
+# The Add/Remove Methods simply modify the existing [System.Collection.ArrayList] as opposed to destroying
+# and creating a new one with the same name
+[System.Collection.ArrayList]\$newarray = \$array
+\$newarray.Add("obj6")
+\$newarray.Remove("obj6")
+
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>arr</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

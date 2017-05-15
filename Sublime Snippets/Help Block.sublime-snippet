@@ -1,0 +1,29 @@
+<snippet>
+	<content><![CDATA[
+<#
+.SYNOPSIS
+    Short description
+.DESCRIPTION
+    Long description
+.NOTES
+    DEPENDENCEIES
+        Helper scripts/functions and/or binaries needed for the function to work.
+.PARAMETER
+    N parameter
+.PARAMETER
+    N+1 parameter
+.EXAMPLE
+    Example of how to use this cmdlet
+.EXAMPLE
+    Another example of how to use this cmdlet
+.INPUTS
+    Inputs to this cmdlet (if any)
+.OUTPUTS
+    Output from this cmdlet (if any)
+#>
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>helpblock</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

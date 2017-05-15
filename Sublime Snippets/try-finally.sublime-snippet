@@ -1,0 +1,15 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+try
+{
+    
+}
+finally
+{
+    
+}
+$0]]></content>
+    <tabTrigger>tryfinally</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

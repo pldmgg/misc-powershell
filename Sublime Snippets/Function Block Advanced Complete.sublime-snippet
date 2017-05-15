@@ -39,6 +39,28 @@ function Verb-Noun {
     )]
     [Alias('vn','verbn','vnoun')]
     [OutputType([String])]
+
+    <#
+    All PS 5.1 Parameter Arguments and Attributes are as follows:
+    (See: https://msdn.microsoft.com/en-us/powershell/reference/5.1/microsoft.powershell.core/about/about_functions_advanced_parameters)
+    
+    	Arguments:
+    	Syntax is, for example -
+    	[parameter(Mandatory=\$true,Position=1)])
+
+    	Mandatory, Position, ParameterSetName, ValueFromPipeline, ValueFromPipelineByPropertyName,
+    	ValueFromRemainingArguments, HelpMessage
+    	
+    	Attributes:
+    	Syntax is somewhere immediately before the parameter name, for example -
+    	[Alias("CN","MachineName")]
+		\$ComputerName
+
+		Alias, AllowNull, AllowEmptyString, AllowEmptyCollection, ValidateCount, ValidateLength,
+		ValidatePattern, ValidateRange, ValidateScript, ValidateSet, ValidateNotNull,
+		ValidateNotNullOrEmpty
+    #>
+
     Param
     (
         # \$HelperFunctionSourceDirectory help description
@@ -69,7 +91,6 @@ function Verb-Noun {
         [ValidateRange(0,5)]
         [int]\$Number,
 
-        # \$OutputDirectory help description
         [Parameter(
             Position=2,
             ParameterSetName='Another Parameter Set'
@@ -77,7 +98,35 @@ function Verb-Noun {
         [ValidatePattern("[a-z]*")]
         [ValidateLength(0,15)]
         [string]\$OutputDirectory = \$(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written")
+
+        # \$IPAddress help description
+        [Parameter(
+            Position=3,
+            ParameterSetName='Another Parameter Set'
+        )]
+        [ValidateScript({
+            \$_ -match [IPAddress]$_
+        })]
+        \$IPAddress
     )
+
+    # Adding the Dynamic Parameter "dp1" that is revealed via tab completion if \$OutputDirectory matches "C:\\\\boop"
+    DynamicParam {
+        if (\$OutputDirectory -match "C:\\\\boop") {
+            \$attributes = New-Object System.Management.Automation.ParameterAttribute
+            \$attributes.ParameterSetName = "__AllParameterSets"
+            \$attributes.Mandatory = \$false
+
+            \$attributeCollection = New-Object -Type System.Collections.ObjectModel.Collection
+            [System.Attribute]\$attributeCollection.Add(\$attributes)
+
+            \$dynParam1 = New-Object -Type System.Management.Automation.RuntimeDefinedParameter("dp1", [Int32], \$attributeCollection)
+
+            \$paramDictionary = New-Object -Type System.Management.Automation.RuntimeDefinedParameterDictionary
+            \$paramDictionary.Add("dp1", \$dynParam1)
+            return \$paramDictionary
+        }
+    }
 
     Begin {
     ##### REGION Helper Functions and Libraries #####
@@ -118,13 +167,6 @@ function Verb-Noun {
     }
 }
 
-    ##### BEGIN Archived Code #####
-
-    <#
-
-    #>
-
-    ##### END Archived Code #####
 $0]]></content>
     <!-- Optional: Tab trigger to activate the snippet -->
     <tabTrigger>funadvcom</tabTrigger>

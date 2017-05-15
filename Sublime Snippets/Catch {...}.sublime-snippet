@@ -1,0 +1,11 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+catch ${1:[Exception]}
+{
+	$2
+}
+$0]]></content>
+    <tabTrigger>catch</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

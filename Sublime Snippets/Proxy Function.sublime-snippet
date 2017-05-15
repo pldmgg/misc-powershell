@@ -1,0 +1,19 @@
+<snippet>
+	<content><![CDATA[
+function Get-ProcessBetter {
+	<#
+		For more information about proxy functions, see the following article on the
+		Microsoft PowerShell Team blog:
+		http://blogs.msdn.com/powershell/archive/2009/01/04/extending-and-or-modifing-commands-with-proxies.aspx
+	#>
+	<#
+		To create a proxy function for the Get-Process cmdlet, paste the results of the following command into the body of this function and then remove this comment:
+		[Management.Automation.ProxyCommand]::Create((New-Object Management.Automation.CommandMetaData (Get-Command Get-Process)))
+	#>
+}
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>proxyfunction</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

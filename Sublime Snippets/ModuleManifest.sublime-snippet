@@ -1,0 +1,26 @@
+<snippet>
+	<content><![CDATA[
+# For more information, see: https://msdn.microsoft.com/en-us/powershell/reference/4.0/microsoft.powershell.core/new-modulemanifest
+\$ModuleName = "UserSessionEx"
+
+\$Params = @{
+    Path = "\$(\$(Get-Location).Path)\\\$ModuleName.psd1"
+    Author = "pldmgg"
+    ModuleToProcess = "\$(\$(Get-Location).Path)\\\$ModuleName.psm1"
+    CompanyName = "Boop"
+    FunctionsToExport = "Get-UserSessionViaQuery","Get-UserSessionViaCim","Get-WsManServerInfo","Get-UserSessionEx"
+    Description = "Get all available User Session information for one or more hosts"
+    FileList = "\$ModuleName.psm1","\$ModuleName.psd1"
+    HelpInfoUri = "http://pldmgg.github.io/misc-powershell"
+    LicenseUri = "https://www.gnu.org/licenses/lgpl-3.0.en.html"
+    ModuleVersion = "0.9"
+    PowerShellVersion = "5.0"
+}
+New-ModuleManifest @Params
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>modulemanifest</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

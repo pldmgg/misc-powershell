@@ -1,6 +1,10 @@
 <!-- See http://www.sublimetext.com/docs/snippets for more information -->
 <snippet>
     <content><![CDATA[
+
+# For more advanced PowerShell Function Parameter Arguments and Attributes, see:
+# https://msdn.microsoft.com/en-us/powershell/reference/5.1/microsoft.powershell.core/about/about_functions_advanced_parameters
+
 function Verb-Noun
 {
     [CmdletBinding()]
@@ -43,14 +47,6 @@ function Verb-Noun
 
 }
 
-
-    ##### BEGIN Archived Code #####
-
-    <#
-
-    #>
-
-    ##### END Archived Code #####
 $0]]></content>
     <!-- Optional: Tab trigger to activate the snippet -->
     <tabTrigger>funsim</tabTrigger>

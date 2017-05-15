@@ -1,0 +1,13 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+try {
+    
+}
+catch [System.Exception] {
+    Write-Verbose "Error creating \$Name on \$Computer`:\$($Error[0].Exception.Message)"
+}
+$0]]></content>
+    <tabTrigger>trycatch</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

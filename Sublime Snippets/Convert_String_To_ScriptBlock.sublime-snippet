@@ -1,0 +1,20 @@
+<snippet>
+	<content><![CDATA[
+function ConvertTo-Scriptblock {
+    Param(
+        [Parameter(
+            Mandatory = \$True,
+            ValueFromPipeline = \$True
+        )]
+        [string]\$string
+    )
+    \$scriptBlock = [scriptblock]::Create(\$string)
+    return \$scriptBlock
+}
+
+$0]]></content>
+    <!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+    <tabTrigger>scriptblock</tabTrigger>
+    <!-- Optional: Set a scope to limit where the snippet will trigger -->
+    <scope>source.powershell</scope>
+</snippet>

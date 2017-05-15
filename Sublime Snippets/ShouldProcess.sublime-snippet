@@ -1,0 +1,15 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+# Below \$pscmdlet is type system.management.automation.pscmdlet
+# For good Example Usage, see Publish-MyGitRepo.ps1
+# For more info,, see: https://msdn.microsoft.com/en-us/library/system.management.automation.pscmdlet(v=vs.85).aspx
+
+if (\$pscmdlet.ShouldProcess('${1:Target}','${2:OperationMsg}'))
+{
+    $3
+}
+$0]]></content>
+    <tabTrigger>shouldprocess</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

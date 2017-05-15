@@ -1,0 +1,9 @@
+<snippet>
+	<content><![CDATA[
+Start-Job -Name ${1:myJob} -InitializationScript {${2:Import-Module BitsTransfer}} -FilePath ${3:myFile.ps1}
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>bgjobscript</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

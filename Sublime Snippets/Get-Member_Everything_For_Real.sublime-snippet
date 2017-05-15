@@ -1,0 +1,8 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+\$test | Get-Member -View All -Force
+$0]]></content>
+    <tabTrigger>getmember</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

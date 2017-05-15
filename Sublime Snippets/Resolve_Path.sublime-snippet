@@ -1,0 +1,13 @@
+<snippet>
+	<content><![CDATA[
+if (-not (Test-Path \$Path)) {
+    New-Item -ItemType Directory -Path \$Path -ErrorAction Stop | Out-Null
+}
+\$FinalPath = (Resolve-Path \$Path -ErrorAction Stop).ProviderPath
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>resolvepath</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

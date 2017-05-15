@@ -1,0 +1,18 @@
+<snippet>
+	<content><![CDATA[
+$emailParameter = @{
+	From = ${1:"user@domain.com"}
+	To = ${2:"user1@domain.com, User2 <user2@domain.com>"}
+	Subject = ${3:"Notice of script failure"}
+	Body = ${4:"The following script failed..."}
+	SmtpServer = ${5:"smtp.domain.com"}
+	Credential = ${6:"domain01\admin01"}
+}
+
+Send-MailMessage @emailParameter
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>Send-Email</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

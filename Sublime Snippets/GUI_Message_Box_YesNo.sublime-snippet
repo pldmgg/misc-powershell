@@ -1,0 +1,14 @@
+<snippet>
+	<content><![CDATA[
+\$AssemblyFullInfo = [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms').FullName
+[void][reflection.assembly]::Load(\$AssemblyFullInfo)
+if ([System.Windows.Forms.MessageBox]::Show("Question", "Caption",[System.Windows.Forms.MessageBoxButtons]::YesNo) -eq "Yes")
+{
+	$3
+}
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>MsgBoxYesNo</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

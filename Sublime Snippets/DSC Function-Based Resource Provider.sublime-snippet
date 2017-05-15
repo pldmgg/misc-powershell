@@ -1,0 +1,35 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+Function Get-TargetResource
+{
+    # TODO: Add parameters here
+    # Make sure to use the same parameters for
+    # Get-TargetResource, Set-TargetResource, and Test-TargetResource
+    param(
+    )
+}
+
+Function Set-TargetResource
+{
+    # TODO: Add parameters here
+    # Make sure to use the same parameters for
+    # Get-TargetResource, Set-TargetResource, and Test-TargetResource
+    param(
+    )
+}
+
+Function Test-TargetResource
+{
+    # TODO: Add parameters here
+    # Make sure to use the same parameters for
+    # Get-TargetResource, Set-TargetResource, and Test-TargetResource
+    param(
+    )
+}
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>dscprovfun</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

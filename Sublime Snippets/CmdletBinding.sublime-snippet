@@ -1,0 +1,19 @@
+<snippet>
+	<content><![CDATA[
+[CmdletBinding(
+        DefaultParameterSetName='Parameter Set 1', 
+        SupportsShouldProcess=\$true, 
+        PositionalBinding=\$false,
+        HelpUri = 'http://www.microsoft.com/',
+        SupportsPaging = \$false,
+        ConfirmImpact='Medium'
+)]
+[Alias('vn','verbn','vnoun')]
+[OutputType([String])]
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>cmdbind</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

@@ -1,0 +1,23 @@
+<snippet>
+	<content><![CDATA[
+switch (${1:\$x})
+{
+    'Value1' {
+
+        break
+    }
+
+    {\$_ -in \$array} {}
+
+    'Value3' {
+
+        break
+    }
+    Default {}
+}
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>switch</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

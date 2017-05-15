@@ -1,0 +1,16 @@
+<snippet>
+	<content><![CDATA[
+# For more info on SendKeys method, see: https://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
+Sleep 1
+\$OpenWindowTitle = \$(Get-Process | Where-Object {\$_.MainWindowTitle -like "Application Install*"}).MainWindowTitle
+\$wshell = New-Object -ComObject wscript.shell
+\$wshell.AppActivate("\$OpenWindowTitle") | Out-Null
+Sleep 1
+\$wshell.SendKeys('{LEFT}')
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>sendkey</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

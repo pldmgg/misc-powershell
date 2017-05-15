@@ -1,0 +1,17 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+\$xlr=[psobject].Assembly.GetType('System.Management.Automation.TypeAccelerators')
+\$xlr::Add('accelerators',\$xlr)
+# The below \$accelerators is a System.Collections.Generic.Dictionary`2
+\$accelerators = [accelerators]::get
+# To change \$accelerators to an object that the Where-Object cmdlet works against, do the following:
+\[System.Collections.Hashtable]$accelerators = \$accelerators
+\$acceleratorsEnum = \$accelerators.GetEnumerator()
+\$acceleratorsEnum | Where-Object {\$_.Name -eq "pscustomobject"}
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>accel</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

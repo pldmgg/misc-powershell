@@ -1,0 +1,26 @@
+<snippet>
+    <content><![CDATA[
+if (Test-Path "C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll") {
+	Add-Type -Path "C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll"
+}
+elseif (Test-Path "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\IDE\PublicAssemblies\Microsoft.mshtml.dll") {
+	Add-Type -Path "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\IDE\PublicAssemblies\Microsoft.mshtml.dll"
+}
+else {
+	Invoke-WebRequest -Uri "http://packages.nuget.org/api/v1/package/Unofficial.Microsoft.mshtml" -OutFile "\$HOME\Downloads\Unofficial.Microsoft.mshtml.zip"
+	Expand-Archive -Path "\$HOME\Downloads\Unofficial.Microsoft.mshtml.zip" -DestinationPath "\$HOME\Downloads\Unofficial-Microsoft-mshtml"
+	\$mshtmlDLLPath = \$(Get-ChildItem \$HOME\Downloads\Unofficial-Microsoft-mshtml\ -Recurse | Where-Object {\$_.Name -eq "Microsoft.mshtml.dll"}).FullName
+	Add-Type -Path \$mshtmlDLLPath
+}
+
+\$NewHTMLObject = New-Object mshtml.HTMLDocumentClass
+\$ConvertToHtmlObj = Import-Clixml -Path "C:\Users\pddomain\CallCountReportObj.xml"
+\$ConvertToHtmlObjAsString = \$ConvertToHtmlObj.ToString()
+\$NewHTMLObject.IHTMLDocument2_write(\$ConvertToHtmlObjAsString)
+
+$0]]></content>
+    <!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+    <tabTrigger>htmlobj</tabTrigger>
+    <!-- Optional: Set a scope to limit where the snippet will trigger -->
+    <scope>source.powershell</scope>
+</snippet>

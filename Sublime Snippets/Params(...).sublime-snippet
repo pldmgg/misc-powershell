@@ -1,0 +1,31 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+# See: https://msdn.microsoft.com/en-us/powershell/reference/5.1/microsoft.powershell.core/about/about_functions_advanced_parameters
+[Parameter(
+    Mandatory=\$False,
+    Position=0,
+    ParameterSetName='Parameter Set 1',
+    ValueFromPipeline=\$true,
+    ValueFromPipelineByPropertyName=\$true,
+    ValueFromRemainingArguments=\$false,
+    HelpMessage="Enter one or more directory paths names separated by commas."
+)]
+[Alias("asdf")]
+[AllowNull()]
+[AllowEmptyString()]
+[AllowEmptyCollection()]
+[ValidateCount(0,5)]
+[ValidateLength(1,10)]
+[ValidatePattern("[a-z]*")]
+[ValidateRange(0,5)]
+[ValidateScript({\$true})]
+[ValidateSet("sun","moon","earth")]
+[ValidateNotNull()]
+[ValidateNotNullOrEmpty()]
+[string]\$WorkingDir,
+
+$0]]></content>
+    <tabTrigger>params</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

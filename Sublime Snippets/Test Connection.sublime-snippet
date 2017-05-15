@@ -1,0 +1,14 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+if (! \$(Test-Connection \$RemoteHost -Count 1 -Quiet))
+{
+    Write-Host "Unable to connect to \$RemoteHost. Please ensure \$RemoteHost can be resolved and try again. Halting!"
+    Write-Error "Unable to connect to \$RemoteHost. Please ensure \$RemoteHost can be resolved and try again. Halting!"
+    \$global:FunctionResult = "1"
+    return
+}
+$0]]></content>
+    <tabTrigger>testconn</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>

@@ -1,0 +1,16 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+\$Params = @{
+    MountName = "Installers"
+    MountDriveLetter = "\$env:InstallersMountDriveLetter"
+    NetworkPath = "\\fileserv.test2.lab\Master_Share\installers"
+    UserAndPwdCredential = \$fileshare_credential
+}
+Mount-WindowsFileShare @Params
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>splatparams</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

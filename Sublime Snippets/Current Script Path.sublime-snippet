@@ -1,0 +1,9 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+\$ScriptDir = \$PSCommandPath | Split-Path -Parent
+\$ScriptFile = \$PSCommandPath | Split-Path -Leaf
+$0]]></content>
+    <tabTrigger>thisscriptdir</tabTrigger>
+    <scope>source.powershell</scope>
+</snippet>
