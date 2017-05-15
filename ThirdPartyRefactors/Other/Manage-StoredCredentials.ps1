@@ -865,7 +865,7 @@ function Manage-StoredCredentials {
     			}
 
                 New-Variable -Name "AddedCredentialsObject" -Value $(
-                    New-Object PSObject -Property @{
+                    [pscustomobject][ordered]@{
                         UserName    = $($Cred.UserName)
                         Password    = $($Cred.CredentialBlob)
                         Target      = $($Cred.TargetName.Substring($Cred.TargetName.IndexOf("=")+1))
@@ -915,7 +915,7 @@ function Manage-StoredCredentials {
     		}
 
             New-Variable -Name "AddedCredentialsObject" -Value $(
-                New-Object PSObject -Property @{
+                [pscustomobject][ordered]@{
                     UserName    = $($Cred.UserName)
                     Password    = $($Cred.CredentialBlob)
                     Target      = $($Cred.TargetName.Substring($Cred.TargetName.IndexOf("=")+1))
@@ -943,7 +943,7 @@ function Manage-StoredCredentials {
             $ArrayOfCredObjects = @()
     		foreach($Cred in $Creds) {
                 New-Variable -Name "AddedCredentialsObject" -Value $(
-                    New-Object PSObject -Property @{
+                    [pscustomobject][ordered]@{
                         UserName    = $($Cred.UserName)
                         Password    = $($Cred.CredentialBlob)
                         Target      = $($Cred.TargetName.Substring($Cred.TargetName.IndexOf("=")+1))
