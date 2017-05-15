@@ -40,7 +40,6 @@ Function Check-InstalledPrograms {
         $ComputersArray = $HostName
     }
 
-    $Results = @()
     foreach ($computer in $ComputersArray) {
         if ($computer -eq $env:COMPUTERNAME -or $computer.Split("\.")[0] -eq $env:COMPUTERNAME) {
             try {
@@ -71,19 +70,14 @@ Function Check-InstalledPrograms {
             }
         }
 
-        New-Variable -Name "ResultFor$computer" -Value $(
-            [pscustomobject][ordered]@{
-                ComputerName                = $computer
-                InstalledProgramsAll        = $InstalledPrograms
-                InstalledProgramsFiltered   = $InstalledPrograms | Where-Object {$_.DisplayName -like "*$ProgramTitleSearchTerm*"}
-            }
-        )
-
-        $Results +=, $(Get-Variable -Name "ResultFor$computer" -ValueOnly)
-
+        if ($ProgramTitleSearchTerm) {
+            $InstalledPrograms | Where-Object {$_.DisplayName -like "*$ProgramTitleSearchTerm*"}
+        }
+        else {
+            $InstalledPrograms
+        }
     }
 
-    $Results
     ##### END Main Body #####
 
 }
@@ -99,8 +93,8 @@ Function Check-InstalledPrograms {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIQFZFyRlDsIBPJ80ebBnvyNQ
-# f7ugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgbNOWm1haS1kd+bEdss46YSe
+# cRqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -155,11 +149,11 @@ Function Check-InstalledPrograms {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQUWHoBLElX
-# zZ5sSYmE2x3AbF57zDANBgkqhkiG9w0BAQEFAASCAQBvrJYV9i4PqZiqT3Vih1sn
-# R5mUqYopsB/lRu2nZ3009uBMC8eOIzQKkkFNeewiTE9uTwvfCheYzhZz6uQMomP1
-# ZIaypX98j7nYbffB1SSv7V5g+JiI2T0W/gdVV7DVQAWqIO5USCgESm/a5mf1KNT2
-# gXMTI2a8o1FTmg/cNbWQRxmkscX3UneYlLLkxWR3kjrB0+bngSU3XhuRxpa95tXX
-# gwdShSIBSULOMVmwX80u5Vc0MF/Jp95qogx4eEzkaFtT+xxP3DXX+a3UYltoi0pY
-# JYV18ZlScG8O8le1lNr1fMyr9N76z+MuBTTHM9bUFdO1D9mfjvOmgWM26E7Laj9v
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSu3iNmXonL
+# 7GgdDVjX+c29YryAIjANBgkqhkiG9w0BAQEFAASCAQAXRVK0M87vPLdpW2rkdggv
+# QYgYuyGAQu/W4ZctHzF4BbzHHoxfJBwlY4+6NQBRnpcPiUJJQrytGj4YZ4HtE98c
+# A/bprfKdZAim28CHp3cE253wJu9UyGYgg1A7ivo4fhY+52sffKK79RXj++wSoQ2P
+# SWGisx0Vh0vSQjE0Olyx4yf5/xNYrlSRPNg0lLO7mpsqP489EO16orVqIaUDDGAe
+# MTLC0YtEytqdguq6DKow28NVWx2eTu6AFibRZ/LoJ2G29py2eagKDne06ZD4IO4H
+# Y1FE67v9cFQCKStqPUXniqVzp3atkQX1xOQqtMQcrkIO2KpEovwMWXl1ip0KL8w3
 # SIG # End signature block
