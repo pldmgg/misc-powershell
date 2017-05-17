@@ -4,9 +4,9 @@
 \$ModuleName = "UserSessionEx"
 
 \$Params = @{
-    Path = ".\\\$ModuleName.psd1"
+    Path = "\$(\$(Get-Location).Path)\\\$ModuleName.psd1"
     Author = "pldmgg"
-    ModuleToProcess = "\$(\$(Get-Location).Path)\\\$ModuleName.psm1"
+    ModuleToProcess = ".\\\$ModuleName.psm1"
     CompanyName = "Boop"
     FunctionsToExport = "Get-UserSessionViaQuery","Get-UserSessionViaCim","Get-WsManServerInfo","Get-UserSessionEx"
     Description = "Get all available User Session information for one or more hosts"
