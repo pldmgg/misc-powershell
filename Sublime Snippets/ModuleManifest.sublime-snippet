@@ -4,7 +4,7 @@
 \$ModuleName = "UserSessionEx"
 
 \$Params = @{
-    Path = "\$(\$(Get-Location).Path)\\\$ModuleName.psd1"
+    Path = ".\\\$ModuleName.psd1"
     Author = "pldmgg"
     ModuleToProcess = "\$(\$(Get-Location).Path)\\\$ModuleName.psm1"
     CompanyName = "Boop"
