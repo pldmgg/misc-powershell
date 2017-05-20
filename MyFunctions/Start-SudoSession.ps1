@@ -22,9 +22,6 @@
 
     5) Removes the Elevated PSSession and reverts all changes made (if any) to Local Group Policy and WSMAN/WinRM config.
 
-.NOTES
-    DEPENDENCIES
-        Helper scripts/functions and/or binaries needed for the function to work.
 .PARAMETER UserName
     This is a string that represents a UserName with Administrator privileges. Defaults to current user.
 
@@ -46,6 +43,7 @@
 .EXAMPLE
     $ModuleToInstall = "PackageManagement"
     $LatestVersion = $(Find-Module PackageManagement).Version
+    # PLEASE NOTE the use of single quotes in the below $InstallModuleExpression string
     $InstallModuleExpression = 'Install-Module -Name $ModuleToInstall -RequiredVersion $LatestVersion'
 
     Start-SudoSession -Credentials $MyCreds -Expression $InstallModuleExpression
@@ -80,6 +78,35 @@ function Start-SudoSession {
         [string]$Expression
 
     )
+
+    ##### BEGIN Native Helper Functions #####
+
+    function Check-Elevation {
+        [System.Security.Principal.WindowsPrincipal]$currentPrincipal = `
+            New-Object System.Security.Principal.WindowsPrincipal(
+                [System.Security.Principal.WindowsIdentity]::GetCurrent());
+
+        [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = `
+            [System.Security.Principal.WindowsBuiltInRole]::Administrator;
+
+        if($currentPrincipal.IsInRole($administratorsRole))
+        {
+            return $true;
+        }
+        else
+        {
+            return $false;
+        }
+    }
+
+    if (Check-Elevation) {
+        Write-Verbose "The current PowerShell Session is already being run with elevated permissions. There is no reason to use the Start-SudoSession function. Halting!"
+        Write-Error "The current PowerShell Session is already being run with elevated permissions. There is no reason to use the Start-SudoSession function. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    ##### END Native Helper Functions #####
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
@@ -226,12 +253,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdjpBul0Yvly2NG8ebWwKSKIw
-# 2nagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUq2rvi3Ow7JK/UuipT+z+UOXU
+# SE6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -286,11 +312,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTNGUhviMsQ
-# 4rTHRPx7U27qQkX3EjANBgkqhkiG9w0BAQEFAASCAQA8XjEX3KjAYkbH0lJY8FC3
-# 5xi8Otyi1nPIFuMkkn2IvmJhtia1XUC/ZpZAdkNARi1N2yOvFJNU6H9E0EP2L1Ic
-# Y2IiT90HrUBZwFiQol67ZRvylI0trEvlfkKvXYkfnOlyxxrZ+TyvoGDrD0j3VQN5
-# vPczKgMQRCVJ3EYWl2W+h8jhMaLQv/kIw4AxVzUPjUOHyKhtftdnmh4xKZB0WQP6
-# hfdBRmjzguhlNaNRvLbGL/Qnnrv3Om5XCUXP8BaCBqXF+/sL2BUTioGndc7Fm2oo
-# Sstjd9aJWXmUveAJaNQtriMOM087TzTjJ5dqydZ7TMBbNg2m3q5MI0uuNAw/VBhv
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTeLZlEwqfo
+# P6wKpmjVjj/XL9LKdTANBgkqhkiG9w0BAQEFAASCAQCUp2UENa5FMthNpxFEYBU/
+# tR5Pe10lkgr7P//sF4KkKGEDhMud7TBL2+ig4/pt5yWEulJScdERctXpYiFjdrxh
+# 5wJNzecafF85KhoR4uCTtRQcuNNYJJhq8Yoj37UYtX+jG1wZyTROjFRt4uAO+9yS
+# M+rgMzjVDVxYLGJlFO0tzXZaM8QT/n0WqG4imSS39nzAugFbB/K4+W7qUsfifQMj
+# nC4Co51KqZu8ZGnRz+OCll/z2KirjZINzHk4A8Vh6qj10FLVj4HZAjC3kCSZwc8C
+# y+s/hn8uuLLjcW5BEP36rFbVyl3NtVD2ccoMJJ43NtU+oQzriy749fXIKEp9E6Ig
 # SIG # End signature block
