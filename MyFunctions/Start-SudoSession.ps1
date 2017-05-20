@@ -166,9 +166,10 @@ function Start-SudoSession {
     $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
     $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
     $tmpFileXml = $UpdatedtmpFileXmlName
+    $TranscriptPath = "$HOME\Start-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
 
     $WSManGPOTempConfig = @"
--noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path `$HOME\Start-SudoSession_$UserName_$(Get-Date -Format MM-dd-yyy_hh:mm_tt).txt -Append
+-noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path $TranscriptPath -Append
 try {`$CurrentAllowFreshCredsProperties = Get-ChildItem -Path $CredDelRegLocation | ? {`$_.PSChildName -eq 'AllowFreshCredentials'}} catch {}
 try {`$CurrentAllowFreshCredsValues = foreach (`$propNum in `$CurrentAllowFreshCredsProperties) {`$(Get-ItemProperty -Path '$CredDelRegLocation\AllowFreshCredentials').`$propNum}} catch {}
 
@@ -232,13 +233,14 @@ exit`"
 
     # Cleanup
     $WSManGPORevertConfig = @"
--noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path `$HOME\Start-SudoSession_$UserName_$(Get-Date -Format MM-dd-yyy_hh:mm_tt).txt -Append
+-noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path $TranscriptPath -Append
 if ($($WSManAndRegStatus.Status) -eq 'CredDelKey DNE') {Remove-Item $CredDelRegLocation}
 if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds DNE') {Remove-Item $CredDelRegLocation\AllowFreshCredentials}
 if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds AlreadyExists') {Remove-ItemProperty $CredDelRegLocation\AllowFreshCredentials\AllowFreshCredentials -Name $($WSManAndRegStatus.PropertyToRemove)}
 if ($($WSManAndRegStatus.OrigWSMANConfigStatus) -eq 'false') {Stop-Service -Name WinRm; Set-Service WinRM -StartupType "Manual"}
 if ($($WSManAndRegStatus.OrigWSMANServiceCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Server\Auth\CredSSP -Value `$false}
-if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}`"
+if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
+exit`"
 "@
     $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
 
@@ -261,11 +263,19 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 
 }
 
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUh5kSn88QZx2cK2Qd+t3kEZQu
-# RFqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHTR6LauKsumi/QrkSMw/FtLv
+# tkWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -320,11 +330,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ9hnNTBVCj
-# x+OpRNJZSEF2vZBjAzANBgkqhkiG9w0BAQEFAASCAQBmYA5jr1fPiyuu/9I671IK
-# uEw7WPz/vCC0sP9+gm4NwzBdIf1uECjWrdG1bWgmG0Pc0uqWxDqrbjozR316vO+c
-# 9pIcNzk7ylzQpak+dfH3vSCsFZvZC3sN1+Lba8SBWYp1GAfAYPr7HaiHLiWgQOje
-# /bHdHor+i08cirb8sMWJa2DQieR8RTbl/kbpnjFm0or8hs/Ap6i7mhBa1+gN1KU2
-# I18SiD0dAv29IcXRNIM6tUhynjgIm0NuIIP8SNu9yoYkY6NGXqNOGZyBFXuMych3
-# z/gm3MMLQDr+m5ZLpmudfig+xJ/Nwlko856fOzx83PP6KWtprMLWrjq6j4z62kHI
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSj9xQvyrEG
+# XQG6SRMPcdnqEFtgDjANBgkqhkiG9w0BAQEFAASCAQAOXIUDUNmn9HusIkZO+1Dr
+# NukU8/Eb/20Gi6ENUBByBisFX9nkFi9jQ5sB3p2Pd5dBXJnn7K1q3VBbmCD0bTZd
+# Ix0v12vkdkyraFRTgP6/2J4SRziTDvqLSzOKYuJeZt+Rhu6PBwTqbhLroloKStmZ
+# Z1Lc9/5njc/6pw85URmyqakGTP1KFbKyB7MjCFccGRGYxWPQxcxxvcvPwP72/t7X
+# Ca0pgcSlM9/GO4Fha3qRWXQQ+EIGCjtELxtkaikQ/ausSb1NCubD8q1cxClzB/TT
+# wQ0x1burJm3pY28pIbE7Zwo4vyXy2ssDXYGVqOaA0lfD58nwcdvlZq0eS+nsIH2x
 # SIG # End signature block
