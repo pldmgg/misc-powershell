@@ -168,7 +168,7 @@ function Start-SudoSession {
     $tmpFileXml = $UpdatedtmpFileXmlName
 
     $WSManGPOTempConfig = @"
--noprofile -Command `"Start-Transcript -Path `$HOME\transcript.txt
+-noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path `$HOME\Start-SudoSession_$UserName_$(Get-Date -Format MM-dd-yyy_hh:mm_tt).txt -Append
 try {`$CurrentAllowFreshCredsProperties = Get-ChildItem -Path $CredDelRegLocation | ? {`$_.PSChildName -eq 'AllowFreshCredentials'}} catch {}
 try {`$CurrentAllowFreshCredsValues = foreach (`$propNum in `$CurrentAllowFreshCredsProperties) {`$(Get-ItemProperty -Path '$CredDelRegLocation\AllowFreshCredentials').`$propNum}} catch {}
 
@@ -232,12 +232,13 @@ exit`"
 
     # Cleanup
     $WSManGPORevertConfig = @"
+-noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path `$HOME\Start-SudoSession_$UserName_$(Get-Date -Format MM-dd-yyy_hh:mm_tt).txt -Append
 if ($($WSManAndRegStatus.Status) -eq 'CredDelKey DNE') {Remove-Item $CredDelRegLocation}
 if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds DNE') {Remove-Item $CredDelRegLocation\AllowFreshCredentials}
 if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds AlreadyExists') {Remove-ItemProperty $CredDelRegLocation\AllowFreshCredentials\AllowFreshCredentials -Name $($WSManAndRegStatus.PropertyToRemove)}
 if ($($WSManAndRegStatus.OrigWSMANConfigStatus) -eq 'false') {Stop-Service -Name WinRm; Set-Service WinRM -StartupType "Manual"}
 if ($($WSManAndRegStatus.OrigWSMANServiceCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Server\Auth\CredSSP -Value `$false}
-if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
+if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}`"
 "@
     $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
 
@@ -260,12 +261,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 
 }
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYZZLpalVma3a9raoQ16Ybe9E
-# HNagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUh5kSn88QZx2cK2Qd+t3kEZQu
+# RFqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -320,11 +320,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRNcQgYImwK
-# jv5JpWc+3m8GNOpq/DANBgkqhkiG9w0BAQEFAASCAQBgzT3piewm2YH1x/kxh80h
-# h4LdiRI4HuHV6uGoER2cEDPnPj72ShK+wOkcbaGSpe+VWQEKHWXne21QGy2f1uye
-# FI1avndeCMCeJShzfyKhZ9Kn77d5/+3K/R5ne7oyTZKEyg/7dalboWJwlXfk0bgS
-# Q1Ra0/LsbLmzyXLKXbOn49ycoEmr7aTf8B3RsUgQ5oY/xCCL9X7cB+O3NOfMJEby
-# TqvB5rpUsUgSWCs/NlexvmydWK5A85cZaGwlOQibyaLSFfV0OJ7U8zo7VHrzZAiE
-# AQpj4GOm+k2MKGtDPjF2Por947U9pQ0VqXNR+rebjepehmPDh6QSDbAOEegKobQR
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ9hnNTBVCj
+# x+OpRNJZSEF2vZBjAzANBgkqhkiG9w0BAQEFAASCAQBmYA5jr1fPiyuu/9I671IK
+# uEw7WPz/vCC0sP9+gm4NwzBdIf1uECjWrdG1bWgmG0Pc0uqWxDqrbjozR316vO+c
+# 9pIcNzk7ylzQpak+dfH3vSCsFZvZC3sN1+Lba8SBWYp1GAfAYPr7HaiHLiWgQOje
+# /bHdHor+i08cirb8sMWJa2DQieR8RTbl/kbpnjFm0or8hs/Ap6i7mhBa1+gN1KU2
+# I18SiD0dAv29IcXRNIM6tUhynjgIm0NuIIP8SNu9yoYkY6NGXqNOGZyBFXuMych3
+# z/gm3MMLQDr+m5ZLpmudfig+xJ/Nwlko856fOzx83PP6KWtprMLWrjq6j4z62kHI
 # SIG # End signature block
