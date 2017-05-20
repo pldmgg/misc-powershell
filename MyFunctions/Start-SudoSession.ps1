@@ -126,32 +126,34 @@ function Start-SudoSession {
 
     # Find the variables in the $Expression string
     $InitialRegexMatches = $($Expression | Select-String -Pattern "\$[\w]+:[\w]+([\W]|[^\s]|[\s]|$)|\$[\w]+([\W]|[^\s]|[\s]|$)" -AllMatches).Matches.Value
-    $TrimmedRegexMatches = $InitialRegexMatches | % {$_.Substring(0,$_.Length-1)}
-    [array]$VariableNames = $TrimmedRegexmatches -replace "\$",""
-    # Redefine variables within this function's scope
-    foreach ($varname in $VariableNames) {
-        if ($varname -like "*script:*") {
-            New-Variable -Name $varname -Value $(Get-Variable -Name $varname -Scope 2 -ValueOnly)
-        }
-        if ($varname -like "*local:*" -or $varname -notmatch "script:|global:") {
-            New-Variable -Name $varname -Value $(Get-Variable -Name $varname -Scope 1 -ValueOnly)
-        }
-    }
-
-    $UpdatedVariableArray = @()
-    foreach ($varname in $VariableNames) {
-        New-Variable -Name "SuperVar" -Value $(
-            [pscustomobject][ordered]@{
-                Name    = $varname
-                Value   = Get-Variable -Name $varname -ValueOnly
+    if ($InitialRegexMatches.Count -gt 0) {
+        $TrimmedRegexMatches = $InitialRegexMatches | % {$_.Substring(0,$_.Length-1)}
+        [array]$VariableNames = $TrimmedRegexmatches -replace "\$",""
+        # Redefine variables within this function's scope
+        foreach ($varname in $VariableNames) {
+            if ($varname -like "*script:*") {
+                New-Variable -Name $varname -Value $(Get-Variable -Name $varname -Scope 2 -ValueOnly)
             }
-        )
-        
-        $UpdatedVariableArray +=, $(Get-Variable -Name "SuperVar" -ValueOnly)
-    }
-    # Update the string references to variables in the $Expression string if any of them are scope-special
-    for ($i=0; $i -lt $VariableNames.Count; $i++) {
-        $Expression = $Expression -replace "$($VariableNames[$i])","args[$i]"
+            if ($varname -like "*local:*" -or $varname -notmatch "script:|global:") {
+                New-Variable -Name $varname -Value $(Get-Variable -Name $varname -Scope 1 -ValueOnly)
+            }
+        }
+
+        $UpdatedVariableArray = @()
+        foreach ($varname in $VariableNames) {
+            New-Variable -Name "SuperVar" -Value $(
+                [pscustomobject][ordered]@{
+                    Name    = $varname
+                    Value   = Get-Variable -Name $varname -ValueOnly
+                }
+            )
+            
+            $UpdatedVariableArray +=, $(Get-Variable -Name "SuperVar" -ValueOnly)
+        }
+        # Update the string references to variables in the $Expression string if any of them are scope-special
+        for ($i=0; $i -lt $VariableNames.Count; $i++) {
+            $Expression = $Expression -replace "$($VariableNames[$i])","args[$i]"
+        }
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -208,20 +210,25 @@ exit`"
 
     $ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials
 
-    $UpdatedVariableArrayNames = foreach ($varname in $UpdatedVariableArray.Name) {
-        "`$"+"$varname"
-    }
-    [string]$FinalArgumentList = $UpdatedVariableArrayNames -join ","
+    if ($InitialRegexMatches.Count -gt 0) {
+        $UpdatedVariableArrayNames = foreach ($varname in $UpdatedVariableArray.Name) {
+            "`$"+"$varname"
+        }
+        [string]$FinalArgumentList = $UpdatedVariableArrayNames -join ","
 
-    # If there is only one argument to pass to the scriptblock, the special $args variable within the scriptblock BECOMES
-    # that argument, as opposed to being an array of psobjects that contains one element, i.e. the single argument object
-    # So we need to fake it out
-    if ($UpdatedVariableArray.Count -eq 1) {
-        $FinalArgumentList = "$FinalArgumentList"+","+"`"`""
-    }
+        # If there is only one argument to pass to the scriptblock, the special $args variable within the scriptblock BECOMES
+        # that argument, as opposed to being an array of psobjects that contains one element, i.e. the single argument object
+        # So we need to fake it out
+        if ($UpdatedVariableArray.Count -eq 1) {
+            $FinalArgumentList = "$FinalArgumentList"+","+"`"`""
+        }
 
-    # Time for the magic...
-    Invoke-Expression "Invoke-Command -Session `$ElevatedPSSession -ArgumentList $FinalArgumentList -Scriptblock {$Expression}"
+        # Time for the magic...
+        Invoke-Expression "Invoke-Command -Session `$ElevatedPSSession -ArgumentList $FinalArgumentList -Scriptblock {$Expression}"
+    }
+    else {
+        Invoke-Expression "Invoke-Command -Session `$ElevatedPSSession -Scriptblock {$Expression}"
+    }
 
     # Cleanup
     $WSManGPORevertConfig = @"
@@ -254,12 +261,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 }
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQWS8xhtG33vl1mJiVVQ34G+P
-# 3jOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYZZLpalVma3a9raoQ16Ybe9E
+# HNagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -314,11 +320,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSB6Whv/Rxd
-# mwhCtdu3XEQzpcMdrzANBgkqhkiG9w0BAQEFAASCAQA4GM6YePwcUSJDMRuvjk/O
-# TF/+a4A9UcArTuYS/FKnByD1Chh7vO1OhEBEFGNiUQAMcutEEsEL2gqOzgAObgBf
-# KEFspCA2RsY6ZrpUUa9v8EwrEg8Gfjz+B3LFI2PwBFa/62KwGaaw2GnTa/Z3Gkrp
-# navdTIn8r+EsnYIaV8awZkydY6V4HytdHOq6gh2ZctDfkUG+sBd5pZZwYrWLRBlI
-# ME6/UfighlgeRbG+cDCiSL9YHDY1HRrHNMsiDWHxhHBdpfdA//2TVor2j3ev3HYg
-# RhQtw2ZKDMV9qn1iksDlO3kFWh8jvEoVi/vQd6R43/MCit8R8bNmHx15x3xeVwXJ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRNcQgYImwK
+# jv5JpWc+3m8GNOpq/DANBgkqhkiG9w0BAQEFAASCAQBgzT3piewm2YH1x/kxh80h
+# h4LdiRI4HuHV6uGoER2cEDPnPj72ShK+wOkcbaGSpe+VWQEKHWXne21QGy2f1uye
+# FI1avndeCMCeJShzfyKhZ9Kn77d5/+3K/R5ne7oyTZKEyg/7dalboWJwlXfk0bgS
+# Q1Ra0/LsbLmzyXLKXbOn49ycoEmr7aTf8B3RsUgQ5oY/xCCL9X7cB+O3NOfMJEby
+# TqvB5rpUsUgSWCs/NlexvmydWK5A85cZaGwlOQibyaLSFfV0OJ7U8zo7VHrzZAiE
+# AQpj4GOm+k2MKGtDPjF2Por947U9pQ0VqXNR+rebjepehmPDh6QSDbAOEegKobQR
 # SIG # End signature block
