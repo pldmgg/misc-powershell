@@ -209,7 +209,7 @@ exit"
     $Process.WaitForExit()
     $WSManAndRegStatus = Import-CliXML $tmpFileXml
 
-    $ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials
+    $ElevatedPSSession = New-PSSession -Name "ElevatedSessionFor$UserName" -Authentication CredSSP -Credential $Credentials
 
     if ($InitialRegexMatches.Count -gt 0) {
         $UpdatedVariableArrayNames = foreach ($varname in $UpdatedVariableArray.Name) {
@@ -269,12 +269,11 @@ exit"
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXu/pEm6CQUlH0fqQFkDwJwz4
-# rLSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUALB2/ftV+GV5lOUkjdnwZ4mo
+# QxmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -329,11 +328,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTsuyK6B8HR
-# UnXSa/lOGm/MSVPAUjANBgkqhkiG9w0BAQEFAASCAQAsM74tkF00mORsJlGEDn26
-# HcIicfmT57NHVVVrBj14HM72+Mdu0gwmqTUZF4wCGUdZcEEhmJxv/6D+Q3JGj0n4
-# k/AxTtf8qB27BroaD3E0qGQbPQCnHmdZGDbmLRqqnEuLo8jwYhFxgRRqYWqrVCCs
-# nXXHOw9YFiCQNvqvsCIKaqnVl1H3GaY9DJNHSArnPbC8FyAWupfD5VO9K+IDRAmF
-# chtr0c+TStOTlpOmnKzkxZF87itE5N9E+rTKdxZaEhwxQe011Sm9LzwswBqCgqYd
-# kNSWLVvO8kXgo8Ebi7qVxUpxAVzSyPtx3EV+m+JR/g/jEdz5lPHK2y+ZLocthpvn
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR4vKwV90MG
+# dLI/1pmpPFBHeC+ruTANBgkqhkiG9w0BAQEFAASCAQBlNunTxO3D1ToKDWxoR8xJ
+# KyAaFv7jb5ZkVIdI2z9sl23fe8w42+anJ1Mmrgfi+0c+nYd74t7pG9DvT0FYDBnq
+# ItmpzGl+DfAdXrRTu8WBin/qAGhg5m9lqTCiehFQ1LpC74QpBfl7NUw7c75vvky9
+# iQUClrhz3PvSOJLm6uDblYtIc6kk90m3qNwqYJ3FFAdWF+fFV72TjrkWpwPnBlmO
+# xW4eq27oeLOGu2WfDmRy1XCzLEdHKgO8S/GvkcCmoPtkPlzGXiCi7Smuw3Usx6Qi
+# 1GoGYR6NxD6y7yca4/48Flpojj5OIA2XlXJJm/wQtWxgZZVzjzsk988XvFLpA8JY
 # SIG # End signature block
