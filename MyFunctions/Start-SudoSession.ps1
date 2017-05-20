@@ -169,7 +169,7 @@ function Start-SudoSession {
     $TranscriptPath = "$HOME\Start-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
 
     $WSManGPOTempConfig = @"
--noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path $TranscriptPath -Append
+-noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
 try {`$CurrentAllowFreshCredsProperties = Get-ChildItem -Path $CredDelRegLocation | ? {`$_.PSChildName -eq 'AllowFreshCredentials'}} catch {}
 try {`$CurrentAllowFreshCredsValues = foreach (`$propNum in `$CurrentAllowFreshCredsProperties) {`$(Get-ItemProperty -Path '$CredDelRegLocation\AllowFreshCredentials').`$propNum}} catch {}
 
@@ -189,7 +189,7 @@ if (`$(Test-Path $CredDelRegLocation) -and !`$(Test-Path $CredDelRegLocation\All
 if (`$CurrentAllowFreshCredsValues -notcontains '$AllowFreshValue') {Set-ItemProperty -Path $CredDelRegLocation -Name ConcatenateDefaults_AllowFresh -Value `$(`$CurrentAllowFreshCredsProperties.Count+1) -Type DWord; Start-Sleep -Seconds 2; Set-ItemProperty -Path $CredDelRegLocation\AllowFreshCredentials -Name `$(`$CurrentAllowFreshCredsProperties.Count+1) -Value '$AllowFreshValue' -Type String}
 New-Variable -Name 'OrigAllowFreshCredsState' -Value `$([pscustomobject][ordered]@{OrigAllowFreshCredsProperties = `$CurrentAllowFreshCredsProperties; OrigAllowFreshCredsValues = `$CurrentAllowFreshCredsValues; Status = `$Status; OrigWSMANConfigStatus = `$WinRMConfigured; OrigWSMANServiceCredSSPSetting = `$CredSSPServiceSetting; OrigWSMANClientCredSSPSetting = `$CredSSPClientSetting; PropertyToRemove = `$(`$CurrentAllowFreshCredsProperties.Count+1)})
 `$(Get-Variable -Name 'OrigAllowFreshCredsState' -ValueOnly) | Export-CliXml -Path $tmpFileXml
-exit`"
+exit"
 "@
     $WSManGPOTempConfigFinal = $WSManGPOTempConfig -replace "`n","; "
 
@@ -233,14 +233,14 @@ exit`"
 
     # Cleanup
     $WSManGPORevertConfig = @"
--noprofile -WindowStyle Hidden -Command `"Start-Transcript -Path $TranscriptPath -Append
+-noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
 if ($($WSManAndRegStatus.Status) -eq 'CredDelKey DNE') {Remove-Item $CredDelRegLocation}
 if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds DNE') {Remove-Item $CredDelRegLocation\AllowFreshCredentials}
 if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds AlreadyExists') {Remove-ItemProperty $CredDelRegLocation\AllowFreshCredentials\AllowFreshCredentials -Name $($WSManAndRegStatus.PropertyToRemove)}
 if ($($WSManAndRegStatus.OrigWSMANConfigStatus) -eq 'false') {Stop-Service -Name WinRm; Set-Service WinRM -StartupType "Manual"}
 if ($($WSManAndRegStatus.OrigWSMANServiceCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Server\Auth\CredSSP -Value `$false}
 if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
-exit`"
+exit"
 "@
     $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
 
@@ -270,12 +270,11 @@ exit`"
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHTR6LauKsumi/QrkSMw/FtLv
-# tkWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXu/pEm6CQUlH0fqQFkDwJwz4
+# rLSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -330,11 +329,11 @@ exit`"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSj9xQvyrEG
-# XQG6SRMPcdnqEFtgDjANBgkqhkiG9w0BAQEFAASCAQAOXIUDUNmn9HusIkZO+1Dr
-# NukU8/Eb/20Gi6ENUBByBisFX9nkFi9jQ5sB3p2Pd5dBXJnn7K1q3VBbmCD0bTZd
-# Ix0v12vkdkyraFRTgP6/2J4SRziTDvqLSzOKYuJeZt+Rhu6PBwTqbhLroloKStmZ
-# Z1Lc9/5njc/6pw85URmyqakGTP1KFbKyB7MjCFccGRGYxWPQxcxxvcvPwP72/t7X
-# Ca0pgcSlM9/GO4Fha3qRWXQQ+EIGCjtELxtkaikQ/ausSb1NCubD8q1cxClzB/TT
-# wQ0x1burJm3pY28pIbE7Zwo4vyXy2ssDXYGVqOaA0lfD58nwcdvlZq0eS+nsIH2x
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTsuyK6B8HR
+# UnXSa/lOGm/MSVPAUjANBgkqhkiG9w0BAQEFAASCAQAsM74tkF00mORsJlGEDn26
+# HcIicfmT57NHVVVrBj14HM72+Mdu0gwmqTUZF4wCGUdZcEEhmJxv/6D+Q3JGj0n4
+# k/AxTtf8qB27BroaD3E0qGQbPQCnHmdZGDbmLRqqnEuLo8jwYhFxgRRqYWqrVCCs
+# nXXHOw9YFiCQNvqvsCIKaqnVl1H3GaY9DJNHSArnPbC8FyAWupfD5VO9K+IDRAmF
+# chtr0c+TStOTlpOmnKzkxZF87itE5N9E+rTKdxZaEhwxQe011Sm9LzwswBqCgqYd
+# kNSWLVvO8kXgo8Ebi7qVxUpxAVzSyPtx3EV+m+JR/g/jEdz5lPHK2y+ZLocthpvn
 # SIG # End signature block
