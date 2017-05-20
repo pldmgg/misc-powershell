@@ -63,7 +63,7 @@ function Start-SudoSession {
         [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
 
         [Parameter(
-            Mandatory=$True,
+            Mandatory=$False,
             ParameterSetName='Supply UserName and Password'
         )]
         $Password,
@@ -109,6 +109,10 @@ function Start-SudoSession {
     ##### END Native Helper Functions #####
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    if ($UserName -and !$Password -and !$Credentials) {
+        $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+    }
 
     if ($UserName -and $Password) {
         if ($Password.GetType().FullName -eq "System.String") {
@@ -251,12 +255,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUc8orSi3VV0oW5FQaNszmEmDP
-# Dz2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQWS8xhtG33vl1mJiVVQ34G+P
+# 3jOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -311,11 +314,11 @@ if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemPr
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR0nAN5xrex
-# KMmjLR+ucNoRxpS7oTANBgkqhkiG9w0BAQEFAASCAQB+vQh7hwTdCtKEhV/3b17g
-# YzsQ2gT34kt97kDUjSNC9pNbbDYaxF7V187vcIgfbZJ9URb7ylSPCEk1FFgIy2VG
-# x/uFN5ByiwvUDpsr4yTEwmTzJ3TiUAu69A9KT0k92ITg/OjG9Q9oQK8cgkJFdZ2F
-# mCgZhTfteUk2tyuZZxaPib/PK5T+e5KIJkUJz1+0yEKPZNmBEzOO2CM67iaCHfs1
-# Wcy8kWZ5Ed8bvfqM5t6+BZ+E0+OEk6y8Do1xt1L3mMLOWZCruAQTXaHSSp3GK8WV
-# zaXK31Ccl4fPHyv9CoO49dQ3Y4Qq5dvQTE+GlQHHqTYUgbap6fND1UD5LWpWUcNY
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSB6Whv/Rxd
+# mwhCtdu3XEQzpcMdrzANBgkqhkiG9w0BAQEFAASCAQA4GM6YePwcUSJDMRuvjk/O
+# TF/+a4A9UcArTuYS/FKnByD1Chh7vO1OhEBEFGNiUQAMcutEEsEL2gqOzgAObgBf
+# KEFspCA2RsY6ZrpUUa9v8EwrEg8Gfjz+B3LFI2PwBFa/62KwGaaw2GnTa/Z3Gkrp
+# navdTIn8r+EsnYIaV8awZkydY6V4HytdHOq6gh2ZctDfkUG+sBd5pZZwYrWLRBlI
+# ME6/UfighlgeRbG+cDCiSL9YHDY1HRrHNMsiDWHxhHBdpfdA//2TVor2j3ev3HYg
+# RhQtw2ZKDMV9qn1iksDlO3kFWh8jvEoVi/vQd6R43/MCit8R8bNmHx15x3xeVwXJ
 # SIG # End signature block
