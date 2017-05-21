@@ -234,12 +234,12 @@ exit"
     # Cleanup
     $WSManGPORevertConfig = @"
 -noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
-if ($($WSManAndRegStatus.Status) -eq 'CredDelKey DNE') {Remove-Item -Recurse $CredDelRegLocation -Force}
-if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds DNE') {Remove-Item -Recurse $CredDelRegLocation\AllowFreshCredentials -Force}
-if ($($WSManAndRegStatus.Status) -eq 'AllowFreshCreds AlreadyExists') {Remove-ItemProperty $CredDelRegLocation\AllowFreshCredentials\AllowFreshCredentials -Name $($WSManAndRegStatus.PropertyToRemove) -Force}
-if ($($WSManAndRegStatus.OrigWSMANConfigStatus) -eq 'false') {Stop-Service -Name WinRm; Set-Service WinRM -StartupType "Manual"}
-if ($($WSManAndRegStatus.OrigWSMANServiceCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Server\Auth\CredSSP -Value `$false}
-if ($($WSManAndRegStatus.OrigWSMANClientCredSSPSetting) -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
+if ('$($WSManAndRegStatus.Status)' -eq 'CredDelKey DNE') {Remove-Item -Recurse $CredDelRegLocation -Force}
+if ('$($WSManAndRegStatus.Status)' -eq 'AllowFreshCreds DNE') {Remove-Item -Recurse $CredDelRegLocation\AllowFreshCredentials -Force}
+if ('$($WSManAndRegStatus.Status)' -eq 'AllowFreshCreds AlreadyExists') {Remove-ItemProperty $CredDelRegLocation\AllowFreshCredentials\AllowFreshCredentials -Name $($WSManAndRegStatus.PropertyToRemove) -Force}
+if ('$($WSManAndRegStatus.OrigWSMANConfigStatus)' -eq 'false') {Stop-Service -Name WinRm; Set-Service WinRM -StartupType "Manual"}
+if ('$($WSManAndRegStatus.OrigWSMANServiceCredSSPSetting)' -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Server\Auth\CredSSP -Value `$false}
+if ('$($WSManAndRegStatus.OrigWSMANClientCredSSPSetting)' -eq 'false') {Set-ItemProperty -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
 exit"
 "@
     $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
@@ -265,12 +265,11 @@ exit"
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUX3aJdt75g9hXm1w60oz6l2mU
-# nuGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkh/6U7YZQbwRhhmJ7QVeiQ8+
+# PiegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -325,11 +324,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS9nwmnotVU
-# 0qBMxX8GMPxBMGneOjANBgkqhkiG9w0BAQEFAASCAQBIIm7Bsr5i7qDpoJ78ltA9
-# Ynzu+cMExPQ92xlKbVYzTt0MvmbD+b6wbvRqTL9zupIjVWD6k+QpBY5YL+FvmGdV
-# wACGHMagP4ht9m71G438+5h6KioT51sKCfSH0JhNSSFqXTQkoFTKVUuerOhcZMyw
-# vC3QV9FEeywDA8tVm0ZDvC5R1GvEojUAUHD4UF1Avn/J+UYMWs8lq1/76IyN6njr
-# WPcNu+lU7PjPN9p9i9rxL7eRmpREyXzI+eJ9Z2G6PBIMjmPI/rzyowqwkZUOP8mN
-# GX3drgpdU5QxxJ7zsdXm62w6V2E8zpNgKKXujbSkhdcIvL0lCDK/v69QU6DkSAj2
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQnNNsTybwi
+# IOPEzwPcRcz72SRTeTANBgkqhkiG9w0BAQEFAASCAQBqcWxJGRuFgpM71va+VnUd
+# MbReEmtgoMHBsE052uj/X98Tf7+s/mAMNemO1mQ0XZIKz8PJdnGd/0C3zb9TetuY
+# CSwW2VGU0FeFpFER50ywbHl3zab/uyqdgYYcnLNyEQS237BeAvjelQf5O73sMl54
+# Q1BeSmP5DFcMMqJIsPZXo3BiQLtEjJggXHFYFegKJxoZZFM5Xa8Qv3jQ4NxhPmEI
+# Nta4llwkUoatMu11+3VSMQUvxnhYQsC4oHWwLzGSz4RtF0PCvei8cVr5N1HpMMgN
+# vp07x++feDKjyCqfnLQzyLyJ7rzks52dDQLwNYmRCxz3gG3TRB6LD35zo0skDRTa
 # SIG # End signature block
