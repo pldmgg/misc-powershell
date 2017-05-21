@@ -57,7 +57,7 @@ function Start-SudoSession {
     [Alias('sudo')]
     Param(
         [Parameter(
-            Mandatory=$True,
+            Mandatory=$False,
             ParameterSetName='Supply UserName and Password'
         )]
         [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
@@ -69,7 +69,7 @@ function Start-SudoSession {
         $Password,
 
         [Parameter(
-            Mandatory=$True,
+            Mandatory=$False,
             ParameterSetName='Supply Credentials'
         )]
         [System.Management.Automation.PSCredential]$Credentials,
@@ -268,12 +268,11 @@ exit"
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUALB2/ftV+GV5lOUkjdnwZ4mo
-# QxmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUM7XHYM+YtexXSyJRYNe34naO
+# kUOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -328,11 +327,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR4vKwV90MG
-# dLI/1pmpPFBHeC+ruTANBgkqhkiG9w0BAQEFAASCAQBlNunTxO3D1ToKDWxoR8xJ
-# KyAaFv7jb5ZkVIdI2z9sl23fe8w42+anJ1Mmrgfi+0c+nYd74t7pG9DvT0FYDBnq
-# ItmpzGl+DfAdXrRTu8WBin/qAGhg5m9lqTCiehFQ1LpC74QpBfl7NUw7c75vvky9
-# iQUClrhz3PvSOJLm6uDblYtIc6kk90m3qNwqYJ3FFAdWF+fFV72TjrkWpwPnBlmO
-# xW4eq27oeLOGu2WfDmRy1XCzLEdHKgO8S/GvkcCmoPtkPlzGXiCi7Smuw3Usx6Qi
-# 1GoGYR6NxD6y7yca4/48Flpojj5OIA2XlXJJm/wQtWxgZZVzjzsk988XvFLpA8JY
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTNForohzqG
+# 3kSh6AgLP4pyhOHNmzANBgkqhkiG9w0BAQEFAASCAQB3Jdwzgx9hSRZ3w/Prvlno
+# EesAgW6H2NDMzDH8eDfMMViiYdQ8AgYCSHFLUT87M21IHTUTerKagNYQ0WinlYqf
+# QRITLhwV9oLqvaMpGepc+/58NxF/JPUva18T83pnWiJzPixPpoi8Bmr+kOx3ISIl
+# VN27UYL1FS0vkZj4uDAaIrVOyDjSUOAYypn5Lm06F1tMBkkuSsZ2vo6JaoJsPko/
+# W5Ate7pBDXy1LDlxBUlcY1A+NIErRof8RVQhxVkYFIhjUlpnUqHfAn6H40jw/kGM
+# DZSemRppJOoNzW0w3Ov8GqSI0DrWFl9snzYjeWbO77i+xT1LcYe1VBv7ipst9+7q
 # SIG # End signature block
