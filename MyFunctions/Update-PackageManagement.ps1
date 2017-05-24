@@ -389,7 +389,12 @@ exit"
         
         # Ensure $env:Path includes C:\Chocolatey\bin
         if ($($env:Path -split ";") -notcontains "C:\Chocolatey\bin") {
-            $env:Path = "$env:Path;C:\Chocolatey\bin"
+            if ($env:Path[-1] -eq ";") {
+                $env:Path = "$env:Path`C:\Chocolatey\bin"
+            }
+            else {
+                $env:Path = "$env:Path;C:\Chocolatey\bin"
+            }
         }
         # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
         $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
@@ -515,12 +520,11 @@ exit"
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+2bF1IJ1RocnFVuDlfKRcPRb
-# wrSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUCX++366CHtxItPz4A0E0Tm01
+# gVSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -575,11 +579,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRq/yWSiWRT
-# fsCnp+sF3fYSOGdP3zANBgkqhkiG9w0BAQEFAASCAQBb2arW+bo7XZ0K4O3+j7cE
-# JWRNHwS7yf9akPDO1W/PCjVSHiUalh4gi+NUJWyV1/VHO14OrlAGIVbEqjO+B5dC
-# Leo6ZOW3wJXysUdhSnrJXRjevMd7tJd8OodIZdCFuQTBktz0me2U70a2zygjl9QI
-# XSGyYUWV50OW/54CToiPPmhc11IMnz7avhh/3mny66iowurEkNJ9Vu5JYqQRMc16
-# HgsUl27cyPFBUgxnWwt+mnkqcAC6F63+/gngTCa6sr6SrcZYCLat1e2L/IAJUgy1
-# uGIqZy5dY610qm6rFc5JBLBXrA0TH0SciWubIsGh/Qp6s5uYE/iKORWNAhu8mY8/
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQtmZ148cH4
+# 2GOVEpT7cea0i0k1HDANBgkqhkiG9w0BAQEFAASCAQBzI1MwmwTJhwzZU0MdlH6I
+# AlFAZlMHl+LXpu3H+/AlJefbydXmXj5/IVmb9sBYze1NxuCbp7fZ4tX+YUZ/pMkF
+# 6HI1bG5KqH42YZVwB8YeUzdJmcyHOYFzFJIyvKvmCuyZqKsaVwtcqS9PJYQiZEjr
+# 65GSQibVjzNlwwrFWJrZ0BQRgVrUp9Ow6T8cz89YCnbhD7qoR2Q3BfoKRkmfgeZD
+# gGTlwGT7ujpvIf2eT3YFC15b1qw+J1SG+LdYKItPOSFph2IB9P0Cbl1M1VInndkq
+# yMP2wQzXOBB4JDotNqFrATEDmoxbFPErmzmjZUMtKcS6x85Q4+W7R/EABYJp6v0Q
 # SIG # End signature block

@@ -422,7 +422,12 @@ exit"
             
             # Ensure $env:Path includes C:\Chocolatey\bin
             if ($($env:Path -split ";") -notcontains "C:\Chocolatey\bin") {
-                $env:Path = "$env:Path;C:\Chocolatey\bin"
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path`C:\Chocolatey\bin"
+                }
+                else {
+                    $env:Path = "$env:Path;C:\Chocolatey\bin"
+                }
             }
             # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
             $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
@@ -1670,7 +1675,12 @@ exit"
             $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
             $lfsamd64Path = Resolve-Path "$env:LocalAppData\GitHub\lfs-*"
 
-            $env:Path = "$env:Path;$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
+            if ($env:Path[-1] -eq ";") {
+                $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
+            }
+            else {
+                $env:Path = "$env:Path;$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
+            }
 
             $env:github_shell = $true
             $env:git_install_root = $pGitPath
@@ -1781,7 +1791,12 @@ exit"
 
             # Add the directory to the PATH
             if ($($env:Path -split ";") -notcontains "C:\OpenSSH-Win32") {
-                $env:Path = "$env:Path;C:\OpenSSH-Win32"
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path`C:\OpenSSH-Win32"
+                }
+                else {
+                    $env:Path = "$env:Path;C:\OpenSSH-Win32"
+                }
             }
 
             $OpenSSHWin32Check = Get-Command ssh-keygen
@@ -1902,8 +1917,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjYGp3Ya2NGH9TGIlFo2bBbLH
-# EWGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQibGGSEd/7JA2D8aooUSnAcX
+# NK+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1958,11 +1973,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTxJhUGoea2
-# yUeH9BguYsBo44yJ+jANBgkqhkiG9w0BAQEFAASCAQBY0kVhivIeithdwNvRPVyg
-# eVMEf9NsRijvFrB8WMsI4ECD5JeIj1lnEO1QzPuI3aUXH4UoxKtTL4dG+7cztUWq
-# g2SQtl9Vssvt4kXflYwWyrh4TgVOW6t4j0swY/x0e7JH7gVUAaMKHoPbdf95HuBZ
-# rnXVBY4pIFNcd2J7qDGTGtYNpo3H1lDhnARYiZVU8TPNNCSwb1OUYQQghm5TPDY9
-# 6GnJ79QztP7RKSbIshRmEObjQVczoosxTRGIv5uwf3zzJ2MZpseN9u9Aoq32DJLd
-# 5H/CuPMbdlvQ9O3ECojhh5EmCafKE2K/JxMJLnRC3k8ZbPdA/l0NrmUR6gym+nyC
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRH57N1G8eu
+# 9hN7ysapq/U8znjiGzANBgkqhkiG9w0BAQEFAASCAQB76TqZvjocgmjeFDMDG3jJ
+# wdQxYK9iTI53qNWMkwyU2/6xgNIVQT74Aw25s/vyvI/dS7ekIk+s2+7mFwSM9Gi7
+# cstFbRWCzUn/te0drfv50P4EA9rTV216R4Ng0WOcchfApGevI5mzwusLRMRZOED9
+# 21kXwQbUIcfpGTI8SdSUgnsl4Vq8m7z1Zc+j0ioqv/kFP0OSiTfXGh4Vmea4SdSV
+# 2iMLCQfSDeDSVpA1lL/gqhVnEhkp1XCEW32zsiR+KRb3xKIyDqIK891Wd+G06Ic3
+# 9yyGn3unsyr8IZYyxPlhH5JVV3JzIZ01obJF+n3ed7W4ZRKor61EckH3Qwb95Wxf
 # SIG # End signature block
