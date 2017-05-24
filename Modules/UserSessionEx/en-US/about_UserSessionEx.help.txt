@@ -1,4 +1,4 @@
-This is a rudimentary PowerShell module for working with Excel via the EPPlus library.
+This is a rudimentary PowerShell module for gathering all User Session information on one or more hosts.
 
 Frequently Asked Questions:
 
