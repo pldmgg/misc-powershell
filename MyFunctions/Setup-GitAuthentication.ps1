@@ -70,7 +70,7 @@ function Setup-GitAuthentication {
     }
 
     if ($ExistingSSHPrivateKeyPath) {
-        $ExistingSSHPrivateKeyPath = Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue
+        $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
         if (!$(Test-Path "$ExistingSSHPrivateKeyPath")) {
             Write-Verbose "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
             Write-Error "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
@@ -1657,8 +1657,8 @@ exit"
 
         # Set the Git PowerShell Environment
         if ($env:github_shell -eq $null) {
-            $env:github_posh_git = Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue
-            $env:github_git = Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue
+            $env:github_posh_git = $(Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue).Path
+            $env:github_git = $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue).Path
             $env:PLINK_PROTOCOL = "ssh"
             $env:TERM = "msys"
             $env:HOME = $HOME
@@ -1673,7 +1673,7 @@ exit"
             $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
             $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
             $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
-            $lfsamd64Path = Resolve-Path "$env:LocalAppData\GitHub\lfs-*"
+            $lfsamd64Path = $(Resolve-Path "$env:LocalAppData\GitHub\lfs-*").Path
 
             if ($env:Path[-1] -eq ";") {
                 $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
@@ -1917,8 +1917,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQibGGSEd/7JA2D8aooUSnAcX
-# NK+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyY/feH1AvHJ40f+Bp1oo44uP
+# x6OgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1973,11 +1973,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRH57N1G8eu
-# 9hN7ysapq/U8znjiGzANBgkqhkiG9w0BAQEFAASCAQB76TqZvjocgmjeFDMDG3jJ
-# wdQxYK9iTI53qNWMkwyU2/6xgNIVQT74Aw25s/vyvI/dS7ekIk+s2+7mFwSM9Gi7
-# cstFbRWCzUn/te0drfv50P4EA9rTV216R4Ng0WOcchfApGevI5mzwusLRMRZOED9
-# 21kXwQbUIcfpGTI8SdSUgnsl4Vq8m7z1Zc+j0ioqv/kFP0OSiTfXGh4Vmea4SdSV
-# 2iMLCQfSDeDSVpA1lL/gqhVnEhkp1XCEW32zsiR+KRb3xKIyDqIK891Wd+G06Ic3
-# 9yyGn3unsyr8IZYyxPlhH5JVV3JzIZ01obJF+n3ed7W4ZRKor61EckH3Qwb95Wxf
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRzc97aGWjI
+# 3suPqjdH+e+RI9Tk9TANBgkqhkiG9w0BAQEFAASCAQBbyz0CYUywqp+FtsZATu3M
+# HgerGh7ZXE4O1dg4VbE6cOJKskBWpSm3eAhv2Jete8n9KGTAn2StPGfJkbiKihc1
+# +Lk7JpeCWAfm2dpyLxypAjsHOaOZVShUP1U4TONJPwaU+f0wiEfYlrXTHFVwmJr2
+# 7Ymb3MS9zK33+KfOV7P+j6yjtjh1QNxsbnfOXQ00NfuMC28yw9fNYHikukXRsH6R
+# Hau1f1bf0BaxthDIWRDInrnu1EYorhJRXutfjeCC5WdK0eGb/xWtwGJoyiZ0Lsc1
+# PzDQCb4b2eAbhfWzcNxtYbCuZxwBOQ2bGh4xOrPeF1tjBSeGbXS3RP00p+2ePrsA
 # SIG # End signature block

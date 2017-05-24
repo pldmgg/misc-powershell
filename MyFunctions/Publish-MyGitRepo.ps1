@@ -690,8 +690,8 @@ exit"
 
         # Set the Git PowerShell Environment
         if ($env:github_shell -eq $null) {
-            $env:github_posh_git = Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue
-            $env:github_git = Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue
+            $env:github_posh_git = $(Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue).Path
+            $env:github_git = $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue).Path
             $env:PLINK_PROTOCOL = "ssh"
             $env:TERM = "msys"
             $env:HOME = $HOME
@@ -706,7 +706,7 @@ exit"
             $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
             $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
             $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
-            $lfsamd64Path = Resolve-Path "$env:LocalAppData\GitHub\lfs-*"
+            $lfsamd64Path = $(Resolve-Path "$env:LocalAppData\GitHub\lfs-*").Path
 
             if ($env:Path[-1] -eq ";") {
                 $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
@@ -838,12 +838,11 @@ exit"
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWy5FESUiVQ83rhAYZOThF5LD
-# 1wegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUtktky5yKfmMvm14V/x69SgKL
+# 7w+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -898,11 +897,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRZHJM2Yc/9
-# 3SlAIJR0X35wzwqJljANBgkqhkiG9w0BAQEFAASCAQBNeaL7QIuGfGQZ5afgPQa2
-# hIHzbAKLQ/UhTN6HovRD7c34wLahD035PjWAgEkA8qQK2xXa7AXoPBm85BiwvJUK
-# enDIpFN4rIoLCNq3+tBBbbBWo260pnkso7ogd+LPprwTuBM2tjU+d3uiop9tU4b6
-# szbVLUK5qc8IX9BxuWfhFgXVuQE/I6StefIEFT53R+IuO/oG1RMAQnANqU/SI9Pe
-# 9PxDygipEPEbyZxzbA/j36lPTHQPU9+4+VJ7MLs4Aa6UikJIrg1cYMAgS6XypTyr
-# dRTMay5EpwIARXMj5tMuXqPd7T4gxzV/Neh3lmD3rCmV/nd6+kUMbTyZCooiyquK
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQhR1cX7KA4
+# ZvsaX3+eD+Dv3XUphDANBgkqhkiG9w0BAQEFAASCAQBVZmYgKhEsaYKQhvIzGQDB
+# 9kk1bqMHlEmvw37xxsykX195z/NmYGPl0MaJl/ka3RCGS9+tMNuQXweMlHgbIJT9
+# /bVT3uyCbV8lG3x3AcSLNpHt3KRoFYR1ruzQmlV/34yp58UXrSOg2cTA03K0EzRb
+# SnoVjIk2Z1VKNMUUveZY4ymfD3SIKatdU2q52TveTwHmAi0IcS+tFqKY1LmCwIpK
+# 5as3rnQFC8e27aAClVEKIuErUxfb6HnzXwPciUhZzo3/lk1umYfoImGgr7zVQoRB
+# Hs60MvF2WxVP6aSvlJDuK3d4juw6dCdZuEKFjjrgv+F8D61WzoYjD9vQpgThPnGc
 # SIG # End signature block

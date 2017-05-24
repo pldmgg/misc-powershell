@@ -37,7 +37,7 @@ function Install-GitDesktop {
     }
 
     if ($ExistingSSHPrivateKeyPath) {
-        $ExistingSSHPrivateKeyPath = Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue
+        $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
         if (!$(Test-Path "$ExistingSSHPrivateKeyPath")) {
             Write-Verbose "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
             Write-Error "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
@@ -1488,8 +1488,8 @@ exit"
 
         # Set the Git PowerShell Environment
         if ($env:github_shell -eq $null) {
-            $env:github_posh_git = Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue
-            $env:github_git = Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue
+            $env:github_posh_git = $(Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue).Path
+            $env:github_git = $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue).Path
             $env:PLINK_PROTOCOL = "ssh"
             $env:TERM = "msys"
             $env:HOME = $HOME
@@ -1504,7 +1504,7 @@ exit"
             $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
             $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
             $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
-            $lfsamd64Path = Resolve-Path "$env:LocalAppData\GitHub\lfs-*"
+            $lfsamd64Path = $(Resolve-Path "$env:LocalAppData\GitHub\lfs-*").Path
 
             if ($env:Path[-1] -eq ";") {
                 $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
@@ -1575,7 +1575,7 @@ exit"
         }
 
         if ($ExistingSSHPrivateKeyPath) {
-            $ExistingSSHPrivateKeyPath = Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue
+            $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
             if (!$(Test-Path "$ExistingSSHPrivateKeyPath")) {
                 Write-Verbose "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
                 Write-Error "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
@@ -1952,8 +1952,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUEBin4TVF1ooWo6LZUvsrw9Jm
-# Yh2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGsutJwLsYqLG0LEFMj1mlklf
+# DfagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2008,11 +2008,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS3DUD5pUG5
-# mZoIvbb97j74VwJy9TANBgkqhkiG9w0BAQEFAASCAQAEqVzEM620l0N1kDQHvCbq
-# uXZSiEMSCXD3In6WcGZJrxSuOtg57vbVB/O9/gntrtLQ/8VwDg8uXrBGF81AO3DW
-# eEFTpalnDYNflgcsLkcAUnkFF7uh8BbdDIC6V/Ic0SFqcJFsqMmdF5LVkL1qTF+Y
-# ajEkF/S9+KlRXFY6YYRC5h4+XuwVq31ExA4BPv71R4QDwH5qscN487r9Q2GMserx
-# yAPpuGCB5ROynALP6SI1Ytbjq+nt12e8BEyxvIXqnE9NcIsew+bM3gEEEviWD4cl
-# NeCWC0ARxSruaqfHNRYP3Vv1Vvfz8iNqN39yjuWattpLUA98bzE9c1jFV8rUpxyE
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQtv0+SeVxj
+# mZr9tXHdQwNsapiXNjANBgkqhkiG9w0BAQEFAASCAQCN3tBaeSvoeRn7YU+HU2uo
+# yMvFFzLQan3a6Oyp/Ybhn2kGqb/mE/7pEuPwPpY6tpeKIAwosVpAGpPRfcRZh+Nv
+# 3zevkbRo2xyeSSR/79CfUHF2y2OTKbZ79cgktp9zhVV6pjhBgmgptR05aC2/iiAv
+# Fij7ohJkjnQr/XAlgjsMRvyNY+whle23oLJq1TqsAxQsoSp/teWSU0wpzOEcqOad
+# jLJiL2/GmgPqrNFx1Kfmxg8qMFi43CpTfNRYAK6DbEWluj65LcSVqaknw5JVZAWx
+# E2Q2gpdtHG8k7DDWGwPswB+UEm10LqCW1nSAftPrTfJ6sP5G0wSZXyO3DdnJ3spZ
 # SIG # End signature block

@@ -1582,8 +1582,8 @@ function Initialize-GitEnvironment {
 
     # Set the Git PowerShell Environment
     if ($env:github_shell -eq $null) {
-        $env:github_posh_git = Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue
-        $env:github_git = Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue
+        $env:github_posh_git = $(Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue).Path
+        $env:github_git = $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue).Path
         $env:PLINK_PROTOCOL = "ssh"
         $env:TERM = "msys"
         $env:HOME = $HOME
@@ -1598,7 +1598,7 @@ function Initialize-GitEnvironment {
         $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
         $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
         $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
-        $lfsamd64Path = Resolve-Path "$env:LocalAppData\GitHub\lfs-*"
+        $lfsamd64Path = $(Resolve-Path "$env:LocalAppData\GitHub\lfs-*").Path
 
         if ($env:Path[-1] -eq ";") {
             $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
@@ -1709,7 +1709,7 @@ function Setup-GitAuthentication {
     }
 
     if ($ExistingSSHPrivateKeyPath) {
-        $ExistingSSHPrivateKeyPath = Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue
+        $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
         if (!$(Test-Path "$ExistingSSHPrivateKeyPath")) {
             Write-Verbose "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
             Write-Error "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
@@ -1953,7 +1953,7 @@ function Install-GitDesktop {
     }
 
     if ($ExistingSSHPrivateKeyPath) {
-        $ExistingSSHPrivateKeyPath = Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue
+        $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
         if (!$(Test-Path "$ExistingSSHPrivateKeyPath")) {
             Write-Verbose "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
             Write-Error "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
@@ -2536,12 +2536,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeKsy4bQNcmlXsBA1ZNNhSd9L
-# STOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfqpA8owSNvrlMCNzpmYyDgAM
+# VSigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2596,11 +2595,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRZ4L+t8v5O
-# mw068xuIA+3ACojxiTANBgkqhkiG9w0BAQEFAASCAQA2pHBnVbEZwp8t9OuP1L+N
-# WwQjA9t/s0Qozz8mGy+MHtou8wiJ1boCcgsjys50KoMSxpT8OQilKAjxA5J4rKrb
-# TQ/z3JYJiDZkpN2tD2UkdlGy2EMuiZYb10iu5XCNp50DQogKBBdK7+C//HHFv2tf
-# H214gLGKlzO5GkVXW1d6RNpHaOTLEnt0we/4A2nD95TMsFVRArYN2quZCUgWfrCR
-# GcfodHDbUjp/utMGsvpqAcoHGLnBIm9C7j+NkxPMaipIh80CQAqPtNGiFaEl+K91
-# PZMascr2mVCE63f/+SXRkn2YMX4Lm9B7pxAsdbMdOIWuh7OPfWm4tSRZK1UQJAXs
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRPqtWThvmT
+# MXBptI3EsNzR2vkZrjANBgkqhkiG9w0BAQEFAASCAQAeHdXREnX4Jaq2Z3mAcsCw
+# eRI6Y2tFW9DSyUfKJZ6bNcxaaOsF99B7TPalDzjuWi8Cb0myMoBImtS5evdfhsNI
+# QsuPCsNgkmL86OvacqOBOth0MXdl3ymNO7813rL+evVYqdft6DBMI+1X0rieHsvh
+# zAGUtlcCqysaPbDjf7btmnaUop1YVXrkLNJ7K/NqlWTUnKfssZGhV2ZGsfiPN2/i
+# lac57QcQ92SMteTOBo0YABgXTlDMHp2BzIIDilrMnZf1tikTdmD1BN9VCuYE0XDD
+# AJGbs3WaywPHRSB3mqsyNRcvp6SrO5g0SRtn0rR1eMxnVjPWUh52bhu0vhfr6+p9
 # SIG # End signature block
