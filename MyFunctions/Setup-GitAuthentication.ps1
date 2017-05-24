@@ -1671,8 +1671,17 @@ exit"
             $pGitPath = $env:github_git
             #$appPath = Resolve-Path "$env:LocalAppData\Apps\2.0\XE9KPQJJ.N9E\GALTN70J.73D\gith..tion_317444273a93ac29_0003.0003_5794af8169eeff14"
             $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
+            while (!$appPath) {
+                Write-Host "Waiting for `$appPath..."
+                $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
+                Start-Sleep -Seconds 1
+            }
             $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
             $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
+            while (!$(Resolve-Path "$env:LocalAppData\GitHub\lfs-*" -ErrorAction SilentlyContinue)) {
+                Write-Host "Waiting for $env:LocalAppData\GitHub\lfs-*"
+                Start-Sleep -Seconds 1
+            }
             $lfsamd64Path = $(Resolve-Path "$env:LocalAppData\GitHub\lfs-*").Path
 
             if ($env:Path[-1] -eq ";") {
@@ -1917,8 +1926,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyY/feH1AvHJ40f+Bp1oo44uP
-# x6OgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUaG2bRQU/NR4pdLRhcrAHfdp8
+# k9qgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1973,11 +1982,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRzc97aGWjI
-# 3suPqjdH+e+RI9Tk9TANBgkqhkiG9w0BAQEFAASCAQBbyz0CYUywqp+FtsZATu3M
-# HgerGh7ZXE4O1dg4VbE6cOJKskBWpSm3eAhv2Jete8n9KGTAn2StPGfJkbiKihc1
-# +Lk7JpeCWAfm2dpyLxypAjsHOaOZVShUP1U4TONJPwaU+f0wiEfYlrXTHFVwmJr2
-# 7Ymb3MS9zK33+KfOV7P+j6yjtjh1QNxsbnfOXQ00NfuMC28yw9fNYHikukXRsH6R
-# Hau1f1bf0BaxthDIWRDInrnu1EYorhJRXutfjeCC5WdK0eGb/xWtwGJoyiZ0Lsc1
-# PzDQCb4b2eAbhfWzcNxtYbCuZxwBOQ2bGh4xOrPeF1tjBSeGbXS3RP00p+2ePrsA
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ9dFmwBXTq
+# FfkW3aVcwN5Jjee3hDANBgkqhkiG9w0BAQEFAASCAQBb03H/jWUQqAVbDuE0fawj
+# HSqdPvfVgSlqXMVg35mo/ROX9Joft1k5yionNhnnRmOU+73/hfezUWkgHb9u87NL
+# ykiwFGpSf4rf7otgIvvfTXIXFRFsF+3KCsrIifyy5DyTnN/a0EbBiVHYoEvrOPWI
+# g8EDVpnswnj+9CVYljHLF1ysxXvPVTgQ98HlD25hYVlh53HGl9UfqTB9sGVQLPGx
+# BBftOYMJupY1FepV0XAK8E6eKG9CgQOEVjVVQnw1LVZBoqy6Ri8jOTvkn5DL4o5F
+# dBLz7lQNio9X/mnbw/x3mwiSUIeFb72JyNasRPOKKizGu+Vdz9an8Wp/tODFVTgi
 # SIG # End signature block

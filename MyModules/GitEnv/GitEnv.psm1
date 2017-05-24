@@ -1583,6 +1583,10 @@ function Initialize-GitEnvironment {
     # Set the Git PowerShell Environment
     if ($env:github_shell -eq $null) {
         $env:github_posh_git = $(Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue).Path
+        while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction SilentlyContinue)) {
+            Write-Host "Waiting for $env:LocalAppData\GitHub\PortableGit_*"
+            Start-Sleep -Seconds 1
+        }
         $env:github_git = $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue).Path
         $env:PLINK_PROTOCOL = "ssh"
         $env:TERM = "msys"
@@ -1596,8 +1600,17 @@ function Initialize-GitEnvironment {
         $pGitPath = $env:github_git
         #$appPath = Resolve-Path "$env:LocalAppData\Apps\2.0\XE9KPQJJ.N9E\GALTN70J.73D\gith..tion_317444273a93ac29_0003.0003_5794af8169eeff14"
         $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
+        while (!$appPath) {
+            Write-Host "Waiting for `$appPath..."
+            $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
+            Start-Sleep -Seconds 1
+        }
         $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
         $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
+        while (!$(Resolve-Path "$env:LocalAppData\GitHub\lfs-*" -ErrorAction SilentlyContinue)) {
+            Write-Host "Waiting for $env:LocalAppData\GitHub\lfs-*"
+            Start-Sleep -Seconds 1
+        }
         $lfsamd64Path = $(Resolve-Path "$env:LocalAppData\GitHub\lfs-*").Path
 
         if ($env:Path[-1] -eq ";") {
@@ -2535,12 +2548,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfqpA8owSNvrlMCNzpmYyDgAM
-# VSigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW1sGCIMvPx7XO7HY3gyebGaA
+# lw6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2595,11 +2607,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRPqtWThvmT
-# MXBptI3EsNzR2vkZrjANBgkqhkiG9w0BAQEFAASCAQAeHdXREnX4Jaq2Z3mAcsCw
-# eRI6Y2tFW9DSyUfKJZ6bNcxaaOsF99B7TPalDzjuWi8Cb0myMoBImtS5evdfhsNI
-# QsuPCsNgkmL86OvacqOBOth0MXdl3ymNO7813rL+evVYqdft6DBMI+1X0rieHsvh
-# zAGUtlcCqysaPbDjf7btmnaUop1YVXrkLNJ7K/NqlWTUnKfssZGhV2ZGsfiPN2/i
-# lac57QcQ92SMteTOBo0YABgXTlDMHp2BzIIDilrMnZf1tikTdmD1BN9VCuYE0XDD
-# AJGbs3WaywPHRSB3mqsyNRcvp6SrO5g0SRtn0rR1eMxnVjPWUh52bhu0vhfr6+p9
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT4NE2t4c9g
+# da5vkbiIY2BGbV7bQDANBgkqhkiG9w0BAQEFAASCAQAlRI97xMCZ+VKvqyIXFt+z
+# aoadiR1Q2SUxYUCVwk/wwmOSttx+vXvKVCjseAvHTPAQSpa/tI/IShf4XTSnDgCD
+# kHqR0wNa5FwXjp5a7zvlR2FoaEaVLsRNFAKrcdAYta2Q25v7CIQrVpH6oX2OQAEi
+# HpgYZ9q+PnXXMMD/WFx0cQxTPFtz/d6TFhKICzWBkO1zMjbWfoqqAZ1U1Xbxu4C6
+# OuKlpVxel3MUFpjVZbZX28WRHPWuCTDJZT3KiO6Ls/qqKel437zMs/6iqxlDtfpZ
+# 6uWY0opzJx2YF4saCUCiWSw8KiniODBrn2E4qqOtJlcgorPoDwO5I7+kCPn7c28T
 # SIG # End signature block
