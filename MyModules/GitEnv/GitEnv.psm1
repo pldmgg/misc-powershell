@@ -2130,6 +2130,7 @@ function Install-GitDesktop {
 
     while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe" -ErrorAction SilentlyContinue)) {
         Write-Host "Waiting for $env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe"
+        Write-Host "This could take up to 1 minute..."
         Start-Sleep -Seconds 2
     }
     if (Test-Path $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction SilentlyContinue).Path) {
@@ -2622,12 +2623,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9KHeW9EIH1OAdFw5u3ZdEPoi
-# aT6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYpOId/UO0u3K9yfUXD6xw8Wc
+# C4egggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2682,11 +2682,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSCYxNwLHFb
-# xnrlfcQqgw2+erGyxDANBgkqhkiG9w0BAQEFAASCAQBbkOvvaD8QnSpvRXngWZPe
-# AZeik3CG0nQ680Dj2O/YscBbKKddbA6ajoXAN8LQrfuncpLNHGskKatHy3XO8rJh
-# IFbuJ7QH7CJs2gszm8nFoVfVqwIeMixKXlH+jYmSbrpARE+5rBlzHySvYPV+9bzp
-# uZBSXKy4GokYWgjA46ZmOY4tUYmTFLzYPf9maA32ArumeGakDnzHpvAhGy/A9azq
-# w88h1W0ya6+yrUpIR19mHmunY/ZubOxx3b87q/ixBQm1XSoKEFGyn6M53MKZZ2O+
-# aJ3jGmnOPTOF0jkWzKdFjegReJSMc9/KiNwB+uaqO+GSWT/OaSRUMGN5pU+BIBJb
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRv5Dqj6yQL
+# VRpEyQ7+tWCX3qipgDANBgkqhkiG9w0BAQEFAASCAQBHiiw80yuFLkMzKxYA2eYs
+# u9AWWuJYiB5O9U2qm/zwVNnPjiNJdVg+OeosY05KuhizvvGz7jev4Pa28Qkv48P5
+# rCQwnSEWWpvkSnNNnjhKGSfHsC1NUuPz0ISlG1MsSLOcVSj+Qxjdtrcf5mMyHKjp
+# OgDoXsxxP+3iR9hR7Ci0aJ6yM+etw/ebrarZL/SIjmTRr3c/IWSYlwbUy13iiY8b
+# izKrwW0/78O/guC18V6CZHGPwloUvLTgQOlD6suc2tJO4MBmuEPm0eN3Ov9mm4KP
+# i6iYbQeGOAF7Y8ErWxznS91K6VEtO6PVrQHO7DCrFZOHus/GCz+aHDbN6yaG5VyP
 # SIG # End signature block
