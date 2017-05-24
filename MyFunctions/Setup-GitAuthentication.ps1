@@ -79,6 +79,11 @@ function Setup-GitAuthentication {
         }
     }
 
+    # If no specific ExistingSSHPrivateKeyPath is provided, assume it's in the default GitDesktop directory
+    if ($AuthMethod -eq "ssh" -and !$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
+        $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+    }
+
     ##### END Parameter Validation #####
 
 
@@ -1757,6 +1762,9 @@ exit"
         }
 
         Manage-StoredCredentials -AddCred @ManageStoredCredsParams
+
+        # Test https OAuth2 authentication
+        Invoke-RestApi "https://api.github.com/?access_token=$PersonalAccessToken"
     }
 
     if ($AuthMethod -eq "ssh") {
@@ -1868,6 +1876,28 @@ exit"
                 $global:FunctionResult = "1"
                 return
             }
+            else {
+                $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                $ProcessInfo.FileName = "ssh.exe"
+                $ProcessInfo.RedirectStandardError = $true
+                $ProcessInfo.RedirectStandardOutput = $true
+                $ProcessInfo.UseShellExecute = $fale
+                $ProcessInfo.Arguments = "-T git@github.com"
+                $Process = New-Object System.Diagnostics.Process
+                $Process.StartInfo = $ProcessInfo
+                $Process.Start() | Out-Null
+                $Process.WaitForExit()
+                $stdout = $Process.StandardOutput.ReadToEnd()
+                $stderr = $Process.StandardError.ReadToEnd()
+                $AllOutput = $stdout + $stderr
+
+                if ($AllOutput -match $GitHubUserName) {
+                    Write-Host "GitHub Authentication for $GitHubUserName using SSH was successful."
+                }
+                else {
+                    Write-Warning "GitHub Authentication for $GitHubUserName using SSH was NOT successful. Please check your connection and/or keys."
+                }
+            }
         }
         if ($NewSSHKeyName) {
             # Create a new public/private keypair
@@ -1882,7 +1912,7 @@ exit"
                 ssh-keygen.exe -b 2048 -t rsa -f "$HOME\.ssh\$NewSSHKeyName"
             }
             if ($NewSSHKeyPwd -ne $null) {
-                ssh-keygen.exe -b 2048 -t rsa -f "$HOME\.ssh\$NewSSHKeyName" -q -N "$SSHKeyPwd"
+                ssh-keygen.exe -b 2048 -t rsa -f "$HOME\.ssh\$NewSSHKeyName" -q -N "$NewSSHKeyPwd"
             }
 
             # Start the ssh agent and add your new key to it
@@ -1922,8 +1952,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIyVcFTGQOkjpvA7Am0hWP67Z
-# XLOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyvl+bNyCoiA7H3ZX+15bZRJ2
+# pWCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1978,11 +2008,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT4Dt/noPg9
-# u1dKxEsZXabNlc1ZvjANBgkqhkiG9w0BAQEFAASCAQAH68FqlAaCo7/7qFidXjzr
-# MXnvOtgt0UgaR3VmHWtZxpc7iA2FG8kMhFRuuVZyNqiHRHEcPxrdl2GktgsvjV4C
-# Ga0fEI1+aUKWNr+XjTJRVW6WmD+nSchvE9T9I0ZU8JVAz5GXPZ1eyAWIXtt/lg/E
-# GR+SKWemUKG3BoFE428sqT5ans2BCW4w0ALLdtpC/VueeBCzRuHEpAUft5uGsVJI
-# lp3PbVgVjzG5O8b0pkx8WYYuuMPsZMMMsZ7F0oTF0qWttx6smW9+SB5xTEr5V3Zl
-# mQpnfyOL7Lqk38h1vHb09vNEWd0vmQDnrXgfzjImTrYp43NaXlGm1m9AygDEwZjG
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQx2+D2eGhU
+# HdP0vtYnnDwm6Bq1XzANBgkqhkiG9w0BAQEFAASCAQAFyxHQLX2AarfS0CHDwoFs
+# lfw7PCF202gwNlBLCqqSYU4Q+0acYuu98y+tTxCgeE6kSKFknsW3ImiYM/Ii94E9
+# lkNPhIWVHTYoKtuLB4tl/tvFm6JKNsvl1LGTcreLd3/gvIC8cir6TodlntGsTl7e
+# 0nqZ3UjBYYSrxpZeTKgp+1yMjahGuqYKarvtdpZ7h34XRvfPopnoGMS2uLiC71SQ
+# e5hkWl3XHocS9RHB7VyOJlTid2/9lfVkjjw4csDBAksXh0hSFyKnn06Kuxadp5/d
+# dNRgppvEutVqS+G7pAaSn8uvDcLTSk/JeFQr9k8TG92xZFaVp9K9P21s8JEVjZaa
 # SIG # End signature block
