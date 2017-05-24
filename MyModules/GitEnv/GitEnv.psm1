@@ -2050,11 +2050,11 @@ function Install-GitDesktop {
         Start-Sleep -Seconds 3
     }
 
-    while (!$(Test-Path "$env:LocalAppData\GitHub\api.github.com.cache.db-shm")) {
-        Write-Host "Waiting for Current User Local App Data GitHub Directory to be ready..."
+    while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction SilentlyContinue)) {
+        Write-Host "Waiting for $env:LocalAppData\GitHub\PortableGit_*"
         Start-Sleep -Seconds 2
     }
-    if (Test-Path "$env:LocalAppData\GitHub\api.github.com.cache.db-shm") {
+    if (Test-Path $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction SilentlyContinue).Path) {
         Write-Host "Local App Data GitHub Directory is ready."
         Write-Host "Closing GitDesktop..."
     }
@@ -2547,12 +2547,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW1sGCIMvPx7XO7HY3gyebGaA
-# lw6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUolYDmEzQ8053Atgz5K2I4bJt
+# djmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2607,11 +2606,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT4NE2t4c9g
-# da5vkbiIY2BGbV7bQDANBgkqhkiG9w0BAQEFAASCAQAlRI97xMCZ+VKvqyIXFt+z
-# aoadiR1Q2SUxYUCVwk/wwmOSttx+vXvKVCjseAvHTPAQSpa/tI/IShf4XTSnDgCD
-# kHqR0wNa5FwXjp5a7zvlR2FoaEaVLsRNFAKrcdAYta2Q25v7CIQrVpH6oX2OQAEi
-# HpgYZ9q+PnXXMMD/WFx0cQxTPFtz/d6TFhKICzWBkO1zMjbWfoqqAZ1U1Xbxu4C6
-# OuKlpVxel3MUFpjVZbZX28WRHPWuCTDJZT3KiO6Ls/qqKel437zMs/6iqxlDtfpZ
-# 6uWY0opzJx2YF4saCUCiWSw8KiniODBrn2E4qqOtJlcgorPoDwO5I7+kCPn7c28T
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ49GvQPG4q
+# lcUFG6wnIISm0kAMKjANBgkqhkiG9w0BAQEFAASCAQBcwQ+lTwCdA4kIH6yxKI8+
+# 21BISKmdiILLClV4LXcEnzDEl1ZcERFFMs1LUNCN9lafM9RRRkEY4P5ikx92HI3i
+# +r7akx1YvTJDcsqn7yP0ji7EiwlRJTUlIItnB4hrnkZFv7GLkNgnEbMZyjP0/JTV
+# Zd4j9GtuKTZswcCz+olsj/xt7nL3hq3NP4lrZ97j70HbjGCwEkiNqGT+5dPY5IFN
+# ELBrVcM1XrwHB60nrpaSlylyF+CGjwCE1kakO/AafhE5MS88rdLVIG8G5bXmV3uy
+# pofA/8iGDJ2/giSsFy4WFx+j6I6n1ZG9qzc36pmWWMerBgCFNYUV/ADPWhma9HU0
 # SIG # End signature block
