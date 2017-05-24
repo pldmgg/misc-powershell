@@ -1771,7 +1771,15 @@ exit"
         Manage-StoredCredentials -AddCred @ManageStoredCredsParams
 
         # Test https OAuth2 authentication
-        Invoke-RestApi "https://api.github.com/?access_token=$PersonalAccessToken"
+        # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
+        $Token = "$GitHubUserName:$PersonalAccessToken"
+        $Base64Token = [System.Convert]::ToBase64String([char[]]$Token)
+        $Headers = @{
+            Authorization = "Basic {0}" -f $Base64Token
+        }
+        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken").Name
+        Write-Host "Writing Public and Private Repos to demonstrate https authentication success..."
+        Write-Host "$($PublicAndPrivateRepos -join ", ") "
     }
 
     if ($AuthMethod -eq "ssh") {
@@ -1959,8 +1967,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUj7dJX4XDfIJTgIYfyMvlGL31
-# 5iSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyPW8ZgDFYE6akoIPi/mX9BMR
+# NSSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2015,11 +2023,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSNZqhQLLWf
-# BjrGkmNm4Fb28rhzLTANBgkqhkiG9w0BAQEFAASCAQAYlChSD5tLTszwx9Lchvzh
-# 0EuqG/hkmFM12fsX9327r2Cetcfv/1+mg75vKxLZT0U/wXH0OY6owMQ0CIoYSFYd
-# yp5poJ5AqcVfrEpUMaq2gejs68rdyN/3glUBgsyEOwhFBH3pp7drSDvlQSA8SD1L
-# yS8Zbfwp46OAZE0ouOsc/nLrHlyONt9jig0dGbpzpYyjbfkMdav/KVGpvOrsC0o8
-# iomMDrhYcaxb3Soqp12MzS7YpYxekM62ZMPM94NnKMoY/GOpvTsZQeYr3SiUBU64
-# FoWhqgBDHKQje5oUeO86T7ZPqifk48TX7v8J9h6z3XCIYhE3jEeQRiSqXOi3cDT7
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSbyt0E6Hd+
+# Aa5npWWu6DlB3rTmTjANBgkqhkiG9w0BAQEFAASCAQACflU0qDkADvREl6DYX8/x
+# EwWIK7MPWIx0Vd67tNcJpIX9FL1+3Harod6RuRXwd+A0LP3D/i9fvJx62QbWpvW9
+# b9uqtPTDBwLeidHrxilRJH0HqBb96T/hrUSiC69U6xhtbYY3gYijJ9K4c8/hCms0
+# Oc326jddBtKYlc/8TFWFGACh0DjVRfkZu71UyYU5S/rxi4UrjTlnO+mEW5psrYyI
+# F3BgJnC5/NGz+G9uV40TYzdaGjG0ERh9G7MBHpGzuTnsmh7vw/OpvS9WQxdAzBA3
+# 6ZSarTz5+tqVaYsKU0NQlZfD4CXdEiAS7akaAvfs4FaHPF/y4UyrpYvZIqrUeIGP
 # SIG # End signature block
