@@ -1509,11 +1509,7 @@ exit"
             }
             $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
             $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
-            while (!$(Resolve-Path "$env:LocalAppData\GitHub\lfs-*" -ErrorAction SilentlyContinue)) {
-                Write-Host "Waiting for $env:LocalAppData\GitHub\lfs-*"
-                Start-Sleep -Seconds 1
-            }
-            $lfsamd64Path = $(Resolve-Path "$env:LocalAppData\GitHub\lfs-*").Path
+            $lfsamd64Path = "$env:LocalAppData\GitHub\lfs-amd*"
 
             if ($env:Path[-1] -eq ";") {
                 $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
@@ -1961,8 +1957,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjldBPeQBS0sfm6sTRHQOf3tk
-# VpagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUycYgMWyznaRa8bA88/Q5gj0p
+# G6GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2017,11 +2013,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSVVRUBgXHl
-# iyDWLt9QboZiAdCBWjANBgkqhkiG9w0BAQEFAASCAQCS9neb+u5O9dnM7F3tGLlY
-# hiGrHN5XbNM4Vi9kQ2qkY3M8zL9f0W2HGzO3JcLznoleiBylMLnH+WCTNm8lkCen
-# deoGwwwEZ/9kptoqngOM4OMHRz+SohrErqNvkt2Z+FGfkrPGy8gKnVF5vzrq7TEi
-# IyNh/ieQWCfN/YuktFSLQFyOmFkbHfRR6MpwpAeNjPS9HBRSrZFuR4HmDS9Dnvjy
-# +755wd7vdJleFhbo+T7AiV2cqfuCYLsjBjxUYafNXsbHm6PttNDW1poVFLWbB4HB
-# iuRw/Z2n7RPN+qNjJmzVqfsYIhER5M0WxKIJYTteIijZEydcgqRYMNbsSLB46AGn
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTOLZHXgiqe
+# QUYF/C+CWFbnPh0/gjANBgkqhkiG9w0BAQEFAASCAQA3TWcpIu6Wesj4QrADrEpd
+# HM9FXwe/+E3w0IaywE8nPTIyKYYB5ctUsmUGUNTrZkn7CqOeHHVj/OtKrOypZu8E
+# UkUozdhMLlJM6QxsP/QLpTscRtPQWTae1ylr4CFvug7plId6U3eF3FoltK8kmyy3
+# xdtCUJfFUFMww+Wxz1yX2Iw7fbT44QrZFCkb3xTBDmt7/B2IIsinDw/+DIpWAMzi
+# grWuwtU5SyUGT5MvJdTviRHKMEgzdgbJSkKg6sNDJVn6208rlT81MxalT+0PBF1I
+# Ml3szt7QICUjEyf/HKNA4972xBczuJvVg0l4OdjxOqx9m3RFVG3+58Drw2H93M5D
 # SIG # End signature block
