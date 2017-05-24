@@ -1737,8 +1737,15 @@ exit"
     
     Set-Location "$HOME\Documents\GitHub"
 
-    if (!$(Get-Command git)) {
+    if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
+        $global:FunctionResult = "0"
         Initialize-GitEnvironment
+        if ($global:FunctionResult -eq "1") {
+            Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
+            Write-Error "The Initialize-GitEnvironment function failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -1952,8 +1959,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyvl+bNyCoiA7H3ZX+15bZRJ2
-# pWCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUj7dJX4XDfIJTgIYfyMvlGL31
+# 5iSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2008,11 +2015,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQx2+D2eGhU
-# HdP0vtYnnDwm6Bq1XzANBgkqhkiG9w0BAQEFAASCAQAFyxHQLX2AarfS0CHDwoFs
-# lfw7PCF202gwNlBLCqqSYU4Q+0acYuu98y+tTxCgeE6kSKFknsW3ImiYM/Ii94E9
-# lkNPhIWVHTYoKtuLB4tl/tvFm6JKNsvl1LGTcreLd3/gvIC8cir6TodlntGsTl7e
-# 0nqZ3UjBYYSrxpZeTKgp+1yMjahGuqYKarvtdpZ7h34XRvfPopnoGMS2uLiC71SQ
-# e5hkWl3XHocS9RHB7VyOJlTid2/9lfVkjjw4csDBAksXh0hSFyKnn06Kuxadp5/d
-# dNRgppvEutVqS+G7pAaSn8uvDcLTSk/JeFQr9k8TG92xZFaVp9K9P21s8JEVjZaa
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSNZqhQLLWf
+# BjrGkmNm4Fb28rhzLTANBgkqhkiG9w0BAQEFAASCAQAYlChSD5tLTszwx9Lchvzh
+# 0EuqG/hkmFM12fsX9327r2Cetcfv/1+mg75vKxLZT0U/wXH0OY6owMQ0CIoYSFYd
+# yp5poJ5AqcVfrEpUMaq2gejs68rdyN/3glUBgsyEOwhFBH3pp7drSDvlQSA8SD1L
+# yS8Zbfwp46OAZE0ouOsc/nLrHlyONt9jig0dGbpzpYyjbfkMdav/KVGpvOrsC0o8
+# iomMDrhYcaxb3Soqp12MzS7YpYxekM62ZMPM94NnKMoY/GOpvTsZQeYr3SiUBU64
+# FoWhqgBDHKQje5oUeO86T7ZPqifk48TX7v8J9h6z3XCIYhE3jEeQRiSqXOi3cDT7
 # SIG # End signature block

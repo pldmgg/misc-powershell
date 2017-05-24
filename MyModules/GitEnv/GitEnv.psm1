@@ -1792,7 +1792,7 @@ function Setup-GitAuthentication {
     
     Set-Location "$HOME\Documents\GitHub"
 
-    if (!$(Get-Command git)) {
+    if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
         $global:FunctionResult = "0"
         Initialize-GitEnvironment
         if ($global:FunctionResult -eq "1") {
@@ -2048,16 +2048,20 @@ function Install-GitDesktop {
         }
     }
 
+    # If no specific ExistingSSHPrivateKeyPath is provided, assume it's in the default GitDesktop directory
+    if ($AuthMethod -eq "ssh" -and !$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
+        $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+    }
+
+    if (!$(Check-Elevation)) {
+        $UserName = $($([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\"))[1]
+        $Psswd = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+        $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Psswd
+    }
+
     ##### END Parameter Validation #####
 
     ##### BEGIN Main Body #####
-
-    if (Check-Elevation) {
-        Write-Verbose "The GitDesktop install will NOT work from an Elevated PowerShell Session (i.e. PS Session ran as Administrator)! Halting!"
-        Write-Error "The GitDesktop install will NOT work from an Elevated PowerShell Session (i.e. PS Session ran as Administrator)! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
 
     # For more info on SendKeys method, see: https://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
     Invoke-WebRequest -Uri "https://github-windows.s3.amazonaws.com/GitHubSetup.exe" -OutFile "$HOME\Downloads\GitHubSetup.exe"
@@ -2141,11 +2145,11 @@ function Install-GitDesktop {
     if (!$(Test-Path "$env:LocalAppData\GitHub\PoshGit*")) {
         if (!$(Get-Module -List -Name posh-git)) {
             if ($PSVersionTable.PSVersion.Major -ge 5) {
-                Update-PackageManagement
+                Update-PackageManagement -Credentials $Credentials
                 Install-Module posh-git -Scope CurrentUser
             }
             if ($PSVersionTable.PSVersion.Major -lt 5) {
-                Update-PackageManagement
+                Update-PackageManagement -Credentials $Credentials
                 Install-Module posh-git -Scope CurrentUser
             }
         }
@@ -2168,7 +2172,7 @@ function Install-GitDesktop {
     }
 
     # Set the Git PowerShell Environment
-    if (!$(Get-Command git)) {
+    if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
         $global:FunctionResult = "0"
         Initialize-GitEnvironment
         if ($global:FunctionResult -eq "1") {
@@ -2211,6 +2215,9 @@ function Install-GitDesktop {
 
             Setup-GitAuthentication @GitAuthParams
         }
+    }
+    if (!$AuthMethod) {
+        Write-Host "GitHub Authentication still needs to be setup. Use the Setup-GitAuthentication function in the GitEnv Module."
     }
 
     Write-Host "Git Environment is ready."
@@ -2590,7 +2597,7 @@ function Publish-MyGitRepo {
         if ($pscmdlet.ShouldProcess($DestinationLocalGitRepoName,"Push deltas in $DestinationLocalGitRepoName to GitHub")) {
             Set-Location $DestinationLocalGitRepoDir
             
-            if (!$(Get-Command git)) {
+            if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
                 $global:FunctionResult = "0"
                 Initialize-GitEnvironment
                 if ($global:FunctionResult -eq "1") {
@@ -2616,12 +2623,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+ktpODIFrOWrl3zCXj2PNb15
-# aKKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9KHeW9EIH1OAdFw5u3ZdEPoi
+# aT6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2676,11 +2682,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTIdrcUyUy8
-# AHi0wqef0OvxUfGBzTANBgkqhkiG9w0BAQEFAASCAQBWFnnZV9F58Af+j4F5rhWe
-# +RZN4k+2rR0r12wb0melmZIEa8bCcfK36rYs6Bi85zMywRuflKQLqeW3iDJcPiL7
-# wFsey02DS7mbUbZ/FwPe9Kyf7KZzXSvAbniZ175v/hitAV3vnzHRzRJ/F4f1Ftyh
-# dPm+mqbFKhqz6PJn8FmpDoMAUevfRT5A+3/5S1MKWBnqrRYk2Qx6JFNR67+ETvv8
-# sXvnlp6jnaffB9ai4555rkygcvwVzuG67/2pVwpn2gVlz7cPXhtKeCzdN1tK4K7K
-# toMmL0piCKj67RC+c1y0102uj00cznk95hud2YPN/0KaCGI8LptuQhgdL2jldexE
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSCYxNwLHFb
+# xnrlfcQqgw2+erGyxDANBgkqhkiG9w0BAQEFAASCAQBbkOvvaD8QnSpvRXngWZPe
+# AZeik3CG0nQ680Dj2O/YscBbKKddbA6ajoXAN8LQrfuncpLNHGskKatHy3XO8rJh
+# IFbuJ7QH7CJs2gszm8nFoVfVqwIeMixKXlH+jYmSbrpARE+5rBlzHySvYPV+9bzp
+# uZBSXKy4GokYWgjA46ZmOY4tUYmTFLzYPf9maA32ArumeGakDnzHpvAhGy/A9azq
+# w88h1W0ya6+yrUpIR19mHmunY/ZubOxx3b87q/ixBQm1XSoKEFGyn6M53MKZZ2O+
+# aJ3jGmnOPTOF0jkWzKdFjegReJSMc9/KiNwB+uaqO+GSWT/OaSRUMGN5pU+BIBJb
 # SIG # End signature block

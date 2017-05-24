@@ -29,6 +29,7 @@ function Install-GitDesktop {
 
         [Parameter(Mandatory=$False)]
         [string]$ExistingSSHPrivateKeyPath
+
     )
 
     ##### BEGIN Parameter Validation #####
@@ -46,10 +47,10 @@ function Install-GitDesktop {
         }
     }
 
-    ##### END Parameter Validation #####
-
-
-    ##### BEGIN Helper Functions #####
+    # If no specific ExistingSSHPrivateKeyPath is provided, assume it's in the default GitDesktop directory
+    if ($AuthMethod -eq "ssh" -and !$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
+        $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+    }
 
     function Check-Elevation {
        [System.Security.Principal.WindowsPrincipal]$currentPrincipal = `
@@ -68,6 +69,17 @@ function Install-GitDesktop {
           return $false;
        }
     }
+
+    if (!$(Check-Elevation)) {
+        $UserName = $($([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\"))[1]
+        $Psswd = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+        $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Psswd
+    }
+
+    ##### END Parameter Validation #####
+
+
+    ##### BEGIN Helper Functions #####
 
     function Unzip-File {
         [CmdletBinding()]
@@ -1636,6 +1648,11 @@ exit"
             }
         }
 
+        # If no specific ExistingSSHPrivateKeyPath is provided, assume it's in the default GitDesktop directory
+        if ($AuthMethod -eq "ssh" -and !$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
+            $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+        }
+
         ##### END Parameter Validation #####
 
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
@@ -1649,8 +1666,15 @@ exit"
         
         Set-Location "$HOME\Documents\GitHub"
 
-        if (!$(Get-Command git)) {
+        if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
+            $global:FunctionResult = "0"
             Initialize-GitEnvironment
+            if ($global:FunctionResult -eq "1") {
+                Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
+                Write-Error "The Initialize-GitEnvironment function failed! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
         }
 
         ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -1831,13 +1855,6 @@ exit"
 
     ##### BEGIN Main Body #####
 
-    if (Check-Elevation) {
-        Write-Verbose "The GitDesktop install will NOT work from an Elevated PowerShell Session (i.e. PS Session ran as Administrator)! Halting!"
-        Write-Error "The GitDesktop install will NOT work from an Elevated PowerShell Session (i.e. PS Session ran as Administrator)! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
     # For more info on SendKeys method, see: https://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
     Invoke-WebRequest -Uri "https://github-windows.s3.amazonaws.com/GitHubSetup.exe" -OutFile "$HOME\Downloads\GitHubSetup.exe"
     if (!$?) {
@@ -1905,6 +1922,7 @@ exit"
 
     while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe" -ErrorAction SilentlyContinue)) {
         Write-Host "Waiting for $env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe"
+        Write-Host "This could take up to 1 minute..."
         Start-Sleep -Seconds 2
     }
     if (Test-Path $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction SilentlyContinue).Path) {
@@ -1920,11 +1938,11 @@ exit"
     if (!$(Test-Path "$env:LocalAppData\GitHub\PoshGit*")) {
         if (!$(Get-Module -List -Name posh-git)) {
             if ($PSVersionTable.PSVersion.Major -ge 5) {
-                Update-PackageManagement
+                Update-PackageManagement -Credentials $Credentials
                 Install-Module posh-git -Scope CurrentUser
             }
             if ($PSVersionTable.PSVersion.Major -lt 5) {
-                Update-PackageManagement
+                Update-PackageManagement -Credentials $Credentials
                 Install-Module posh-git -Scope CurrentUser
             }
         }
@@ -1947,7 +1965,7 @@ exit"
     }
 
     # Set the Git PowerShell Environment
-    if (!$(Get-Command git)) {
+    if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
         $global:FunctionResult = "0"
         Initialize-GitEnvironment
         if ($global:FunctionResult -eq "1") {
@@ -1991,6 +2009,9 @@ exit"
             Setup-GitAuthentication @GitAuthParams
         }
     }
+    if (!$AuthMethod) {
+        Write-Host "GitHub Authentication still needs to be setup. Use the Setup-GitAuthentication function in the GitEnv Module."
+    }
 
     Write-Host "Git Environment is ready."
 
@@ -2012,8 +2033,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhTrOspqPO+IVjP/0/1/6OhSm
-# zxugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnyAecJ2Ocd9qFTH2flLixwbY
+# GDegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2068,11 +2089,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRllh4LoSNL
-# ulVjH2QTuz/mmT3QDTANBgkqhkiG9w0BAQEFAASCAQBiGWkN2V339Ki2w6RBM2gM
-# hyffGuoi/7YBv/c94DZfA4zcVIwFlX0yc2dQ9GIA141eU3H5c6h9PZiSeFbK21Sc
-# qoPtIcNDBfKdIjuKeCx5MIW8NTEzTUx2K5XtImMTYoGO3ql9fx1PhbxyHuEDl8Jm
-# b3Rv4TugEwi4kJJ711oJS7/Jp5F68PUvadAEfZmF55gHh72e1O1WaT0FmoV7mFbD
-# W8uVBv4K6G8iWu+BkzsEqH6hQkXj38ZK29mAM/qdsUsZkkU66e0B6L8SdHkCLzPj
-# cvs4L8TVZVSWeLokQtLo6doqNKiuvKUfW4qIIfKu3fl7ksa/13uzSwcl91wbju3V
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTlJ+N5ESYF
+# VNoJbsaRutQrl1uV/jANBgkqhkiG9w0BAQEFAASCAQBHawYCHfIiGG5ErlHrbsSj
+# WXjPsU5u8eN+rc5A3YVCk21qSR/Q1eQ27g+AUCFyausZ+N9ZbZP/WY5XZDqwghlx
+# z+a2ei2s7MdUcbPlLLrJT3P4aujyzxeCtdnX6o9K4s9aDBcOvhls2cSUrg+Xu9Eg
+# tfAyVVJvW5zoRVoPG3XGVbPsfgQeZR9G3WfORY426YwvnQPvfJvEIW5SuG3v0fwB
+# LdFkzUSkHledShyqpPUxBjZbgyoVFCLD15R11+vTSn6lX0II3eOHdBtTYxRNnzbH
+# lXgxGCuG1s7viLEvPcuitnjUTZ8uwiL8Q/2ctExecJdW6EtTr0pMqeWsLd038WZe
 # SIG # End signature block
