@@ -46,8 +46,8 @@ function Clone-GitRepo {
 
     $BoundParamsArrayOfKVP = $PSBoundParameters.GetEnumerator() | foreach {$_}
 
-    $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Name -join "") -match "PersonalAccessToken|CloneAllPrivateRepos|CloneAllRepos"
-    $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Name -join "") -match "GitHubUserName|CloneAllPublicRepos"
+    $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos|CloneAllRepos"
+    $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "GitHubUserName|CloneAllPublicRepos"
 
     # For Params that are part of the PrivateRepos Parameter Set...
     if ($PrivateReposParamSetCheck) {
@@ -98,8 +98,8 @@ function Clone-GitRepo {
                     git clone $RepoObject.html_url
                 }
                 else {
-                    Write-Verbose "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
-                    Write-Error "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
                     $global:FunctionResult = "1"
                     break
                 }
@@ -112,8 +112,8 @@ function Clone-GitRepo {
                     git clone $RepoObject.html_url
                 }
                 else {
-                    Write-Verbose "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
-                    Write-Error "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
                     $global:FunctionResult = "1"
                     break
                 }
@@ -126,22 +126,22 @@ function Clone-GitRepo {
                     git clone $RepoObject.html_url
                 }
                 else {
-                    Write-Verbose "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
-                    Write-Error "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
                     $global:FunctionResult = "1"
                     break
                 }
             }
         }
-        if ($RemoteGitRepo) {
-            $RemoteGitRepoObject = $PublicAndPrivateRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepo}
+        if ($RemoteGitRepoName) {
+            $RemoteGitRepoObject = $PublicAndPrivateRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
                 Set-Location $GitRepoParentDirectory
                 git clone $RemoteGitRepoObject.html_url
             }
             else {
-                Write-Verbose "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Halting!"
-                Write-Error "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Halting!"
+                Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
                 $global:FunctionResult = "1"
                 return
             }
@@ -158,22 +158,22 @@ function Clone-GitRepo {
                     git clone $RepoObject.html_url
                 }
                 else {
-                    Write-Verbose "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
-                    Write-Error "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Skipping!"
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
                     $global:FunctionResult = "1"
                     break
                 }
             }
         }
-        if ($RemoteGitRepo) {
-            $RemoteGitRepoObject = $PublicRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepo}
+        if ($RemoteGitRepoName) {
+            $RemoteGitRepoObject = $PublicRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
                 Set-Location $GitRepoParentDirectory
                 git clone $RemoteGitRepoObject.html_url
             }
             else {
-                Write-Verbose "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Halting!"
-                Write-Error "The RemoteGitRepo $RemoteGitRepo already exists under $GitRepoParentDirectory\$RemoteGitRepo! Halting!"
+                Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
                 $global:FunctionResult = "1"
                 return
             }
@@ -187,11 +187,13 @@ function Clone-GitRepo {
 
 
 
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpJ1ntU1YroVyT/esHAcT7UrO
-# a9SgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqyAa4S7MWswXly1MWl8QdbKv
+# KkegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -246,11 +248,11 @@ function Clone-GitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRWZxrup6bU
-# 8NEifFji1v2QncE61TANBgkqhkiG9w0BAQEFAASCAQBeqOEXK+MWH14av1dyU3ns
-# HgMJReyZo5EMudLWoWmFgaojqGCmX1jNctOsNcYVCVlNvzcRaypdWclJxY+roP73
-# yRpcTjBiA+fcMuMB9QmpxsM02cOOTRLCxWOOeubPAUeDdWwg2WjYkd4JAhLi6pl0
-# eUlb5XuwUuDw7fHlJpZUu+LsWUahKzcAzMirOg/4NWmFWFGRgs6TKrP4pyvEZSpn
-# LyhrTGBUOQpWuLAkWeekrgCrQGmZjbUrLPZeETCevnHxJrJvInhKNwqzLR5XwyA5
-# ZCTY4m9qe2CyA3tsLhaB7HAAbLyMdmKR9jYKFaD4UiD//vCBmFkYYfg5x4elJLs1
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSEDr4n4KLV
+# roMxiHZJ9LbAPWTDMzANBgkqhkiG9w0BAQEFAASCAQBRajWBHImpF7A5wnmqBFG2
+# jbLezG26wtomvQmf/dt3ZF4Zx26qmTwVkG/FEo5eMIBFC5TB3aqgXp0cDYi2NKre
+# zoqFPBSMJu06ALbsMUAh738w3UIBa8reqXZTB+glqI/eCOz4leEat4pFHX6KzTiy
+# T0fSUCLepOhkM6FZIO7EIcyvSSphAGBMxztQSPUswcwoGBtvMuPjRYj3kl+q1rYq
+# WQgpqRbzPOhzFEpBroYiIJIlzLyKgUSLrDXRE5qErtb5SBweK4QDyN8x/9vgNSFU
+# w3TXVWpEjBVMX2yUlJQOzw2RUFfYGNv5N1el66Eahnh4PTXMLHT4ypMb0tINVMVP
 # SIG # End signature block
