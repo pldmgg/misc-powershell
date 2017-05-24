@@ -559,6 +559,53 @@ Function Check-InstalledPrograms {
 
 }
 
+function Set-WindowStyle {
+    <#
+    .LINK
+    https://gist.github.com/jakeballard/11240204
+    #>
+
+    [CmdletBinding(DefaultParameterSetName = 'InputObject')]
+    param(
+        [Parameter(Position = 0, Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelinebyPropertyName = $True)]
+        [Object[]] $InputObject,
+        [Parameter(Position = 1)]
+        [ValidateSet('FORCEMINIMIZE', 'HIDE', 'MAXIMIZE', 'MINIMIZE', 'RESTORE', 'SHOW', 'SHOWDEFAULT', 'SHOWMAXIMIZED', 'SHOWMINIMIZED', 'SHOWMINNOACTIVE', 'SHOWNA', 'SHOWNOACTIVATE', 'SHOWNORMAL')]
+        [string] $Style = 'SHOW'
+    )
+
+    BEGIN {
+        $WindowStates = @{
+            'FORCEMINIMIZE'   = 11
+            'HIDE'            = 0
+            'MAXIMIZE'        = 3
+            'MINIMIZE'        = 6
+            'RESTORE'         = 9
+            'SHOW'            = 5
+            'SHOWDEFAULT'     = 10
+            'SHOWMAXIMIZED'   = 3
+            'SHOWMINIMIZED'   = 2
+            'SHOWMINNOACTIVE' = 7
+            'SHOWNA'          = 8
+            'SHOWNOACTIVATE'  = 4
+            'SHOWNORMAL'      = 1
+        }
+
+$Win32ShowWindowAsync = Add-Type -MemberDefinition @'
+[DllImport("user32.dll")] 
+public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+'@ -Name "Win32ShowWindowAsync" -Namespace Win32Functions -PassThru
+    
+    }
+
+    PROCESS {
+        foreach ($process in $InputObject) {
+            $Win32ShowWindowAsync::ShowWindowAsync($process.MainWindowHandle, $WindowStates[$Style]) | Out-Null
+            Write-Verbose ("Set Window Style '{1} on '{0}'" -f $MainWindowHandle, $Style)
+        }
+    }
+}
+
 <#
 .Synopsis
     Refactored From: https://gallery.technet.microsoft.com/scriptcenter/PowerShell-Credentials-d44c3cde
@@ -2043,7 +2090,8 @@ function Install-GitDesktop {
     }
     if ($GitHubDesktop) {
         Write-Host "GitDesktop launched."
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 2
+        $GitHubDesktop | Set-WindowStyle -Style MINIMIZE
     }
 
     while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe" -ErrorAction SilentlyContinue)) {
@@ -2540,12 +2588,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU67hI9ENkdSfZ76pEfvIjR9KB
-# BfigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeP6BaYD4q86kb7jdjAD6POPc
+# xh+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2600,11 +2647,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRwPQyvZdyD
-# pIK+YPLXw0rJ18FE1DANBgkqhkiG9w0BAQEFAASCAQAWe/X6k9ciVc4yI/0IANm8
-# p69cfn5uYwuxTfdv8F6q7uMs6mDXcBlCECvNG90kUzdpMwOOObrWDHeRhPvH52d1
-# gY6gykN/R8IY4qPp5esaMnY4wvG2baW8ZoM9B0VTk2mO9ov2tf9JNK9DSdpjYLat
-# YveMoTJVo77IDG7ITCFRnTuKwWQSEs4QUAGKuT0RF7XZbFIML10LWZ/LtPklEhnk
-# hx2FipdPfZn5+aAFGE1EaWXJvG/isDNqNHip0yveehHY/napaavV8pGAHdLo0vsc
-# /sXs/UQT2jeII2VVfmgEiaZ5iEw6GXHv2grAclLiv2M4Xlt6z6J762mCrR4XeirJ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS3UNdQZJ46
+# IxFljCNF+pdfRlnQ5jANBgkqhkiG9w0BAQEFAASCAQAjHXOzlM/aLAAdQdWrLWh/
+# 9/JL83SwNrKNRQvFVZl8iv87BGtEkKd32J3j2ViKxwr6SAkwvHKHf0rv304z4+DW
+# uNPpL9HcGzmixS9cSChghCvUBWlj0A3zS0h2o3tYhC32a82UeJWWBqTm3eG1+w/F
+# mLjEYASyDLLwQDsd4O31CaDWPN2SVFeSmxrPxi+Mol4e+wb/agTTDxzowtjjlZEE
+# FYXbI3a955JABu8i4Zs1iGjSu8jLaacKy/FwbKhj5YroCdN8P+11EhvISGwtbry2
+# tvOj1aykGhVqHFAOnDphRXAlG/QbAe+EkxwrYp0uDWUwvz/C4KLZksHDNvMY+VXW
 # SIG # End signature block

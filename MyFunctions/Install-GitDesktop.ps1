@@ -87,6 +87,53 @@ function Install-GitDesktop {
         [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
     }
 
+    function Set-WindowStyle {
+        <#
+        .LINK
+        https://gist.github.com/jakeballard/11240204
+        #>
+
+        [CmdletBinding(DefaultParameterSetName = 'InputObject')]
+        param(
+            [Parameter(Position = 0, Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelinebyPropertyName = $True)]
+            [Object[]] $InputObject,
+            [Parameter(Position = 1)]
+            [ValidateSet('FORCEMINIMIZE', 'HIDE', 'MAXIMIZE', 'MINIMIZE', 'RESTORE', 'SHOW', 'SHOWDEFAULT', 'SHOWMAXIMIZED', 'SHOWMINIMIZED', 'SHOWMINNOACTIVE', 'SHOWNA', 'SHOWNOACTIVATE', 'SHOWNORMAL')]
+            [string] $Style = 'SHOW'
+        )
+
+        BEGIN {
+            $WindowStates = @{
+                'FORCEMINIMIZE'   = 11
+                'HIDE'            = 0
+                'MAXIMIZE'        = 3
+                'MINIMIZE'        = 6
+                'RESTORE'         = 9
+                'SHOW'            = 5
+                'SHOWDEFAULT'     = 10
+                'SHOWMAXIMIZED'   = 3
+                'SHOWMINIMIZED'   = 2
+                'SHOWMINNOACTIVE' = 7
+                'SHOWNA'          = 8
+                'SHOWNOACTIVATE'  = 4
+                'SHOWNORMAL'      = 1
+            }
+
+    $Win32ShowWindowAsync = Add-Type -MemberDefinition @'
+[DllImport("user32.dll")] 
+public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+'@ -Name "Win32ShowWindowAsync" -Namespace Win32Functions -PassThru
+        
+        }
+
+        PROCESS {
+            foreach ($process in $InputObject) {
+                $Win32ShowWindowAsync::ShowWindowAsync($process.MainWindowHandle, $WindowStates[$Style]) | Out-Null
+                Write-Verbose ("Set Window Style '{1} on '{0}'" -f $MainWindowHandle, $Style)
+            }
+        }
+    }
+
     function Update-PackageManagement {
         [CmdletBinding()]
         Param( 
@@ -1852,7 +1899,8 @@ exit"
     }
     if ($GitHubDesktop) {
         Write-Host "GitDesktop launched."
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 2
+        $GitHubDesktop | Set-WindowStyle -Style MINIMIZE
     }
 
     while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe" -ErrorAction SilentlyContinue)) {
@@ -1964,8 +2012,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUiqa3PlPVtOvQ+NO7vncvXNX+
-# yL+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhTrOspqPO+IVjP/0/1/6OhSm
+# zxugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2020,11 +2068,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTIlbAzSB6Q
-# QS6GkVgAvFEF8yDenTANBgkqhkiG9w0BAQEFAASCAQAa9KI8s/ywUD18KF3UxcTE
-# IeNq4aJEcV+Qncm3YDiwKNBJcjOvD3Z+bXnu92hCK/2csgzJ14z+0IEeqXV76xtU
-# rZ/kxImu4NYIvryBRvlNdQR0nVIGVri+sVOnaV1lXpaJ/yBTMaPdLiMCCsELDZb7
-# XSYy6B+UdYgH3/HS10BJh4/H3z81lvhL1PWMUMPSZZRNKJ2ExOFpUKrqJBk7ORWJ
-# 7Khg2A6mVa+i7B5+KsIcGX0gSDKNJm9AaRMCb52TJtykiQiVQlOv50zgHrQQR6eK
-# 2SAt4eUgHIaigLRd+iLZdn3aUL35sXSmwrjacpLSkshwbQG7MtI8qa37r40DjcJY
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRllh4LoSNL
+# ulVjH2QTuz/mmT3QDTANBgkqhkiG9w0BAQEFAASCAQBiGWkN2V339Ki2w6RBM2gM
+# hyffGuoi/7YBv/c94DZfA4zcVIwFlX0yc2dQ9GIA141eU3H5c6h9PZiSeFbK21Sc
+# qoPtIcNDBfKdIjuKeCx5MIW8NTEzTUx2K5XtImMTYoGO3ql9fx1PhbxyHuEDl8Jm
+# b3Rv4TugEwi4kJJ711oJS7/Jp5F68PUvadAEfZmF55gHh72e1O1WaT0FmoV7mFbD
+# W8uVBv4K6G8iWu+BkzsEqH6hQkXj38ZK29mAM/qdsUsZkkU66e0B6L8SdHkCLzPj
+# cvs4L8TVZVSWeLokQtLo6doqNKiuvKUfW4qIIfKu3fl7ksa/13uzSwcl91wbju3V
 # SIG # End signature block
