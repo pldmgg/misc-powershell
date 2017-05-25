@@ -1126,7 +1126,7 @@ function Manage-StoredCredentials {
     catch
     {
         #only remove the error we generate
-        $Error.RemoveAt($Error.Count-1)
+        #$Error.RemoveAt($Error.Count-1)
     }
     if($null -eq $PsCredMan)
     {
@@ -1827,7 +1827,7 @@ function Setup-GitAuthentication {
 
         # Test https OAuth2 authentication
         # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
-        $Token = "$GitHubUserName:$PersonalAccessToken"
+        $Token = "$GitHubUserName`:$PersonalAccessToken"
         $Base64Token = [System.Convert]::ToBase64String([char[]]$Token)
         $Headers = @{
             Authorization = "Basic {0}" -f $Base64Token
@@ -2629,12 +2629,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYLYVSGlbg83YZkbeEbSfgw5Z
-# 9HygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUzhZGE2z3z0/gGWbhaETO7GiO
+# T1WgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2689,11 +2688,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS+4EKcnyUD
-# LluX54P/f7au0E93tDANBgkqhkiG9w0BAQEFAASCAQAXncti2R3ayFN0HeQizXRI
-# 2dcQyMO1Xlwp31MPuAxaXm85+YYt8dflCzRL1aGytfJQRw3cOoE4ssHdaHx6A45n
-# 7n0cMKu2rM48xoOcCkpVU2UozEhKkMgwmcgNJmUdpPMrlRJScWcQeEaSIER4/8BT
-# v4qsgkThqOqUo5Hs5QkBkTVHkIEQlMdioWyCIlSQmEViVsiBaa+0ogegmIs/7fXF
-# zIivuTKdIFakq+qsTBr9CAxIAJJTrQfHEKbjnf+nNBOP+ygHlRGIvaTn6vwcpwG3
-# yoINRrw+nx/Vp2CmG6xPtXI+sJjcdbDp5YaAmnbZKF3XFi6EfyKjKZ34VSr6/gH+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTJ9kvi5j8k
+# vagS4K6EovShb4BbCzANBgkqhkiG9w0BAQEFAASCAQCLXa404KZTCt/q13O5tZXL
+# mD/XerrOLxKj5YYaKf+Bovfohr7geNFlU0LxdAUquEeHqXRMv0EtDwrm5vgN2QMF
+# 5a9QxdJvpLnwDeIrBUakHXcveRsdTz4nORr1jY0eTckRTLgUqVQxY4JwBLg+E4iy
+# 2Z37/nR+pGqKD6Na95tjPRFeh25ry3sQqEecKyuL2fiMtC09Vpcnwd5TRekZRyd8
+# WxQy29vW54kifu71EAzeTBW/PZvsdrI/+DGBftwk7Fcs6avvDaNLUymnjaBNudQ6
+# EPJ5K93DLcigZF/wR2fkFs7JnfRtiDoofNT1Gnxxh27YIDGwBeVfrIgKIyP7emnu
 # SIG # End signature block

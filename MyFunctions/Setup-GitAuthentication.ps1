@@ -1094,7 +1094,7 @@ exit"
         catch
         {
             #only remove the error we generate
-            $Error.RemoveAt($Error.Count-1)
+            #$Error.RemoveAt($Error.Count-1)
         }
         if($null -eq $PsCredMan)
         {
@@ -1772,7 +1772,7 @@ exit"
 
         # Test https OAuth2 authentication
         # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
-        $Token = "$GitHubUserName:$PersonalAccessToken"
+        $Token = "$GitHubUserName`:$PersonalAccessToken"
         $Base64Token = [System.Convert]::ToBase64String([char[]]$Token)
         $Headers = @{
             Authorization = "Basic {0}" -f $Base64Token
@@ -1967,8 +1967,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyPW8ZgDFYE6akoIPi/mX9BMR
-# NSSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2xVwWOVgIO6OvZSu1wfqlZzJ
+# 6CqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2023,11 +2023,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSbyt0E6Hd+
-# Aa5npWWu6DlB3rTmTjANBgkqhkiG9w0BAQEFAASCAQACflU0qDkADvREl6DYX8/x
-# EwWIK7MPWIx0Vd67tNcJpIX9FL1+3Harod6RuRXwd+A0LP3D/i9fvJx62QbWpvW9
-# b9uqtPTDBwLeidHrxilRJH0HqBb96T/hrUSiC69U6xhtbYY3gYijJ9K4c8/hCms0
-# Oc326jddBtKYlc/8TFWFGACh0DjVRfkZu71UyYU5S/rxi4UrjTlnO+mEW5psrYyI
-# F3BgJnC5/NGz+G9uV40TYzdaGjG0ERh9G7MBHpGzuTnsmh7vw/OpvS9WQxdAzBA3
-# 6ZSarTz5+tqVaYsKU0NQlZfD4CXdEiAS7akaAvfs4FaHPF/y4UyrpYvZIqrUeIGP
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRrogcf39ld
+# TXd6+y7bcfUHtASeZzANBgkqhkiG9w0BAQEFAASCAQCc7micJTK7YhYB13qB1j3K
+# 4yyyRqJ/u8/l+tZCWCaHy2O6XDO2/DTDNspc67/I3N3pk55xb55DkR5ya32gkBXs
+# 0JH63qi7ggqzKnPJP5TIqb5GVhXphxbJviXB53ECogWBd05KU+DqTV4RCpWrc68W
+# 5U5COyc2xZsOSRpi5YAGfuTD8ZW7SrMDGy1zq00MyuD16nZXRhErDLP1Gn4Xl7VW
+# dVmtoD2wpRb0cRBeH9BMva/P/yqGqBBmwD6poLUN04eLCSM/U2t1WhfuL6/HHHLV
+# rkmw5q4vRNZMpPQ+xjuargsjkta8He6oGK429CAT32v6PJ5o6QneMDEcq50/+ez4
 # SIG # End signature block
