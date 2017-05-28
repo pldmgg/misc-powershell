@@ -37,8 +37,8 @@ function Reflect-Cmdlet {
 
     # See: https://powershell.org/forums/topic/how-i-can-see-powershell-module-methods-source-code/
     # For Functions
-    if ($(Get-Command $CmdletOrFunc).CommandType -eq "Function") {
-        if ($(Get-Command $CmdletOrFunc).ScriptBlock.File -ne $null) {
+    if ($(Get-Command $CmdletOrFunc -ErrorAction SilentlyContinue).CommandType -eq "Function") {
+        if ($(Get-Command $CmdletOrFunc -ErrorAction SilentlyContinue).ScriptBlock.File -ne $null) {
             $functionLocation = $(Get-Command $CmdletOrFunc).ScriptBlock.File
         }
         else {
@@ -52,8 +52,8 @@ function Reflect-Cmdlet {
     
 
     # For Cmdlets (i.e. C# dll-based)
-    if ($(Get-Command $CmdletOrFunc).CommandType -eq "Cmdlet") {
-        if (!$(Get-Command ILSpy)) {
+    if ($(Get-Command $CmdletOrFunc -ErrorAction SilentlyContinue).CommandType -eq "Cmdlet") {
+        if (!$(Get-Command ILSpy -ErrorAction SilentlyContinue)) {
             $ILSpySite = Invoke-WebRequest -Uri "http://ilspy.net/"
             $ILSpyBinaryZip = $($ILSpySite.Links | ? {$_.href -like "*master*" -and $_.href -like "*.zip*" -and $_.href -like "*Binar*"}).href
             $ILSpyBinaryZipFileName = $ILSpyBinaryZip | Split-Path -Leaf
@@ -93,7 +93,7 @@ function Reflect-Cmdlet {
     if ($dllLocation) {
         ILSpy $dllLocation
 
-        Write-Host "Please up to 10 seconds for the ILSpy GUI to open."
+        Write-Host "Please wait up to 10 seconds for the ILSpy GUI to open."
     }
 
     # For CIM commands, browse the cdxml files in the command's module directory
@@ -103,12 +103,11 @@ function Reflect-Cmdlet {
 }
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+O170q2Zw5UQs0EUTUuRdfMW
-# IAWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUb4yZaxXel8aN8c7p3zW7g6b
+# bJmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -163,11 +162,11 @@ function Reflect-Cmdlet {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTw7EpEQPAt
-# igNpc+r5Ycqg1K86uDANBgkqhkiG9w0BAQEFAASCAQAawKhC8zNZ8LcFvWKBM/jD
-# wqWAmmYPLg5J/t5Hb8wtKNPmk5bps8obZSKMlHVKOjqPQ0QeiBRgxhmD1subCLpF
-# iFtG0wyvpwLYXXn2f8jwQ7x5MJvA5pZ6Reha0Cf4ouTu0qsHe24udgfckwfUefYe
-# YFlB3PnFbX5UIScquqVlusV5F/8pOo5eac6zyI2l1xj7BdgzKg1ZDonqqeixI2sz
-# tsYGf32upxzgv/wHW9nQKP8giuGGGmINFRKs+YtkJ/tpDbMrt5bCzzmvofRyDDgL
-# oSK3MlmubBuPomvo3qcvskE8pBKHB8Gvf5RaJ6KFsyE9Ds0oSBdWrmr7EidbX3+r
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSCFEYIsHqs
+# HmHuItkX6v7Ayle79TANBgkqhkiG9w0BAQEFAASCAQBq667I0Lm7WMNFCRDgudLW
+# VU3AXzhcQrjr7dBBdAuFWm0veWKDXQbzFRjGYFKzz1K0uIbkVjlKox16R/s6DR01
+# wZyZ4MrMNZVISKgJHASE6tDqAU0lC13z2K195z/8rB2YhhAQ8YTa0FFfEIIVGfyz
+# 5jSjr//T6Pv3lNkM9B1/blvA/0l+jQwzDb8iun6p2gWOOwUJN/5L4D2eLbVWFbN/
+# qI8LEESb1fbmE9n2zgSYh3M+HpgA4vDWxMddDwnXE63IzwnkIM0PxsNNu7xxu4uk
+# CFzUP7Bffqk87u9D8AA06D421gFbNZ3GriMVZEgPqzmIBuAy7vJV0F0TRSgrUhPZ
 # SIG # End signature block
