@@ -16,7 +16,10 @@ function Update-PrivateKeyProperty {
         $TempOutputDirectory = $(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written"),
 
         [Parameter(Mandatory=$False)]
-        [securestring]$CertPwd
+        [securestring]$CertPwd,
+
+        [Parameter(Mandatory=$False)]
+        [bool]$CleanupOpenSSLOutputs = $true
 
     )
 
@@ -382,9 +385,24 @@ function Update-PrivateKeyProperty {
     [System.Security.Cryptography.RSACryptoServiceProvider]$RSA = [javascience.opensslkey]::DecodeRSAPrivateKey($PemPrivateKey);
     $CertObject.PrivateKey = $RSA
 
+    # Cleanup
+    if ($CleanupOpenSSLOutputs) {
+        $ItemsToRemove = @(
+            $PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath
+            $PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath
+        ) + $PubCertAndPrivKeyInfo.PublicKeysInfo.FileLocation
+
+        foreach ($item in $ItemsToRemove) {
+            Remove-Item $item
+        }
+    }
+
     ##### END Main Body #####
 
 }
+
+
+
 
 
 # SIG # Begin signature block
