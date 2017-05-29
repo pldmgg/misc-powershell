@@ -40,7 +40,7 @@ function Extract-PFXCerts {
         $PFXFilePwd = $(Read-Host -Prompt "Please enter the password for the .pfx file." -AsSecureString), # This is only needed if the .pfx contains a password-protected private key, which should be the case 99% of the time
 
         [Parameter(Mandatory=$False)]
-        [string]$StripPrivateKeyPwd = "Yes",
+        [bool]$StripPrivateKeyPwd = $true,
 
         [Parameter(Mandatory=$False)]
         [string]$OutputDirectory # If this parameter is left blank, all output files will be in the same directory as the original .pfx
@@ -65,7 +65,7 @@ function Extract-PFXCerts {
         Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
 
         if ($PSVersionTable.PSVersion.Major -ge 5) {
-            Expand-Archive -Path $PathToZip -DestinationPath $TargetDir
+            Expand-Archive -Path $PathToZip -DestinationPath $TargetDir -Force
         }
         if ($PSVersionTable.PSVersion.Major -lt 5) {
             # Load System.IO.Compression.Filesystem 
@@ -82,23 +82,21 @@ function Extract-PFXCerts {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     # Check for Win32 or Win64 OpenSSL Binary
-    $SystemRoot = "C:\Windows\System32"
-    $PositiveResponse = @("Yes","yes","Y","y")
-    $NegativeResponse = @("No","no","N","n")
-    $PossibleResponses = $PositiveResponse+$NegativeResponse
-
-    if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Definition)) {
+    if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
         Write-Host "Downloading openssl.exe from https://indy.fulgan.com/SSL/..."
         $LatestWin64OpenSSLVer = $($($(Invoke-WebRequest -Uri https://indy.fulgan.com/SSL/).Links | Where-Object {$_.href -like "*[a-z]-x64*"}).href | Sort-Object)[-1]
         Invoke-WebRequest -Uri "https://indy.fulgan.com/SSL/$LatestWin64OpenSSLVer" -OutFile "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer"
-        $SSLDownloadUnzipDir = $($LatestWin64OpenSSLVer.Splt("."))[0]
+        $SSLDownloadUnzipDir = $(Get-ChildItem "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer").BaseName
         if (! $(Test-Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir")) {
             New-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" -ItemType Directory
         }
         Unzip-File -PathToZip "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer" -TargetDir "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
-        $FilesToCopy = Get-Child-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" | Where-Object {!$_.PSIsContainer -and $_.Extension -ne ".txt"}
-        foreach ($filetocopy in $FilesToCopy) {
-            Copy-Item -Path "$($filetocopy.FullName)" -Destination "$SystemRoot\$($filetocopy.Name)" -Force
+        # Add OpenSSL to $env:Path
+        if ($env:Path[-1] -eq ";") {
+            $env:Path = "$env:Path$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+        }
+        else {
+            $env:Path = "$env:Path;$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
         }
     }
 
@@ -134,15 +132,6 @@ function Extract-PFXCerts {
         $global:FunctionResult = "1"
         return
     }
-
-    if ($PossibleResponses -notcontains $StripPrivateKeyPwd) {
-        Write-Verbose "Possible values for the parameter `$StripPrivateKeyPwd are as follows:"
-        Write-Verbose "$PossibleResponses"
-        Write-Verbose "The value `"$StripPrivateKeyPwd`" is not valid for the parameter `$StripPrivateKeyPwd. Halting!"
-        Write-Error "The value `"$StripPrivateKeyPwd`" is not valid for the parameter `$StripPrivateKeyPwd. Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
     
     ##### END Parameter Validation #####
 
@@ -150,12 +139,81 @@ function Extract-PFXCerts {
     ##### BEGIN Main Body #####
     # The .pfx File could (and most likely does) contain a private key
     # Extract Private Key and Keep It Password Protected
-    & openssl.exe pkcs12 -in "$PFXFilePath" -nocerts -out "$OutputDirectory\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
+    try {
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $ProcessInfo.FileName = "openssl.exe"
+        $ProcessInfo.RedirectStandardError = $true
+        $ProcessInfo.RedirectStandardOutput = $true
+        $ProcessInfo.UseShellExecute = $false
+        $ProcessInfo.Arguments = "pkcs12 -in $PFXFilePath -nocerts -out $OutputDirectory\$ProtectedPrivateKeyOut -nodes -password pass:$PwdForPFXOpenSSL"
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $ProcessInfo
+        $Process.Start() | Out-Null
+        $Process.WaitForExit()
+        $stdout = $Process.StandardOutput.ReadToEnd()
+        $stderr = $Process.StandardError.ReadToEnd()
+        $AllOutput = $stdout + $stderr
 
-    if ($PositiveResponse -contains $StripPrivateKeyPwd) {
+        if ($AllOutput -match "error") {
+            Write-Warning "openssl.exe reports that -PFXFilePwd is incorrect. However, it may be that at this stage in the process, it is not protected with a password. Trying without password..."
+            throw
+        }
+        
+        #& openssl.exe pkcs12 -in "$PFXFilePath" -nocerts -out "$OutputDirectory\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
+    }
+    catch {
+        try {
+            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $ProcessInfo.FileName = "openssl.exe"
+            $ProcessInfo.RedirectStandardError = $true
+            $ProcessInfo.RedirectStandardOutput = $true
+            $ProcessInfo.UseShellExecute = $false
+            $ProcessInfo.Arguments = "pkcs12 -in $PFXFilePath -nocerts -out $OutputDirectory\$ProtectedPrivateKeyOut -nodes -password pass:"
+            $Process = New-Object System.Diagnostics.Process
+            $Process.StartInfo = $ProcessInfo
+            $Process.Start() | Out-Null
+            $Process.WaitForExit()
+            $stdout = $Process.StandardOutput.ReadToEnd()
+            $stderr = $Process.StandardError.ReadToEnd()
+            $AllOutput = $stdout + $stderr
+
+            if ($AllOutput -match "error") {
+                Write-Warning "openssl.exe reports that -PFXFilePwd is incorrect."
+                throw
+            }
+        }
+        catch {
+            $PFXFilePwdFailure = $true
+        }
+    }
+    if ($PFXFilePwdFailure -eq $true) {
+        Write-Verbose "The value for -PFXFilePwd is incorrect. Halting!"
+        Write-Error "The value for -PFXFilePwd is incorrect. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    
+
+    if ($StripPrivateKeyPwd) {
         # Strip Private Key of Password
         & openssl.exe rsa -in "$PFXFileDir\$ProtectedPrivateKeyOut" -out "$OutputDirectory\$UnProtectedPrivateKeyOut" 2>&1 | Out-Null
     }
+
+    New-Variable -Name "$PFXFileNameSansExt`PrivateKeyInfo" -Value $(
+        if ($StripPrivateKeyPwd) {
+            [pscustomobject][ordered]@{
+                ProtectedPrivateKeyFilePath     = "$OutputDirectory\$ProtectedPrivateKeyOut"
+                UnProtectedPrivateKeyFilePath   = "$OutputDirectory\$UnProtectedPrivateKeyOut"
+            }
+        }
+        else {
+            [pscustomobject][ordered]@{
+                ProtectedPrivateKeyFilePath     = "$OutputDirectory\$ProtectedPrivateKeyOut"
+                UnProtectedPrivateKeyFilePath   = $null
+            }
+        }
+    )
+    
 
     # The .pfx File Also Contains ALL Public Certificates in Chain 
     # The below extracts ALL Public Certificates in Chain
@@ -171,7 +229,7 @@ function Extract-PFXCerts {
         }
     }
     # Setup PSObject for Certs with CertName and CertValue
-    $global:ArrayOfPubCertPSObjects = @()
+    $ArrayOfPubCertPSObjects = @()
     foreach ($obj1 in $PublicKeySansChainPrep3) {
         $CertNamePrep = $($obj1).Split("`n") | foreach {if ($_ | Select-String "subject") {$_}}
         $CertName = $($CertNamePrep | Select-String "CN=([\w]|[\W]){1,1000}$").Matches.Value -replace "CN=",""
@@ -221,7 +279,7 @@ function Extract-PFXCerts {
         }
 
         New-Variable -Name "CertObj$CertName" -Scope Script -Value $(
-            New-Object PSObject -Property @{
+            [pscustomobject][ordered]@{
                 CertName                = $CertName
                 FriendlyName            = $AttribFriendlyName
                 CertValue               = $CertValue.Trim()
@@ -233,7 +291,7 @@ function Extract-PFXCerts {
             }
         ) -Force
 
-        $global:ArrayOfPubCertPSObjects += Get-Variable -Name "CertObj$CertName" -ValueOnly
+        $ArrayOfPubCertPSObjects +=, $(Get-Variable -Name "CertObj$CertName" -ValueOnly)
 
         Remove-Item -Path $tmpFile -Force
         Remove-Variable -Name "tmpFile" -Force
@@ -241,16 +299,24 @@ function Extract-PFXCerts {
 
     # Write each CertValue to Separate Files (i.e. writing all public keys in chain to separate files)
     foreach ($obj1 in $ArrayOfPubCertPSObjects) {
+        if ($(Test-Path $obj1.FileLocation) -and !$Force) {
+            Write-Warning "The extracted Public cert $($obj1.CertName) was NOT written to $OutputDirectory because it already exists there!"
+        }
         if (!$(Test-Path $obj1.FileLocation) -or $Force) {
             $obj1.CertValue | Out-File "$($obj1.FileLocation)" -Encoding Ascii
             Write-Host "Public certs have been extracted and written to $OutputDirectory"
         }
-        if ($(Test-Path $obj1.FileLocation) -and !$Force) {
-            Write-Warning "The extracted Public certs were NOT written to $OutputDirectory because they already exist!"
-        }
     }
 
-    Write-Host "The object `$global:ArrayOfPubCertPSObjects is now available in the current scope"
+    New-Variable -Name "PubAndPrivInfoOutput" -Scope Script -Value $(
+        [pscustomobject][ordered]@{
+            PublicKeysInfo      = $ArrayOfPubCertPSObjects
+            PrivateKeyInfo      = $(Get-Variable -Name "$PFXFileNameSansExt`PrivateKeyInfo" -ValueOnly)
+        }
+    ) -Force
+
+    $(Get-Variable -Name "PubAndPrivInfoOutput" -ValueOnly)
+    
     $global:FunctionResult = "0"
     ##### END Main Body #####
 
@@ -259,11 +325,15 @@ function Extract-PFXCerts {
 
 
 
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbpOpFgsxYFkixpxW9FX0NWOe
-# X0ygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAaj1+wgPXS5naol2hq615N4P
+# YCKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -318,11 +388,11 @@ function Extract-PFXCerts {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS4pgQcS4p2
-# swhk6xmVVNWEBPiymDANBgkqhkiG9w0BAQEFAASCAQA0CCHa0+shrBK8WO3OjBTs
-# YMvkgSXnbhq9NG83UrPgPTTIMyo++CK6xrhJ2P5MEke5fzbaGgvv0XrHdC1mik/f
-# Obf+QmX8PZx2Nz+ItgscFkV5UNM7/fCzh7WuV+naQoPyVBDmLUz2Ht0lFv5auetp
-# nfUYs2BEPu7ZcehfEBzg1/L/S06IRgTXCVnw7zEMn8BLfikEKMfM+r45BFEG4ImW
-# lp5DBEBO/1s0vhruogWN7ZVlrMKjmED3I5jWaij3aMDfOjssLRBT2j6vQwATTNZi
-# OVy+l6he94oPlkX2EHMVXw9r43q/kfJkad9s+YQbtM9UEE4iVZlpWHAlqh9quqnm
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTGu7m4tEvY
+# PMrMKJp+Oia3P2lJXDANBgkqhkiG9w0BAQEFAASCAQByKmUOtpAcdQPcykdGzx7A
+# wsiiGNgV+l8217lx4izzO1rw9fj1EigY2NErZPgKV+Jx6KjCDvhl6B6KNKKVYgUi
+# yG1Sq2eyQIC3qX+8UkUoULB2ghfEHYweJeweFrbJFql6DEPZaXbQYSGJ1NYeNAN8
+# V+vaBOr2GBtenmUfZ8kglQ8R5iETY6FnfOCVrOX4SKfxIuDBQW8HGBaqtxLgAXQf
+# m5yHCQYjIbIMR2bBO5VcgWIAQSxkz0+aff+sB14POkUihSlAzwPB8n26zTqvyRf6
+# MESXvFPcSyw3lIz8re9QYzXJkc97BoXFMtd6bIBr6ltZ+9L5TXy+54OKNkY3/7RY
 # SIG # End signature block
