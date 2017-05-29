@@ -37,7 +37,7 @@ function Extract-PFXCerts {
         [string]$PFXFilePath = $(Read-Host -Prompt "Please enter the full path to the .pfx file."),
 
         [Parameter(Mandatory=$False)]
-        $PFXFilePwd = $(Read-Host -Prompt "Please enter the password for the .pfx file." -AsSecureString), # This is only needed if the .pfx contains a password-protected private key, which should be the case 99% of the time
+        $PFXFilePwd, # This is only needed if the .pfx contains a password-protected private key, which should be the case 99% of the time
 
         [Parameter(Mandatory=$False)]
         [bool]$StripPrivateKeyPwd = $true,
@@ -112,7 +112,14 @@ function Extract-PFXCerts {
     }
 
     # OpenSSL can't handle PowerShell SecureStrings, so need to convert it back into Plain Text
-    $PwdForPFXOpenSSL = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PFXFilePwd))
+    if ($PFXFilePwd) {
+        if ($PFXFilePwd.GetType().FullName -eq "System.Security.SecureString") {
+            $PwdForPFXOpenSSL = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PFXFilePwd))
+        }
+        if ($PFXFilePwd.GetType().FullName -eq "System.String") {
+            $PwdForPFXOpenSSL = $PFXFilePwd
+        }
+    }
 
     $privpos = $PFXFilePath.LastIndexOf("\")
     $PFXFileDir = $PFXFilePath.Substring(0, $privpos)
@@ -169,8 +176,6 @@ function Extract-PFXCerts {
             Write-Warning "openssl.exe reports that -PFXFilePwd is incorrect. However, it may be that at this stage in the process, it is not protected with a password. Trying without password..."
             throw
         }
-        
-        #& openssl.exe pkcs12 -in "$PFXFilePath" -nocerts -out "$OutputDirectory\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
     }
     catch {
         try {
@@ -198,8 +203,8 @@ function Extract-PFXCerts {
         }
     }
     if ($PFXFilePwdFailure -eq $true) {
-        Write-Verbose "The value for -PFXFilePwd is incorrect. Halting!"
-        Write-Error "The value for -PFXFilePwd is incorrect. Halting!"
+        Write-Verbose "The value for -PFXFilePwd is incorrect or was not supplied (and is needed). Halting!"
+        Write-Error "The value for -PFXFilePwd is incorrect or was not supplied (and is needed). Halting!"
         $global:FunctionResult = "1"
         return
     }
@@ -228,7 +233,57 @@ function Extract-PFXCerts {
 
     # The .pfx File Also Contains ALL Public Certificates in Chain 
     # The below extracts ALL Public Certificates in Chain
-    & openssl.exe pkcs12 -in "$PFXFilePath" -nokeys -out "$OutputDirectory\$AllPublicKeysInChainOut" -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
+    try {
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $ProcessInfo.FileName = "openssl.exe"
+        $ProcessInfo.RedirectStandardError = $true
+        $ProcessInfo.RedirectStandardOutput = $true
+        $ProcessInfo.UseShellExecute = $false
+        $ProcessInfo.Arguments = "pkcs12 -in $PFXFilePath -nokeys -out $OutputDirectory\$AllPublicKeysInChainOut -password pass:$PwdForPFXOpenSSL"
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $ProcessInfo
+        $Process.Start() | Out-Null
+        $Process.WaitForExit()
+        $stdout = $Process.StandardOutput.ReadToEnd()
+        $stderr = $Process.StandardError.ReadToEnd()
+        $AllOutput = $stdout + $stderr
+
+        if ($AllOutput -match "error") {
+            Write-Warning "openssl.exe reports that -PFXFilePwd is incorrect. However, it may be that at this stage in the process, it is not protected with a password. Trying without password..."
+            throw
+        }
+    }
+    catch {
+        try {
+            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $ProcessInfo.FileName = "openssl.exe"
+            $ProcessInfo.RedirectStandardError = $true
+            $ProcessInfo.RedirectStandardOutput = $true
+            $ProcessInfo.UseShellExecute = $false
+            $ProcessInfo.Arguments = "pkcs12 -in $PFXFilePath -nokeys -out $OutputDirectory\$AllPublicKeysInChainOut -password pass:"
+            $Process = New-Object System.Diagnostics.Process
+            $Process.StartInfo = $ProcessInfo
+            $Process.Start() | Out-Null
+            $Process.WaitForExit()
+            $stdout = $Process.StandardOutput.ReadToEnd()
+            $stderr = $Process.StandardError.ReadToEnd()
+            $AllOutput = $stdout + $stderr
+
+            if ($AllOutput -match "error") {
+                Write-Warning "openssl.exe reports that -PFXFilePwd is incorrect."
+                throw
+            }
+        }
+        catch {
+            $PFXFilePwdFailure = $true
+        }
+    }
+    if ($PFXFilePwdFailure -eq $true) {
+        Write-Verbose "The value for -PFXFilePwd is incorrect or was not supplied (and is needed). Halting!"
+        Write-Error "The value for -PFXFilePwd is incorrect or was not supplied (and is needed). Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
 
     # Parse the Public Certificate Chain File and and Write Each Public Certificate to a Separate File
     # These files should have the EXACT SAME CONTENT as the .cer counterparts
@@ -347,8 +402,8 @@ function Extract-PFXCerts {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQXyTSHEFVGTkNf7lTmWvVBVr
-# tqugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoEOtr4YRYLqoqfR9U7CQ7wfx
+# pbWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -403,11 +458,11 @@ function Extract-PFXCerts {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTP0qhdQP1G
-# SND6rlZI3rxw8MJesjANBgkqhkiG9w0BAQEFAASCAQCGp3fSAG1CiTzjppMnZPMH
-# lIugjsIVnIH0DDN/KGGrldOFnStDS1Mc87XJ1UUhXq/MHIMJMh2G/ecfLt62joL8
-# ElROYlm9/getcMjbZ17RnhKxGDGD4qckIpH60Fdmk2yUzQ5jpjuHtRZ6905F0LSw
-# nH2wibNC4VsSqtnhXlXzfYvGF41pN6Yyr4KxMhZW8mUMobLcuBSxYd33bhkUz559
-# HOtzwhw99v9TrYh1uZZNlzRgDmGIjwWBVL0XUu6AZXxvPnoojHWevwnW8MTocwwk
-# kUX3M0J0uFkC4/e0ZSoJ6Kab/VTNKzhbqR/2erapPJvFB6khEOrh/emxSdnbF3e7
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSQzIIuQe2E
+# Yu8imiOLg/Knhu32dDANBgkqhkiG9w0BAQEFAASCAQBb4cfGx6Ij8cRdXEZxzVSU
+# Ldgc3V/tDHcxIRdZVc3gZReuCj2YFCHKNKR5QZl1ndbLoxxNBgaUZWqRJh4a0+El
+# ngbElV6/Q4aG8Yx1Y6rCbEyMvvzZ2kdb5AMpxcFfJo9903+HQLcRA34Zm1/ebqKN
+# rgxUUgmowDSb3mBoFxSeEEd8sd1zn0xd0EPPQ/c4svkazKUBLpXR7Ce5fK/ngCgg
+# bHIpGJihuSnmDOWtC3sklUcLX1gzuHCahdmgja7X4WVe/XBxJjp3pF9hXIoqvCbQ
+# cyWEDDuQlCVJkeMUVrMWD6WaiLmbvwYnhndwOQHGY2kfjyZyljZzdTI/jERafkOS
 # SIG # End signature block

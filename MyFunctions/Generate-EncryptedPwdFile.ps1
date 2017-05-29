@@ -1,4 +1,6 @@
 ﻿# Generate-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
+# Understanding Certificate Store and Locations of Public/Private Keys:
+# http://paulstovell.com/blog/x509certificate2
 
 function Generate-EncryptedPwdFile {
     [CmdletBinding()]
@@ -10,23 +12,13 @@ function Generate-EncryptedPwdFile {
         $PathToCertFile,
 
         [Parameter(Mandatory=$False)]
-        $CNofCertInStore 
+        $CNofCertInStore,
+
+        [Parameter(Mandatory=$False)]
+        [securestring]$CertPwd
     )
 
     ##### BEGIN Helper Functions #####
-
-    $position = $FileToOutput.LastIndexOf("\")
-    $FileToOutputDirectory = $FileToOutput.Substring(0, $position)
-    $FileToOutputFile = $FileToOutput.Substring($position+1)
-    if (! $(Test-Path $FileToOutputDirectory)) {
-        Write-Host "The directory $FileToOutputDirectory does not exist. Please check the path."
-        $FileToOutput = Read-Host -Prompt "Please enter the full path to the output file that will be created"
-        if (! $(Test-Path $FileToOutputDirectory)) {
-            Write-Host "The directory $FileToOutputDirectory does not exist. Please check the path. Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
 
     function Get-PfxCertificateBetter {
         [CmdletBinding(DefaultParameterSetName='ByPath')]
@@ -62,72 +54,22 @@ function Generate-EncryptedPwdFile {
 
     ##### BEGIN Parameter Validation #####
 
-    function Validate-PathToCertFile {
-        if ($PathToCertFile -ne $null) { 
-            if (! (Test-Path $PathToCertFile)) {
-                Write-Host "The $PathToCertFile was not found. Please check to make sure the file exists."
-                $PathToCertFile = Read-Host -Prompt "Please enter the full path to the .pfx certificate file. 
-                Example: C:\ps_scripting.pfx"
-                if (! (Test-Path $PathToCertFile)) {
-                    Write-Host "The .pfx certificate file was not found at the path specified. Halting."
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-        }
-    }
-    Validate-PathToCertFile
+    $position = $FileToOutput.LastIndexOf("\")
+    $FileToOutputDirectory = $FileToOutput.Substring(0, $position)
+    $FileToOutputFile = $FileToOutput.Substring($position+1)
+    $FileToOutputFileSansExt = $($FileToOutputFile.Split("."))[0]
 
-    function Validate-CNofCertInStore { 
-        if ($CNofCertInStore -ne $null) {
-            $global:PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
-
-            if ($PathToCertInStore.Count -gt 1) {
-                Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. 
-                A list of available Certificates in the User Store are as follows:"
-                foreach ($obj1 in $(Get-ChildItem "Cert:\CurrentUser\My").Subject) {$obj1.Split(",")[0]}
-                $CNofCertInStore = Read-Host -Prompt "Please enter the CN of the Certificate you would like to use to encrypt the password file"
-                $PathToCertInStore = $(Get-ChildItem "Cert:\CurrentUser\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore*"})
-                if ($PathToCertInStore.Count -gt 1) {
-                    Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-        }
-    }
-    Validate-CNofCertInStore
-
-    if ($PathToCertFile -eq $null -and $PathToCertInStore -eq $null) {
-        $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been 
-        loaded in the certificate Store in order to encrypt the password file? [File/Store]"
-        if ($FileOrStoreSwitch -eq "File" -or $FileOrStoreSwitch -eq "Store") {
-            Write-Host "Continuing..."
-        }
-        else {
-            Write-Host "The string entered did not match either 'File' or 'Store'. Please type either 'File' or 'Store'"
-            $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been loaded in the certificate Store? [File,Store]"
-            if ($FileOrStoreSwitch -eq "File" -or $FileOrStoreSwitch -eq "Store") {
-                Write-Host "Continuing..."
-            }
-            else {
-                Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-        if ($FileOrStoreSwitch -eq "File") {
-            $PathToCertFile = Read-Host -Prompt "Please enter the full path to the .pfx certificate file. 
-            Example: C:\ps_scripting.pfx"
-            Validate-PathToCertFile
-        }
-        if ($FileOrStoreSwitch -eq "Store") {
-            $CNofCertInStore = Read-Host -Prompt "Please enter the CN of the Certificate you would like to use to encrypt the password file"
-            Validate-CNofCertInStore
+    if (! $(Test-Path $FileToOutputDirectory)) {
+        Write-Host "The directory $FileToOutputDirectory does not exist. Please check the path."
+        $FileToOutput = Read-Host -Prompt "Please enter the full path to the output file that will be created"
+        if (! $(Test-Path $FileToOutputDirectory)) {
+            Write-Error "The directory $FileToOutputDirectory does not exist. Please check the path. Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
 
-    if ($PathToCertFile -ne $null -and $PathToCertInStore -ne $null) {
+    if ($PathToCertFile -and $CNofCertInStore) {
         Write-Host "Please use *either* a .pfx certificate file *or*  a certificate in the user's local certificate store to encrypt the password file"
         $WhichCertSwitch = Read-Host -Prompt "Would you like to use the certificate file or the certificate in the local user's cert store? [File/Store]"
         if ($WhichCertSwitch -eq "File" -or $WhichCertSwitch -eq "Store") {
@@ -140,17 +82,73 @@ function Generate-EncryptedPwdFile {
                 Write-Host "Continuing..."
             }
             else {
-                Write-Host "The string entered did not match either 'File' or 'Store'. Halting!"
+                Write-Error "The string entered did not match either 'File' or 'Store'. Halting!"
                 $global:FunctionResult = "1"
                 return
             }
         }
         if ($WhichCertSwitch -eq "File") {
-            Remove-Variable -Name "PathToCertInStore"
+            Remove-Variable -Name "CNofCertInStore" -Force -ErrorAction SilentlyContinue
         }
         if ($WhichCertSwitch -eq "Store") {
-            Remove-Variable -Name "PathToCertFile"
+            Remove-Variable -Name "PathToCertFile" -Force -ErrorAction SilentlyContinue
         }
+    }
+
+    # Validate PathToCertFile
+    if ($PathToCertFile) { 
+        if (! (Test-Path $PathToCertFile)) {
+            Write-Host "The $PathToCertFile was not found. Please check to make sure the file exists."
+            $PathToCertFile = Read-Host -Prompt "Please enter the full path to the .pfx certificate file. 
+            Example: C:\ps_scripting.pfx"
+            if (! (Test-Path $PathToCertFile)) {
+                Write-Error "The .pfx certificate file was not found at the path specified. Halting."
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        # Generate Test CertObj to see if it is password protected
+        if ($CertPwd) {
+            $TestCertObj = Get-PfxCertificateBetter $PathToCertFile -Password $CertPwd
+        }
+        else {
+            $TestCertObj = Get-PfxCertificateBetter $PathToCertFile
+        }
+        try {
+            $pfxbytes = $TestCertObject.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
+            $Cert1 = $TestCertObj
+        }
+        catch {
+            Write-Warning "Either the Private Key is Password Protected or it is marked as Unexportable...Creating System.Security.Cryptography.X509Certificates.X509Certificate2 object using .Net..."
+            if (!$CertPwd) {
+                $CertPwd = Read-Host -Prompt "Please enter the password for the *certificate* $($TestCertObj.Subject)" -AsSecureString
+            }
+            $Cert1 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($PathToCertFile, $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+        }
+    }
+
+    # Validate CNofCertInStore
+    if ($CNofCertInStore) {
+        $Cert1 = $(Get-ChildItem "Cert:\LocalMachine\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore"})
+
+        if ($Cert1.Count -gt 1) {
+            Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. 
+            A list of available Certificates in the User Store are as follows:"
+            foreach ($obj1 in $(Get-ChildItem "Cert:\LocalMachine\My").Subject) {$obj1.Split(",")[0]}
+            $CNofCertInStore = Read-Host -Prompt "Please enter the CN of the Certificate you would like to use to encrypt the password file"
+            $Cert1 = $(Get-ChildItem "Cert:\LocalMachine\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore"})
+            if ($Cert1.Count -gt 1) {
+                Write-Error "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    if ($(-not $PSBoundParameters['PathToCertFile']) -and $(-not $PSBoundParameters['CNofCertInStore'])) {
+        # Create the Self-Signed Cert and add it to the Personal Local Machine Store
+        $Cert1 = New-SelfSignedCertificate -CertStoreLocation "Cert:\LocalMachine\My" -DNSName "$FileToOutputFileSansExt" -KeyExportPolicy "Exportable"
     }
 
     ##### END Parameter Validation #####
@@ -160,16 +158,6 @@ function Generate-EncryptedPwdFile {
     $PasswordToEncryptPrep = Read-Host -Prompt 'Password to Encrypt' -AsSecureString
     $PasswordToEncrypt = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordToEncryptPrep))
 
-    if ($PathToCertFile -ne $null -and $PathToCertInStore -eq $null) {
-        $PasswordPrep1 = Read-Host -Prompt 'Please enter the password for the certificate being used to encrypt the above password' -AsSecureString
-        $CertFilePwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PasswordPrep1))
-        $Cert1 = Get-PfxCertificateBetter $PathToCertFile $CertFilePwd1
-    }
-
-    if ($PathToCertFile -eq $null -and $PathToCertInStore -ne $null) {
-        $Cert1 = $PathToCertInStore
-    }
-    
     $EncodedPwd1 = [system.text.encoding]::UTF8.GetBytes($PasswordToEncrypt)
     $EncryptedBytes1 = $Cert1.PublicKey.Key.Encrypt($EncodedPwd1, $true)
     $EncryptedPwd1 = [System.Convert]::ToBase64String($EncryptedBytes1)
@@ -179,11 +167,17 @@ function Generate-EncryptedPwdFile {
 }
 
 
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8sM2LiUTAmAXdVYPIt9NsnS0
-# K7+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUStHKT8RGkzqAHQcB1XjY6/p6
+# 5JagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -238,11 +232,11 @@ function Generate-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSvfhCmb2pU
-# 7Dz/i7FXj+1FOefKNTANBgkqhkiG9w0BAQEFAASCAQBm+yecFhNrJgs/TlC8yO0n
-# yzw0XadJlV4s+guyk6vAkgXZCzJsYBBTZBg7+V2NlXU6pitPz3Lq1lfygE6OOxAO
-# X0rbMLJuBJhj85BT7upkPM3XcHAAKbUSuIQdZ8EjNkS/1TrTtU5byk2dwHs1gk3c
-# uca37GLJ7DAobtzGpzUKOvcX6GOoKyT2vApEop0tx6ufj/DyC9cOOpfTnzAbiTkD
-# 11aKpSq8LJZfyGbqQT4ILoggm7DovKW5RfxWd0od+Hgj4W7eEcWklsd9Qoy5e7Wa
-# 4qeXwqknl69Gep3aI8+AlINeYXGT6oG3z6gn5dJ2Nlr7qyuV1FuH+fi/352r5CSm
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRDOUsf6aNz
+# nVQhKqZU7xvgqMWiqDANBgkqhkiG9w0BAQEFAASCAQBR+dahcJQ+rQ59ibycwFTW
+# vsoGK/blZ+ihJK3+HSaBsKSShMYKZflA6Z9bMA31s9+eqv/SHyI4SD41pv2UHn2j
+# tN8XO4GwyDBgIUr1hWTnN8xWdLAxGSreF12r9PHcQjvBpj74vKImyhP/SM1ncyHG
+# SSYGgC/oMq2GBYF510J3BaCjhmm4mwCGmziPuafOWJax0r6hQmYVQiwkUIWlVJAc
+# eeq+5l/cpPv0wl9toQZxa1d9lSQQ6eu1LCEvlpEa/4F4bFCkJilA9heTBpMbJklr
+# sU7Qq9wpRJSt+Lp/fu1b6VAAomaFE/krBigihFvttsHns8pzl9ymSmnJB4SISPy+
 # SIG # End signature block

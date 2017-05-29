@@ -1,94 +1,55 @@
-<#
-.SYNOPSIS
-    If a System.Security.Cryptography.X509Certificates.X509Certificate2 object has properties...
-        HasPrivateKey        : True
-        PrivateKey           :
-    ...and you would like the PrivateKey property filled in, use this function.
-
-.DESCRIPTION
-    See Synopsis
-
-.NOTES
-    IMPORTANT NOTES Regarding -CertObject Parameter:
-    If you are getting the value for the -CertObject parameter from an already existing .pfx file (as opposed to the Cert Store),
-    *DO NOT* use the Get-PFXCertificate cmdlet. The cmdlet does something strange that causes a misleading/incorrect error if the
-    private key in the .pfx is password protected.
-
-    Instead, use the following:
-        $CertPwd = ConvertTo-SecureString -String 'RaNDompaSSwd123' -Force -AsPlainText
-        $CertObj = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-    
-    If you are getting the value for the -CertObject parameter from the Certificate Store, either of the following should be fine
-        $CertObj = Get-ChildItem Cert:\LocalMachine\My\<Thumbprint>
-        $CertObj = Get-ChildItem Cert:\CurrentUser\My\<Thumbprint>
-
-    WARNING: This function defaults to writing the unprotected private key to its own file in -TempOutputDirectory. You can
-    change this default behavior by setting the default value for the parameter [bool]$StripPrivateKeyPwd to $false in the
-    helper function Extract-PfxCerts. (TODO: Make this easier to change)
-
-.PARAMETER CertObject
-    Mandatory.
-
-    Must be a System.Security.Cryptography.X509Certificates.X509Certificate2 object.
-
-.PARAMETER TempOutputDirectory
-    Mandatory.
-
-    Must be a full path to a directory.
-
-.PARAMETER CertPwd
-    Optional.
-
-    Must be a System.Security.SecureString. This parameter is Mandatory if the private key in a .pfx is password protected.
-
-.PARAMETER CleanupOpenSSLOutputs
-    Optional.
-
-    Must be Boolean.
-
-    During this function, openssl.exe is used to extract all public certs and private key from the -CertObject. Each of these
-    certs and the key are written to separate files in -TempOutputDirectory.
-
-.EXAMPLE
-    PS C:\Users\zeroadmin> . C:\Scripts\powershell\Update-PrivateKeyProperty.ps1
-    PS C:\Users\zeroadmin> $CertPwd = Read-Host -Prompt "Please enter the Certificate's Private Key password" -AsSecureString
-    Please enter the Certificate's Private Key password: ***************
-    PS C:\Users\zeroadmin> $CertObj = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-    
-    PS C:\Users\zeroadmin> Update-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
-
-.EXAMPLE
-    PS C:\Users\zeroadmin> . C:\Scripts\powershell\Update-PrivateKeyProperty.ps1
-    PS C:\Users\zeroadmin> $CertPwd = Read-Host -Prompt "Please enter the Certificate's Private Key password" -AsSecureString
-    Please enter the Certificate's Private Key password: ***************
-    PS C:\Users\zeroadmin> $CertObj = Get-ChildItem "Cert:\LocalMachine\My\5359DDD9CB88873DF86617EC28FAFADA17112AE6"
-
-    PS C:\Users\zeroadmin> Update-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
-#>
+﻿# Decrypt-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
+# Understanding Certificate Store and Locations of Public/Private Keys:
+# http://paulstovell.com/blog/x509certificate2
 
 
-
-function Update-PrivateKeyProperty {
+function Decrypt-EncryptedPwdFile {
     [CmdletBinding()]
-    Param( 
-        [Parameter(Mandatory=$True)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$CertObject,
-
-        [Parameter(Mandatory=$True)]
-        $TempOutputDirectory = $(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written"),
+    Param(
+        [Parameter(Mandatory=$False)]
+        $EncryptedPwdFileInput = $(Read-Host -Prompt "Please enter the full path to the file you would like to decrypt"),
+        
+        [Parameter(Mandatory=$False)]
+        $PathToCertFile,
 
         [Parameter(Mandatory=$False)]
-        [securestring]$CertPwd,
+        $CNofCertInStore,
 
         [Parameter(Mandatory=$False)]
-        [bool]$CleanupOpenSSLOutputs = $true,
-
-        [Parameter(Mandatory=$False)]
-        [switch]$DownloadAndAddOpenSSLToPath
-
+        [securestring]$CertPwd
     )
 
-    ##### BEGIN Native Helper Functions #####
+    ##### BEGIN Helper Functions #####
+
+    function Get-PfxCertificateBetter {
+        [CmdletBinding(DefaultParameterSetName='ByPath')]
+        param(
+            [Parameter(Position=0, Mandatory=$true, ParameterSetName='ByPath')] [string[]] $filePath,
+            [Parameter(Mandatory=$true, ParameterSetName='ByLiteralPath')] [string[]] $literalPath,
+
+            [Parameter(Position=1, ParameterSetName='ByPath')] 
+            [Parameter(Position=1, ParameterSetName='ByLiteralPath')] [string] $password,
+
+            [Parameter(Position=2, ParameterSetName='ByPath')]
+            [Parameter(Position=2, ParameterSetName='ByLiteralPath')] [string] 
+            [ValidateSet('DefaultKeySet','Exportable','MachineKeySet','PersistKeySet','UserKeySet','UserProtected')] $x509KeyStorageFlag = 'DefaultKeySet'
+        )
+
+        if($PsCmdlet.ParameterSetName -eq 'ByPath'){
+            $literalPath = Resolve-Path $filePath 
+        }
+
+        if(!$password){
+            # if the password parameter isn't present, just use the original cmdlet
+            $cert = Get-PfxCertificate -literalPath $literalPath
+        } else {
+            # otherwise use the .NET implementation
+            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+            $cert.Import($literalPath, $password, $X509KeyStorageFlag)
+        }
+
+        return $cert
+    }
 
     function Extract-PFXCerts {
         [CmdletBinding(
@@ -451,105 +412,276 @@ function Update-PrivateKeyProperty {
 
     }
 
-    ##### END Native Helper Functions #####
+    function Update-PrivateKeyProperty {
+        [CmdletBinding()]
+        Param( 
+            [Parameter(Mandatory=$True)]
+            [System.Security.Cryptography.X509Certificates.X509Certificate2]$CertObject,
+
+            [Parameter(Mandatory=$True)]
+            $TempOutputDirectory = $(Read-Host -Prompt "Please enter the full path to the directory where all output files will be written"),
+
+            [Parameter(Mandatory=$False)]
+            [securestring]$CertPwd,
+
+            [Parameter(Mandatory=$False)]
+            [bool]$CleanupOpenSSLOutputs = $true,
+
+            [Parameter(Mandatory=$False)]
+            [switch]$DownloadAndAddOpenSSLToPath
+
+        )
+
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+        if ($CertObject.PrivateKey -eq $null -and $CertObject.HasPrivateKey -eq $false -or $CertObject.HasPrivateKey -ne $true) {
+            Write-Verbose "There is no Private Key associated with this System.Security.Cryptography.X509Certificates.X509Certificate2 object (for real though)! Halting!"
+            Write-Error "There is no Private Key associated with this System.Security.Cryptography.X509Certificates.X509Certificate2 object (for real though)! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
+            if (!$DownloadAndAddOpenSSLToPath) {
+                Write-Verbose "The Helper Function Extract-PFXCerts requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+                Write-Error "The Helper Function Extract-PFXCerts requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        $CertName = $($CertObject.Subject | Select-String -Pattern "^CN=[\w]+").Matches.Value -replace "CN=",""
+        try {
+            $pfxbytes = $CertObject.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
+            [System.IO.File]::WriteAllBytes("$TempOutputDirectory\$CertName.pfx", $pfxbytes)
+        }
+        catch {
+            Write-Warning "Either the Private Key is Password Protected or it is marked as Unexportable...Trying to import `$CertObject to Cert:\LocalMachine\My Store..."
+            # NOTE: The $CertObject.Export() method in the above try block has a second argument for PlainTextPassword, but it doesn't seem to work consistently
+            
+            # Check to see if it's already in the Cert:\LocalMachine\My Store
+            if ($(Get-Childitem "Cert:\LocalMachine\My").Thumbprint -contains $CertObject.Thumbprint) {
+                Write-Host "The certificate $CertName is already in the Cert:\LocalMachine\My Store."
+            }
+            else {
+                Write-Host "Importing $CertName to Cert:\LocalMachine\My Store..."
+                $X509Store = [System.Security.Cryptography.X509Certificates.X509Store]::new([System.Security.Cryptography.X509Certificates.StoreName]::My, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+                $X509Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+                $X509Store.Add($CertObject)
+            }
+
+            Write-Host "Attempting to export `$CertObject from Cert:\LocalMachine\My Store to .pfx file..."
+
+            if (!$CertPwd) {
+                $CertPwd = Read-Host -Prompt "Please enter the password for the private key in the certificate $CertName" -AsSecureString
+            }
+
+            Export-PfxCertificate -FilePath "$TempOutputDirectory\$CertName.pfx" -Cert "Cert:\LocalMachine\My\$($CertObject.Thumbprint)" -Password $CertPwd
+
+        }
+
+        # NOTE: If openssl.exe isn't already available, the Extract-PFXCerts function downloads it and adds it to $env:Path
+        if ($CertPwd) {
+            $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -PFXFilePwd $CertPwd -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
+        }
+        else {
+            $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
+        }
+
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+        ##### BEGIN Main Body #####
 
-    if ($CertObject.PrivateKey -eq $null -and $CertObject.HasPrivateKey -eq $false -or $CertObject.HasPrivateKey -ne $true) {
-        Write-Verbose "There is no Private Key associated with this System.Security.Cryptography.X509Certificates.X509Certificate2 object (for real though)! Halting!"
-        Write-Error "There is no Private Key associated with this System.Security.Cryptography.X509Certificates.X509Certificate2 object (for real though)! Halting!"
+        if ($PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath -eq $null) {
+            # Strip Private Key of Password
+            $UnProtectedPrivateKeyOut = "$($(Get-ChildItem $PathToCertFile).BaseName)"+"_unprotected_private_key"+".pem"
+            & openssl.exe rsa -in $PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath -out "$HOME\$UnProtectedPrivateKeyOut" 2>&1 | Out-Null
+            $PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath = "$HOME\$UnProtectedPrivateKeyOut"
+        }
+
+        Write-Host "Loading opensslkey.cs from https://github.com/sushihangover/SushiHangover-PowerShell/blob/master/modules/SushiHangover-RSACrypto/opensslkey.cs"
+        $opensslkeysource = $(Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sushihangover/SushiHangover-PowerShell/master/modules/SushiHangover-RSACrypto/opensslkey.cs").Content
+        Add-Type -TypeDefinition $opensslkeysource
+        $PemText = [System.IO.File]::ReadAllText($PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath)
+        $PemPrivateKey = [javascience.opensslkey]::DecodeOpenSSLPrivateKey($PemText)
+        [System.Security.Cryptography.RSACryptoServiceProvider]$RSA = [javascience.opensslkey]::DecodeRSAPrivateKey($PemPrivateKey);
+        $RSA
+
+        # Cleanup
+        if ($CleanupOpenSSLOutputs) {
+            $ItemsToRemove = @(
+                $PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath
+                $PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath
+            ) + $PubCertAndPrivKeyInfo.PublicKeysInfo.FileLocation
+
+            foreach ($item in $ItemsToRemove) {
+                Remove-Item $item
+            }
+        }
+
+        ##### END Main Body #####
+
+    }
+
+    ##### END Helper Functions #####
+
+    ##### BEGIN Parameter Validation #####
+
+    # Validate EncryptedPwdFileInput
+    if (-not $PSBoundParameters['EncryptedPwdFileInput']) {
+        $EncryptedPwdFileInput = Read-Host -Prompt "Please enter the full path to the encrypted password file. 
+        Example: C:\encryptedpwd.txt"
+    }
+    if ($PSBoundParameters['EncryptedPwdFileInput'] -or $EncryptedPwdFileInput) {
+        if (! (Test-Path $EncryptedPwdFileInput)) {
+            Write-Host "Cannot find $EncryptedPwdFileInput. Please ensure the file is present and try again."
+            $EncryptedPwdFileInput = Read-Host -Prompt "Please enter the full path to the encrypted password file.
+            Example: C:\encryptedpwd.txt"
+            if (! (Test-Path $EncryptedPwdFileInput)) {
+                Write-Error "Cannot find $EncryptedPwdFileInput. Please ensure the file is present and try again. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    if ($PathToCertFile -ne $null -and $CNofCertInStore -ne $null) {
+        Write-Host "Please use *either* a .pfx certificate file *or*  a certificate in the user's local certificate store to decrypt the password file"
+        $WhichCertSwitch = Read-Host -Prompt "Would you like to use the certificate file or the certificate in the local user's cert store? [File/Store]"
+        if ($WhichCertSwitch -eq "File" -or $WhichCertSwitch -eq "Store") {
+            Write-Host "Continuing..."
+        }
+        else {
+            Write-Host "The string entered did not match either 'File' or 'Store'. Please type either 'File' or 'Store'"
+            $WhichCertSwitch = Read-Host -Prompt "Would you like to use the certificate file or the certificate in the local user's cert store? [File/Store]"
+            if ($WhichCertSwitch -eq "File" -or $WhichCertSwitch -eq "Store") {
+                Write-Host "Continuing..."
+            }
+            else {
+                Write-Error "The string entered did not match either 'File' or 'Store'. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        if ($WhichCertSwitch -eq "File") {
+            Remove-Variable -Name "PathToCertInStore" -Force -ErrorAction SilentlyContinue
+        }
+        if ($WhichCertSwitch -eq "Store") {
+            Remove-Variable -Name "PathToCertFile" -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if ($PathToCertFile -eq $null -and $CNofCertInStore -eq $null) {
+        $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been 
+        loaded in the certificate Store in order to decrypt the password file? [File/Store]"
+        if ($FileOrStoreSwitch -eq "File" -or $FileOrStoreSwitch -eq "Store") {
+            Write-Host "Continuing..."
+        }
+        else {
+            Write-Host "The string entered did not match either 'File' or 'Store'. Please type either 'File' or 'Store'"
+            $FileOrStoreSwitch = Read-Host -Prompt "Would you like to use a certificate File in .pfx format, or a Certificate that has already been loaded in the certificate Store? [File,Store]"
+            if ($FileOrStoreSwitch -eq "File" -or $FileOrStoreSwitch -eq "Store") {
+                Write-Host "Continuing..."
+            }
+            else {
+                Write-Error "The string entered did not match either 'File' or 'Store'. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    # Validate PathToCertFile
+    if ($PathToCertFile -or $FileOrStoreSwitch -eq "File") { 
+        if ($FileOrStoreSwitch -eq "File") {
+            $PathToCertFile = Read-Host -Prompt "Please enter the full path to the .pfx certificate file."
+        }
+        if (! (Test-Path $PathToCertFile)) {
+            Write-Host "The $PathToCertFile was not found. Please check to make sure the file exists."
+            $PathToCertFile = Read-Host -Prompt "Please enter the full path to the .pfx certificate file. 
+            Example: C:\ps_scripting.pfx"
+            if (! (Test-Path $PathToCertFile)) {
+                Write-Error "The .pfx certificate file was not found at the path specified. Halting."
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        # Generate Test CertObj to see if it is password protected
+        if ($CertPwd) {
+            $TestCertObj = Get-PfxCertificateBetter $PathToCertFile -Password $CertPwd
+        }
+        else {
+            $TestCertObj = Get-PfxCertificateBetter $PathToCertFile
+        }
+        try {
+            $pfxbytes = $TestCertObject.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
+            $Cert2 = $TestCertObj
+        }
+        catch {
+            Write-Warning "Either the Private Key is Password Protected or it is marked as Unexportable...Creating System.Security.Cryptography.X509Certificates.X509Certificate2 object using .Net..."
+            if (!$CertPwd) {
+                $CertPwd = Read-Host -Prompt "Please enter the password for the *certificate* $($TestCertObj.Subject)" -AsSecureString
+            }
+            $Cert2 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($PathToCertFile, $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+        }
+    }
+    
+    # Validate CNofCertInStore { 
+    if ($CNofCertInStore -or $FileOrStoreSwitch -eq "Store") {
+        if ($FileOrStoreSwitch -eq "Store") {
+            $CNofCertInStore = Read-Host -Prompt "Please enter the CN of the Certificate you would like to use to decrypt the password file"
+        }
+        $Cert2 = $(Get-ChildItem "Cert:\LocalMachine\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore"})
+
+        if ($Cert2.Count -gt 1) {
+            Write-Host "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. 
+            A list of available Certificates in the User Store are as follows:"
+            foreach ($obj1 in $(Get-ChildItem "Cert:\LocalMachine\My").Subject) {$obj1.Split(",")[0]}
+            $CNofCertInStore = Read-Host -Prompt "Please enter the CN of the Certificate you would like to use to decrypt the password file"
+            $Cert2 = $(Get-ChildItem "Cert:\LocalMachine\My" | Where-Object {$_.Subject -match "CN=$CNofCertInStore"})
+            if ($PathToCertInStore.Count -gt 1) {
+                Write-Error "More than one Certificate with a CN beginning with CN=$CNofCertInStore has been identified. Only one Certificate may be used. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    ##### END Parameter Validation #####
+
+    ##### BEGIN Main Body #####
+
+    if ($Cert2.PrivateKey -eq $null -and $Cert2.HasPrivateKey -eq $true) {
+        if ($CertPwd) {
+            $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd -DownloadAndAddOpenSSLToPath
+        }
+        else {
+            $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -DownloadAndAddOpenSSLToPath
+        }
+    }
+    if ($Cert2.PrivateKey -eq $null -and $Cert2.HasPrivateKey -eq $false) {
+        Write-Verbose "There is no private key available for the certificate $($Cert2.Subject)! We need the private key to decrypt the file! Halting!"
+        Write-Error "There is no private key available for the certificate $($Cert2.Subject)! We need the private key to decrypt the file! Halting!"
         $global:FunctionResult = "1"
         return
     }
 
-    if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
-        if (!$DownloadAndAddOpenSSLToPath) {
-            Write-Verbose "The Helper Function Extract-PFXCerts requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
-            Write-Error "The Helper Function Extract-PFXCerts requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    $CertName = $($CertObject.Subject | Select-String -Pattern "^CN=[\w]+").Matches.Value -replace "CN=",""
-    try {
-        $pfxbytes = $CertObject.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
-        [System.IO.File]::WriteAllBytes("$TempOutputDirectory\$CertName.pfx", $pfxbytes)
-    }
-    catch {
-        Write-Warning "Either the Private Key is Password Protected or it is marked as Unexportable...Trying to import `$CertObject to Cert:\LocalMachine\My Store..."
-        # NOTE: The $CertObject.Export() method in the above try block has a second argument for PlainTextPassword, but it doesn't seem to work consistently
-        
-        # Check to see if it's already in the Cert:\LocalMachine\My Store
-        if ($(Get-Childitem "Cert:\LocalMachine\My").Thumbprint -contains $CertObject.Thumbprint) {
-            Write-Host "The certificate $CertName is already in the Cert:\LocalMachine\My Store."
-        }
-        else {
-            Write-Host "Importing $CertName to Cert:\LocalMachine\My Store..."
-            $X509Store = [System.Security.Cryptography.X509Certificates.X509Store]::new([System.Security.Cryptography.X509Certificates.StoreName]::My, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
-            $X509Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-            $X509Store.Add($CertObject)
-        }
-
-        Write-Host "Attempting to export `$CertObject from Cert:\LocalMachine\My Store to .pfx file..."
-
-        if (!$CertPwd) {
-            $CertPwd = Read-Host -Prompt "Please enter the password for the private key in the certificate $CertName" -AsSecureString
-        }
-
-        Export-PfxCertificate -FilePath "$TempOutputDirectory\$CertName.pfx" -Cert "Cert:\LocalMachine\My\$($CertObject.Thumbprint)" -Password $CertPwd
-
-    }
-
-    # NOTE: If openssl.exe isn't already available, the Extract-PFXCerts function downloads it and adds it to $env:Path
-    if ($CertPwd) {
-        $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -PFXFilePwd $CertPwd -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
+    $EncryptedPwd2 = Get-Content $EncryptedPwdFileInput
+    $EncryptedBytes2 = [System.Convert]::FromBase64String($EncryptedPwd2)
+    if ($PrivateKeyInfo) {
+        $DecryptedBytes2 = $PrivateKeyInfo.Decrypt($EncryptedBytes2, $true)
     }
     else {
-        $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
+        $DecryptedBytes2 = $Cert2.PrivateKey.Decrypt($EncryptedBytes2, $true)
     }
-
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
-
-
-    ##### BEGIN Main Body #####
-
-    if ($PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath -eq $null) {
-        # Strip Private Key of Password
-        $UnProtectedPrivateKeyOut = "$($(Get-ChildItem $PathToCertFile).BaseName)"+"_unprotected_private_key"+".pem"
-        & openssl.exe rsa -in $PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath -out "$HOME\$UnProtectedPrivateKeyOut" 2>&1 | Out-Null
-        $PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath = "$HOME\$UnProtectedPrivateKeyOut"
-    }
-
-    Write-Host "Loading opensslkey.cs from https://github.com/sushihangover/SushiHangover-PowerShell/blob/master/modules/SushiHangover-RSACrypto/opensslkey.cs"
-    $opensslkeysource = $(Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sushihangover/SushiHangover-PowerShell/master/modules/SushiHangover-RSACrypto/opensslkey.cs").Content
-    Add-Type -TypeDefinition $opensslkeysource
-    $PemText = [System.IO.File]::ReadAllText($PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath)
-    $PemPrivateKey = [javascience.opensslkey]::DecodeOpenSSLPrivateKey($PemText)
-    [System.Security.Cryptography.RSACryptoServiceProvider]$RSA = [javascience.opensslkey]::DecodeRSAPrivateKey($PemPrivateKey);
-    $RSA
-
-    # Cleanup
-    if ($CleanupOpenSSLOutputs) {
-        $ItemsToRemove = @(
-            $PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath
-            $PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath
-        ) + $PubCertAndPrivKeyInfo.PublicKeysInfo.FileLocation
-
-        foreach ($item in $ItemsToRemove) {
-            Remove-Item $item
-        }
-    }
+    $DecryptedPwd2 = [system.text.encoding]::UTF8.GetString($DecryptedBytes2)
+    Write-Output $DecryptedPwd2
 
     ##### END Main Body #####
-
+    $global:FunctionResult = "0"
 }
-
-
-
-
-
 
 
 
@@ -559,8 +691,8 @@ function Update-PrivateKeyProperty {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUzlwbAyrF7+bf2fiTUn9gWHlK
-# 8yKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnlMGp533L9mLmY4PckgnwcXl
+# J/GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -615,11 +747,11 @@ function Update-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRF8FjLEkVf
-# /DydkNy01o4UA1tOEDANBgkqhkiG9w0BAQEFAASCAQCYP7vLcQkQoAL1JKxWeKjp
-# AoZcFsXCjjzu0PAVrwnq2VBBe8qEJKOEIO/6iF1PCWgb1xqlB36EDG/5t03lnSwK
-# d1O8yJtS2KUebfYZppOWzoiirUI80jq24CODE7BTeQT2AY2NbYKTekNDg+1ApRCU
-# i9B3L0YrOOtejmc8vx4H0Q8N4405NrvRWXvga7odDapkwzn3pPb8FH8TuEya3abL
-# JldkVPYyOiANmw+6Oqca1CmPCZmsZ2CpvaUa0HsrehilpQ5TBZ5G8gEu7LkPFOG8
-# ciKbBLPfKHIQqarXOb4LR/BKbAiK6rLqipJ8WkrcUCqGROGgfLG9ZoxrWaS+3NnK
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ+3ukg+mxs
+# dc+Vkp720FCyV4qXGjANBgkqhkiG9w0BAQEFAASCAQBDSdTwwJKrjkRXmeKXH16Q
+# RWmcVoELJ9WQ7UA1wtrH+hXzPS9wC0PEC8mQ4kJ61xWE+jPtQl0Y6VtqExlfENRV
+# q6LJa6IFnGaJlFGDXB20hRMVafQmr8mexMzHY5hnCvYo7Cd4HLAO/grlF1jDQDZf
+# 0qrc2myWtE0YnZ+wBJgqWk7It/LK9L9URAXTNZWYGUvqfiY+wXhrdmvLPSbrpU/O
+# yjzxDJxNWY5DjBewluSl09wlIIOosMvDJd9B6U8LRA0kB0o5lg5MRXzk4vUASWYJ
+# X+5MtgeQBWILxnQ8QmdezXXVxKt5AM3QjgFTiQt3PKNitCKMpusVpmRkRR5OWZ9a
 # SIG # End signature block
