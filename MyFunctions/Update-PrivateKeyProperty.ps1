@@ -3,7 +3,7 @@
     If a System.Security.Cryptography.X509Certificates.X509Certificate2 object has properties...
         HasPrivateKey        : True
         PrivateKey           :
-    ...and you eould like the PrivateKey property filled in, use this function.
+    ...and you would like the PrivateKey property filled in, use this function.
 
 .DESCRIPTION
     See Synopsis
@@ -218,8 +218,6 @@ function Update-PrivateKeyProperty {
                 Write-Warning "openssl.exe reports that -PFXFilePwd is incorrect. However, it may be that at this stage in the process, it is not protected with a password. Trying without password..."
                 throw
             }
-            
-            #& openssl.exe pkcs12 -in "$PFXFilePath" -nocerts -out "$OutputDirectory\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
         }
         catch {
             try {
@@ -465,12 +463,11 @@ function Update-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUrR76l6bO64yenjp3UXqfPUe1
-# Tq2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOcbz0fWZ4Qeb82ko5CinQjeU
+# YZSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -525,11 +522,11 @@ function Update-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMveZkfE+T
-# ReF6Ibw+IaK1QivIhTANBgkqhkiG9w0BAQEFAASCAQAco31GQkqxVlE4TWdTIxxN
-# L+22WyvewBIR0eBS4dry1+danTMuvY/5LzEHHqmkCGTpV7Rjihx/VBt0XnhVUkhb
-# s7zgSxXF/PbHGtIQr/kWLy4lGBPlebjvkwu80fsRpFAaBdmGIXCRKDUh5t4P5GRx
-# 9lXmlNCFvF25Uuh9ceFyXzifra/rEbcHyn2ZkPXf6WkFVBS1LT2dTi6lGJ7tqCbc
-# 0LaSeis6qbiagb+rqPmr82fKRzA+JwF93B3Ng7aSaBCYdDqHVDVlk8v1rEHc+ENG
-# aE7aGBtG7u46ecTsDWXRZtQzVruhOR+PhjMlAH/7yNjTk9Chc63k//bNdfQHAkoW
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSSlW647wny
+# YDIbuFvVjr5QkmqY/jANBgkqhkiG9w0BAQEFAASCAQBTuu6YSWamHUf0wfKrlCB6
+# 9Vwj6nSD5wolLCzq8dzAV+NRxg8tuRbIBtJWhk0NGEj2pVLrJlb4Q9jRQzehBSer
+# 1Wl4/g+inOxVZNco+j59C0mqdDxmLnGTEeqAo673J7Y+wl4zwq6TgmLSK8KtNkzo
+# F/GUEiyqv8A8FYC9ESYwJAZjvfeDS7/fVgAoABNU+nZTLXrsVI92T8cPs5Sj8yil
+# EsCug/wfe0KAxkd52F/sxVtYpj39SctzZHU7OOyFCdp2lE/nsgordPaPEWxw8IqU
+# Xb6rAEInvdJpQa991QTz4uh4+CsENrAHLKl40kWWmqWDJty2v3fnmrYCDQGh1CP5
 # SIG # End signature block
