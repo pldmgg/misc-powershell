@@ -116,7 +116,7 @@ function Generate-EncryptedPwdFile {
             $TestCertObj = Get-PfxCertificateBetter $PathToCertFile
         }
         try {
-            $pfxbytes = $TestCertObject.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
+            $pfxbytes = $TestCertObj.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
             $Cert1 = $TestCertObj
         }
         catch {
@@ -176,8 +176,8 @@ function Generate-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUStHKT8RGkzqAHQcB1XjY6/p6
-# 5JagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3sbhKlzwxMDVMYJCWUd9fs7h
+# rQagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -232,11 +232,11 @@ function Generate-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRDOUsf6aNz
-# nVQhKqZU7xvgqMWiqDANBgkqhkiG9w0BAQEFAASCAQBR+dahcJQ+rQ59ibycwFTW
-# vsoGK/blZ+ihJK3+HSaBsKSShMYKZflA6Z9bMA31s9+eqv/SHyI4SD41pv2UHn2j
-# tN8XO4GwyDBgIUr1hWTnN8xWdLAxGSreF12r9PHcQjvBpj74vKImyhP/SM1ncyHG
-# SSYGgC/oMq2GBYF510J3BaCjhmm4mwCGmziPuafOWJax0r6hQmYVQiwkUIWlVJAc
-# eeq+5l/cpPv0wl9toQZxa1d9lSQQ6eu1LCEvlpEa/4F4bFCkJilA9heTBpMbJklr
-# sU7Qq9wpRJSt+Lp/fu1b6VAAomaFE/krBigihFvttsHns8pzl9ymSmnJB4SISPy+
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTf6TaPZ6Dl
+# WizVURClZfZChAo8mjANBgkqhkiG9w0BAQEFAASCAQBzOc6UevpUtnt2cspdx53+
+# Gk9NvPx0sOwgOYudOsldXSJHIp9iPMCIY/9U+6FULU5Ev1K+iCdPWZYtNKbJYQaK
+# uyqpdDXHAFi1Ge9NlXz/jvCD2jpMYL85lZuSRB873LhtlZirfrokehtx/CPCisx0
+# 995zcdMuhTJdBB9IUAwmo+M+K/0NX5Ttr/P1MhSalwt9ynd6o6+40DyJoO1hex3B
+# QIpmRP5LL4iBCmVRSgeeTljpCePTDfmiw9t+2RC6GkI608q1BIIyvNlFb1vVdchk
+# fASM1mRFk4bOTFK93SoWIuNuGVwQlhOTllv0uZV4TE6QCGmJEQFO7RfbsAWcvlvZ
 # SIG # End signature block
