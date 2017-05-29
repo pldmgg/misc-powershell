@@ -608,23 +608,31 @@ function Decrypt-EncryptedPwdFile {
             }
         }
 
-        # Generate Test CertObj to see if it is password protected
-        if ($CertPwd) {
-            $TestCertObj = Get-PfxCertificateBetter $PathToCertFile -Password $CertPwd
-        }
-        else {
-            $TestCertObj = Get-PfxCertificateBetter $PathToCertFile
-        }
+        # See if Cert is password protected
         try {
-            $pfxbytes = $TestCertObj.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
-            $Cert2 = $TestCertObj
+            # First, try null password
+            $Cert2 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($PathToCertFile, $null, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
         }
         catch {
-            Write-Warning "Either the Private Key is Password Protected or it is marked as Unexportable...Creating System.Security.Cryptography.X509Certificates.X509Certificate2 object using .Net..."
+            Write-Host "Either the Private Key is Password Protected, or it is marked as Unexportable..."
             if (!$CertPwd) {
-                $CertPwd = Read-Host -Prompt "Please enter the password for the *certificate* $($TestCertObj.Subject)" -AsSecureString
+                $CertPwd = Read-Host -Prompt "Please enter the password for the certificate $($TestCertObj.Subject). If there is no password, simply press [ENTER]" -AsSecureString
             }
-            $Cert2 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($PathToCertFile, $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+
+            # Next, try $CertPwd 
+            try {
+                $Cert2 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($PathToCertFile, $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+            }
+            catch {
+                Write-Warning "Incorrect certificate password"
+                $CertPwdFailure = $true
+            }
+        }
+        if ($CertPwdFailure) {
+            Write-Verbose "The password supplied for certificate is incorrect! Halting!"
+            Write-Error "The password supplied for certificate is incorrect! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
     
@@ -691,8 +699,8 @@ function Decrypt-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUFCa2lO29ud61S/Qb+/Nuny5l
-# 1sWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0O4xTuw+t5lXs5UkcPXhTFme
+# +P+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -747,11 +755,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ41Gzk6rrF
-# cx5PGyi2ubpcSgmPQDANBgkqhkiG9w0BAQEFAASCAQBGPSUDjUTBtAAuJAHTNngd
-# 0chIrsV3i6ecj1uddJVtuLPT1QsY0MnWRYxrITtbOjptIl67kVAfPbTaaZHF6Ozg
-# 44CI/rx2DhMSA5ewKoEIGeUnNwf3AEaDgy/4SMQCsPqVbqAHB0W+MTnVKp0Tvbc7
-# 81X3oAy9xc3A0nFdu+2T8DwXDAL94Z2hrPv7G2/p/6jYaPVVOVPJcl4OK7nExqct
-# 0MoW4axvj8HZWTVhcUFoXDIkWmkOgMuHASYbMHlpJAYOF8h67O4cYjkSRwIJDTRm
-# XAZu9h10xq+lkSQlyUtXyVuNkkafjr/gV8fOMan9swDNrbI/Mhvsqo2O6c6t0IgB
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTun/4cFWqi
+# WjRabsG1giwSTwGuljANBgkqhkiG9w0BAQEFAASCAQBxHIKX4enNKUc5++Ii+PJQ
+# 4C500IlKJOvtH1PEeZ84/yR3pq3+ZI+e4+H8WRTD3d7TuWq6BHrlCtHqsj53qlui
+# MU00peIDmN43oQgmf5b3PCRGF685TKvmKue1EJW6ujUDKvnqhZvVq5xlxiuH8g3R
+# Phfmi9GBFm4zp4irz/SwqFRgz/qig6pgI5YrFXVubW4UehMsygE4+vDWI8bW4Cuq
+# QBoM+ke0nKj9g6hxpEj0SoUQWb/MhGAYB8sNeJB4fz/ufy/7KCv7ERx+eqi/uKxB
+# FfzvIZYZXUFZ70/EzFNUTJxjCXLul1ofV3+Z/D5KZmGseV8ST5D4KA2IJkTe33jj
 # SIG # End signature block
