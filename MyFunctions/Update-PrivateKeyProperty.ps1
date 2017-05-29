@@ -81,7 +81,10 @@ function Update-PrivateKeyProperty {
         [securestring]$CertPwd,
 
         [Parameter(Mandatory=$False)]
-        [bool]$CleanupOpenSSLOutputs = $true
+        [bool]$CleanupOpenSSLOutputs = $true,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$DownloadAndAddOpenSSLToPath
 
     )
 
@@ -103,7 +106,10 @@ function Update-PrivateKeyProperty {
             [bool]$StripPrivateKeyPwd = $true,
 
             [Parameter(Mandatory=$False)]
-            [string]$OutputDirectory # If this parameter is left blank, all output files will be in the same directory as the original .pfx
+            [string]$OutputDirectory, # If this parameter is left blank, all output files will be in the same directory as the original .pfx
+
+            [Parameter(Mandatory=$False)]
+            [switch]$DownloadAndAddOpenSSLToPath
         )
 
         ##### REGION Helper Functions and Libraries #####
@@ -143,20 +149,28 @@ function Update-PrivateKeyProperty {
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
         # Check for Win32 or Win64 OpenSSL Binary
         if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
-            Write-Host "Downloading openssl.exe from https://indy.fulgan.com/SSL/..."
-            $LatestWin64OpenSSLVer = $($($(Invoke-WebRequest -Uri https://indy.fulgan.com/SSL/).Links | Where-Object {$_.href -like "*[a-z]-x64*"}).href | Sort-Object)[-1]
-            Invoke-WebRequest -Uri "https://indy.fulgan.com/SSL/$LatestWin64OpenSSLVer" -OutFile "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer"
-            $SSLDownloadUnzipDir = $(Get-ChildItem "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer").BaseName
-            if (! $(Test-Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir")) {
-                New-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" -ItemType Directory
-            }
-            Unzip-File -PathToZip "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer" -TargetDir "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
-            # Add OpenSSL to $env:Path
-            if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+            if ($DownloadAndAddOpenSSLToPath) {
+                Write-Host "Downloading openssl.exe from https://indy.fulgan.com/SSL/..."
+                $LatestWin64OpenSSLVer = $($($(Invoke-WebRequest -Uri https://indy.fulgan.com/SSL/).Links | Where-Object {$_.href -like "*[a-z]-x64*"}).href | Sort-Object)[-1]
+                Invoke-WebRequest -Uri "https://indy.fulgan.com/SSL/$LatestWin64OpenSSLVer" -OutFile "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer"
+                $SSLDownloadUnzipDir = $(Get-ChildItem "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer").BaseName
+                if (! $(Test-Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir")) {
+                    New-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" -ItemType Directory
+                }
+                Unzip-File -PathToZip "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer" -TargetDir "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+                # Add OpenSSL to $env:Path
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+                }
+                else {
+                    $env:Path = "$env:Path;$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+                }
             }
             else {
-                $env:Path = "$env:Path;$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+                Write-Verbose "The Extract-PFXCerts function requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+                Write-Error "The Extract-PFXCerts function requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+                $global:FunctionResult = "1"
+                return
             }
         }
 
@@ -218,6 +232,8 @@ function Update-PrivateKeyProperty {
                 Write-Warning "openssl.exe reports that -PFXFilePwd is incorrect. However, it may be that at this stage in the process, it is not protected with a password. Trying without password..."
                 throw
             }
+            
+            #& openssl.exe pkcs12 -in "$PFXFilePath" -nocerts -out "$OutputDirectory\$ProtectedPrivateKeyOut" -nodes -password pass:$PwdForPFXOpenSSL 2>&1 | Out-Null
         }
         catch {
             try {
@@ -392,6 +408,15 @@ function Update-PrivateKeyProperty {
         return
     }
 
+    if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
+        if (!$DownloadAndAddOpenSSLToPath) {
+            Write-Verbose "The Helper Function Extract-PFXCerts requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+            Write-Error "The Helper Function Extract-PFXCerts requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
     $CertName = $($($CertObject.Subject | Select-String -Pattern "^CN=[\w]+").Matches.Value -replace ",","") -replace "CN=",""
     try {
         $pfxbytes = $CertObject.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx)
@@ -423,7 +448,7 @@ function Update-PrivateKeyProperty {
     }
 
     # NOTE: If openssl.exe isn't already available, the Extract-PFXCerts function downloads it and adds it to $env:Path
-    $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -PFXFilePwd $CertPwd -OutputDirectory "$TempOutputDirectory"
+    $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -PFXFilePwd $CertPwd -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -463,11 +488,24 @@ function Update-PrivateKeyProperty {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOcbz0fWZ4Qeb82ko5CinQjeU
-# YZSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIZ41t7IMqt1sRx+vEZptr0/5
+# R0agggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -522,11 +560,11 @@ function Update-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSSlW647wny
-# YDIbuFvVjr5QkmqY/jANBgkqhkiG9w0BAQEFAASCAQBTuu6YSWamHUf0wfKrlCB6
-# 9Vwj6nSD5wolLCzq8dzAV+NRxg8tuRbIBtJWhk0NGEj2pVLrJlb4Q9jRQzehBSer
-# 1Wl4/g+inOxVZNco+j59C0mqdDxmLnGTEeqAo673J7Y+wl4zwq6TgmLSK8KtNkzo
-# F/GUEiyqv8A8FYC9ESYwJAZjvfeDS7/fVgAoABNU+nZTLXrsVI92T8cPs5Sj8yil
-# EsCug/wfe0KAxkd52F/sxVtYpj39SctzZHU7OOyFCdp2lE/nsgordPaPEWxw8IqU
-# Xb6rAEInvdJpQa991QTz4uh4+CsENrAHLKl40kWWmqWDJty2v3fnmrYCDQGh1CP5
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRe2D5OcK/r
+# x6vyJycqU4NoWLCtkDANBgkqhkiG9w0BAQEFAASCAQAUEy1mfkWxWs6VJg0cVcds
+# SFOEZP6TTVUmCpV6BpeI8KoO32NroR4STB66KrH1CK9tSDFRsn87KS81zbTxnxlT
+# 46JfOOdYNJJtyONw/2YwHLDfEdeFnJqdjqH7KLz5meM5V5QVXDScrSsMmLxI2Iil
+# a+xshCR5hbSKt2uMnHy+2GNdJeCBLMg2sVO4EpXFpluQ2f/cmS0MI0ouPjCLfKb2
+# XhC6mlJQU+hXCIemtyMPOqsWAm7v9Q2PZVVslLsvFSv6CYvG5I5Yb0CV6p9Zt/b3
+# Ie2e48r/qCnZLxpJ3ipjSeP7F6k48Y/X/p8rG2LAGlJdNVNlz2aWaWIV3N8//EZ2
 # SIG # End signature block

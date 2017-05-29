@@ -43,7 +43,10 @@ function Extract-PFXCerts {
         [bool]$StripPrivateKeyPwd = $true,
 
         [Parameter(Mandatory=$False)]
-        [string]$OutputDirectory # If this parameter is left blank, all output files will be in the same directory as the original .pfx
+        [string]$OutputDirectory, # If this parameter is left blank, all output files will be in the same directory as the original .pfx
+
+        [Parameter(Mandatory=$False)]
+        [switch]$DownloadAndAddOpenSSLToPath
     )
 
     ##### REGION Helper Functions and Libraries #####
@@ -83,20 +86,28 @@ function Extract-PFXCerts {
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     # Check for Win32 or Win64 OpenSSL Binary
     if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
-        Write-Host "Downloading openssl.exe from https://indy.fulgan.com/SSL/..."
-        $LatestWin64OpenSSLVer = $($($(Invoke-WebRequest -Uri https://indy.fulgan.com/SSL/).Links | Where-Object {$_.href -like "*[a-z]-x64*"}).href | Sort-Object)[-1]
-        Invoke-WebRequest -Uri "https://indy.fulgan.com/SSL/$LatestWin64OpenSSLVer" -OutFile "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer"
-        $SSLDownloadUnzipDir = $(Get-ChildItem "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer").BaseName
-        if (! $(Test-Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir")) {
-            New-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" -ItemType Directory
-        }
-        Unzip-File -PathToZip "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer" -TargetDir "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
-        # Add OpenSSL to $env:Path
-        if ($env:Path[-1] -eq ";") {
-            $env:Path = "$env:Path$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+        if ($DownloadAndAddOpenSSLToPath) {
+            Write-Host "Downloading openssl.exe from https://indy.fulgan.com/SSL/..."
+            $LatestWin64OpenSSLVer = $($($(Invoke-WebRequest -Uri https://indy.fulgan.com/SSL/).Links | Where-Object {$_.href -like "*[a-z]-x64*"}).href | Sort-Object)[-1]
+            Invoke-WebRequest -Uri "https://indy.fulgan.com/SSL/$LatestWin64OpenSSLVer" -OutFile "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer"
+            $SSLDownloadUnzipDir = $(Get-ChildItem "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer").BaseName
+            if (! $(Test-Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir")) {
+                New-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" -ItemType Directory
+            }
+            Unzip-File -PathToZip "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer" -TargetDir "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+            # Add OpenSSL to $env:Path
+            if ($env:Path[-1] -eq ";") {
+                $env:Path = "$env:Path$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+            }
+            else {
+                $env:Path = "$env:Path;$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+            }
         }
         else {
-            $env:Path = "$env:Path;$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
+            Write-Verbose "The Extract-PFXCerts function requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+            Write-Error "The Extract-PFXCerts function requires openssl.exe. Openssl.exe cannot be found on this machine. Use the -DownloadAndAddOpenSSLToPath parameter to download openssl.exe and add it to `$env:Path. NOTE: Openssl.exe does NOT require installation. Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
 
@@ -329,11 +340,15 @@ function Extract-PFXCerts {
 
 
 
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAaj1+wgPXS5naol2hq615N4P
-# YCKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQXyTSHEFVGTkNf7lTmWvVBVr
+# tqugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -388,11 +403,11 @@ function Extract-PFXCerts {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTGu7m4tEvY
-# PMrMKJp+Oia3P2lJXDANBgkqhkiG9w0BAQEFAASCAQByKmUOtpAcdQPcykdGzx7A
-# wsiiGNgV+l8217lx4izzO1rw9fj1EigY2NErZPgKV+Jx6KjCDvhl6B6KNKKVYgUi
-# yG1Sq2eyQIC3qX+8UkUoULB2ghfEHYweJeweFrbJFql6DEPZaXbQYSGJ1NYeNAN8
-# V+vaBOr2GBtenmUfZ8kglQ8R5iETY6FnfOCVrOX4SKfxIuDBQW8HGBaqtxLgAXQf
-# m5yHCQYjIbIMR2bBO5VcgWIAQSxkz0+aff+sB14POkUihSlAzwPB8n26zTqvyRf6
-# MESXvFPcSyw3lIz8re9QYzXJkc97BoXFMtd6bIBr6ltZ+9L5TXy+54OKNkY3/7RY
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTP0qhdQP1G
+# SND6rlZI3rxw8MJesjANBgkqhkiG9w0BAQEFAASCAQCGp3fSAG1CiTzjppMnZPMH
+# lIugjsIVnIH0DDN/KGGrldOFnStDS1Mc87XJ1UUhXq/MHIMJMh2G/ecfLt62joL8
+# ElROYlm9/getcMjbZ17RnhKxGDGD4qckIpH60Fdmk2yUzQ5jpjuHtRZ6905F0LSw
+# nH2wibNC4VsSqtnhXlXzfYvGF41pN6Yyr4KxMhZW8mUMobLcuBSxYd33bhkUz559
+# HOtzwhw99v9TrYh1uZZNlzRgDmGIjwWBVL0XUu6AZXxvPnoojHWevwnW8MTocwwk
+# kUX3M0J0uFkC4/e0ZSoJ6Kab/VTNKzhbqR/2erapPJvFB6khEOrh/emxSdnbF3e7
 # SIG # End signature block
