@@ -1,10 +1,72 @@
-# IMPORTANT NOTE: If you are getting $CertObject from a .pfx file, DO NOT use the Get-PFXCertificate cmdlet
-# Instead, use the following:
-#    $CertPwd = ConvertTo-SecureString -String 'UnsecurePwd321!' -Force -AsPlainText
-#    $TestCert7 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-# If you are getting it from the Certificate Store, either of the following should be fine
-#    $TestCert7 = Get-ChildItem Cert:\LocalMachine\My\<Thumbprint>
-#    $TestCert7 = Get-ChildItem Cert:\CurrentUser\My\<Thumbprint>
+<#
+.SYNOPSIS
+    If a System.Security.Cryptography.X509Certificates.X509Certificate2 object has properties...
+        HasPrivateKey        : True
+        PrivateKey           :
+    ...and you eould like the PrivateKey property filled in, use this function.
+
+.DESCRIPTION
+    See Synopsis
+
+.NOTES
+    IMPORTANT NOTES Regarding -CertObject Parameter:
+    If you are getting the value for the -CertObject parameter from an already existing .pfx file (as opposed to the Cert Store),
+    *DO NOT* use the Get-PFXCertificate cmdlet. The cmdlet does something strange that causes a misleading/incorrect error if the
+    private key in the .pfx is password protected.
+
+    Instead, use the following:
+        $CertPwd = ConvertTo-SecureString -String 'RaNDompaSSwd123' -Force -AsPlainText
+        $CertObj = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+    
+    If you are getting the value for the -CertObject parameter from the Certificate Store, either of the following should be fine
+        $CertObj = Get-ChildItem Cert:\LocalMachine\My\<Thumbprint>
+        $CertObj = Get-ChildItem Cert:\CurrentUser\My\<Thumbprint>
+
+    WARNING: This function defaults to writing the unprotected private key to its own file in -TempOutputDirectory. You can
+    change this default behavior by setting the default value for the parameter [bool]$StripPrivateKeyPwd to $false in the
+    helper function Extract-PfxCerts. (TODO: Make this easier to change)
+
+.PARAMETER CertObject
+    Mandatory.
+
+    Must be a System.Security.Cryptography.X509Certificates.X509Certificate2 object.
+
+.PARAMETER TempOutputDirectory
+    Mandatory.
+
+    Must be a full path to a directory.
+
+.PARAMETER CertPwd
+    Optional.
+
+    Must be a System.Security.SecureString. This parameter is Mandatory if the private key in a .pfx is password protected.
+
+.PARAMETER CleanupOpenSSLOutputs
+    Optional.
+
+    Must be Boolean.
+
+    During this function, openssl.exe is used to extract all public certs and private key from the -CertObject. Each of these
+    certs and the key are written to separate files in -TempOutputDirectory.
+
+.EXAMPLE
+    PS C:\Users\zeroadmin> . C:\Scripts\powershell\Update-PrivateKeyProperty.ps1
+    PS C:\Users\zeroadmin> $CertPwd = Read-Host -Prompt "Please enter the Certificate's Private Key password" -AsSecureString
+    Please enter the Certificate's Private Key password: ***************
+    PS C:\Users\zeroadmin> $CertObj = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+    
+    PS C:\Users\zeroadmin> Update-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
+
+.EXAMPLE
+    PS C:\Users\zeroadmin> . C:\Scripts\powershell\Update-PrivateKeyProperty.ps1
+    PS C:\Users\zeroadmin> $CertPwd = Read-Host -Prompt "Please enter the Certificate's Private Key password" -AsSecureString
+    Please enter the Certificate's Private Key password: ***************
+    PS C:\Users\zeroadmin> $CertObj = Get-ChildItem "Cert:\LocalMachine\My\5359DDD9CB88873DF86617EC28FAFADA17112AE6"
+
+    PS C:\Users\zeroadmin> Update-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
+#>
+
+
 
 function Update-PrivateKeyProperty {
     [CmdletBinding()]
@@ -404,12 +466,11 @@ function Update-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmGsR0QuvyWv6vpyJA3Ikd82w
-# qgagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUrR76l6bO64yenjp3UXqfPUe1
+# Tq2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -464,11 +525,11 @@ function Update-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRrmqd73YrP
-# /rP0WWgsFevPuNX2qjANBgkqhkiG9w0BAQEFAASCAQBaMNHFUZQYh+c4Dcm53Dkd
-# dfoOWSyY9IgJug7xdKgsN0UAHrfUp4V9u6O+/5Lj/rJgaIFVx+9g2HWKOG+O2C1c
-# ySea2U9yqSVPdetB9fGt/XBKWHqHnZMNq2wBGcWS3gD1xSx6Slnk8gqiBahuBnh1
-# HEKa8/mQyBGPYXhlpEPIJQLGYyEzoMIC1okbg7a/UX8mBdhm4/LaTHyFc9s3IvfS
-# xg3d7DPu82UPd3RUeE9vs7o2AtTg6+2dglrEGcIWG3wZnNPyEaZ5NoHnMdBWSxFf
-# 5U9iW0AlKv0oqZqq4r09FgEIw+MAeORpg5S5yE3u15FRM98HhqvhSfVthkZ4loxW
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMveZkfE+T
+# ReF6Ibw+IaK1QivIhTANBgkqhkiG9w0BAQEFAASCAQAco31GQkqxVlE4TWdTIxxN
+# L+22WyvewBIR0eBS4dry1+danTMuvY/5LzEHHqmkCGTpV7Rjihx/VBt0XnhVUkhb
+# s7zgSxXF/PbHGtIQr/kWLy4lGBPlebjvkwu80fsRpFAaBdmGIXCRKDUh5t4P5GRx
+# 9lXmlNCFvF25Uuh9ceFyXzifra/rEbcHyn2ZkPXf6WkFVBS1LT2dTi6lGJ7tqCbc
+# 0LaSeis6qbiagb+rqPmr82fKRzA+JwF93B3Ng7aSaBCYdDqHVDVlk8v1rEHc+ENG
+# aE7aGBtG7u46ecTsDWXRZtQzVruhOR+PhjMlAH/7yNjTk9Chc63k//bNdfQHAkoW
 # SIG # End signature block
