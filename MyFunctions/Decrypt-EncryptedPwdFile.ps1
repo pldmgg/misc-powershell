@@ -662,11 +662,31 @@ function Decrypt-EncryptedPwdFile {
     ##### BEGIN Main Body #####
 
     if ($Cert2.PrivateKey -eq $null -and $Cert2.HasPrivateKey -eq $true) {
-        if ($CertPwd) {
-            $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd -DownloadAndAddOpenSSLToPath
+        if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
+            Write-Warning "Windows reports that the certificate being used for decryption has a Private Key (which is necessary for decryption), but the Private Key information is not readily available."
+            $UseOpenSSLQuery = Read-Host Prompt "Do you want to download OpenSSL to $HOME\Downloads and add it to your `$env:Path? [Yes\No]"
+            if ($UseOpenSSLQuery -match "Y|y|Yes|yes") {
+                if ($CertPwd) {
+                    $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd -DownloadAndAddOpenSSLToPath
+                }
+                else {
+                    $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -DownloadAndAddOpenSSLToPath
+                }
+            }
+            else {
+                Write-Verbose "Unable to get Private Key Info and therefore unable to decrypt $EncryptedPwdFileInput! Halting!"
+                Write-Error "Unable to get Private Key Info and therefore unable to decrypt $EncryptedPwdFileInput! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
         }
         else {
-            $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -DownloadAndAddOpenSSLToPath
+            if ($CertPwd) {
+                $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd
+            }
+            else {
+                $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent)
+            }
         }
     }
     if ($Cert2.PrivateKey -eq $null -and $Cert2.HasPrivateKey -eq $false) {
@@ -699,8 +719,8 @@ function Decrypt-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0O4xTuw+t5lXs5UkcPXhTFme
-# +P+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUK0RiUxI2Dz/EgtFOy2Ymvt0S
+# GlygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -755,11 +775,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTun/4cFWqi
-# WjRabsG1giwSTwGuljANBgkqhkiG9w0BAQEFAASCAQBxHIKX4enNKUc5++Ii+PJQ
-# 4C500IlKJOvtH1PEeZ84/yR3pq3+ZI+e4+H8WRTD3d7TuWq6BHrlCtHqsj53qlui
-# MU00peIDmN43oQgmf5b3PCRGF685TKvmKue1EJW6ujUDKvnqhZvVq5xlxiuH8g3R
-# Phfmi9GBFm4zp4irz/SwqFRgz/qig6pgI5YrFXVubW4UehMsygE4+vDWI8bW4Cuq
-# QBoM+ke0nKj9g6hxpEj0SoUQWb/MhGAYB8sNeJB4fz/ufy/7KCv7ERx+eqi/uKxB
-# FfzvIZYZXUFZ70/EzFNUTJxjCXLul1ofV3+Z/D5KZmGseV8ST5D4KA2IJkTe33jj
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQVaKtRNP1L
+# S+1mKn+GOijUWhSw9DANBgkqhkiG9w0BAQEFAASCAQA1WE0mvRpCb7xT/XS3pVKW
+# 1YSdRw2jG4WrnKvtGPjnxTZ8FO6gMQ98+psYM4bPjgW6fE3q/ueeWxQATfgR37+s
+# 6APZEKpOCI1AZyhdJFNk/d96qaGgoZlbKfiggksyFZlqMvHcGFPGcgCQtgKcwSvG
+# czLf4JyFG5HxDNT/jKQ5X+fY6lCecKaV06q9X+mPAvAreQ109DIfLhZPqJI8EtSO
+# aLIBrGxRVzxSXLQZF20EFkky2QSZ3VPOjUCkN8B38OX+ssQmdEzJqKmxEilH7ti1
+# E7JEA/CEH8O+P8Ox8dE/sdx4P8JUa1nxHYaBjn+38hHXulfu/TakltQ+0DUc5qAy
 # SIG # End signature block
