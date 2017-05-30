@@ -3,7 +3,8 @@
     If a System.Security.Cryptography.X509Certificates.X509Certificate2 object has properties...
         HasPrivateKey        : True
         PrivateKey           :
-    ...and you would like the PrivateKey property filled in, use this function.
+    ...and you would like to get the System.Security.Cryptography.RSACryptoServiceProvider object that should be in
+    the PrivateKey property, use this function.
 
 .DESCRIPTION
     See Synopsis
@@ -564,12 +565,11 @@ function Get-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1CPgji4f5dk5/lvBZDArnhIS
-# n1ugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsE5mGUcyxRwebMJ0VaXCo/fs
+# 052gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -624,11 +624,11 @@ function Get-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS0PnXOcd//
-# KhPijmykcvUbgAQFvjANBgkqhkiG9w0BAQEFAASCAQCI4WGRkvikaSSyK/o9IfQ2
-# qRSmnAer+KqM6RDljRR8BAyUGytz3vXWYTIkVe00lG8JNJbUBsFpdb+kXNeNqMwV
-# NagyXCeSpEDq4XEX5Hr9vvj0XkeKl3iSXT0oPXjHgXsuOhJeFj/Q6r5+5JyhkuZt
-# zV+rS7BSulNhXBpAhwK+vO0pj1I/3DJynFmg8qkyn1ARuI+C7AY2f2qsr7+tFahQ
-# TgHGLvUF7x066/rbqoF1X4YdRjbYKZxqUNKw+LhNVvVh7mT68YaysW74na6hIGCA
-# 7loXtl9CG8Q1niJQWP/XRQ/gjS3BlAP40B4wJTlZRyzbIcEwELjISnZzvlyqBKuu
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSZ4yYIyS8i
+# +pUnfBiKF1ES3KtHOTANBgkqhkiG9w0BAQEFAASCAQBOwwHePfn+H1smJRUyGz95
+# FKWeAC8/hEeBGFZfmArFANOzAC64OTK+mU3SoR4PvAnraAGfdHP+xTOgXFE6jxYY
+# l73lmkyxkC2jBeIKT7TIuUOrLc4ZyURmY6DRMRUmn/w5/JVo10ZzviPweBVu6RSK
+# zbRmHUM7grhp7Qvdups+Tejvm4bZlCFe7TI+xtBFgw/dsL6lRtSE9pkA3fH11yuC
+# 4Zydfq9a6IxCwZcBbjNkJE0dR8iVBLUY7jBbvbUIgCg7/vyeJjjuGf1wJlTN9e80
+# DvpFl3kPQLoynziCpXlrPU/sc+KAG/F69eJhb/KZLAg/S53QM7eJ2VRk2O0OpjoX
 # SIG # End signature block
