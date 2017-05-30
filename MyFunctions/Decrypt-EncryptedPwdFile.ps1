@@ -255,6 +255,8 @@ function Decrypt-EncryptedPwdFile {
         )
         
 
+        # Setup $ArrayOfPubCertPSObjects for PSCustomObject Collection
+        $ArrayOfPubCertPSObjects = @()
         # The .pfx File Also Contains ALL Public Certificates in Chain 
         # The below extracts ALL Public Certificates in Chain
         try {
@@ -308,6 +310,16 @@ function Decrypt-EncryptedPwdFile {
             $global:FunctionResult = "1"
             return
         }
+        New-Variable -Name "CertObj$PFXFileNameSansExt" -Scope Script -Value $(
+            [pscustomobject][ordered]@{
+                CertName                = "$PFXFileNameSansExt_AllPublicKCertsInChain"
+                AllCertInfo             = Get-Content "$OutputDirectory\$AllPublicKeysInChainOut"
+                FileLocation            = "$OutputDirectory\$AllPublicKeysInChainOut"
+            }
+        ) -Force
+
+        $ArrayOfPubCertPSObjects +=, $(Get-Variable -Name "CertObj$PFXFileNameSansExt" -ValueOnly)
+
 
         # Parse the Public Certificate Chain File and and Write Each Public Certificate to a Separate File
         # These files should have the EXACT SAME CONTENT as the .cer counterparts
@@ -319,7 +331,6 @@ function Decrypt-EncryptedPwdFile {
             }
         }
         # Setup PSObject for Certs with CertName and CertValue
-        $ArrayOfPubCertPSObjects = @()
         foreach ($obj1 in $PublicKeySansChainPrep3) {
             $CertNamePrep = $($obj1).Split("`n") | foreach {if ($_ | Select-String "subject") {$_}}
             $CertName = $($CertNamePrep | Select-String "CN=([\w]|[\W]){1,1000}$").Matches.Value -replace "CN=",""
@@ -719,8 +730,8 @@ function Decrypt-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUK0RiUxI2Dz/EgtFOy2Ymvt0S
-# GlygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7kolOoTU6cFAXBzpqGj1mxa6
+# ttigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -775,11 +786,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQVaKtRNP1L
-# S+1mKn+GOijUWhSw9DANBgkqhkiG9w0BAQEFAASCAQA1WE0mvRpCb7xT/XS3pVKW
-# 1YSdRw2jG4WrnKvtGPjnxTZ8FO6gMQ98+psYM4bPjgW6fE3q/ueeWxQATfgR37+s
-# 6APZEKpOCI1AZyhdJFNk/d96qaGgoZlbKfiggksyFZlqMvHcGFPGcgCQtgKcwSvG
-# czLf4JyFG5HxDNT/jKQ5X+fY6lCecKaV06q9X+mPAvAreQ109DIfLhZPqJI8EtSO
-# aLIBrGxRVzxSXLQZF20EFkky2QSZ3VPOjUCkN8B38OX+ssQmdEzJqKmxEilH7ti1
-# E7JEA/CEH8O+P8Ox8dE/sdx4P8JUa1nxHYaBjn+38hHXulfu/TakltQ+0DUc5qAy
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRH8yLIu1Gy
+# NHSgRlwNRO0qXZGrlzANBgkqhkiG9w0BAQEFAASCAQBxZEmosvmlFe6EADfXM/rZ
+# FICEoR1vMPxtyKFdeMA8CRTMB6uljijEUxjbCo/1tZ4eZrbzwusIahn7FScD4fXw
+# ykW9ZEbnu/9KuXUVurZiCpjmCzW4b6FMCkPnDhJQ7rqI33Was0MbPcKfakmLXOAV
+# PB8rfjtVSuDoNy3q/0ViyWmtth5Ap/sJsu8fDP+rVLNyXx6xOsM2AAXh4RgmNyNs
+# iXsqnGtkI6Q00YRZdS0bvbDUaSBtKQc/IbFD+XmA9lp5lJUAtBCvTbzQhIa68SpF
+# YEVrqtu5ljzMlVf/f+XSUDKuoY+JvSHtwvBCbcNWd44GvX+YXOrOuJ09ZRYbjqyf
 # SIG # End signature block

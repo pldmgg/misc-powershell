@@ -231,6 +231,8 @@ function Extract-PFXCerts {
     )
     
 
+    # Setup $ArrayOfPubCertPSObjects for PSCustomObject Collection
+    $ArrayOfPubCertPSObjects = @()
     # The .pfx File Also Contains ALL Public Certificates in Chain 
     # The below extracts ALL Public Certificates in Chain
     try {
@@ -284,6 +286,16 @@ function Extract-PFXCerts {
         $global:FunctionResult = "1"
         return
     }
+    New-Variable -Name "CertObj$PFXFileNameSansExt" -Scope Script -Value $(
+        [pscustomobject][ordered]@{
+            CertName                = "$PFXFileNameSansExt_AllPublicKCertsInChain"
+            AllCertInfo             = Get-Content "$OutputDirectory\$AllPublicKeysInChainOut"
+            FileLocation            = "$OutputDirectory\$AllPublicKeysInChainOut"
+        }
+    ) -Force
+
+    $ArrayOfPubCertPSObjects +=, $(Get-Variable -Name "CertObj$PFXFileNameSansExt" -ValueOnly)
+
 
     # Parse the Public Certificate Chain File and and Write Each Public Certificate to a Separate File
     # These files should have the EXACT SAME CONTENT as the .cer counterparts
@@ -295,7 +307,6 @@ function Extract-PFXCerts {
         }
     }
     # Setup PSObject for Certs with CertName and CertValue
-    $ArrayOfPubCertPSObjects = @()
     foreach ($obj1 in $PublicKeySansChainPrep3) {
         $CertNamePrep = $($obj1).Split("`n") | foreach {if ($_ | Select-String "subject") {$_}}
         $CertName = $($CertNamePrep | Select-String "CN=([\w]|[\W]){1,1000}$").Matches.Value -replace "CN=",""
@@ -402,8 +413,8 @@ function Extract-PFXCerts {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoEOtr4YRYLqoqfR9U7CQ7wfx
-# pbWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIF0lfGPNVXUGwHMX51cdVKi9
+# 3YygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -458,11 +469,11 @@ function Extract-PFXCerts {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSQzIIuQe2E
-# Yu8imiOLg/Knhu32dDANBgkqhkiG9w0BAQEFAASCAQBb4cfGx6Ij8cRdXEZxzVSU
-# Ldgc3V/tDHcxIRdZVc3gZReuCj2YFCHKNKR5QZl1ndbLoxxNBgaUZWqRJh4a0+El
-# ngbElV6/Q4aG8Yx1Y6rCbEyMvvzZ2kdb5AMpxcFfJo9903+HQLcRA34Zm1/ebqKN
-# rgxUUgmowDSb3mBoFxSeEEd8sd1zn0xd0EPPQ/c4svkazKUBLpXR7Ce5fK/ngCgg
-# bHIpGJihuSnmDOWtC3sklUcLX1gzuHCahdmgja7X4WVe/XBxJjp3pF9hXIoqvCbQ
-# cyWEDDuQlCVJkeMUVrMWD6WaiLmbvwYnhndwOQHGY2kfjyZyljZzdTI/jERafkOS
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ9feJOH7eS
+# D20wmxToDmxqBMwPsTANBgkqhkiG9w0BAQEFAASCAQALRFTRpjHeCxE0SS7zVr5U
+# xtEpctOGXVObIuTOH2m0noFoQqb5nh3IvASoxLfcorqM1MM3cmfVsa8N75SvlX6W
+# wZmXXMvwVc5MpZ5jP32RZaEOOVqqJLOo/r4FxUPZpineub6gck0oBprFSJ3WHhFK
+# xqO2oiA+DGvQQ9Wn21tJRYzttOalJr5FlSGA3wy+zduQI8ADW+q6XIV9unukXCZ7
+# dkDzWszBkA+2NqWjC36ts2BnjdS3LhhcyEyM/3zkeJgmEvYhGFToQx48HaiUdh8J
+# W89YT80iqMiG3/0eM8e4I0WI+zkOaohau4BH/Wy65J1aefwFHoBR+RlxtgjuWpYA
 # SIG # End signature block

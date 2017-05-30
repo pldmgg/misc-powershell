@@ -294,6 +294,8 @@ function Update-PrivateKeyProperty {
         )
         
 
+        # Setup $ArrayOfPubCertPSObjects for PSCustomObject Collection
+        $ArrayOfPubCertPSObjects = @()
         # The .pfx File Also Contains ALL Public Certificates in Chain 
         # The below extracts ALL Public Certificates in Chain
         try {
@@ -347,6 +349,16 @@ function Update-PrivateKeyProperty {
             $global:FunctionResult = "1"
             return
         }
+        New-Variable -Name "CertObj$PFXFileNameSansExt" -Scope Script -Value $(
+            [pscustomobject][ordered]@{
+                CertName                = "$PFXFileNameSansExt_AllPublicKCertsInChain"
+                AllCertInfo             = Get-Content "$OutputDirectory\$AllPublicKeysInChainOut"
+                FileLocation            = "$OutputDirectory\$AllPublicKeysInChainOut"
+            }
+        ) -Force
+
+        $ArrayOfPubCertPSObjects +=, $(Get-Variable -Name "CertObj$PFXFileNameSansExt" -ValueOnly)
+
 
         # Parse the Public Certificate Chain File and and Write Each Public Certificate to a Separate File
         # These files should have the EXACT SAME CONTENT as the .cer counterparts
@@ -358,7 +370,6 @@ function Update-PrivateKeyProperty {
             }
         }
         # Setup PSObject for Certs with CertName and CertValue
-        $ArrayOfPubCertPSObjects = @()
         foreach ($obj1 in $PublicKeySansChainPrep3) {
             $CertNamePrep = $($obj1).Split("`n") | foreach {if ($_ | Select-String "subject") {$_}}
             $CertName = $($CertNamePrep | Select-String "CN=([\w]|[\W]){1,1000}$").Matches.Value -replace "CN=",""
@@ -555,12 +566,11 @@ function Update-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUzlwbAyrF7+bf2fiTUn9gWHlK
-# 8yKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoYOYwc/bLhwfkYQ2pLj1wpzg
+# wUygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -615,11 +625,11 @@ function Update-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRF8FjLEkVf
-# /DydkNy01o4UA1tOEDANBgkqhkiG9w0BAQEFAASCAQCYP7vLcQkQoAL1JKxWeKjp
-# AoZcFsXCjjzu0PAVrwnq2VBBe8qEJKOEIO/6iF1PCWgb1xqlB36EDG/5t03lnSwK
-# d1O8yJtS2KUebfYZppOWzoiirUI80jq24CODE7BTeQT2AY2NbYKTekNDg+1ApRCU
-# i9B3L0YrOOtejmc8vx4H0Q8N4405NrvRWXvga7odDapkwzn3pPb8FH8TuEya3abL
-# JldkVPYyOiANmw+6Oqca1CmPCZmsZ2CpvaUa0HsrehilpQ5TBZ5G8gEu7LkPFOG8
-# ciKbBLPfKHIQqarXOb4LR/BKbAiK6rLqipJ8WkrcUCqGROGgfLG9ZoxrWaS+3NnK
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTe5Oga3aav
+# bC1UTxbLx+UXAX+74TANBgkqhkiG9w0BAQEFAASCAQAWAXWT8PPDUORaRigvZ1cX
+# yxgG/jWi4F76/2f0NkUDa4j38m45aWjGTYr5hICLSJNIuacBvS+2B+bmZOqNg9pT
+# xDd/vqiMAfMvUcQcKgNGX2RIeFvQwDkDRXwl4d2leWDk5DlKCKyhUt1C9uDIYdsg
+# RBRmowXAH3fMCM4UhfFQS1JRsuZ+twEUCefuxce9bicjzJU3ZJ/I5m8bMVCvmL//
+# TuSVbslwYAtC4zsFIudOVW6nyXP4HdJrjaPjuQBb/mRRpHH4RXWvqxFj9ujExAZH
+# Zl6FNpFscmSZH0L+KQHFyGC/S4RgG59dIHuTR0aY+l96wDcH354SWW+b57MkQk0P
 # SIG # End signature block
