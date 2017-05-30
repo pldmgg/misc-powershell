@@ -423,7 +423,7 @@ function Decrypt-EncryptedPwdFile {
 
     }
 
-    function Update-PrivateKeyProperty {
+    function Get-PrivateKeyProperty {
         [CmdletBinding()]
         Param( 
             [Parameter(Mandatory=$True)]
@@ -678,10 +678,10 @@ function Decrypt-EncryptedPwdFile {
             $UseOpenSSLQuery = Read-Host Prompt "Do you want to download OpenSSL to $HOME\Downloads and add it to your `$env:Path? [Yes\No]"
             if ($UseOpenSSLQuery -match "Y|y|Yes|yes") {
                 if ($CertPwd) {
-                    $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd -DownloadAndAddOpenSSLToPath
+                    $PrivateKeyInfo = Get-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd -DownloadAndAddOpenSSLToPath
                 }
                 else {
-                    $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -DownloadAndAddOpenSSLToPath
+                    $PrivateKeyInfo = Get-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -DownloadAndAddOpenSSLToPath
                 }
             }
             else {
@@ -693,10 +693,10 @@ function Decrypt-EncryptedPwdFile {
         }
         else {
             if ($CertPwd) {
-                $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd
+                $PrivateKeyInfo = Get-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd
             }
             else {
-                $PrivateKeyInfo = Update-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent)
+                $PrivateKeyInfo = Get-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent)
             }
         }
     }
@@ -730,8 +730,8 @@ function Decrypt-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7kolOoTU6cFAXBzpqGj1mxa6
-# ttigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1OVuiTIuY6ajFb25jcY30HDN
+# ST6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -786,11 +786,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRH8yLIu1Gy
-# NHSgRlwNRO0qXZGrlzANBgkqhkiG9w0BAQEFAASCAQBxZEmosvmlFe6EADfXM/rZ
-# FICEoR1vMPxtyKFdeMA8CRTMB6uljijEUxjbCo/1tZ4eZrbzwusIahn7FScD4fXw
-# ykW9ZEbnu/9KuXUVurZiCpjmCzW4b6FMCkPnDhJQ7rqI33Was0MbPcKfakmLXOAV
-# PB8rfjtVSuDoNy3q/0ViyWmtth5Ap/sJsu8fDP+rVLNyXx6xOsM2AAXh4RgmNyNs
-# iXsqnGtkI6Q00YRZdS0bvbDUaSBtKQc/IbFD+XmA9lp5lJUAtBCvTbzQhIa68SpF
-# YEVrqtu5ljzMlVf/f+XSUDKuoY+JvSHtwvBCbcNWd44GvX+YXOrOuJ09ZRYbjqyf
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQamBQt9xys
+# 33qiP2hh+EOQbEXVYTANBgkqhkiG9w0BAQEFAASCAQB8Mn+ypQoWmJ/aUx3seMVP
+# HfsMP1vpv46u1QiHxhVcrER6nRw4mEw8NDwlr5u8nkS3PcK38Vy8VbOMhI/XbkDq
+# 6snXh8qfn49HmvIa3vCIK0405YjaNsWBtTi/Urt8C03H6BsT2Zc2FJCWygf8QpD/
+# +hGtXNMtnDVB1a2AWglOMbENVrEj0yK7Hj6I1eRZcb8Qy43nQXhzGZLsE3zZ2WBv
+# IOQlS+Ds2xuPrnG8pUbu8A9I1Vimlj4KsxBuqscRwq2potXqmXR/KIlYPsxmuuC8
+# 5Rt+XAZYrepkvBehnkPUcPwqFFXgG8S/LL64uAK14nRCJeyJ19vh+MfeYNmirvaf
 # SIG # End signature block
