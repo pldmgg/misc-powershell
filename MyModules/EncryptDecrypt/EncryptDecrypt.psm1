@@ -1321,8 +1321,8 @@ function New-EncryptedFile {
         $ContentToEncrypt = Read-Host -Prompt "Please enter the string that you would like to encrypt and output to $FileToOutput"
     }
 
-    $RegexDirectoryPath = '^(([a-zA-Z]:\\)|(\\\\))((?![.<>:"/\\|?*]).)+((?![.<>:"/|?*]).)+$'
-    $RegexFilePath = '^(([a-zA-Z]:\\)|(\\\\))((?![.<>:"/\\|?*]).)+((?![<>:"/|?*]).)+((.*?\.)|(.*?\.[\w]+))+$'
+    $RegexDirectoryPath = '^(([a-zA-Z]:\\)|(\\\\))((?![.<>:"\/\\|?*]).)+((?![.<>:"\/|?*]).)+$'
+    $RegexFilePath = '^(([a-zA-Z]:\\)|(\\\\))((?![.<>:"\/\\|?*]).)+((?![<>:"\/|?*]).)+((.*?\.)|(.*?\.[\w]+))+$'
     if ($ContentType -eq "File" -and $ContentToEncrypt -notmatch $RegexFilePath) {
         Write-Verbose "The -ContentType specified was `"File`" but $ContentToEncrypt does not appear to be a valid file path. This is either because a full path was not provided of the file does not have a file extenstion. Please correct and try again. Halting!"
         Write-Error "The -ContentType specified was `"File`" but $ContentToEncrypt does not appear to be a valid file path. This is either because a full path was not provided of the file does not have a file extenstion. Please correct and try again. Halting!"
@@ -4048,12 +4048,11 @@ if(Win32.CertStrToName(X509_ASN_ENCODING, DN, CERT_X500_NAME_STR, IntPtr.Zero, n
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWodM6UnbiZ6+wb2I4sbioPnJ
-# EjmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9RbIUHggLJgdi+47Mw+M13Zw
+# YmSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4108,11 +4107,11 @@ if(Win32.CertStrToName(X509_ASN_ENCODING, DN, CERT_X500_NAME_STR, IntPtr.Zero, n
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTTKVtbFW7I
-# We4/c2kSjGOfjsF6XjANBgkqhkiG9w0BAQEFAASCAQBcY+gIzfmkP1oHFmlZOo3F
-# z7D5+H+lsrpWfNH5DxxjtccYfR/uNSCEsIAlv7EAHCeBa9fuQIdAbiv9NFl4AXFC
-# +k7EdToBSfMQ1khNx/o09D/XumKNu17uGxsziix77I68VdmnJ8dmh8pZ/12fdZTW
-# X0UTdxgXGVEUFguXs5H8NAof1Pw1PpG4pbJG5slQvcz3uMWpwfiSQ0aZ5x7yYgUR
-# J9/4yBEaIcy19A1i3tbDqfu6FL+k611u/g7qGGQYB00hDHqS4ySK1cqT5m4Cmq+y
-# ToJBpuVk0So4SdeSYd78FZZtAjdg6pKLrmy7t9bHm42M3/OYbC7AGeGYudQ9Tn42
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRdXI0iiHqK
+# bGj/6g92bK952Lv5ozANBgkqhkiG9w0BAQEFAASCAQBZTlzZT3KnYB8udeidA7G/
+# Oea7D9V24uqufzapzYw5bh6rHjVfb11SyGY2MqUUSvEcIMdEpZiL+yhBFCv6siY2
+# qk2+B9f2gWnRsEZ1apEj8Duqsp+YI1uGGsSOcX/wE8IgWk3k5AO57f7R+O+IZdtJ
+# wgMf9a2jezxxhiqlWgdsKEYAFEVYhydlOWjvMJYK8pZSvrZ7kdyqylyS6uuLPmTn
+# cz9Lg3ztEzg7EZZQ4KEM84Ayej8walRHJuxC2qrdier/3huy7j6xiVJiUVB8Um/f
+# 2uGEi+wpZq3SVcKcmaadpK+vh2E1F2mbQtHYP683dj9z0Gn6Nf1W58qrP260q+6X
 # SIG # End signature block
