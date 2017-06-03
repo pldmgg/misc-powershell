@@ -1,9 +1,11 @@
-﻿# Decrypt-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
+﻿# NOTE: This function has been superseded by the "Decrypt-EncryptedFile" funtion in the EncryptDecrypt Module
+
+# Decrypt-EncryptedPwdFile Function requires Get-PfxCertificateBetter function in order to pass the certificate's password in
 # Understanding Certificate Store and Locations of Public/Private Keys:
 # http://paulstovell.com/blog/x509certificate2
 
 
-function Decrypt-EncryptedPwdFile {
+function Decrypt-EncryptedFile {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
@@ -675,7 +677,7 @@ function Decrypt-EncryptedPwdFile {
     if ($Cert2.PrivateKey -eq $null -and $Cert2.HasPrivateKey -eq $true) {
         if (! $(Get-Command openssl.exe -ErrorAction SilentlyContinue)) {
             Write-Warning "Windows reports that the certificate being used for decryption has a Private Key (which is necessary for decryption), but the Private Key information is not readily available."
-            $UseOpenSSLQuery = Read-Host Prompt "Do you want to download OpenSSL to $HOME\Downloads and add it to your `$env:Path? [Yes\No]"
+            $UseOpenSSLQuery = Read-Host -Prompt "Do you want to download OpenSSL to $HOME\Downloads and add it to your `$env:Path? [Yes\No]"
             if ($UseOpenSSLQuery -match "Y|y|Yes|yes") {
                 if ($CertPwd) {
                     $PrivateKeyInfo = Get-PrivateKeyProperty -CertObject $Cert2 -TempOutputDirectory $($EncryptedPwdFileInput | Split-Path -Parent) -CertPwd $CertPwd -DownloadAndAddOpenSSLToPath
@@ -730,8 +732,8 @@ function Decrypt-EncryptedPwdFile {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1OVuiTIuY6ajFb25jcY30HDN
-# ST6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyGWtoo3uXc+MvbxAXhIy0g/q
+# QyugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -786,11 +788,11 @@ function Decrypt-EncryptedPwdFile {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQamBQt9xys
-# 33qiP2hh+EOQbEXVYTANBgkqhkiG9w0BAQEFAASCAQB8Mn+ypQoWmJ/aUx3seMVP
-# HfsMP1vpv46u1QiHxhVcrER6nRw4mEw8NDwlr5u8nkS3PcK38Vy8VbOMhI/XbkDq
-# 6snXh8qfn49HmvIa3vCIK0405YjaNsWBtTi/Urt8C03H6BsT2Zc2FJCWygf8QpD/
-# +hGtXNMtnDVB1a2AWglOMbENVrEj0yK7Hj6I1eRZcb8Qy43nQXhzGZLsE3zZ2WBv
-# IOQlS+Ds2xuPrnG8pUbu8A9I1Vimlj4KsxBuqscRwq2potXqmXR/KIlYPsxmuuC8
-# 5Rt+XAZYrepkvBehnkPUcPwqFFXgG8S/LL64uAK14nRCJeyJ19vh+MfeYNmirvaf
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ+21MZZp1d
+# NrJTlps2jfstzOzoYzANBgkqhkiG9w0BAQEFAASCAQAdPLU/qm+Rc1CQESxEr7D0
+# ZayTtEFij0KgYfh9KnI66r/4fevAJiYHM9E+QFavO3b4CoSw/x83WjBg/LJSjmiA
+# nr0+rfECanqO6PSKhdU6GLeN1xMlqPtVYIk8E8oEUzrPLgV37f+cf+swfrFBS9ka
+# ofzOHW+ehbcxerZupYw2+SE5vuMRXYU66trJFPpZMzCGPmsdGYEik/uperkOCkBh
+# qCvCpv4V6Ue/T8DpELRgRqjCkj9kEdwkCDdQiIsvwRDEaanVoDrqFLq2UjnH5Vkg
+# wAFIOq+2v4cKRFCu+QwqyDqji2EwPUtoQCEgLmdCSkUAV3b7WgXAn+p3DKS4jqkU
 # SIG # End signature block

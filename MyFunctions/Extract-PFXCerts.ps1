@@ -1,33 +1,84 @@
 <#
 .SYNOPSIS
-    Short description
+    This function uses openssl.exe to extract all public certificates and private key from a .pfx file. Each public certificate
+    and the private key is written to its own separate file in the specified. OutputDirectory. If openssl.exe is not available
+    on the current system, it is downloaded to the Current User's Downloads folder and added to $env:Path.
+
+    NOTE: Nothing is installed.
+
 .DESCRIPTION
-    Long description
+    See SYNOPSIS.
+
 .NOTES
-    DEPENDENCEIES
-        Helper scripts/functions and/or binaries needed for the function to work.
-.PARAMETER
-    N parameter
-.PARAMETER
-    N+1 parameter
+    Depends on openssl.exe.
+
+    NOTE: Nothing needs to be installed in order to use openssl.exe.
+
+.PARAMETER PFXFilePath
+    Mandatory.
+
+    This parameter takes a string that represents the full path to a .pfx file
+
+.PARAMETER PFXFilePwd
+    Optional.
+
+    This parameter takes a string (i.e. plain text password) or a secure string.
+
+    If the private key in the .pfx file is password protected, use this parameter.
+
+.PARAMETER StripPrivateKeyPwd
+    Optional.
+
+    This parameter takes a boolean $true or $false.
+
+    By default, this function writes the private key within the .pfx to a file in a protected format, i.e.
+        -----BEGIN PRIVATE KEY-----
+        -----END PRIVATE KEY-----
+
+    If you set this parameter to $true, then this function will ALSO (in addition to writing out the above protected
+    format to its own file) write the unprotected private key to its own file with format
+        -----BEGIN RSA PRIVATE KEY----
+        -----END RSA PRIVATE KEY----
+
+    WARNING: This parameter is set to $true by default.
+
+.PARAMETER OutputDirectory
+    Optional.
+
+    This parameter takes a string that represents a file path to a *directory* that will contain all file outputs.
+
+    If this parameter is not used, all file outputs are written to the same directory as the .pfx file.
+
+.PARAMETER DownloadAndAddOpenSSLToPath
+    Optional.
+
+    This parameter downloads openssl.exe from https://indy.fulgan.com/SSL/ to the current user's Downloads folder,
+    and adds openssl.exe to $env:Path.
+
+    WARNING: If openssl.exe is not already part of your $env:Path prior to running this function, this parameter
+    becomes MANDATORY, or the function will fail.
+
 .EXAMPLE
+    # If your private key is password protected...
     $PSSigningCertFile = "C:\Certs\Testing2\ZeroCode.pfx"
     $PFXSigningPwdAsSecureString = Read-Host -Prompt "Please enter the private key's password" -AsSecureString
+    $OutDir = "C:\Certs\Testing2"
+
+    Extract-PFXCerts -PFXFilePath $PSSigningCertFile `
+    -PFXFilePwd $PFXSigningPwdAsSecureString `
+    -StripPrivateKeyPwd $true `
+    -OutputDirectory $OutDir
+
+.EXAMPLE
+    # If your private key is NOT password protected...
+    $PSSigningCertFile = "C:\Certs\Testing2\ZeroCode.pfx"
     $OutputDirectory = "C:\Certs\Testing2"
 
-    Extract-PFXCerts -PFXFilePath "$PSSigningCertFile" `
-    -PFXFilePwd $PFXSigningPwdAsSecureString `
-    -StripPrivateKeyPwd "Yes" `
-    -OutputDirectory "$PSScriptingCertDir"
-
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
+    Extract-PFXCerts -PFXFilePath $PSSigningCertFile `
+    -StripPrivateKeyPwd $true `
+    -OutputDirectory $OutDir
 #>
-
 function Extract-PFXCerts {
-
     [CmdletBinding(
         PositionalBinding=$true,
         ConfirmImpact='Medium'
@@ -49,13 +100,8 @@ function Extract-PFXCerts {
         [switch]$DownloadAndAddOpenSSLToPath
     )
 
-    ##### REGION Helper Functions and Libraries #####
+    ##### BEGIN Native Helper Functions #####
 
-    ## BEGIN Sourced Helper Functions ##
-
-    ## END Sourced Helper Functions ##
-
-    ## BEGIN Native Helper Functions ##
     function Unzip-File {
         [CmdletBinding()]
         Param(
@@ -78,10 +124,8 @@ function Extract-PFXCerts {
             [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
         }
     }
-    ## END Native Helper Functions ##
 
-    ##### REGION END Helper Functions and Libraries #####
-
+    ##### END Native Helper Functions #####
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     # Check for Win32 or Win64 OpenSSL Binary
@@ -288,7 +332,7 @@ function Extract-PFXCerts {
     }
     New-Variable -Name "CertObj$PFXFileNameSansExt" -Scope Script -Value $(
         [pscustomobject][ordered]@{
-            CertName                = "$PFXFileNameSansExt_AllPublicKCertsInChain"
+            CertName                = "$PFXFileNameSansExt`AllPublicKCertsInChain"
             AllCertInfo             = Get-Content "$OutputDirectory\$AllPublicKeysInChainOut"
             FileLocation            = "$OutputDirectory\$AllPublicKeysInChainOut"
         }
@@ -377,11 +421,11 @@ function Extract-PFXCerts {
     # Write each CertValue to Separate Files (i.e. writing all public keys in chain to separate files)
     foreach ($obj1 in $ArrayOfPubCertPSObjects) {
         if ($(Test-Path $obj1.FileLocation) -and !$Force) {
-            Write-Warning "The extracted Public cert $($obj1.CertName) was NOT written to $OutputDirectory because it already exists there!"
+            Write-Verbose "The extracted Public cert $($obj1.CertName) was NOT written to $OutputDirectory because it already exists there!"
         }
         if (!$(Test-Path $obj1.FileLocation) -or $Force) {
             $obj1.CertValue | Out-File "$($obj1.FileLocation)" -Encoding Ascii
-            Write-Host "Public certs have been extracted and written to $OutputDirectory"
+            Write-Verbose "Public certs have been extracted and written to $OutputDirectory"
         }
     }
 
@@ -413,8 +457,8 @@ function Extract-PFXCerts {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIF0lfGPNVXUGwHMX51cdVKi9
-# 3YygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7FpWoUx+5uCaxmlAahzRcrso
+# Mf6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -469,11 +513,11 @@ function Extract-PFXCerts {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ9feJOH7eS
-# D20wmxToDmxqBMwPsTANBgkqhkiG9w0BAQEFAASCAQALRFTRpjHeCxE0SS7zVr5U
-# xtEpctOGXVObIuTOH2m0noFoQqb5nh3IvASoxLfcorqM1MM3cmfVsa8N75SvlX6W
-# wZmXXMvwVc5MpZ5jP32RZaEOOVqqJLOo/r4FxUPZpineub6gck0oBprFSJ3WHhFK
-# xqO2oiA+DGvQQ9Wn21tJRYzttOalJr5FlSGA3wy+zduQI8ADW+q6XIV9unukXCZ7
-# dkDzWszBkA+2NqWjC36ts2BnjdS3LhhcyEyM/3zkeJgmEvYhGFToQx48HaiUdh8J
-# W89YT80iqMiG3/0eM8e4I0WI+zkOaohau4BH/Wy65J1aefwFHoBR+RlxtgjuWpYA
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTfpqHUVUQs
+# RQIO9qpDdGXR83BGmDANBgkqhkiG9w0BAQEFAASCAQBM9mSUnqTyLtGxHc2BMi9n
+# cXHjrqU+B0L9ouCPlsH+LCR4jR9I67JyOTCbb5tIWaWMTXww+oBDkjpJ0pHrTUiP
+# aKRbotjGsuPCsHGYG5k7p8H7iuMuXJ+KbqXMeu+Cob9yMd5h9k0CZAbWqAGgyRiU
+# imPBZq3xQeP8bd0yGY8B7aUZcPLb0mUTRf8hkm5tOwq3J1L8ArCJMlGqPsCiOpbP
+# i0wDms72kzuMYRSuH8EbVFatjqNUd90Pa52qDbeRz9ypXOF4zWyGbP6DrK6hkugq
+# 1WDL/KMjjwmKWkOylzFlx1F1/qMGTS4hHW5bbs7fRFEYFWi+W36H3EuR7APgvSVP
 # SIG # End signature block

@@ -7,10 +7,14 @@
     the PrivateKey property, use this function.
 
 .DESCRIPTION
-    See Synopsis
+    See SYNOPSIS
 
 .NOTES
-    IMPORTANT NOTES Regarding -CertObject Parameter:
+    Depends on Extract-PfxCerts and therefore depends on openssl.exe.
+
+    NOTE: Nothing needs to be installed in order to use openssl.exe.
+
+    IMPORTANT NOTE REGARDING -CertObject PARAMETER:
     If you are getting the value for the -CertObject parameter from an already existing .pfx file (as opposed to the Cert Store),
     *DO NOT* use the Get-PFXCertificate cmdlet. The cmdlet does something strange that causes a misleading/incorrect error if the
     private key in the .pfx is password protected.
@@ -23,52 +27,74 @@
         $CertObj = Get-ChildItem Cert:\LocalMachine\My\<Thumbprint>
         $CertObj = Get-ChildItem Cert:\CurrentUser\My\<Thumbprint>
 
-    WARNING: This function defaults to writing the unprotected private key to its own file in -TempOutputDirectory. You can
-    change this default behavior by setting the default value for the parameter [bool]$StripPrivateKeyPwd to $false in the
-    helper function Extract-PfxCerts. (TODO: Make this easier to change)
+    WARNING: This function defaults to temporarily writing the unprotected private key to its own file in -TempOutputDirectory.
+    The parameter -CleanupOpenSSLOutputs is set to $true by default, so the unprotected private key will only exist on the file
+    system for a couple seconds.  If you would like to keep the unprotected private key on the file system, set the
+    -CleanupOpenSSLOutputs parameter to $false.
 
 .PARAMETER CertObject
     Mandatory.
 
     Must be a System.Security.Cryptography.X509Certificates.X509Certificate2 object.
 
+    If you are getting the value for the -CertObject parameter from an already existing .pfx file (as opposed to the Cert Store),
+    *DO NOT* use the Get-PFXCertificate cmdlet. The cmdlet does something strange that causes a misleading/incorrect error if the
+    private key in the .pfx is password protected.
+
+    Instead, use the following:
+        $CertPwd = ConvertTo-SecureString -String 'RaNDompaSSwd123' -Force -AsPlainText
+        $CertObj = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+    
+    If you are getting the value for the -CertObject parameter from the Certificate Store, either of the following should be fine
+        $CertObj = Get-ChildItem Cert:\LocalMachine\My\<Thumbprint>
+        $CertObj = Get-ChildItem Cert:\CurrentUser\My\<Thumbprint>
+
 .PARAMETER TempOutputDirectory
     Mandatory.
 
-    Must be a full path to a directory.
+    Must be a full path to a directory. Punlic certificates and the private key within the -CertObject will *temporarily*
+    be written to this directory as a result of the helper function Extract-PfxCerts.
 
 .PARAMETER CertPwd
     Optional.
 
-    Must be a System.Security.SecureString. This parameter is Mandatory if the private key in a .pfx is password protected.
+    This parameter must be a System.Security.SecureString.
+
+    This parameter is Mandatory if the private key in the .pfx is password protected.
 
 .PARAMETER CleanupOpenSSLOutputs
     Optional.
 
     Must be Boolean.
 
-    During this function, openssl.exe is used to extract all public certs and private key from the -CertObject. Each of these
-    certs and the key are written to separate files in -TempOutputDirectory.
+    During this function, openssl.exe is used to extract all public certs and the private key from the -CertObject. Each of these
+    certs and the key are written to separate files in -TempOutputDirectory. This parameter removes these file outputs at the
+    conclusion of the function. This parameter is set to $true by default.
 
 .EXAMPLE
-    PS C:\Users\zeroadmin> . C:\Scripts\powershell\Update-PrivateKeyProperty.ps1
+    # If the private key in the .pfx is password protected...
     PS C:\Users\zeroadmin> $CertPwd = Read-Host -Prompt "Please enter the Certificate's Private Key password" -AsSecureString
     Please enter the Certificate's Private Key password: ***************
     PS C:\Users\zeroadmin> $CertObj = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $CertPwd, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-    
-    PS C:\Users\zeroadmin> Update-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
+    PS C:\Users\zeroadmin> Get-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
 
 .EXAMPLE
-    PS C:\Users\zeroadmin> . C:\Scripts\powershell\Update-PrivateKeyProperty.ps1
+    # If the private key in the .pfx is NOT password protected...
+    PS C:\Users\zeroadmin> $CertObj = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("$HOME\Desktop\testcert7.pfx", $null, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+    PS C:\Users\zeroadmin> Get-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout"
+
+.EXAMPLE
+    # Getting -CertObject from the Certificate Store where private key is password protected...
     PS C:\Users\zeroadmin> $CertPwd = Read-Host -Prompt "Please enter the Certificate's Private Key password" -AsSecureString
     Please enter the Certificate's Private Key password: ***************
     PS C:\Users\zeroadmin> $CertObj = Get-ChildItem "Cert:\LocalMachine\My\5359DDD9CB88873DF86617EC28FAFADA17112AE6"
+    PS C:\Users\zeroadmin> Get-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
 
-    PS C:\Users\zeroadmin> Update-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout" -CertPwd $CertPwd
+.EXAMPLE
+    # Getting -CertObject from the Certificate Store where private key is NOT password protected...
+    PS C:\Users\zeroadmin> $CertObj = Get-ChildItem "Cert:\LocalMachine\My\5359DDD9CB88873DF86617EC28FAFADA17112AE6"
+    PS C:\Users\zeroadmin> Get-PrivateKeyProperty -CertObject $CertObj -TempOutputDirectory "$HOME\tempout"
 #>
-
-
-
 function Get-PrivateKeyProperty {
     [CmdletBinding()]
     Param( 
@@ -89,7 +115,30 @@ function Get-PrivateKeyProperty {
 
     )
 
-    ##### BEGIN Native Helper Functions #####
+    ##### BEGIN Native Helper Functions ######
+
+    function Unzip-File {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$true,Position=0)]
+            [string]$PathToZip,
+            [Parameter(Mandatory=$true,Position=1)]
+            [string]$TargetDir
+        )
+        
+        Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
+
+        if ($PSVersionTable.PSVersion.Major -ge 5) {
+            Expand-Archive -Path $PathToZip -DestinationPath $TargetDir -Force
+        }
+        if ($PSVersionTable.PSVersion.Major -lt 5) {
+            # Load System.IO.Compression.Filesystem 
+            [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
+
+            # Unzip file
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
+        }
+    }
 
     function Extract-PFXCerts {
         [CmdletBinding(
@@ -112,40 +161,6 @@ function Get-PrivateKeyProperty {
             [Parameter(Mandatory=$False)]
             [switch]$DownloadAndAddOpenSSLToPath
         )
-
-        ##### REGION Helper Functions and Libraries #####
-
-        ## BEGIN Sourced Helper Functions ##
-
-        ## END Sourced Helper Functions ##
-
-        ## BEGIN Native Helper Functions ##
-        function Unzip-File {
-            [CmdletBinding()]
-            Param(
-                [Parameter(Mandatory=$true,Position=0)]
-                [string]$PathToZip,
-                [Parameter(Mandatory=$true,Position=1)]
-                [string]$TargetDir
-            )
-            
-            Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
-
-            if ($PSVersionTable.PSVersion.Major -ge 5) {
-                Expand-Archive -Path $PathToZip -DestinationPath $TargetDir -Force
-            }
-            if ($PSVersionTable.PSVersion.Major -lt 5) {
-                # Load System.IO.Compression.Filesystem 
-                [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
-
-                # Unzip file
-                [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
-            }
-        }
-        ## END Native Helper Functions ##
-
-        ##### REGION END Helper Functions and Libraries #####
-
 
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
         # Check for Win32 or Win64 OpenSSL Binary
@@ -352,7 +367,7 @@ function Get-PrivateKeyProperty {
         }
         New-Variable -Name "CertObj$PFXFileNameSansExt" -Scope Script -Value $(
             [pscustomobject][ordered]@{
-                CertName                = "$PFXFileNameSansExt_AllPublicKCertsInChain"
+                CertName                = "$PFXFileNameSansExt`AllPublicKCertsInChain"
                 AllCertInfo             = Get-Content "$OutputDirectory\$AllPublicKeysInChainOut"
                 FileLocation            = "$OutputDirectory\$AllPublicKeysInChainOut"
             }
@@ -441,11 +456,11 @@ function Get-PrivateKeyProperty {
         # Write each CertValue to Separate Files (i.e. writing all public keys in chain to separate files)
         foreach ($obj1 in $ArrayOfPubCertPSObjects) {
             if ($(Test-Path $obj1.FileLocation) -and !$Force) {
-                Write-Warning "The extracted Public cert $($obj1.CertName) was NOT written to $OutputDirectory because it already exists there!"
+                Write-Verbose "The extracted Public cert $($obj1.CertName) was NOT written to $OutputDirectory because it already exists there!"
             }
             if (!$(Test-Path $obj1.FileLocation) -or $Force) {
                 $obj1.CertValue | Out-File "$($obj1.FileLocation)" -Encoding Ascii
-                Write-Host "Public certs have been extracted and written to $OutputDirectory"
+                Write-Verbose "Public certs have been extracted and written to $OutputDirectory"
             }
         }
 
@@ -464,7 +479,6 @@ function Get-PrivateKeyProperty {
     }
 
     ##### END Native Helper Functions #####
-
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
@@ -516,10 +530,10 @@ function Get-PrivateKeyProperty {
 
     # NOTE: If openssl.exe isn't already available, the Extract-PFXCerts function downloads it and adds it to $env:Path
     if ($CertPwd) {
-        $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -PFXFilePwd $CertPwd -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
+        $global:PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -PFXFilePwd $CertPwd -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
     }
     else {
-        $PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
+        $global:PubCertAndPrivKeyInfo = Extract-PFXCerts -PFXFilePath "$TempOutputDirectory\$CertName.pfx" -OutputDirectory "$TempOutputDirectory" -DownloadAndAddOpenSSLToPath
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -527,27 +541,34 @@ function Get-PrivateKeyProperty {
 
     ##### BEGIN Main Body #####
 
-    if ($PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath -eq $null) {
+    if ($global:PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath -eq $null) {
         # Strip Private Key of Password
         $UnProtectedPrivateKeyOut = "$($(Get-ChildItem $PathToCertFile).BaseName)"+"_unprotected_private_key"+".pem"
-        & openssl.exe rsa -in $PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath -out "$HOME\$UnProtectedPrivateKeyOut" 2>&1 | Out-Null
-        $PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath = "$HOME\$UnProtectedPrivateKeyOut"
+        & openssl.exe rsa -in $global:PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath -out "$HOME\$UnProtectedPrivateKeyOut" 2>&1 | Out-Null
+        $global:PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath = "$HOME\$UnProtectedPrivateKeyOut"
     }
 
-    Write-Host "Loading opensslkey.cs from https://github.com/sushihangover/SushiHangover-PowerShell/blob/master/modules/SushiHangover-RSACrypto/opensslkey.cs"
-    $opensslkeysource = $(Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sushihangover/SushiHangover-PowerShell/master/modules/SushiHangover-RSACrypto/opensslkey.cs").Content
-    Add-Type -TypeDefinition $opensslkeysource
-    $PemText = [System.IO.File]::ReadAllText($PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath)
+    #Write-Host "Loading opensslkey.cs from https://github.com/sushihangover/SushiHangover-PowerShell/blob/master/modules/SushiHangover-RSACrypto/opensslkey.cs"
+    #$opensslkeysource = $(Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sushihangover/SushiHangover-PowerShell/master/modules/SushiHangover-RSACrypto/opensslkey.cs").Content
+    try {
+        Add-Type -TypeDefinition $opensslkeysource
+    }
+    catch {
+        if ($Error[0].Exception -match "already exists") {
+            Write-Verbose "The JavaScience.Win32 assembly (i.e. opensslkey.cs) is already loaded. Continuing..."
+        }
+    }
+    $PemText = [System.IO.File]::ReadAllText($global:PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath)
     $PemPrivateKey = [javascience.opensslkey]::DecodeOpenSSLPrivateKey($PemText)
-    [System.Security.Cryptography.RSACryptoServiceProvider]$RSA = [javascience.opensslkey]::DecodeRSAPrivateKey($PemPrivateKey);
+    [System.Security.Cryptography.RSACryptoServiceProvider]$RSA = [javascience.opensslkey]::DecodeRSAPrivateKey($PemPrivateKey)
     $RSA
 
     # Cleanup
     if ($CleanupOpenSSLOutputs) {
         $ItemsToRemove = @(
-            $PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath
-            $PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath
-        ) + $PubCertAndPrivKeyInfo.PublicKeysInfo.FileLocation
+            $global:PubCertAndPrivKeyInfo.PrivateKeyInfo.ProtectedPrivateKeyFilePath
+            $global:PubCertAndPrivKeyInfo.PrivateKeyInfo.UnProtectedPrivateKeyFilePath
+        ) + $global:PubCertAndPrivKeyInfo.PublicKeysInfo.FileLocation
 
         foreach ($item in $ItemsToRemove) {
             Remove-Item $item
@@ -564,12 +585,11 @@ function Get-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsE5mGUcyxRwebMJ0VaXCo/fs
-# 052gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkYDzZs+H7UdXQbSAnwBdO/zt
+# zyigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -624,11 +644,11 @@ function Get-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSZ4yYIyS8i
-# +pUnfBiKF1ES3KtHOTANBgkqhkiG9w0BAQEFAASCAQBOwwHePfn+H1smJRUyGz95
-# FKWeAC8/hEeBGFZfmArFANOzAC64OTK+mU3SoR4PvAnraAGfdHP+xTOgXFE6jxYY
-# l73lmkyxkC2jBeIKT7TIuUOrLc4ZyURmY6DRMRUmn/w5/JVo10ZzviPweBVu6RSK
-# zbRmHUM7grhp7Qvdups+Tejvm4bZlCFe7TI+xtBFgw/dsL6lRtSE9pkA3fH11yuC
-# 4Zydfq9a6IxCwZcBbjNkJE0dR8iVBLUY7jBbvbUIgCg7/vyeJjjuGf1wJlTN9e80
-# DvpFl3kPQLoynziCpXlrPU/sc+KAG/F69eJhb/KZLAg/S53QM7eJ2VRk2O0OpjoX
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRxtuDAQ9L+
+# WG6OXo6lA/4V3hnzGzANBgkqhkiG9w0BAQEFAASCAQAM+seI0lcnfhPjuG0D9okr
+# 0af1qrjQgb+j/AYRdL3BX6EyxO5tRvMZy8t2DYV84wM7gGsvyzyS1OdSTd5dQpN0
+# mJOZzA8KCh52JFYVd8W1P7oltEiDVr8iPsBRWKcxermEkr6D+eue8H5BxVmTyfjT
+# V3Di95o67g6U2CCVszWnHY7kjWaqp8lZGnQWf3LhMmql9RnkeWBdV9jm5h1H3/O2
+# iFpaF4TbJgLB1yGHMRjVvPzfnyD7jm7op3ztGy3CzPYFbAUccKtrfA5VdaRnZcQA
+# X6dxXUE9UANHLzk/DBrik49zv4PCFF89Q1qePgxRp+31HPE+C7E+VK7mD4+DHOO8
 # SIG # End signature block
