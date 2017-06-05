@@ -27,7 +27,15 @@ Function Check-InstalledPrograms {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    $RegPaths = @("HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*","HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*")
+    $uninstallWow6432Path = "\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    $uninstallPath = "\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+
+    $RegPaths = @(
+        "HKLM:$uninstallWow6432Path",
+        "HKLM:$uninstallPath",
+        "HKCU:$uninstallWow6432Path",
+        "HKCU:$uninstallPath"
+    )
     
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -37,13 +45,13 @@ Function Check-InstalledPrograms {
         $ComputersArray = $(Get-ADComputer -Filter * -Property * | Where-Object {$_.OperatingSystem -like "*Windows*"}).Name
     }
     else {
-        $ComputersArray = $HostName
+        $ComputersArray = $env:COMPUTERNAME
     }
 
     foreach ($computer in $ComputersArray) {
         if ($computer -eq $env:COMPUTERNAME -or $computer.Split("\.")[0] -eq $env:COMPUTERNAME) {
             try {
-                $InstalledPrograms = foreach ($regpath in $RegPaths) {Get-ItemProperty $regpath}
+                $InstalledPrograms = foreach ($regpath in $RegPaths) {if (Test-Path $regpath) {Get-ItemProperty $regpath}}
                 if (!$?) {
                     throw
                 }
@@ -57,7 +65,9 @@ Function Check-InstalledPrograms {
             try {
                 $InstalledPrograms = Invoke-Command -ComputerName $computer -ScriptBlock {
                     foreach ($regpath in $RegPaths) {
-                        Get-ItemProperty $regpath
+                        if (Test-Path $regpath) {
+                            Get-ItemProperty $regpath
+                        }
                     }
                 } -ErrorAction SilentlyContinue
                 if (!$?) {
@@ -93,8 +103,8 @@ Function Check-InstalledPrograms {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgbNOWm1haS1kd+bEdss46YSe
-# cRqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/pPEW2MMCEvBvOOlrdR50biX
+# VpagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -149,11 +159,11 @@ Function Check-InstalledPrograms {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSu3iNmXonL
-# 7GgdDVjX+c29YryAIjANBgkqhkiG9w0BAQEFAASCAQAXRVK0M87vPLdpW2rkdggv
-# QYgYuyGAQu/W4ZctHzF4BbzHHoxfJBwlY4+6NQBRnpcPiUJJQrytGj4YZ4HtE98c
-# A/bprfKdZAim28CHp3cE253wJu9UyGYgg1A7ivo4fhY+52sffKK79RXj++wSoQ2P
-# SWGisx0Vh0vSQjE0Olyx4yf5/xNYrlSRPNg0lLO7mpsqP489EO16orVqIaUDDGAe
-# MTLC0YtEytqdguq6DKow28NVWx2eTu6AFibRZ/LoJ2G29py2eagKDne06ZD4IO4H
-# Y1FE67v9cFQCKStqPUXniqVzp3atkQX1xOQqtMQcrkIO2KpEovwMWXl1ip0KL8w3
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS4oDfzbzLU
+# lE3CzuGPnbbQ6lcpsTANBgkqhkiG9w0BAQEFAASCAQA5y7zNFsWPka7+zksa86X7
+# 7tt+BHhksgYXJCZqnxFI6oLIrSDBxxu8LiJW5IJVt+3opNfvSPivnimO69Bzs6E0
+# oCggLD8fZMgtBTkJQ0msfIfbf51HACzjBdoD4QNi5PIT7+LpVr5u1SlptWdRNWwU
+# BG05CvY/+FXkfoA1QuPZRGNNoy2hTXg20iybmqHKfcpYJDlDXjcIF/onkI6aVKOk
+# jhCeMEuHBlL225uViz9+yM6UHodd7rGTi7ofSmhg9LcGHekt7Vg+VXHUaZCCYAFH
+# ysMt1uP8Gq/OAFwsjuftlVFaOymnHZDspiafUKlC0zfN3ysTb2CyvzFKc9obz2DX
 # SIG # End signature block

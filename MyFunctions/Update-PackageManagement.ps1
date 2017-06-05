@@ -319,17 +319,19 @@ exit"
 
     # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
     if (!$(Check-Elevation)) {
-        try {
-            $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
-            if (!$ElevatedPSSession) {
-                throw
+        if (!$global:ElevatedPSSession) {
+            try {
+                $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
+                if (!$ElevatedPSSession) {
+                    throw
+                }
+                $CredSSPAlreadyConfigured = $true
             }
-            $CredSSPAlreadyConfigured = $true
-        }
-        catch {
-            $SudoSession = New-SudoSession -Credentials $Credentials
-            $ElevatedPSSession = $SudoSession.ElevatedPSSession
-            $NeedToRevertAdminChangesIfAny = $true
+            catch {
+                $SudoSession = New-SudoSession -Credentials $Credentials
+                $global:ElevatedPSSession = $SudoSession.ElevatedPSSession
+                $NeedToRevertAdminChangesIfAny = $true
+            }
         }
     }
 
@@ -519,12 +521,11 @@ exit"
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUCX++366CHtxItPz4A0E0Tm01
-# gVSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGBoo4LrzAcUv3AJrZo5tQK/3
+# xIqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -579,11 +580,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQtmZ148cH4
-# 2GOVEpT7cea0i0k1HDANBgkqhkiG9w0BAQEFAASCAQBzI1MwmwTJhwzZU0MdlH6I
-# AlFAZlMHl+LXpu3H+/AlJefbydXmXj5/IVmb9sBYze1NxuCbp7fZ4tX+YUZ/pMkF
-# 6HI1bG5KqH42YZVwB8YeUzdJmcyHOYFzFJIyvKvmCuyZqKsaVwtcqS9PJYQiZEjr
-# 65GSQibVjzNlwwrFWJrZ0BQRgVrUp9Ow6T8cz89YCnbhD7qoR2Q3BfoKRkmfgeZD
-# gGTlwGT7ujpvIf2eT3YFC15b1qw+J1SG+LdYKItPOSFph2IB9P0Cbl1M1VInndkq
-# yMP2wQzXOBB4JDotNqFrATEDmoxbFPErmzmjZUMtKcS6x85Q4+W7R/EABYJp6v0Q
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTfgun7jHgM
+# VjewkxQ6YFCjXsmrfTANBgkqhkiG9w0BAQEFAASCAQAlKNeezRr4ykBaCYzfaPFw
+# D1LQ1MRZhTfyzeTv4i8vQTniltlY0DwNZ0RpoJ+E3jJ1cIuR4Fx5+N0ULzQpqn6u
+# zgDMiIj6xC6zgZiIGzbXzce52BrLZkzUSFIc1K+87/8Ol3lmaL4EpPyUDzl8Nw9O
+# q6rjEscItD8ilm0T+Fqd93Xf37qkhYB8zfniFaBbgEiIG7k84c2TjoMOXRXHbLqD
+# B7Bz6/WB2Ndflzk44zjb/WpbJBRe4eFwsbcFRgFpIdx0i8uK9czs1e74IveZq+x6
+# LmIQdHC/v7cQBqJC+9/1f+vtaVe4jI5PTx6JSeAunZCSh6AcMVn0hSfkdyRdCZ7o
 # SIG # End signature block

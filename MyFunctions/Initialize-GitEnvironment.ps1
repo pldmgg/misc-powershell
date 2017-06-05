@@ -23,7 +23,11 @@ function Initialize-GitEnvironment {
         [switch]$SkipSSHSetup = $false,
 
         [Parameter(Mandatory=$False)]
-        [string]$ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+        [string]$ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa",
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("Stable", "Beta")]
+        [switch]$ReleaseVersion = "Stable"
 
     )
 
@@ -57,7 +61,15 @@ function Initialize-GitEnvironment {
 
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-        $RegPaths = @("HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*","HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*")
+        $uninstallWow6432Path = "\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        $uninstallPath = "\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+
+        $RegPaths = @(
+            "HKLM:$uninstallWow6432Path",
+            "HKLM:$uninstallPath",
+            "HKCU:$uninstallWow6432Path",
+            "HKCU:$uninstallPath"
+        )
         
         ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -67,13 +79,13 @@ function Initialize-GitEnvironment {
             $ComputersArray = $(Get-ADComputer -Filter * -Property * | Where-Object {$_.OperatingSystem -like "*Windows*"}).Name
         }
         else {
-            $ComputersArray = $HostName
+            $ComputersArray = $env:COMPUTERNAME
         }
 
         foreach ($computer in $ComputersArray) {
             if ($computer -eq $env:COMPUTERNAME -or $computer.Split("\.")[0] -eq $env:COMPUTERNAME) {
                 try {
-                    $InstalledPrograms = foreach ($regpath in $RegPaths) {Get-ItemProperty $regpath}
+                    $InstalledPrograms = foreach ($regpath in $RegPaths) {if (Test-Path $regpath) {Get-ItemProperty $regpath}}
                     if (!$?) {
                         throw
                     }
@@ -87,7 +99,9 @@ function Initialize-GitEnvironment {
                 try {
                     $InstalledPrograms = Invoke-Command -ComputerName $computer -ScriptBlock {
                         foreach ($regpath in $RegPaths) {
-                            Get-ItemProperty $regpath
+                            if (Test-Path $regpath) {
+                                Get-ItemProperty $regpath
+                            }
                         }
                     } -ErrorAction SilentlyContinue
                     if (!$?) {
@@ -379,17 +393,19 @@ exit"
 
         # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
         if (!$(Check-Elevation)) {
-            try {
-                $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
-                if (!$ElevatedPSSession) {
-                    throw
+            if (!$global:ElevatedPSSession) {
+                try {
+                    $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
+                    if (!$ElevatedPSSession) {
+                        throw
+                    }
+                    $CredSSPAlreadyConfigured = $true
                 }
-                $CredSSPAlreadyConfigured = $true
-            }
-            catch {
-                $SudoSession = New-SudoSession -Credentials $Credentials
-                $ElevatedPSSession = $SudoSession.ElevatedPSSession
-                $NeedToRevertAdminChangesIfAny = $true
+                catch {
+                    $SudoSession = New-SudoSession -Credentials $Credentials
+                    $global:ElevatedPSSession = $SudoSession.ElevatedPSSession
+                    $NeedToRevertAdminChangesIfAny = $true
+                }
             }
         }
 
@@ -661,8 +677,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3TH/0B1XsvuNHpCi9TdlWqlD
-# 8LegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHtvhQzDKKgrFmmWTWSxGIqzk
+# 07WgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -717,11 +733,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS6j5nEtVO6
-# xZrNluNOg1vlgwhchTANBgkqhkiG9w0BAQEFAASCAQBiU5GkT7YkLyooak+wOJRu
-# ZwCdB6iH7Sh8+1lmu77ZOGH9plSiF6N6XoHO89gVtirxoqpMD5tQZqfG+m2ahmst
-# wa7lsYWkBnKfs142XkXy/mBttCUq73q8oMvWPFlhkuGRKULCJmMotgfIQG5IjHEF
-# v/jXTVm0nR+lKqadDgYg8tp/aJoCnWlI7f0AQDDdqYx1mcjJxm0aJ2/aG92nKAXx
-# 3aVKo/p9JTsHBWD+9UD2+YGBpBfZYVyGMvM+aKcPP2dstsHHMBdDGwdeYztJisMM
-# PAa4ePUCrR1n8CwUkWBeudpZhD/bNjMYiI+9XvIufgMNw663BIL69dfcXCsrlye7
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRxPCQU27RH
+# zN6pbg+TFplvnMilzjANBgkqhkiG9w0BAQEFAASCAQCDv/Y2WfQ4QOwjRQiW5kcH
+# sYL7H2Az7v7e4O+Nqn8gZSahfJDrMU8ndYiGbvXRESiWhBU+Cq7pv+pY6PQekWdx
+# zgg2oMPsUlVheQOHT9xHp+xXxzIMdbhcgUDiz6M5NEYZememIBaZwACziw0Q2IX1
+# ab90OG0KazuCqUPspQ9+W0HltiIvT8A5F/jT4l9t2OlRxafAnMLYPdUGFwDbLvkb
+# 9bIS+1aIGYL8YSBZ+okc7xLw7qxuKMVPfjs0GCnObMFrDTN8jLtdU5HRpGGkIaDL
+# FCm2Z8xh+kf7CC7/2yTjjKyqeLmhSLIbTOPj0vRyxtYuRwqOPu7saz9cIy1uq3DP
 # SIG # End signature block

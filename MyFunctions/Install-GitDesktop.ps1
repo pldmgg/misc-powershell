@@ -28,11 +28,16 @@ function Install-GitDesktop {
         [string]$NewSSHKeyPwd,
 
         [Parameter(Mandatory=$False)]
-        [string]$ExistingSSHPrivateKeyPath
+        [string]$ExistingSSHPrivateKeyPath,
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("Stable", "Beta")]
+        [string]$Version
 
     )
 
     ##### BEGIN Parameter Validation #####
+
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
         $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication."
     }
@@ -47,7 +52,8 @@ function Install-GitDesktop {
         }
     }
 
-    # If no specific ExistingSSHPrivateKeyPath is provided, assume it's in the default GitDesktop directory
+    # If no specific ExistingSSHPrivateKeyPath is provided, assume it will be in the default GitDesktop directory after
+    # Git Desktop finishes installing, which is the norm
     if ($AuthMethod -eq "ssh" -and !$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
         $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
     }
@@ -146,84 +152,58 @@ public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
         }
     }
 
-    function Update-PackageManagement {
-        [CmdletBinding()]
-        Param( 
-            [Parameter(Mandatory=$False)]
-            $Credentials
+    function New-SudoSession {
+        [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
+        Param(
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Supply UserName and Password'
+            )]
+            [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
+
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Supply UserName and Password'
+            )]
+            $Password,
+
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Supply Credentials'
+            )]
+            [System.Management.Automation.PSCredential]$Credentials
+
         )
 
-        ##### BEGIN Helper Functions #####
-        function Check-Elevation {
-           [System.Security.Principal.WindowsPrincipal]$currentPrincipal = `
-              New-Object System.Security.Principal.WindowsPrincipal(
-                 [System.Security.Principal.WindowsIdentity]::GetCurrent());
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-           [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = `
-              [System.Security.Principal.WindowsBuiltInRole]::Administrator;
-
-           if($currentPrincipal.IsInRole($administratorsRole))
-           {
-              return $true;
-           }
-           else
-           {
-              return $false;
-           }
+        if ($UserName -and !$Password -and !$Credentials) {
+            $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
         }
 
-        function New-SudoSession {
-            [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
-            Param(
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
-
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                $Password,
-
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply Credentials'
-                )]
-                [System.Management.Automation.PSCredential]$Credentials
-
-            )
-
-            ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-            if ($UserName -and !$Password -and !$Credentials) {
-                $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+        if ($UserName -and $Password) {
+            if ($Password.GetType().FullName -eq "System.String") {
+                $Password = ConvertTo-SecureString $Password -AsPlainText -Force
             }
+            $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
+        }
 
-            if ($UserName -and $Password) {
-                if ($Password.GetType().FullName -eq "System.String") {
-                    $Password = ConvertTo-SecureString $Password -AsPlainText -Force
-                }
-                $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
-            }
+        $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
+        $LocalHostFQDN = "$env:ComputerName.$Domain"
 
-            $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
-            $LocalHostFQDN = "$env:ComputerName.$Domain"
+        ##### END Variable/Parameter Transforms and PreRunPrep #####
 
-            ##### END Variable/Parameter Transforms and PreRunPrep #####
+        ##### BEGIN Main Body #####
 
-            ##### BEGIN Main Body #####
+        $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
+        $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
+        $AllowFreshValue = "WSMAN/$LocalHostFQDN"
+        $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
+        $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
+        $tmpFileXml = $UpdatedtmpFileXmlName
+        $TranscriptPath = "$HOME\Open-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
 
-            $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
-            $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
-            $AllowFreshValue = "WSMAN/$LocalHostFQDN"
-            $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
-            $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
-            $tmpFileXml = $UpdatedtmpFileXmlName
-            $TranscriptPath = "$HOME\Open-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
-
-            $WSManGPOTempConfig = @"
+        $WSManGPOTempConfig = @"
 -noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
 try {`$CurrentAllowFreshCredsProperties = Get-ChildItem -Path $CredDelRegLocation | ? {`$_.PSChildName -eq 'AllowFreshCredentials'}} catch {}
 try {`$CurrentAllowFreshCredsValues = foreach (`$propNum in `$CurrentAllowFreshCredsProperties) {`$(Get-ItemProperty -Path '$CredDelRegLocation\AllowFreshCredentials').`$propNum}} catch {}
@@ -246,110 +226,110 @@ New-Variable -Name 'OrigAllowFreshCredsState' -Value `$([pscustomobject][ordered
 `$(Get-Variable -Name 'OrigAllowFreshCredsState' -ValueOnly) | Export-CliXml -Path $tmpFileXml
 exit"
 "@
-            $WSManGPOTempConfigFinal = $WSManGPOTempConfig -replace "`n","; "
+        $WSManGPOTempConfigFinal = $WSManGPOTempConfig -replace "`n","; "
 
-            # IMPORTANT NOTE: You CANNOT use the RunAs Verb if UseShellExecute is $false, and you CANNOT use
-            # RedirectStandardError or RedirectStandardOutput if UseShellExecute is $true, so we have to write
-            # output to a file temporarily
-            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-            $ProcessInfo.FileName = "powershell.exe"
-            $ProcessInfo.RedirectStandardError = $false
-            $ProcessInfo.RedirectStandardOutput = $false
-            $ProcessInfo.UseShellExecute = $true
-            $ProcessInfo.Arguments = $WSManGPOTempConfigFinal
-            $ProcessInfo.Verb = "RunAs"
-            $Process = New-Object System.Diagnostics.Process
-            $Process.StartInfo = $ProcessInfo
-            $Process.Start() | Out-Null
-            $Process.WaitForExit()
-            $WSManAndRegStatus = Import-CliXML $tmpFileXml
+        # IMPORTANT NOTE: You CANNOT use the RunAs Verb if UseShellExecute is $false, and you CANNOT use
+        # RedirectStandardError or RedirectStandardOutput if UseShellExecute is $true, so we have to write
+        # output to a file temporarily
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $ProcessInfo.FileName = "powershell.exe"
+        $ProcessInfo.RedirectStandardError = $false
+        $ProcessInfo.RedirectStandardOutput = $false
+        $ProcessInfo.UseShellExecute = $true
+        $ProcessInfo.Arguments = $WSManGPOTempConfigFinal
+        $ProcessInfo.Verb = "RunAs"
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $ProcessInfo
+        $Process.Start() | Out-Null
+        $Process.WaitForExit()
+        $WSManAndRegStatus = Import-CliXML $tmpFileXml
 
-            $ElevatedPSSession = New-PSSession -Name "ElevatedSessionFor$UserName" -Authentication CredSSP -Credential $Credentials
+        $ElevatedPSSession = New-PSSession -Name "ElevatedSessionFor$UserName" -Authentication CredSSP -Credential $Credentials
 
-            New-Variable -Name "NewSessionAndOriginalStatus" -Scope Global -Value $(
-                [pscustomobject][ordered]@{
-                    ElevatedPSSession   = $ElevatedPSSession
-                    OriginalWSManAndRegistryStatus   = $WSManAndRegStatus
-                }
-            ) -Force
-            
-            $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly)
+        New-Variable -Name "NewSessionAndOriginalStatus" -Scope Global -Value $(
+            [pscustomobject][ordered]@{
+                ElevatedPSSession   = $ElevatedPSSession
+                OriginalWSManAndRegistryStatus   = $WSManAndRegStatus
+            }
+        ) -Force
+        
+        $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly)
 
-            # Cleanup 
-            Remove-Item $tmpFileXml
+        # Cleanup 
+        Remove-Item $tmpFileXml
 
-            ##### END Main Body #####
+        ##### END Main Body #####
 
+    }
+
+    function Remove-SudoSession {
+        [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
+        Param(
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Supply UserName and Password'
+            )]
+            [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
+
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Supply UserName and Password'
+            )]
+            $Password,
+
+            [Parameter(
+                Mandatory=$False,
+                ParameterSetName='Supply Credentials'
+            )]
+            [System.Management.Automation.PSCredential]$Credentials,
+
+            [Parameter(Mandatory=$True)]
+            $OriginalConfigInfo = $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly).OriginalWSManAndRegistryStatus,
+
+            [Parameter(
+                Mandatory=$True,
+                ValueFromPipeline=$true,
+                Position=0
+            )]
+            [System.Management.Automation.Runspaces.PSSession]$SessionToRemove
+
+        )
+
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+        if ($OriginalConfigInfo -eq $null) {
+            Write-Warning "Unable to determine the original configuration of WinRM/WSMan and AllowFreshCredentials Registry prior to using New-SudoSession. No configuration changes will be made/reverted."
+            Write-Warning "The only action will be removing the Elevated PSSession specified by the -SessionToRemove parameter."
         }
 
-        function Remove-SudoSession {
-            [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
-            Param(
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
+        if ($UserName -and !$Password -and !$Credentials -and $OriginalConfigInfo -ne $null) {
+            $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+        }
 
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                $Password,
-
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply Credentials'
-                )]
-                [System.Management.Automation.PSCredential]$Credentials,
-
-                [Parameter(Mandatory=$True)]
-                $OriginalConfigInfo = $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly).OriginalWSManAndRegistryStatus,
-
-                [Parameter(
-                    Mandatory=$True,
-                    ValueFromPipeline=$true,
-                    Position=0
-                )]
-                [System.Management.Automation.Runspaces.PSSession]$SessionToRemove
-
-            )
-
-            ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-            if ($OriginalConfigInfo -eq $null) {
-                Write-Warning "Unable to determine the original configuration of WinRM/WSMan and AllowFreshCredentials Registry prior to using New-SudoSession. No configuration changes will be made/reverted."
-                Write-Warning "The only action will be removing the Elevated PSSession specified by the -SessionToRemove parameter."
+        if ($UserName -and $Password) {
+            if ($Password.GetType().FullName -eq "System.String") {
+                $Password = ConvertTo-SecureString $Password -AsPlainText -Force
             }
+            $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
+        }
 
-            if ($UserName -and !$Password -and !$Credentials -and $OriginalConfigInfo -ne $null) {
-                $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-            }
+        $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
+        $LocalHostFQDN = "$env:ComputerName.$Domain"
 
-            if ($UserName -and $Password) {
-                if ($Password.GetType().FullName -eq "System.String") {
-                    $Password = ConvertTo-SecureString $Password -AsPlainText -Force
-                }
-                $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
-            }
+        ##### END Variable/Parameter Transforms and PreRunPrep #####
 
-            $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
-            $LocalHostFQDN = "$env:ComputerName.$Domain"
+        ##### BEGIN Main Body #####
 
-            ##### END Variable/Parameter Transforms and PreRunPrep #####
+        if ($OriginalConfigInfo -ne $null) {
+            $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
+            $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
+            $AllowFreshValue = "WSMAN/$LocalHostFQDN"
+            $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
+            $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
+            $tmpFileXml = $UpdatedtmpFileXmlName
+            $TranscriptPath = "$HOME\Remove-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
 
-            ##### BEGIN Main Body #####
-
-            if ($OriginalConfigInfo -ne $null) {
-                $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
-                $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
-                $AllowFreshValue = "WSMAN/$LocalHostFQDN"
-                $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
-                $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
-                $tmpFileXml = $UpdatedtmpFileXmlName
-                $TranscriptPath = "$HOME\Remove-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
-
-                $WSManGPORevertConfig = @"
+            $WSManGPORevertConfig = @"
 -noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
 if ('$($OriginalConfigInfo.Status)' -eq 'CredDelKey DNE') {Remove-Item -Recurse $CredDelRegLocation -Force}
 if ('$($OriginalConfigInfo.Status)' -eq 'AllowFreshCreds DNE') {Remove-Item -Recurse $CredDelRegLocation\AllowFreshCredentials -Force}
@@ -359,30 +339,34 @@ if ('$($OriginalConfigInfo.OrigWSMANServiceCredSSPSetting)' -eq 'false') {Set-It
 if ('$($OriginalConfigInfo.OrigWSMANClientCredSSPSetting)' -eq 'false') {Set-Item -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
 exit"
 "@
-                $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
+            $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
 
-                $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-                $ProcessInfo.FileName = "powershell.exe"
-                $ProcessInfo.RedirectStandardError = $false
-                $ProcessInfo.RedirectStandardOutput = $false
-                $ProcessInfo.UseShellExecute = $true
-                $ProcessInfo.Arguments = $WSManGPORevertConfigFinal
-                $ProcessInfo.Verb = "RunAs"
-                $Process = New-Object System.Diagnostics.Process
-                $Process.StartInfo = $ProcessInfo
-                $Process.Start() | Out-Null
-                $Process.WaitForExit()
-
-            }
-
-            Remove-PSSession $SessionToRemove
-
-            ##### END Main Body #####
+            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $ProcessInfo.FileName = "powershell.exe"
+            $ProcessInfo.RedirectStandardError = $false
+            $ProcessInfo.RedirectStandardOutput = $false
+            $ProcessInfo.UseShellExecute = $true
+            $ProcessInfo.Arguments = $WSManGPORevertConfigFinal
+            $ProcessInfo.Verb = "RunAs"
+            $Process = New-Object System.Diagnostics.Process
+            $Process.StartInfo = $ProcessInfo
+            $Process.Start() | Out-Null
+            $Process.WaitForExit()
 
         }
 
-        ##### END Helper Functions #####
+        Remove-PSSession $SessionToRemove
 
+        ##### END Main Body #####
+
+    }
+
+    function Update-PackageManagement {
+        [CmdletBinding()]
+        Param( 
+            [Parameter(Mandatory=$False)]
+            $Credentials
+        )
 
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
@@ -413,17 +397,19 @@ exit"
 
         # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
         if (!$(Check-Elevation)) {
-            try {
-                $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
-                if (!$ElevatedPSSession) {
-                    throw
+            if (!$global:ElevatedPSSession) {
+                try {
+                    $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
+                    if (!$ElevatedPSSession) {
+                        throw
+                    }
+                    $CredSSPAlreadyConfigured = $true
                 }
-                $CredSSPAlreadyConfigured = $true
-            }
-            catch {
-                $SudoSession = New-SudoSession -Credentials $Credentials
-                $ElevatedPSSession = $SudoSession.ElevatedPSSession
-                $NeedToRevertAdminChangesIfAny = $true
+                catch {
+                    $SudoSession = New-SudoSession -Credentials $Credentials
+                    $global:ElevatedPSSession = $SudoSession.ElevatedPSSession
+                    $NeedToRevertAdminChangesIfAny = $true
+                }
             }
         }
 
@@ -611,7 +597,6 @@ exit"
     }
 
     Function Check-InstalledPrograms {
-
         [CmdletBinding(
             PositionalBinding=$True,
             DefaultParameterSetName='Default Param Set'
@@ -639,7 +624,15 @@ exit"
 
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-        $RegPaths = @("HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*","HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*")
+        $uninstallWow6432Path = "\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        $uninstallPath = "\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+
+        $RegPaths = @(
+            "HKLM:$uninstallWow6432Path",
+            "HKLM:$uninstallPath",
+            "HKCU:$uninstallWow6432Path",
+            "HKCU:$uninstallPath"
+        )
         
         ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -649,13 +642,13 @@ exit"
             $ComputersArray = $(Get-ADComputer -Filter * -Property * | Where-Object {$_.OperatingSystem -like "*Windows*"}).Name
         }
         else {
-            $ComputersArray = $HostName
+            $ComputersArray = $env:COMPUTERNAME
         }
 
         foreach ($computer in $ComputersArray) {
             if ($computer -eq $env:COMPUTERNAME -or $computer.Split("\.")[0] -eq $env:COMPUTERNAME) {
                 try {
-                    $InstalledPrograms = foreach ($regpath in $RegPaths) {Get-ItemProperty $regpath}
+                    $InstalledPrograms = foreach ($regpath in $RegPaths) {if (Test-Path $regpath) {Get-ItemProperty $regpath}}
                     if (!$?) {
                         throw
                     }
@@ -669,7 +662,9 @@ exit"
                 try {
                     $InstalledPrograms = Invoke-Command -ComputerName $computer -ScriptBlock {
                         foreach ($regpath in $RegPaths) {
-                            Get-ItemProperty $regpath
+                            if (Test-Path $regpath) {
+                                Get-ItemProperty $regpath
+                            }
                         }
                     } -ErrorAction SilentlyContinue
                     if (!$?) {
@@ -2033,8 +2028,8 @@ exit"
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnyAecJ2Ocd9qFTH2flLixwbY
-# GDegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUPmefW9/QY8FXu8xUl6rS3R3N
+# rT6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2089,11 +2084,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTlJ+N5ESYF
-# VNoJbsaRutQrl1uV/jANBgkqhkiG9w0BAQEFAASCAQBHawYCHfIiGG5ErlHrbsSj
-# WXjPsU5u8eN+rc5A3YVCk21qSR/Q1eQ27g+AUCFyausZ+N9ZbZP/WY5XZDqwghlx
-# z+a2ei2s7MdUcbPlLLrJT3P4aujyzxeCtdnX6o9K4s9aDBcOvhls2cSUrg+Xu9Eg
-# tfAyVVJvW5zoRVoPG3XGVbPsfgQeZR9G3WfORY426YwvnQPvfJvEIW5SuG3v0fwB
-# LdFkzUSkHledShyqpPUxBjZbgyoVFCLD15R11+vTSn6lX0II3eOHdBtTYxRNnzbH
-# lXgxGCuG1s7viLEvPcuitnjUTZ8uwiL8Q/2ctExecJdW6EtTr0pMqeWsLd038WZe
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRoXv5WjPvf
+# 3vHPOpRUdp5HdwEaTTANBgkqhkiG9w0BAQEFAASCAQAFUAZeCDQOhal91uLEKWzN
+# eAT3jblfB9+/v+/xH2SvyqAODG5c7tUsM3rWxOiziL2U6hxUlVgYtFFdg/KkKF3E
+# 9k53+ZSGRf/6xxJeaL/PEp5NDY+LfuC/M7troeCQzc8ZkIXUXAjN0xW2AHyxFJne
+# 3OQ8lgjqhzn54l1oT0A6+aHGlM5RqmEGT1+i4dJ9lTGs4Mdt/Qc2ztpgosjVKdyH
+# 4lcG64IgOi0oXLMAWqeR1ejDK0GBL4ZE0J5UjKePW2ZTKQvCKFuHUVp+SHNMRkeN
+# bzdlz0X9+l+f0eA2XLXXPkRhGE2f7wfdRs1VIumL4332+GDSaVtsD124oO2JzPKo
 # SIG # End signature block
