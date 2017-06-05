@@ -53,13 +53,8 @@ function Create-PFXFromOpenSSLCerts {
 
     ##### REGION Helper Functions and Libraries #####
 
-    ## BEGIN Sourced Helper Functions ##
-
-    . "V:\powershell\Check-SameObject.ps1"
-
-    ## END Sourced Helper Functions ##
-
     ## BEGIN Native Helper Functions ##
+
     function Unzip-File {
         [CmdletBinding()]
         Param(
@@ -81,6 +76,54 @@ function Create-PFXFromOpenSSLCerts {
             # Unzip file
             [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
         }
+    }
+
+    function Check-SameObject {
+        [CmdletBinding()]
+        Param( 
+            [Parameter(
+                Mandatory=$False,
+                Position=1
+            )]
+            [string]$VariableName,
+
+            [Parameter(
+                Mandatory=$False,
+                Position=1
+            )]
+            [int32]$HashCode
+        )
+
+        ##### BEGIN Parameter Validation #####
+
+        if (!$VariableName -and !$HashCode) {
+            Write-Verbose "You must use either the parameter `$VariableName or `$HashCode! Halting!"
+            Write-Error "You must use either the parameter `$VariableName or `$HashCode! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($VariableName -and $HashCode) {
+            Write-Verbose "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
+            Write-Error "Please use either the parameter `$VariableName or the parameter `$HashCode! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        ##### END Parameter Validation #####
+
+        if ($VariableName) {
+            try {
+                $HashCode = $(Get-Variable $VariableName -ValueOnly -ErrorAction Stop).GetHashCode()
+            }
+            catch {
+                Write-Error "Variable $VariableName does not exist or does not have an associated HashCode"
+            }
+        }
+
+        # Get Variables where the variable has a value, and HashCode the equals $HashCode, and does NOT have a name that matches $VariableName or 'HashCode'
+        $VariableNameExclusionArray = @("$VariableName","HashCode")
+        $SameObjects = Get-Variable | Where-Object {$_.Value -and $_.Value.GetHashCode() -eq $HashCode -and $_.Name -notin $VariableNameExclusionArray}
+        $SameObjects
     }
     ## END Native Helper Functions ##
 
@@ -367,12 +410,11 @@ function Create-PFXFromOpenSSLCerts {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdFXNivkRZhQ1b4BbYJPb35aR
-# jkygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUybkMOVN94F1B2X6fJGfRx+C2
+# wFygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -427,11 +469,11 @@ function Create-PFXFromOpenSSLCerts {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRJwwHPHH/K
-# bNgLyQrMYmK7+tLuPjANBgkqhkiG9w0BAQEFAASCAQAq5ngkFysWJfIIWV6/St8P
-# lxO8zY9KpAx0xDWCeKG5+IPqpHlvNaLtzwn7Yk+8tSzsjWHrSxZhomLcmXgNWC9g
-# zrBdmN+ncPUaujoi5F4feedWkZFfFGhSq29Uth+qYCXwAi1Ex2TyX3R6+jQjnUwb
-# h759xeCpOyAbLZ85mHNANUEsL7gvF6h1a3EFxPN19Lo3uq2Ooitj2jRHfB+fkf8t
-# ldfskAJGwVIqI3r3uTHi1EFJTEuU5Gtyxi6pB6/83q1wn28XEgzWYE3q2zWExlD8
-# bYfVvv88JOjVHjKqWkeD2a3OufmoN2EpclAC0FAnn23JbRn1xN0NY6APA/2bhGFZ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQmbCHTT1jr
+# KgRQzw4DVpkAEHI0OTANBgkqhkiG9w0BAQEFAASCAQB59C0Z3FhWWzW8L3sfOdc+
+# 2CsHjlszBgqj7Mgf3k5ZjjpFGyfD69+Sldi9WlFdEUPDie3aZ63GQ95s/J7Feran
+# Zx7jtJvhloRwwieJkoHa3nD6r1vQjZ9CEtq3PBPhRckSvR6ADjrUtXghFbiXrKrj
+# 72xiB8EiDe6TQcP1WL0lCdIEtyYd3KMRUJKvJ2R1xWeax5sOL75G+FidPHrZ7DpW
+# 7ZDDs0hvbOqTNu4EzT6Rz5ZURPp6KSyLzVzv7DPgs/r9djFBWkfjnuSg74L5RVZh
+# XUOCWrNth4YbJ6/eiSnToIKAOuO8sERuqWwKIrEej2NGKLdijNl4bdeG7zq3NMIy
 # SIG # End signature block
