@@ -1,3 +1,4 @@
+# Example: Unzip-File -PathToZip C:\Users\testadmin\Downloads\Await.zip -TargetDir $HOME\Downloads\AwaitExtract -SpecificItem "Tests"
 function Unzip-File {
     [CmdletBinding()]
     Param(
@@ -10,7 +11,61 @@ function Unzip-File {
         [Parameter(Mandatory=$false,Position=2)]
         [string[]]$SpecificItem
     )
+
+    ##### BEGIN Native Helper Functions #####
     
+    function Get-ZipChildItems {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$false,Position=0)]
+            [string]$ZipFile = $(Read-Host -Prompt "Please enter the full path to the zip file")
+        )
+
+        $shellapp = new-object -com shell.application
+        $zipFileComObj = $shellapp.Namespace($ZipFile)
+        $i = $zipFileComObj.Items()
+        Get-ZipChildItems_Recurse $i
+    }
+
+    function Get-ZipChildItems_Recurse {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$true,Position=0)]
+            $items
+        )
+
+        foreach($si in $items) {
+            if($si.getfolder -ne $null) {
+                # Loop through subfolders 
+                Get-ZipChildItems_Recurse $si.getfolder.items()
+            }
+            # Spit out the object
+            $si
+        }
+    }
+
+    ##### END Native Helper Functions #####
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    if (!$(Test-Path $PathToZip)) {
+        Write-Verbose "The path $PathToZip was not found! Halting!"
+        Write-Error "The path $PathToZip was not found! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    if ($(Get-ChildItem $PathToZip).Extension -ne ".zip") {
+        Write-Verbose "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+        Write-Error "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+    ##### BEGIN Main Body #####
+
     Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
 
     if (!$SpecificItem) {
@@ -26,18 +81,41 @@ function Unzip-File {
         }
     }
     if ($SpecificItem) {
-        $shell = new-object -com shell.application
-        $zip = $shell.NameSpace($PathToZip)
-        $zipitems = $zip.items()
+        $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
 
         foreach($searchitem in $SpecificItem) {
-            foreach ($zipitem in $zipitems) {
-                if ($zipitem.Path -like "*$searchitem*") {
-                    $shell.Namespace($TargetDir).CopyHere($zipitem)
+            [array]$potentialItems = foreach ($item in $ZipSubItems) {
+                if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                    $item
                 }
+            }
+
+            if ($potentialItems.Count -eq 1) {
+                $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
+            }
+            if ($potentialItems.Count -gt 1) {
+                Write-Warning "More than one item within $ZipFileNameWExt matches $searchitem."
+                Write-Host "Matches include the following:"
+                for ($i=0; $i -lt $potentialItems.Count; $i++){
+                    "$i) $($($potentialItems[$i]).Path)"
+                }
+                $Choice = Read-Host -Prompt "Please enter the number corresponding to the item you would like to extract [0..$($($potentialItems.Count)-1)]"
+                if ($(0..$($($potentialItems.Count)-1)) -notcontains $Choice) {
+                    Write-Warning "The number indicated does is not a valid choice! Skipping $searchitem..."
+                    continue
+                }
+                for ($i=0; $i -lt $potentialItems.Count; $i++){
+                    $shell.Namespace($TargetDir).CopyHere($potentialItems[$Choice], 0x14)
+                }
+            }
+            if ($potentialItems.Count -lt 1) {
+                Write-Warning "No items within $ZipFileNameWExt match $searchitem! Skipping..."
+                continue
             }
         }
     }
+
+    ##### END Main Body #####
 }
 
 
@@ -50,8 +128,8 @@ function Unzip-File {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXyvnET2sz7+InRIbNoy5D4x6
-# B/OgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU299AJzdO/OAUUePZtfjqwBx6
+# SwugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -106,11 +184,11 @@ function Unzip-File {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSWAVjeDVCu
-# BXOJerLrfTeTuuPi8TANBgkqhkiG9w0BAQEFAASCAQAX21GncD0WHNZEks1j8qKE
-# TKnnzfKSwhmYaB+8bmdS/L/g5qG8/X39QkygFvsSX+RzGTb/qaaGYsjRPzj13+nE
-# uymeVnpm4Z2o3n/2tmLIwcpBIkUF7PzKLW8i03ECtT8MEhBcfFDRZB6aFHP4uVOY
-# 03g79qH3JTWnmi0Pt6UFxUzDB48ZrjKwjVyyaOzR/QfY3z8y9r2hzT8ZLAGAk+qK
-# J3ksT3jw+6xOCb1kOFQAoB1S+4wHfAEMkIIg4bBMwON9Y0CITwwAeyu92dbhPW+h
-# bmMjCNJ3RdNsc85zQC+iWU8PmKyFlNf3zf0OTZJduCPJZH0vnL9EK62LxN2Bb+je
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS4qqG/BXBr
+# 4rQYsJkmVFk1lZtNfTANBgkqhkiG9w0BAQEFAASCAQCRNac/3CESCLnH9V4bZxUT
+# RQ5cHKXEzHxto82pYfC2hn6qVI/685AyP5T6ajk2spsozaYEDfptGOnwPbni4uQ1
+# o1vopVkKuojjGpxzyHX9ZiFsn+WxU7As69BqKG5NMMFP1YjQJc//I3xzdv+i+sUq
+# q7aPMVpgsZ/wM+BYRMV7CEEO2xCG9SJuY301yPaFiIijFi/QQ8eVYCi8ihbE/t3D
+# FvTbNLt12edu5zhGVXYQZsguPAlhHtl38cfn29ccJBduU9im6KfEacWdboEPFlB6
+# mlAH8oiahrItjgmmBIHBGpW0nB8+1AhtIkNffV4smRo+y9TrC+Kpdy3JOXFNYe0g
 # SIG # End signature block
