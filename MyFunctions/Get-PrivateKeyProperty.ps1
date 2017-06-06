@@ -122,22 +122,118 @@ function Get-PrivateKeyProperty {
         Param(
             [Parameter(Mandatory=$true,Position=0)]
             [string]$PathToZip,
+            
             [Parameter(Mandatory=$true,Position=1)]
-            [string]$TargetDir
+            [string]$TargetDir,
+
+            [Parameter(Mandatory=$false,Position=2)]
+            [string[]]$SpecificItem
         )
+
+        ##### BEGIN Native Helper Functions #####
         
+        function Get-ZipChildItems {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$false,Position=0)]
+                [string]$ZipFile = $(Read-Host -Prompt "Please enter the full path to the zip file")
+            )
+
+            $shellapp = new-object -com shell.application
+            $zipFileComObj = $shellapp.Namespace($ZipFile)
+            $i = $zipFileComObj.Items()
+            Get-ZipChildItems_Recurse $i
+        }
+
+        function Get-ZipChildItems_Recurse {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$true,Position=0)]
+                $items
+            )
+
+            foreach($si in $items) {
+                if($si.getfolder -ne $null) {
+                    # Loop through subfolders 
+                    Get-ZipChildItems_Recurse $si.getfolder.items()
+                }
+                # Spit out the object
+                $si
+            }
+        }
+
+        ##### END Native Helper Functions #####
+
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+        if (!$(Test-Path $PathToZip)) {
+            Write-Verbose "The path $PathToZip was not found! Halting!"
+            Write-Error "The path $PathToZip was not found! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($(Get-ChildItem $PathToZip).Extension -ne ".zip") {
+            Write-Verbose "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+            Write-Error "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+        ##### BEGIN Main Body #####
+
         Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
 
-        if ($PSVersionTable.PSVersion.Major -ge 5) {
-            Expand-Archive -Path $PathToZip -DestinationPath $TargetDir -Force
-        }
-        if ($PSVersionTable.PSVersion.Major -lt 5) {
-            # Load System.IO.Compression.Filesystem 
-            [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
+        if (!$SpecificItem) {
+            if ($PSVersionTable.PSVersion.Major -ge 5) {
+                Expand-Archive -Path $PathToZip -DestinationPath $TargetDir
+            }
+            if ($PSVersionTable.PSVersion.Major -lt 5) {
+                # Load System.IO.Compression.Filesystem 
+                [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
 
-            # Unzip file
-            [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
+                # Unzip file
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
+            }
         }
+        if ($SpecificItem) {
+            $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
+
+            foreach($searchitem in $SpecificItem) {
+                [array]$potentialItems = foreach ($item in $ZipSubItems) {
+                    if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                        $item
+                    }
+                }
+
+                if ($potentialItems.Count -eq 1) {
+                    $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
+                }
+                if ($potentialItems.Count -gt 1) {
+                    Write-Warning "More than one item within $ZipFileNameWExt matches $searchitem."
+                    Write-Host "Matches include the following:"
+                    for ($i=0; $i -lt $potentialItems.Count; $i++){
+                        "$i) $($($potentialItems[$i]).Path)"
+                    }
+                    $Choice = Read-Host -Prompt "Please enter the number corresponding to the item you would like to extract [0..$($($potentialItems.Count)-1)]"
+                    if ($(0..$($($potentialItems.Count)-1)) -notcontains $Choice) {
+                        Write-Warning "The number indicated does is not a valid choice! Skipping $searchitem..."
+                        continue
+                    }
+                    for ($i=0; $i -lt $potentialItems.Count; $i++){
+                        $shell.Namespace($TargetDir).CopyHere($potentialItems[$Choice], 0x14)
+                    }
+                }
+                if ($potentialItems.Count -lt 1) {
+                    Write-Warning "No items within $ZipFileNameWExt match $searchitem! Skipping..."
+                    continue
+                }
+            }
+        }
+
+        ##### END Main Body #####
     }
 
     function Extract-PFXCerts {
@@ -584,12 +680,11 @@ function Get-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkYDzZs+H7UdXQbSAnwBdO/zt
-# zyigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUS7KQlCnCVv0ZUkRYaCYnHijS
+# p0igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -644,11 +739,11 @@ function Get-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRxtuDAQ9L+
-# WG6OXo6lA/4V3hnzGzANBgkqhkiG9w0BAQEFAASCAQAM+seI0lcnfhPjuG0D9okr
-# 0af1qrjQgb+j/AYRdL3BX6EyxO5tRvMZy8t2DYV84wM7gGsvyzyS1OdSTd5dQpN0
-# mJOZzA8KCh52JFYVd8W1P7oltEiDVr8iPsBRWKcxermEkr6D+eue8H5BxVmTyfjT
-# V3Di95o67g6U2CCVszWnHY7kjWaqp8lZGnQWf3LhMmql9RnkeWBdV9jm5h1H3/O2
-# iFpaF4TbJgLB1yGHMRjVvPzfnyD7jm7op3ztGy3CzPYFbAUccKtrfA5VdaRnZcQA
-# X6dxXUE9UANHLzk/DBrik49zv4PCFF89Q1qePgxRp+31HPE+C7E+VK7mD4+DHOO8
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRdXzHjkKLz
+# DPsc/1jaslM2GHXBHjANBgkqhkiG9w0BAQEFAASCAQBnB+VVIIt5NcpIfhShrFoQ
+# ZkmjpJHQLKgcQGq72dWm+pjbz4eEzpuD780aMSrIBQcY8v0/l2W5uNFuZPn+vfc6
+# 03NL/MBWH+OTdoOM5ZvI7UkSYBaPddXXuQU4HIuWl1GS2FjCLqw+1dD5ZQLisbgS
+# VKS89R0BTBomu+U5rFckgtERUD5LQR2wo7hj/SiGqxIgM/oAPrTnmO1W8JdorZKR
+# qNS6UAi+nf72ySP4+YaXVzSMUZs2roF8lLz7NAq3Iy+WDY3hZXscI0hZPprnsZam
+# FKotf4ZPyIPTcrGZPPOjWNlJsydWAep9ffWAgCwVz/iAgQBPbQttdd3y/pRNUi1D
 # SIG # End signature block
