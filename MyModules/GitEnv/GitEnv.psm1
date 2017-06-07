@@ -1770,6 +1770,12 @@ function Initialize-GitEnvironment {
     if ($PersonalAccessToken) {
         $AuthMethod = "https"
     }
+    if ($AuthMethod -eq "https" -and $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
+        Write-Verbose "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+        Write-Error "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
     # because Setup-GitAuthentication function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
@@ -1789,8 +1795,8 @@ function Initialize-GitEnvironment {
     }
 
     # Check to make sure Git Desktop is Installed
-    $GitDesktopVersion = [version]$(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub").DisplayVersion
-    $GitHubDesktopVersionString = $(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub").DisplayVersion
+    $GitDesktopVersion = [version]$(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub" | Where-Object {$_.DisplayName -notmatch "Machine-Wide Installer"}).DisplayVersion
+    $GitHubDesktopVersionString = $(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub" | Where-Object {$_.DisplayName -notmatch "Machine-Wide Installer"}).DisplayVersion
     if ($GitDesktopVersion -eq $null) {
         Write-Verbose "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
         Write-Error "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
@@ -2058,6 +2064,12 @@ function Setup-GitAuthentication {
     if ($PersonalAccessToken) {
         $AuthMethod = "https"
     }
+    if ($AuthMethod -eq "https" -and $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
+        Write-Verbose "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+        Write-Error "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
     # because Setup-GitAuthentication function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
@@ -2082,7 +2094,7 @@ function Setup-GitAuthentication {
         }
     }
 
-    $GitDesktopVersion = [version]$(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub").DisplayVersion
+    $GitDesktopVersion = [version]$(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub" | Where-Object {$_.DisplayName -notmatch "Machine-Wide Installer"}).DisplayVersion
     if ($GitDesktopVersion -eq $null) {
         Write-Verbose "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
         Write-Error "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
@@ -2110,7 +2122,15 @@ function Setup-GitAuthentication {
         if (!$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
             if ($GitDesktopChannel -eq "Stable") {
                 if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
-                    & "$appPath\GitHub.exe" --set-up-ssh
+                    GitHub.exe --set-up-ssh
+                    for ($i=0; $i -lt $(0..4).Count; $i++) {
+                        Write-Host "Waiting $($(0..4).Count - $i) seconds for GitHub.exe --set-up-ssh to create $HOME\.ssh\github_rsa..."
+                        if (Test-Path "$HOME\.ssh\github_rsa") {
+                            Write-Host "GitHub.exe --set-up-ssh successfully created $HOME\.ssh\github_rsa. Continuing..."
+                            break
+                        }
+                        Start-Sleep -Seconds 1
+                    }
                     if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
                         $NewSSHKeyName = "github_rsa"
                     }
@@ -2167,31 +2187,64 @@ function Setup-GitAuthentication {
                     if (!$(Test-Path "$HOME\Documents\WindowsPowerShell\Modules\Await")) {
                         New-Item -Type Directory "$HOME\Documents\WindowsPowerShell\Modules\Await"
                     }
-                    Copy-Item -Recurse -Path "$tempDirectory\*" -Destination "$HOME\Documents\WindowsPowerShell\Modules\Await"
-                    Remove-Item -Path $tempDirectory -Force
+                    Copy-Item -Recurse -Path "$tempDirectory\PoshAwait-master\*" -Destination "$HOME\Documents\WindowsPowerShell\Modules\Await"
+                    Remove-Item -Recurse -Path $tempDirectory -Force
                 }
 
                 # Make private key password $null
                 Import-Module Await
+                if (!$?) {
+                    Write-Verbose "Unable to load the Await Module! Halting!"
+                    Write-Error "Unable to load the Await Module! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
 
                 Start-AwaitSession
+                Start-Sleep -Seconds 1
                 Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
                 $PSAwaitProcess = $($(Get-Process | ? {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
-                Send-AwaitCommand "$HOME\Downloads\OpenSSH-Win64\OpenSSH-Win64\ssh-keygen.exe -t rsa -b 2048 -f $HOME\.ssh\$NewSSHKeyName -C `"GitAuthFor$CurrentUser`""
+                Start-Sleep -Seconds 1
+                Send-AwaitCommand "`$env:Path = '$env:Path'"
+                Start-Sleep -Seconds 1
+                Send-AwaitCommand "ssh-keygen.exe -t rsa -b 2048 -f `"$HOME\.ssh\$NewSSHKeyName`" -C `"GitAuthFor$CurrentUser`""
+                Start-Sleep -Seconds 1
                 Send-AwaitCommand ""
+                Start-Sleep -Seconds 1
                 Send-AwaitCommand ""
+                Start-Sleep -Seconds 1
                 $SSHKeyGenConsoleOutput = Receive-AwaitResponse
+                Write-hOst ""
+                Write-Host "##### BEGIN ssh-keygen Console Output From PSAwaitSession #####"
                 Write-Host "$SSHKeyGenConsoleOutput"
+                Write-Host "##### END ssh-keygen Console Output From PSAwaitSession #####"
+                Write-Host ""
                 # If Stop-AwaitSession errors for any reason, it doesn't return control, so we need to handle in try/catch block
                 try {
                     Stop-AwaitSession
                 }
                 catch {
-                    Stop-Process -Id $PSAwaitProcess.Id
+                    if ($PSAwaitProcess.Id -eq $PID) {
+                        Write-Verbose "The PSAwaitSession never spawned! Halting!"
+                        Write-Error "The PSAwaitSession never spawned! Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                    else {
+                        Stop-Process -Id $PSAwaitProcess.Id
+                    }
                 }
             }
 
-            $ExistingSSHPrivateKeyPath = "$HOME\.ssh\$NewSSHKeyName"
+            if (!$(Test-Path "$HOME\.ssh\$NewSSHKeyName")) {
+                Write-Verbose "ssh-keygen did not successfully create the public/private keypair! Halting!"
+                Write-Error "ssh-keygen did not successfully create the public/private keypair! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+            else {
+                $ExistingSSHPrivateKeyPath = "$HOME\.ssh\$NewSSHKeyName"
+            }
         }
 
         # At this point, $ExistingSSHPrivateKeyPath should exist
@@ -2336,6 +2389,7 @@ function Setup-GitAuthentication {
             }
         }
         if ($GitHubOnlineIsAware.Count -eq 0 -or $NewSSHKeyName) {
+            Write-Host ""
             Write-Host "GitHub Authentication was successfully configured on the client machine, however, the GitHub Online Account is not aware of the local public SSH key $ExistingSSHPrivateKeyPath.pub"
             Write-Host "Please add $HOME\.ssh\$ExistingSSHPrivateKeyPath.pub to your GitHub Account via Web Browser by:"
             Write-Host "    1) Navigating to Settings"
@@ -2415,6 +2469,12 @@ function Install-GitDesktop {
     if ($PersonalAccessToken) {
         $AuthMethod = "https"
     }
+    if ($AuthMethod -eq "https" -and $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
+        Write-Verbose "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+        Write-Error "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
     # because Setup-GitAuthentication function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
@@ -2457,7 +2517,7 @@ function Install-GitDesktop {
 
     # For more info on SendKeys method, see: https://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
     # https://desktop.githubusercontent.com/releases/0.5.8-e55db469/GitHubDesktopSetup.exe
-    if ($Version -eq "Beta") {
+    if ($Channel -eq "Beta") {
         $SpecificReleaseNumber = "0.5.8-e55db469"
         # For latest release, use the below URLs
         # Invoke-WebRequest -Uri "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi" -OutFile "$HOME\Downloads\GitHubDesktopSetup.msi"
@@ -2482,7 +2542,6 @@ function Install-GitDesktop {
                 $global:FunctionResult = "1"
                 return
             }
-            $GitHubDesktopVersion = $(Get-ChildItem $HOME\Downloads\GitHubDesktopSetup.exe).VersionInfo.ProductVersion
 
             # We're going to need Elevated privileges for to install the .msi if PowerShell wasn't Run As Administrator, Start-SudoSession
             if (!$(Check-Elevation)) {
@@ -2552,14 +2611,35 @@ function Install-GitDesktop {
                 $MSIExecOutput = $AllOutput
             }
 
-            # Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
+            while ($(Test-Path "C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe").VersionInfo.ProductVersion) {
+                Write-Host "Waiting for C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe to be extracted from .msi..."
+                Start-Sleep -Seconds 1
+            }
+            $GitHubDesktopVersion = $(Get-ChildItem "C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe").VersionInfo.ProductVersion
+
+            # Wait for 5 seconds to see if the Process with ProcessName "GitHubDesktop" spawns.
+            # NOTE: The process "GitHubDesktop" (i.e. no space between characters) is the intial install process, and
+            # the processes "GitHub Desktop" (i.e. with a space) are the Electron processes running when the program launches
+             for ($i=0; $i -lt $(0..4).Count; $i++) {
+                 Write-Host "Waiting $($(0..4).Count - $i) seconds for GitHubDesktop initial install process to start..."
+                 Start-Sleep -Seconds 1
+                 if (Get-Process | ? {$_.ProcessName -eq "GitHubDesktop"}) {
+                    Write-Host "GitHubDesktop initial install process started...Continuing..."
+                    $GitHubInitialInstallStarted = $true
+                    break
+                 }
+             }
+             if ($GitHubInitialInstallStarted -ne $true) {
+                Write-Host "Starting C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe manually..."
+                & "C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe"
+             }
         }
 
         $GitHubDesktopLaunchWindow = Get-Process | Where-Object {$_.ProcessName -eq "GitHub Desktop" -and $_.MainWindowTitle -eq "GitHub Desktop"}
         while ($GitHubDesktopLaunchWindow -eq $null) {
             Write-Host "Waiting for GitHub Desktop to launch..."
-            Start-Sleep -Seconds 2
             $GitHubDesktopLaunchWindow = Get-Process | Where-Object {$_.ProcessName -eq "GitHub Desktop" -and $_.MainWindowTitle -eq "GitHub Desktop"}
+            Start-Sleep -Seconds 2
         }
 
         Write-Host "Finished Installing GitHub Desktop"
@@ -2574,10 +2654,11 @@ function Install-GitDesktop {
             Write-Host "Closing GitDesktop..."
         }
 
-        Start-Sleep -Seconds 2
+        # Redefine $GitHubDesktopLaunchWindow again because Electron makes PID of active window slippery
+        $GitHubDesktopLaunchWindow = Get-Process | Where-Object {$_.ProcessName -eq "GitHub Desktop" -and $_.MainWindowTitle -eq "GitHub Desktop"}
         Stop-Process -Id $GitHubDesktopLaunchWindow.Id
     }
-    if ($Version -eq "Stable") {
+    if ($Channel -eq "Stable") {
         Invoke-WebRequest -Uri "https://github-windows.s3.amazonaws.com/GitHubSetup.exe" -OutFile "$HOME\Downloads\GitHubSetup.exe"
         if (!$?) {
             Write-Verbose "Unable to download file! Halting!"
@@ -2665,9 +2746,11 @@ function Install-GitDesktop {
     if (!$(Test-Path "$env:LocalAppData\GitHub\PoshGit*")) {
         if (!$(Get-Module -List -Name posh-git)) {
             if (!$(Check-Elevation)) {
+                Write-Host "Updating PackageManagement. Please wait..."
                 Update-PackageManagement -Credentials $Credentials
             }
             else {
+                Write-Host "Updating PackageManagement. Please wait..."
                 Update-PackageManagement
             }
             Install-Module posh-git -Scope CurrentUser
@@ -2697,7 +2780,7 @@ function Install-GitDesktop {
     # Set the Git PowerShell Environment
     if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
         $global:FunctionResult = "0"
-        Initialize-GitEnvironment
+        Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
         if ($global:FunctionResult -eq "1") {
             Write-Warning "GitHub Desktop was successfully installed, but the Git Environment could not be initialized"
             Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
@@ -3168,11 +3251,31 @@ function Publish-MyGitRepo {
 
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUB/uiB9KLWuVUlnRtBKSmdjAa
-# Wm+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdxKDPLo2o+cqKEIqOqIFtBAW
+# zPCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3227,11 +3330,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR/ebqIamk2
-# YpbaXy8hJMu7jpzTWTANBgkqhkiG9w0BAQEFAASCAQAXUz64FS0AwNRr/ckkmUz6
-# 30QVpVmveRmUdpX/x+d1HVOd6v2YOeAejD6fDW9HY8O2SkW83x89CBkzBbw42wHy
-# WpskWe+Ey2P5At1ZahFjUU/6lreMxgp78PqoyGNmmtq+dSCDS5X/RYEtjOT9CF+b
-# TQ51Vbent57gzuUXweg2X+n/y/2bOL4K/DlSMaDrjHz9GEWDv6qDzrTgoEx0a/2T
-# G6YnWs4NWpD/qX7ZDxEuLiz8Xf196PfLHmqCpGsxSlBOfpV2W8FDVMJ6hoISvr01
-# AeXd+kiV/XtKWvTUr9lZUwct5moVBorIn/eDT2S1Iw0YiP71l46U9Tts5Hh8VYEd
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ6QNUqFKv3
+# tp8Cb7G2EuTDthC9iDANBgkqhkiG9w0BAQEFAASCAQA1BNESNmuVhLW0lREx7Mnq
+# QaT6XYEewI6Buof2+KGgIemuXT44rl/6r5qoVk9bK4Kfqnmg0XzY/1EETfqPRphC
+# FQiwFf5/qKUYSXyIpIRIkxJg8Dx75cnvIX4qGcsokQ5ypND0G4y5Msr90/2xO8/H
+# YDDQ82yERdfgy13pA/iybDLpPVK3uhlcRSMF4AZXaxdxwq0Xjp4KiUwsJ/ne8S2Y
+# 1/ihz489/2sR6pTY8I0pnJBCZb1vJcHxR2YcJk2Rhj4Lf19s1m5Dmq3/9tl0vFJB
+# yb00ZQLubLlAtVyb3LoKF1cRPdQItHmjGV8lCRTti+oJDKwuk/mcJQe0LW5Z4XcJ
 # SIG # End signature block
