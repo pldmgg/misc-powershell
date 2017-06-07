@@ -29,7 +29,7 @@ function Unzip-File {
         [string[]]$SpecificItem
     )
 
-    ##### BEGIN Native Helper Functions ######
+    ##### BEGIN Native Helper Functions #####
     
     function Get-ZipChildItems {
         [CmdletBinding()]
