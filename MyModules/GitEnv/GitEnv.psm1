@@ -3028,6 +3028,7 @@ function Clone-GitRepo {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
                     if ($CloningOneOrMorePrivateRepos) {
                         $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.WorkingDirectory = $GitRepoParentDirectory
                         $ProcessInfo.FileName = "git"
                         $ProcessInfo.RedirectStandardError = $true
                         $ProcessInfo.RedirectStandardOutput = $true
@@ -3080,6 +3081,7 @@ function Clone-GitRepo {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
                     if ($CloningOneOrMorePrivateRepos) {
                         $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.WorkingDirectory = $GitRepoParentDirectory
                         $ProcessInfo.FileName = "git"
                         $ProcessInfo.RedirectStandardError = $true
                         $ProcessInfo.RedirectStandardOutput = $true
@@ -3128,6 +3130,7 @@ function Clone-GitRepo {
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
                 if ($CloningOneOrMorePrivateRepos) {
                     $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $ProcessInfo.WorkingDirectory = $GitRepoParentDirectory
                     $ProcessInfo.FileName = "git"
                     $ProcessInfo.RedirectStandardError = $true
                     $ProcessInfo.RedirectStandardOutput = $true
@@ -3418,12 +3421,11 @@ function Publish-MyGitRepo {
 }
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4q7SIggnCi3iCEsZxjaGzSN3
-# 09GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfuibLR5jkkaA53hqmxpMIqxx
+# hTigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3478,11 +3480,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSLzGrQkE8h
-# 9QAPDFMg4EIDv/dssDANBgkqhkiG9w0BAQEFAASCAQAja6ABPNhJsnVANBa72hJs
-# UvuORsKhqy3awUBSSOyOZ+efyI5tDDLKmxiehV8n5cUfVrHWdIrGx3qYYVSOYnQN
-# 74IMFIHh3fx40x/XEsNqnS7wMrz3voqp/JwN2196xcrU4Vc/IYEzPk0iumAxpOVo
-# f9qAJlEamejbmi9xntgHczaRCspPP80G1JKZtPfU13wuTLc8VUrV1rkrps8HwEuu
-# TkvuyFX4DlrdwlfH3quFz/eTIQK2LYa1FxyNa9ykB2CNg6urM2McaqbGEeXL90km
-# E3bmeeKNud9bb+ZiRlUlNkE+Ag9d4ObKjpzB97/Yp9qN7YZghJENfRxc4MFtHm6k
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRA73roXdrb
+# YZxNXrnu3yti0R0eFzANBgkqhkiG9w0BAQEFAASCAQApEjwYZVEXuINcQAs1f8A5
+# Or4v1TkHQJfgrojAd29FZRZkYdJb43lBqvAp3k9ZfYdHaYhrVWgNoRnKv4LXbste
+# lpVg6j0dr4mNG8t3PJDtquDYcVkW89WsZwYSPaRxXPXFx0JOBo+OuaYHvEtBZbRz
+# /KvvBUP2OS9+aQLQR6l4zPkyhH8+K7uTJXkadcvYG/lTZBUWmwjXHuo4MqUElYS8
+# z3V1UelqCNujNuA7At4JjsP+2Ow9AoyYSyw69re4yZuU+OJNlhgkHs231rWApinh
+# 8WpPihxOQEC1yF6pF+sq8d55sa9h+he4mwMo3TrMMJa+UuIQqo4BfHZSVkkfQmIZ
 # SIG # End signature block
