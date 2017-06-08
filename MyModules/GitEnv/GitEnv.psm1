@@ -3036,7 +3036,7 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $($PublicRepoObjects + $PrivateRepoObjects) | Where-Object {$_.Name -eq $RemoteGitRepoName}
-            if ($RemoteGitRepoObject -ne $null -and $RemoteGitRepoObject.Count -ne 0 -and $RemoteGitRepoObject.Count -lt 2) {
+            if ($RemoteGitRepoObject -eq $null) {
                 Write-Verbose "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
                 Write-Error "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
                 $global:FunctionResult = "1"
@@ -3079,7 +3079,7 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $PublicRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
-            if ($RemoteGitRepoObject -ne $null -and $RemoteGitRepoObject.Count -ne 0 -and $RemoteGitRepoObject.Count -lt 2) {
+            if ($RemoteGitRepoObject -eq $null) {
                 Write-Verbose "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
                 Write-Error "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
                 $global:FunctionResult = "1"
@@ -3310,12 +3310,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqPS7n3QggVdypWM4dUXtCQLq
-# X06gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWerp6yWw6vQYA31/xujzJ6CR
+# TimgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3370,11 +3369,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT/Vfmu0yaM
-# KcB/nhA6OWmC9bph/DANBgkqhkiG9w0BAQEFAASCAQAYPbNGLgi5yPv+nIrSrbLK
-# vsmoYBtD6ajmD+hiF0W9+0dwQJlPcsp6+9kT+Onyu10va+xWOrCzVsRNq1CidVL1
-# ulr8jCgFsOWYY1bXRkjEbBbymoobSMmQheI1fpX4cFdZbuSdbK4qSDcZpSxTetU1
-# F1aLW7e/nKKNJEo0Qi3z1aIZEFa9oeC01NRAJDsKSmJ4HP36yzQI4kg1dnHVGw+8
-# x5JK5if7hYdCcFBLhOhqj7rPQP9TnfNtNvWfNalC2m6Qgi3ZI28+HdKEiFk2eSCc
-# VX/c0N3wC1NXHZkjZq/E7B7vFl5BFH9yqaoLTkHge6Oh7DRDGM7XzantXQinbD3A
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTLNnKSLLoH
+# Qw1lm9pUExgMsTzMnTANBgkqhkiG9w0BAQEFAASCAQCIVa5PY5HLsMHMzM0XBD9f
+# FYKv5zDlEV24pgIYX3UtaWglI9xOv7lld8WzwTSI43AAF4XQJ2vn08JiLBDZd9CZ
+# 5rlxGBCQS5XsIYTPqjEEY72BfXGL40ooYnjr7UY5hl+YXOTIbRWJNzL7gauzSw8f
+# QycSFu0dYwhOhhfFH7fOA3c63w0bB+ItTPW5pKNmmcqExW1CMg3fXK0KeJzN6vDi
+# Sa2sj+WbilNRzdIqaKv4xRkvA+K1o7ftY8J6cpp1bRHzW7R4ulhgnCmNdCpsr5wX
+# 7f3VvbYJ90ObO3IEXs3WklI1WoIdhb6gSby8v1/OvRQl1JibTWZuPjdqde5aUkBM
 # SIG # End signature block
