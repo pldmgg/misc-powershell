@@ -3031,7 +3031,7 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $($PublicRepoObjects + $PrivateRepoObjects) | Where-Object {$_.Name -eq $RemoteGitRepoName}
-            if (!$RemoteGitRepoObject) {
+            if ($RemoteGitRepoObject.Count -lt 1) {
                 Write-Verbose "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
                 Write-Error "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
                 $global:FunctionResult = "1"
@@ -3074,7 +3074,7 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $PublicRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
-            if (!$RemoteGitRepoObject) {
+            if ($RemoteGitRepoObject.Count -lt 1) {
                 Write-Verbose "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
                 Write-Error "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
                 $global:FunctionResult = "1"
@@ -3313,12 +3313,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTZ9x1LRu61+kQP/wNkw8kwn/
-# fOWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkWnKPFLbSDiU8xj7XFKYk1mM
+# v8GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3373,11 +3372,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ0tKivs4my
-# JN8Pbqi/Jpki5RkEfDANBgkqhkiG9w0BAQEFAASCAQBHl6xns5R7z/UQ+/6vR4Gm
-# Q+OIfzacmtZmwQXbtnZ3ggKEjXLYS5Lq8nb/CCt1fNNrZkqH5GIOrxPit5FBAjbF
-# dzxgQsFZdn2NcGCB8OFqFT8vG+Fg/T2v5izyBt/MZs/CrBx9gEvWpt0U8oujFU06
-# uZwmEmbWRjVbCnbTXV5H0lAN5HJz0YUfERxbSvSDgowAbHn87fSADJVMR9pzzdRk
-# s88ZOs+e9EHjKh4kZakHxsa/oraCJV8v1gKoPRUYnQvncZH3P9sqmm4OlmE/tP7a
-# nWiFH3IidgH6CqAVzDBrrqdi/fMx0ZbhdjIdExqapWvk7j2KlXj+XavsJ9TB7PMm
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR87102Rts6
+# uPH1kbeioM7OaQa4fTANBgkqhkiG9w0BAQEFAASCAQA6Vpnf6wgin5EonTOaw5E2
+# zkfcktooEL+fRgKZ96L4WAJ6+c4cVaMCH886MIghJuTM8R0tSxpXjLC5FgHqb9Uk
+# ALepxxNpFSbTWQYrRnjpMWPEkStm80UBe2KfZFZwDjiQM7mP3z4VAZK9fp32ezNl
+# RcoPoXo2FJt6ZpuW98voht0ik6Dt+qPl/VLoKs7OlbxMhoXKLbiwD3mabuPk0Z6D
+# 1VTmuwM8/e6S+Xreik/QfLmGfmk6kePyV3rOuGM7KHJ5nbn+2Oad/bZ8NOf4aG+T
+# PjKVVd16GI1kzXQ07yvTuqfYSUSMwz3icSkJKMGpmO/lTm+w6QQhUpMfxvXj+DjV
 # SIG # End signature block
