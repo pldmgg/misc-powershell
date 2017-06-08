@@ -2965,9 +2965,14 @@ function Clone-GitRepo {
     ##### BEGIN Main Body #####
 
     if ($PrivateReposParamSetCheck) {
-        $PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
-        $PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
-        $PublicRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $false}
+        if ($PersonalAccessToken) {
+            $PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
+            $PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
+            $PublicRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $false}
+        }
+        else {
+            $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
+        }
 
         if ($CloneAllPrivateRepos) {
             foreach ($RepoObject in $PrivateRepoObjects) {
@@ -2998,7 +3003,7 @@ function Clone-GitRepo {
             }
         }
         if ($CloneAllRepos) {
-            foreach ($RepoObject in $PublicAndPrivateRepoObjects) {
+            foreach ($RepoObject in $($PublicRepoObjects + $PrivateRepoObjects)) {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
                     Set-Location $GitRepoParentDirectory
                     git clone $RepoObject.html_url
@@ -3012,7 +3017,7 @@ function Clone-GitRepo {
             }
         }
         if ($RemoteGitRepoName) {
-            $RemoteGitRepoObject = $PublicAndPrivateRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
+            $RemoteGitRepoObject = $($PublicRepoObjects + $PrivateRepoObjects) | Where-Object {$_.Name -eq $RemoteGitRepoName}
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
                 Set-Location $GitRepoParentDirectory
                 git clone $RemoteGitRepoObject.html_url
@@ -3282,12 +3287,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUaMIuQR7MlC3zYowBfdxw4gBL
-# 8ZmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0kcz5VeGE6j8EH30nztm1ywq
+# f4igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3342,11 +3346,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR3M4PM8Z2q
-# eI4xB9Ew0jArWfamdzANBgkqhkiG9w0BAQEFAASCAQA/cUHVkY4zoeCi5CN47roU
-# 6MDbSkm+rzSS9h0USWSqCXa2E4EPvmEc+AhPTcEAjPvlzK57AINsVQtfjmSOk9/c
-# nT0CRjAZPUUT2QD4KrQFA4X45A7CMBSem/Fbmc9Y+nFMTXWC3A/t7Q5VXhsirBNa
-# McLh1wgaP8bZGQqBz5VwR8eMm30D57zsnKiPQwC878RyUvovi26gNF29QOVRIE3A
-# EMuJnwMUdAPvoHfJibUwtosBmK5ECuIkmRT05cVzHWTywN50w2MbZ4N5wXjyXunz
-# QM2NUhEjSv5vDaly6Cx6lK1HbbRJySXxi+c3yfTUFstOVFWhI+uqAi0RtYIrEk92
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTqTFMebtDn
+# VS948mPzPAOMoVZcpjANBgkqhkiG9w0BAQEFAASCAQCLmr5efF2q955ph08ou/QW
+# 75dUaxMoefXnwj6gXe6W9RpEf+rsKNwhLSCWET6SCvB1O5GknuTU+sFeewlPQN4G
+# 0i5+JRR7O02YznmyxK8ZPi+uGRMLIy6IIF4ik7M27Gp2Yo+fdzMNntkQt4zblGFZ
+# +JVgMxRPKUGwNjFvv5cXkZy1XjSPj626SI214FjinWdMaRWHF12Y7mYj9jIwt2Za
+# lvrOE5g++ZflznjdjpYgjahysjHpDftBeN2d1SRvLdTn579KSsR1CmN531uOFmUh
+# AailcHSpKyMv+uC06ftE6uTyNDPdscsO6vI8LjyHj8j3rWVCqe0cOQDOiymsRq5O
 # SIG # End signature block
