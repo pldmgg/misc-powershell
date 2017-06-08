@@ -2974,10 +2974,15 @@ function Clone-GitRepo {
             $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
         }
         if ($PublicRepoObject.Count -lt 1) {
-            Write-Warning "No public repositories were found! Halting!"
+            if ($RemoteGitRepo) {
+                Write-Verbose "$RemoteGitRepo is either private or does not exist..."
+            }
+            else {
+                Write-Warning "No public repositories were found!"
+            }
         }
         if ($PrivateRepoObjects.Count -lt 1) {
-            Write-Warning "No public repositories were found! Halting!"
+            Write-Verbose "No pirvate repositories were found!"
         }
         if ($($PublicRepoObjects + $PrivateRepoObjects).Count -lt 1) {
             Write-Verbose "No public or private repositories were found! Halting!"
@@ -3308,12 +3313,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJJhVAeCMsKxHLLFuaxRTp2ub
-# doOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2E7ri3HsAAqtTkkaClA2d7jL
+# zdegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3368,11 +3372,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR60A9/9PSP
-# OXOJNAS5vTUne82GajANBgkqhkiG9w0BAQEFAASCAQBunvKnrnMcUCnPCnpMJQAe
-# vrhrre9nK1KO26PsI0oIo0+4XSmbjLV57iZQ8BVmVaF26IwelIfyDFRfAB7lgP11
-# +a3vmfWmM+jOSVJqK4Vhs6thaC/NrZIrT2NHS/N0/9SXkxLitcBFjpbgdRLnyR+d
-# tzTZYcSX/8h34EsjIbk94ApG9py93p0ph/ZCE+8klYVJTNBo3Nlf+tY1XDVfauBm
-# h7po23fS0NSL9q7oTX8x144pL7YFLHS/NhKhjXORvnU6qjfcyICamXpIFPsVNiDi
-# YNo7nr3caFfNp9r36e3qaV1RX27IEqX8wy6ggBy0MMOgbkUTHt0csAACcPBbaIYP
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMxdTP9dL1
+# Lf9J25cZG4lWbsk/7zANBgkqhkiG9w0BAQEFAASCAQBNr4L6qXXd5TMs/4DHkpqN
+# 53Q+O0rpl5JiikWMwWuUtCGdhdcfHKNMx6CLtvaVk5trn3GBqrFR1s0RPNqr8fpN
+# JVZcghSIBFC4Xpe0bm7DwqSpkfxpoDrq8ORBVy1MZTxTKLyIGPExfPrwz2C0i/2e
+# yi4zFEp4kpRvoKZl/Gust/D94BR/7h0nR6wgTMBnlmyonK8t7VW8UIsnXGANebXp
+# 3+jwVIeKb1d1obJcoqkeN1iBIn/SNR1A5X1tvuyBHzNzBeXowr6eU06mloOPGI6Z
+# sFMNO+rWwC5EFiUF6WXslJmAmB878Ms3tTGe98vIzAIUEcd+iw0uknNqPNDqPwny
 # SIG # End signature block
