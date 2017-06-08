@@ -2898,7 +2898,7 @@ function Clone-GitRepo {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     # Make sure we have access to the git command
-    if ($env:github_shell -ne $true -or !$(Get-Command git -ErrorAction SilentlyContinue)){
+    if ($env:github_shell -ne $true -or !$(Get-Command git -ErrorAction SilentlyContinue)) {
         if (!$GitHubUserName) {
             $GitHubUserName = Read-Host -Prompt "Please enter your GitHub UserName"
         }
@@ -2912,7 +2912,7 @@ function Clone-GitRepo {
             Write-Error "The Initialize-GitEnvironment function failed! Halting!"
             $global:FunctionResult = "1"
             return
-        })
+        }
     }
 
     if (!$(Test-Path $GitRepoParentDirectory)) {
@@ -3187,7 +3187,7 @@ function Publish-MyGitRepo {
             Write-Error "The Initialize-GitEnvironment function failed! Halting!"
             $global:FunctionResult = "1"
             return
-        })
+        }
     }
 
     # Valdate Git Repo Parent Directory $GitRepoParentDir
@@ -3284,12 +3284,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUscBYyApP82lCJBd27wY7TfTe
-# yTOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmGffI3Gs/Sz02RdpQHVI6SnQ
+# 0LmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3344,11 +3343,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBREFkmWwXWY
-# KfFUtj5YBfc1fW0qWDANBgkqhkiG9w0BAQEFAASCAQCdrtchHEg+WTkCgPtdcn4W
-# 6nx62QwQZjxyiMcOrIQm6Y6e/RVLK7u36PMqOlp/mW/hRIrvF4ICLAzycX6g7qvv
-# ZEZRzENwq2modfe3FtX4eiU3BJyw3EVcFjC5tdrWR7ZtAAiMc2ZtQ24wF8hUa8j7
-# 0x+fiwFCsSp0Ku7EjtYVfvXHEaSYktrlH8e9dyL4w5InTdQa3cDEkTOTf2ey095M
-# fXDCBsep2+y3oJ0+oGFq4Pst8h/ADCZJlWOb7sUL+cM/BGb2qy2mkGKFje0TbKgz
-# CY2BkAY9TCASsoISFE5eCIbTrVZ0X2NDL4wluF6rSIr9ezs3VGvsf2RBqicXsIKO
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTLw2B23raG
+# FP4mqETxkKnekv38vzANBgkqhkiG9w0BAQEFAASCAQBIdtVJxVEqB39YVWnK2eoP
+# He1/+fbKvqmKk+9TpVwOKwWM65w1jiyiH1Iov4sm0dvD3Mll6/IlaynWyFH4TB4H
+# ZyKRcRk1aMZnRTL7l5nbykBx1W0SOXQGtMuLx2XbjszLf4YdOFgD3de7WCR4cK08
+# QXkXfH5xxjdK2LhXq9rfE2rz8lhFYVsbtBost/QVoO+TsEo2bWVqmnJcVSOnJCMw
+# TQkTXsuKMppyP6bO+5uoE2GO8KFvlihCqTw7wHLZYit89zK8DbPNscab5JBzMGiE
+# bBX3VlPiRkaWdHFeY/RCjyB7k+t1ovwgcwYPlGOliOKi5Hk996/9bqaOqKwTiQSp
 # SIG # End signature block
