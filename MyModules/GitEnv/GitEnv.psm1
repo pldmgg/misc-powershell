@@ -2927,12 +2927,12 @@ function Clone-GitRepo {
 
     $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos"
     $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "CloneAllPublicRepos"
-    if ($RemoteGitRepo -and !$PersonalAccessToken) {
+    if ($RemoteGitRepoName -and !$PersonalAccessToken) {
         $NoPrivateReposParamSetCheck = $true
     }
 
     # For Params that are part of the PrivateRepos Parameter Set...
-    if ($PrivateReposParamSetCheck) {
+    if ($PrivateReposParamSetCheck -eq $true) {
         if ($($CloneAllPrivateRepos -and $CloneAllRepos) -or 
         $($CloneAllPrivateRepos -and $RemoteGitRepoName) -or
         $($CloneAllPrivateRepos -and $CloneAllPublicRepos) -or 
@@ -2950,7 +2950,7 @@ function Clone-GitRepo {
         }
     }
     # For Params that are part of the NoPrivateRepos Parameter Set...
-    if ($NoPrivateReposParamSetCheck) {
+    if ($NoPrivateReposParamSetCheck -eq $true) {
         if ($CloneAllPublicRepos -and $RemoteGitRepoName) {
             Write-Verbose "Please use *either* -CloneAllPublicRepos *or* -RemoteGitRepoName! Halting!"
             Write-Error "Please use *either* -CloneAllPublicRepos *or* -RemoteGitRepoName! Halting!"
@@ -2964,7 +2964,7 @@ function Clone-GitRepo {
 
     ##### BEGIN Main Body #####
 
-    if ($PrivateReposParamSetCheck) {
+    if ($PrivateReposParamSetCheck -eq $true) {
         if ($PersonalAccessToken) {
             $PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
             $PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
@@ -3049,7 +3049,7 @@ function Clone-GitRepo {
             }
         }
     }
-    if ($NoPrivateReposParamSetCheck) {
+    if ($NoPrivateReposParamSetCheck -eq $true) {
         $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
         if ($PublicRepoObjects.Count -lt 1) {
             Write-Verbose "No public repositories were found! Halting!"
@@ -3309,15 +3309,11 @@ function Publish-MyGitRepo {
 
 
 
-
-
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkWnKPFLbSDiU8xj7XFKYk1mM
-# v8GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJJhVAeCMsKxHLLFuaxRTp2ub
+# doOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3372,11 +3368,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR87102Rts6
-# uPH1kbeioM7OaQa4fTANBgkqhkiG9w0BAQEFAASCAQA6Vpnf6wgin5EonTOaw5E2
-# zkfcktooEL+fRgKZ96L4WAJ6+c4cVaMCH886MIghJuTM8R0tSxpXjLC5FgHqb9Uk
-# ALepxxNpFSbTWQYrRnjpMWPEkStm80UBe2KfZFZwDjiQM7mP3z4VAZK9fp32ezNl
-# RcoPoXo2FJt6ZpuW98voht0ik6Dt+qPl/VLoKs7OlbxMhoXKLbiwD3mabuPk0Z6D
-# 1VTmuwM8/e6S+Xreik/QfLmGfmk6kePyV3rOuGM7KHJ5nbn+2Oad/bZ8NOf4aG+T
-# PjKVVd16GI1kzXQ07yvTuqfYSUSMwz3icSkJKMGpmO/lTm+w6QQhUpMfxvXj+DjV
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR60A9/9PSP
+# OXOJNAS5vTUne82GajANBgkqhkiG9w0BAQEFAASCAQBunvKnrnMcUCnPCnpMJQAe
+# vrhrre9nK1KO26PsI0oIo0+4XSmbjLV57iZQ8BVmVaF26IwelIfyDFRfAB7lgP11
+# +a3vmfWmM+jOSVJqK4Vhs6thaC/NrZIrT2NHS/N0/9SXkxLitcBFjpbgdRLnyR+d
+# tzTZYcSX/8h34EsjIbk94ApG9py93p0ph/ZCE+8klYVJTNBo3Nlf+tY1XDVfauBm
+# h7po23fS0NSL9q7oTX8x144pL7YFLHS/NhKhjXORvnU6qjfcyICamXpIFPsVNiDi
+# YNo7nr3caFfNp9r36e3qaV1RX27IEqX8wy6ggBy0MMOgbkUTHt0csAACcPBbaIYP
 # SIG # End signature block
