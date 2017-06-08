@@ -2966,9 +2966,9 @@ function Clone-GitRepo {
 
     if ($PrivateReposParamSetCheck -eq $true) {
         if ($PersonalAccessToken) {
-            $PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
-            $PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
-            $PublicRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $false}
+            $global:PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
+            $global:PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
+            $global:PublicRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $false}
         }
         else {
             $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
@@ -3036,7 +3036,7 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $($PublicRepoObjects + $PrivateRepoObjects) | Where-Object {$_.Name -eq $RemoteGitRepoName}
-            if ($RemoteGitRepoObject.Count -lt 1) {
+            if ($RemoteGitRepoObject -ne $null -and $RemoteGitRepoObject.Count -ne 0 -and $RemoteGitRepoObject.Count -lt 2) {
                 Write-Verbose "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
                 Write-Error "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
                 $global:FunctionResult = "1"
@@ -3079,7 +3079,7 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $PublicRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
-            if ($RemoteGitRepoObject.Count -lt 1) {
+            if ($RemoteGitRepoObject -ne $null -and $RemoteGitRepoObject.Count -ne 0 -and $RemoteGitRepoObject.Count -lt 2) {
                 Write-Verbose "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
                 Write-Error "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
                 $global:FunctionResult = "1"
@@ -3311,13 +3311,11 @@ function Publish-MyGitRepo {
 
 
 
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2E7ri3HsAAqtTkkaClA2d7jL
-# zdegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqPS7n3QggVdypWM4dUXtCQLq
+# X06gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3372,11 +3370,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMxdTP9dL1
-# Lf9J25cZG4lWbsk/7zANBgkqhkiG9w0BAQEFAASCAQBNr4L6qXXd5TMs/4DHkpqN
-# 53Q+O0rpl5JiikWMwWuUtCGdhdcfHKNMx6CLtvaVk5trn3GBqrFR1s0RPNqr8fpN
-# JVZcghSIBFC4Xpe0bm7DwqSpkfxpoDrq8ORBVy1MZTxTKLyIGPExfPrwz2C0i/2e
-# yi4zFEp4kpRvoKZl/Gust/D94BR/7h0nR6wgTMBnlmyonK8t7VW8UIsnXGANebXp
-# 3+jwVIeKb1d1obJcoqkeN1iBIn/SNR1A5X1tvuyBHzNzBeXowr6eU06mloOPGI6Z
-# sFMNO+rWwC5EFiUF6WXslJmAmB878Ms3tTGe98vIzAIUEcd+iw0uknNqPNDqPwny
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT/Vfmu0yaM
+# KcB/nhA6OWmC9bph/DANBgkqhkiG9w0BAQEFAASCAQAYPbNGLgi5yPv+nIrSrbLK
+# vsmoYBtD6ajmD+hiF0W9+0dwQJlPcsp6+9kT+Onyu10va+xWOrCzVsRNq1CidVL1
+# ulr8jCgFsOWYY1bXRkjEbBbymoobSMmQheI1fpX4cFdZbuSdbK4qSDcZpSxTetU1
+# F1aLW7e/nKKNJEo0Qi3z1aIZEFa9oeC01NRAJDsKSmJ4HP36yzQI4kg1dnHVGw+8
+# x5JK5if7hYdCcFBLhOhqj7rPQP9TnfNtNvWfNalC2m6Qgi3ZI28+HdKEiFk2eSCc
+# VX/c0N3wC1NXHZkjZq/E7B7vFl5BFH9yqaoLTkHge6Oh7DRDGM7XzantXQinbD3A
 # SIG # End signature block
