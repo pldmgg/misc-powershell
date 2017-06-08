@@ -2889,10 +2889,7 @@ function Clone-GitRepo {
         )]
         [switch]$CloneAllPrivateRepos,
 
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='PrivateRepos'
-        )]
+        [Parameter(Mandatory=$False)]
         [switch]$CloneAllRepos
     )
 
@@ -2922,10 +2919,17 @@ function Clone-GitRepo {
         return
     }
 
+    if ($CloneAllRepos -and !$PersonalAccessToken) {
+        Write-Host "Please note that if you would like to clone both Public AND Private repos, you must use the -PersonalAccessToken parameter with the -CloneAllRepos switch."
+    }
+
     $BoundParamsArrayOfKVP = $PSBoundParameters.GetEnumerator() | foreach {$_}
 
-    $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos|CloneAllRepos"
+    $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos"
     $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "CloneAllPublicRepos"
+    if ($RemoteGitRepo -and !$PersonalAccessToken) {
+        $NoPrivateReposParamSetCheck = $true
+    }
 
     # For Params that are part of the PrivateRepos Parameter Set...
     if ($PrivateReposParamSetCheck) {
@@ -2952,10 +2956,6 @@ function Clone-GitRepo {
             Write-Error "Please use *either* -CloneAllPublicRepos *or* -RemoteGitRepoName! Halting!"
             $global:FunctionResult = "1"
             return
-        }
-
-        if (!$GitHubUserName) {
-            $GitHubUserName = Read-Host -Prompt "Please enter your GitHub UserName."
         }
     }
 
@@ -3031,10 +3031,9 @@ function Clone-GitRepo {
         }
     }
     if ($NoPrivateReposParamSetCheck) {
-        $Page = "1"
-        $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos?page=$Page&per_page=100"
+        $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
 
-        if ($CloneAllPublicRepos) {
+        if ($CloneAllPublicRepos -or $CloneAllRepos) {
             foreach ($RepoObject in $PublicRepoObjects) {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
                     Set-Location $GitRepoParentDirectory
@@ -3285,12 +3284,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYgLPpSsmlR/EFCj7qjxErxUB
-# cmKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUO8FJLEV1QR33DJle6P9QFFpJ
+# OyOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3345,11 +3343,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTP4MZwRve1
-# Do+qyEDdHy/d6/HWIjANBgkqhkiG9w0BAQEFAASCAQAbnXxKM5M65hA/mwJUYsKb
-# dmhitchN1rSLrpafkE5fQPYOy5GYlsrXkgdvFGvG1fGgUD2i8mgABynFo2kwnul3
-# xp6N3PCo74zVSIumUba8XKij8B+ye7Y/6mhtC9RlySf2GYUcn1+OPaU3UIwCh4KE
-# fMYhfDaWqa+hR5hAxQVExspm8pXcvrQ5EeqG9ZhcsTy7aJlJc+yiyA8GrdSfOnR7
-# 9XX9qlFzkxeIs9o6gzP5IAiVxgeWtrKUx2vDLH1sO2SG08K6Xd30V53RuFQXvoPf
-# sbjZGix8WJXjtaxhwSewe0RcaETeXyiQ8Is5zDGlcJiGrq9BwkqaR0sptllYgUwq
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTPO8CnT9BR
+# bdtC7olGWDw3p9qCDTANBgkqhkiG9w0BAQEFAASCAQCd0r2l49dgbJVBHKbW4jA6
+# EAWlE67a3x3BD5ngk+OjgyOzz8LHF0eclGgJGehzCuutUiT1skrN5pygrYVAxJUN
+# nO6AtSD6ojmlZqrgkvXLhLj6orKDy2r5aQtYon1mc9MKiEDtwgo7AILD/Y8w0ofI
+# 9c7gDDijp05KXFaKNPJxHNrtGkPw9T0u11dPpXUzOAMwGgOdS638/ixyVuh3rpT/
+# uf9HmLGkvGJa038/04tMDPP//NtQOsg1Q54eGQDumLTcpeYWI3H51VH4jYKgpxqb
+# Y0BSa2//MDQ3hTjjqgLYutWHkgSsQBdtlBj1ZuGc3lpyZlL/PW76ENGMcmj7orej
 # SIG # End signature block
