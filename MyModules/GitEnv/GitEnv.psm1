@@ -2925,7 +2925,7 @@ function Clone-GitRepo {
     $BoundParamsArrayOfKVP = $PSBoundParameters.GetEnumerator() | foreach {$_}
 
     $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos|CloneAllRepos"
-    $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "GitHubUserName|CloneAllPublicRepos"
+    $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "CloneAllPublicRepos"
 
     # For Params that are part of the PrivateRepos Parameter Set...
     if ($PrivateReposParamSetCheck) {
@@ -3286,12 +3286,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0kcz5VeGE6j8EH30nztm1ywq
-# f4igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYgLPpSsmlR/EFCj7qjxErxUB
+# cmKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3346,11 +3345,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTqTFMebtDn
-# VS948mPzPAOMoVZcpjANBgkqhkiG9w0BAQEFAASCAQCLmr5efF2q955ph08ou/QW
-# 75dUaxMoefXnwj6gXe6W9RpEf+rsKNwhLSCWET6SCvB1O5GknuTU+sFeewlPQN4G
-# 0i5+JRR7O02YznmyxK8ZPi+uGRMLIy6IIF4ik7M27Gp2Yo+fdzMNntkQt4zblGFZ
-# +JVgMxRPKUGwNjFvv5cXkZy1XjSPj626SI214FjinWdMaRWHF12Y7mYj9jIwt2Za
-# lvrOE5g++ZflznjdjpYgjahysjHpDftBeN2d1SRvLdTn579KSsR1CmN531uOFmUh
-# AailcHSpKyMv+uC06ftE6uTyNDPdscsO6vI8LjyHj8j3rWVCqe0cOQDOiymsRq5O
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTP4MZwRve1
+# Do+qyEDdHy/d6/HWIjANBgkqhkiG9w0BAQEFAASCAQAbnXxKM5M65hA/mwJUYsKb
+# dmhitchN1rSLrpafkE5fQPYOy5GYlsrXkgdvFGvG1fGgUD2i8mgABynFo2kwnul3
+# xp6N3PCo74zVSIumUba8XKij8B+ye7Y/6mhtC9RlySf2GYUcn1+OPaU3UIwCh4KE
+# fMYhfDaWqa+hR5hAxQVExspm8pXcvrQ5EeqG9ZhcsTy7aJlJc+yiyA8GrdSfOnR7
+# 9XX9qlFzkxeIs9o6gzP5IAiVxgeWtrKUx2vDLH1sO2SG08K6Xd30V53RuFQXvoPf
+# sbjZGix8WJXjtaxhwSewe0RcaETeXyiQ8Is5zDGlcJiGrq9BwkqaR0sptllYgUwq
 # SIG # End signature block
