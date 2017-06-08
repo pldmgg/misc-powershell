@@ -2274,7 +2274,7 @@ function Setup-GitAuthentication {
 
     if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
         $global:FunctionResult = "0"
-        Initialize-GitEnvironment
+        Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
         if ($global:FunctionResult -eq "1") {
             Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
             Write-Error "The Initialize-GitEnvironment function failed! Halting!"
@@ -2865,11 +2865,11 @@ function Clone-GitRepo {
         [Parameter(Mandatory=$False)]
         $GitRepoParentDirectory = $(Read-Host -Prompt "Please enter the full path to the directory that will contain the cloned Git repository."),
 
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='NoPrivateRepos'
-        )]
-        $GitHubUserName,
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubUserName,
+
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubEmail,
 
         [Parameter(
             Mandatory=$False,
@@ -2897,6 +2897,23 @@ function Clone-GitRepo {
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    # Make sure we have access to the git command
+    if ($env:github_shell -ne $true -or !$(Get-Command git -ErrorAction SilentlyContinue)){
+        if (!$GitHubUserName) {
+            $GitHubUserName = Read-Host -Prompt "Please enter your GitHub UserName"
+        }
+        if (!$GitHubEmail) {
+            $GitHubEmail = Read-Host -Prompt "Please enter the GitHub Email address associated with $GitHubuserName"
+        }
+        $global:FunctionResult = "0"
+        Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
+        if ($global:FunctionResult -eq "1") {
+            Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
+            Write-Error "The Initialize-GitEnvironment function failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        })
+    }
 
     if (!$(Test-Path $GitRepoParentDirectory)) {
         Write-Verbose "The path $GitRepoParentDirectory was not found! Halting!"
@@ -3127,51 +3144,60 @@ function Publish-MyGitRepo {
     )]
     [Alias('pubgitrepo')]
     Param(
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("source")]
         [string]$SourceFilePath = $(Read-Host -Prompt "Please enter the full file path to the script that you would like to publish to your LOCAL GitHub Project Repository."),
 
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("dest")]
         [string]$DestinationLocalGitRepoName = $(Read-Host -Prompt "Please enter the name of the LOCAL Git Repo to which the script/function will be published."),
 
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
-        )]
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubUserName,
+
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubEmail,
+
+        [Parameter(Mandatory=$False)]
         [Alias("cert")]
         [string]$SigningCertFilePath,
 
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("push")]
         [switch]$gitpush,
 
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Parameter Set 1'
-        )]
+        [Parameter(Mandatory=$False)]
         [Alias("message")]
         [string]$gitmessage
     )
 
     ##### BEGIN Parameter Validation #####
-    # Valdate Git Repo Parent Directory $env:GitRepoParent
-    if (! $env:GitRepoParent) {
-        [string]$env:GitRepoParent = Read-Host -Prompt "Please enter the parent directory of your local gitrepo"
+    # Make sure we have access to the git command
+    if ($env:github_shell -ne $true -or !$(Get-Command git -ErrorAction SilentlyContinue)){
+        if (!$GitHubUserName) {
+            $GitHubUserName = Read-Host -Prompt "Please enter your GitHub UserName"
+        }
+        if (!$GitHubEmail) {
+            $GitHubEmail = Read-Host -Prompt "Please enter the GitHub Email address associated with $GitHubuserName"
+        }
+        $global:FunctionResult = "0"
+        Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
+        if ($global:FunctionResult -eq "1") {
+            Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
+            Write-Error "The Initialize-GitEnvironment function failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        })
     }
-    if (! $(Test-Path $env:GitRepoParent)) {
+
+    # Valdate Git Repo Parent Directory $GitRepoParentDir
+    if (! $GitRepoParentDir) {
+        [string]$GitRepoParentDir = Read-Host -Prompt "Please enter the parent directory of your local gitrepo"
+    }
+    if (! $(Test-Path $GitRepoParentDir)) {
         Write-Warning "The path $env:GitHubParent was not found!"
-        [string]$env:GitRepoParent = Read-Host -Prompt "Please enter the parent directory of your local gitrepo"
-        if (! $(Test-Path $env:GitRepoParent)) {
+        [string]$GitRepoParentDir = Read-Host -Prompt "Please enter the parent directory of your local gitrepo"
+        if (! $(Test-Path $GitRepoParentDir)) {
             Write-Host "The path $env:GitHubParent was not found! Halting!"
             Write-Error "The path $env:GitHubParent was not found! Halting!"
             $global:FunctionResult = "1"
@@ -3204,7 +3230,7 @@ function Publish-MyGitRepo {
 
     ##### BEGIN Variable/Parameter Transforms #####
     $ScriptFileName = $SourceFilePath | Split-Path -Leaf
-    $DestinationLocalGitRepoDir = "$env:GitRepoParent\$DestinationLocalGitRepoName"
+    $DestinationLocalGitRepoDir = "$GitRepoParentDir\$DestinationLocalGitRepoName"
     $DestinationFilePath = "$DestinationLocalGitRepoDir\$ScriptFileName"
 
     if ($SigningCertFilePath) {
@@ -3229,17 +3255,6 @@ function Publish-MyGitRepo {
     if ($gitpush) {
         if ($pscmdlet.ShouldProcess($DestinationLocalGitRepoName,"Push deltas in $DestinationLocalGitRepoName to GitHub")) {
             Set-Location $DestinationLocalGitRepoDir
-            
-            if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
-                $global:FunctionResult = "0"
-                Initialize-GitEnvironment
-                if ($global:FunctionResult -eq "1") {
-                    Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
-                    Write-Error "The Initialize-GitEnvironment function failed! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
             
             git -C $DestinationLocalGitRepoDir add -A
             git -C $DestinationLocalGitRepoDir commit -a -m "$gitmessage"
@@ -3270,12 +3285,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdxKDPLo2o+cqKEIqOqIFtBAW
-# zPCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUscBYyApP82lCJBd27wY7TfTe
+# yTOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3330,11 +3344,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ6QNUqFKv3
-# tp8Cb7G2EuTDthC9iDANBgkqhkiG9w0BAQEFAASCAQA1BNESNmuVhLW0lREx7Mnq
-# QaT6XYEewI6Buof2+KGgIemuXT44rl/6r5qoVk9bK4Kfqnmg0XzY/1EETfqPRphC
-# FQiwFf5/qKUYSXyIpIRIkxJg8Dx75cnvIX4qGcsokQ5ypND0G4y5Msr90/2xO8/H
-# YDDQ82yERdfgy13pA/iybDLpPVK3uhlcRSMF4AZXaxdxwq0Xjp4KiUwsJ/ne8S2Y
-# 1/ihz489/2sR6pTY8I0pnJBCZb1vJcHxR2YcJk2Rhj4Lf19s1m5Dmq3/9tl0vFJB
-# yb00ZQLubLlAtVyb3LoKF1cRPdQItHmjGV8lCRTti+oJDKwuk/mcJQe0LW5Z4XcJ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBREFkmWwXWY
+# KfFUtj5YBfc1fW0qWDANBgkqhkiG9w0BAQEFAASCAQCdrtchHEg+WTkCgPtdcn4W
+# 6nx62QwQZjxyiMcOrIQm6Y6e/RVLK7u36PMqOlp/mW/hRIrvF4ICLAzycX6g7qvv
+# ZEZRzENwq2modfe3FtX4eiU3BJyw3EVcFjC5tdrWR7ZtAAiMc2ZtQ24wF8hUa8j7
+# 0x+fiwFCsSp0Ku7EjtYVfvXHEaSYktrlH8e9dyL4w5InTdQa3cDEkTOTf2ey095M
+# fXDCBsep2+y3oJ0+oGFq4Pst8h/ADCZJlWOb7sUL+cM/BGb2qy2mkGKFje0TbKgz
+# CY2BkAY9TCASsoISFE5eCIbTrVZ0X2NDL4wluF6rSIr9ezs3VGvsf2RBqicXsIKO
 # SIG # End signature block
