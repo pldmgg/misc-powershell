@@ -2964,11 +2964,13 @@ function Clone-GitRepo {
 
     ##### BEGIN Main Body #####
 
+    Push-Location $GitRepoParentDirectory
+
     if ($PrivateReposParamSetCheck -eq $true) {
         if ($PersonalAccessToken) {
-            $global:PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
-            $global:PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
-            $global:PublicRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $false}
+            $PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
+            $PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
+            $PublicRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $false}
         }
         else {
             $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
@@ -2982,7 +2984,7 @@ function Clone-GitRepo {
             }
         }
         if ($PrivateRepoObjects.Count -lt 1) {
-            Write-Verbose "No pirvate repositories were found!"
+            Write-Verbose "No private repositories were found!"
         }
         if ($($PublicRepoObjects + $PrivateRepoObjects).Count -lt 1) {
             Write-Verbose "No public or private repositories were found! Halting!"
@@ -2990,13 +2992,67 @@ function Clone-GitRepo {
             $global:FunctionResult = "1"
             return
         }
+        if ($RemoteGitRepoName) {
+            if ($PrivateRepoObjects.Name -contains $RemoteGitRepoName) {
+                $CloningOneOrMorePrivateRepos = $true
+            }
+        }
+        if ($CloneAllPrivateRepos -or $($CloneAllRepos -and $PrivateRepoObjects -ne $null)) {
+            $CloningOneOrMorePrivateRepos = $true
+        }
+        # If we're cloning a private repo, we're going to need Windows Credential Caching to avoid prompts
+        if ($CloningOneOrMorePrivateRepos) {
+            # Ensure Credentials Are Cached In Windows Credential Store
+            $FindCachedCredentials = Manage-StoredCredentials -ShoCred | Where-Object {
+                $_.UserName -eq $GitHubUserName -and
+                $_.Password -eq $PersonalAccessToken
+            }
+            if ($FindCachedCredentials -eq $null) {
+                $CurrentGitConfig = git config --list
+                if ($CurrentGitConfig -notcontains "credential.helper=wincred") {
+                    git config --global credential.helper wincred
+                }
 
+                $ManageStoredCredsParams = @{
+                    Target  = "git:https://$PersonalAccessToken@github.com"
+                    User    = $PersonalAccessToken
+                    Pass    = 'x-oauth-basic'
+                    Comment = "Saved By Manage-StoredCredentials.ps1"
+                }
+                Manage-StoredCredentials -AddCred @ManageStoredCredsParams
+            }
+        }
 
         if ($CloneAllPrivateRepos) {
             foreach ($RepoObject in $PrivateRepoObjects) {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
-                    Set-Location $GitRepoParentDirectory
-                    git clone $RepoObject.html_url
+                    if ($CloningOneOrMorePrivateRepos) {
+                        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.FileName = "git"
+                        $ProcessInfo.RedirectStandardError = $true
+                        $ProcessInfo.RedirectStandardOutput = $true
+                        $ProcessInfo.UseShellExecute = $false
+                        $ProcessInfo.Arguments = "clone $($RepoObject.html_url)"
+                        $Process = New-Object System.Diagnostics.Process
+                        $Process.StartInfo = $ProcessInfo
+                        $Process.Start() | Out-Null
+                        # Below $FinishedInAlottedTime returns boolean true/false
+                        $FinishedInAlottedTime = $Process.WaitForExit(15000)
+                        if (!$FinishedInAlottedTime) {
+                            $Process.Kill()
+                            Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                        $stdout = $Process.StandardOutput.ReadToEnd()
+                        $stderr = $Process.StandardError.ReadToEnd()
+                        $AllOutput = $stdout + $stderr
+                        Write-Host "##### BEGIN git clone Console Output #####"
+                        Write-Host "$AllOutput"
+                        Write-Host "##### END git clone Console Output #####"
+                        
+                    }
                 }
                 else {
                     Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
@@ -3009,7 +3065,6 @@ function Clone-GitRepo {
         if ($CloneAllPublicRepos) {
             foreach ($RepoObject in $PublicRepoObjects) {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
-                    Set-Location $GitRepoParentDirectory
                     git clone $RepoObject.html_url
                 }
                 else {
@@ -3023,8 +3078,36 @@ function Clone-GitRepo {
         if ($CloneAllRepos) {
             foreach ($RepoObject in $($PublicRepoObjects + $PrivateRepoObjects)) {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
-                    Set-Location $GitRepoParentDirectory
-                    git clone $RepoObject.html_url
+                    if ($CloningOneOrMorePrivateRepos) {
+                        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.FileName = "git"
+                        $ProcessInfo.RedirectStandardError = $true
+                        $ProcessInfo.RedirectStandardOutput = $true
+                        $ProcessInfo.UseShellExecute = $false
+                        $ProcessInfo.Arguments = "clone $($RepoObject.html_url)"
+                        $Process = New-Object System.Diagnostics.Process
+                        $Process.StartInfo = $ProcessInfo
+                        $Process.Start() | Out-Null
+                        # Below $FinishedInAlottedTime returns boolean true/false
+                        $FinishedInAlottedTime = $Process.WaitForExit(15000)
+                        if (!$FinishedInAlottedTime) {
+                            $Process.Kill()
+                            Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                        $stdout = $Process.StandardOutput.ReadToEnd()
+                        $stderr = $Process.StandardError.ReadToEnd()
+                        $AllOutput = $stdout + $stderr
+                        Write-Host "##### BEGIN git clone Console Output #####"
+                        Write-Host "$AllOutput"
+                        Write-Host "##### END git clone Console Output #####"
+                        
+                    }
+                    else {
+                        git clone $RepoObject.html_url
+                    }
                 }
                 else {
                     Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
@@ -3043,8 +3126,37 @@ function Clone-GitRepo {
                 return
             }
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
-                Set-Location $GitRepoParentDirectory
-                git clone $RemoteGitRepoObject.html_url
+                if ($CloningOneOrMorePrivateRepos) {
+                        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.FileName = "git"
+                        $ProcessInfo.RedirectStandardError = $true
+                        $ProcessInfo.RedirectStandardOutput = $true
+                        $ProcessInfo.UseShellExecute = $false
+                        $ProcessInfo.Arguments = "clone $($RemoteGitRepoObject.html_url)"
+                        $Process = New-Object System.Diagnostics.Process
+                        $Process.StartInfo = $ProcessInfo
+                        $Process.Start() | Out-Null
+                        # Below $FinishedInAlottedTime returns boolean true/false
+                        $FinishedInAlottedTime = $Process.WaitForExit(15000)
+                        if (!$FinishedInAlottedTime) {
+                            $Process.Kill()
+                            Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                        $stdout = $Process.StandardOutput.ReadToEnd()
+                        $stderr = $Process.StandardError.ReadToEnd()
+                        $AllOutput = $stdout + $stderr
+                        Write-Host "##### BEGIN git clone Console Output #####"
+                        Write-Host "$AllOutput"
+                        Write-Host "##### END git clone Console Output #####"
+                        
+                    }
+                    else {
+                        git clone $RemoteGitRepoObject.html_url
+                    }
+                }
             }
             else {
                 Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
@@ -3066,7 +3178,6 @@ function Clone-GitRepo {
         if ($CloneAllPublicRepos -or $CloneAllRepos) {
             foreach ($RepoObject in $PublicRepoObjects) {
                 if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
-                    Set-Location $GitRepoParentDirectory
                     git clone $RepoObject.html_url
                 }
                 else {
@@ -3086,7 +3197,6 @@ function Clone-GitRepo {
                 return
             }
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
-                Set-Location $GitRepoParentDirectory
                 git clone $RemoteGitRepoObject.html_url
             }
             else {
@@ -3097,6 +3207,8 @@ function Clone-GitRepo {
             }
         }
     }
+
+    Pop-Location
 
     ##### END Main Body #####
 
@@ -3309,12 +3421,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWerp6yWw6vQYA31/xujzJ6CR
-# TimgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULSOXj7G9H7WVq3AsUKQf6n8M
+# 0kCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3369,11 +3480,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTLNnKSLLoH
-# Qw1lm9pUExgMsTzMnTANBgkqhkiG9w0BAQEFAASCAQCIVa5PY5HLsMHMzM0XBD9f
-# FYKv5zDlEV24pgIYX3UtaWglI9xOv7lld8WzwTSI43AAF4XQJ2vn08JiLBDZd9CZ
-# 5rlxGBCQS5XsIYTPqjEEY72BfXGL40ooYnjr7UY5hl+YXOTIbRWJNzL7gauzSw8f
-# QycSFu0dYwhOhhfFH7fOA3c63w0bB+ItTPW5pKNmmcqExW1CMg3fXK0KeJzN6vDi
-# Sa2sj+WbilNRzdIqaKv4xRkvA+K1o7ftY8J6cpp1bRHzW7R4ulhgnCmNdCpsr5wX
-# 7f3VvbYJ90ObO3IEXs3WklI1WoIdhb6gSby8v1/OvRQl1JibTWZuPjdqde5aUkBM
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRcRcBJ3ETN
+# 6z2CgeGw1VCppsmlVzANBgkqhkiG9w0BAQEFAASCAQCcRfo+9Vr4RCXCOvg0Br1d
+# as88Q8tN7byZUWau38fFERGmBs+R0tpnlqoYm3HqZcp51sGUJz+MFyvqV5fbXeqZ
+# /m5EZoUcn6gjgs8buPTm1aS35Z9jxXtiW5hFUv0/nGw+NbgCMJ2Q80GeDfE39i7p
+# QhFPyfUvHAHmkL3AiHxmG7Kh+Uue2ph44MbXPXW4wjQKuDRvA0NorzBR2kJNp2ZQ
+# VVT1WISiMBB3C28MSxNaUaZZSB6/J3ayC58PWEufgLFKKSoBsdm/NQuLG3h5F82G
+# bbfOPtu/2Kr0cT8Wl84hq3z4h1h3lgkV4u3lTJ14UFJmSGSUI5x94R2NvP8OBy1G
 # SIG # End signature block
