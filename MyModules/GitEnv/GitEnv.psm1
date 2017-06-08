@@ -3127,35 +3127,34 @@ function Clone-GitRepo {
             }
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
                 if ($CloningOneOrMorePrivateRepos) {
-                        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-                        $ProcessInfo.FileName = "git"
-                        $ProcessInfo.RedirectStandardError = $true
-                        $ProcessInfo.RedirectStandardOutput = $true
-                        $ProcessInfo.UseShellExecute = $false
-                        $ProcessInfo.Arguments = "clone $($RemoteGitRepoObject.html_url)"
-                        $Process = New-Object System.Diagnostics.Process
-                        $Process.StartInfo = $ProcessInfo
-                        $Process.Start() | Out-Null
-                        # Below $FinishedInAlottedTime returns boolean true/false
-                        $FinishedInAlottedTime = $Process.WaitForExit(15000)
-                        if (!$FinishedInAlottedTime) {
-                            $Process.Kill()
-                            Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
-                            Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        $stdout = $Process.StandardOutput.ReadToEnd()
-                        $stderr = $Process.StandardError.ReadToEnd()
-                        $AllOutput = $stdout + $stderr
-                        Write-Host "##### BEGIN git clone Console Output #####"
-                        Write-Host "$AllOutput"
-                        Write-Host "##### END git clone Console Output #####"
-                        
+                    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $ProcessInfo.FileName = "git"
+                    $ProcessInfo.RedirectStandardError = $true
+                    $ProcessInfo.RedirectStandardOutput = $true
+                    $ProcessInfo.UseShellExecute = $false
+                    $ProcessInfo.Arguments = "clone $($RemoteGitRepoObject.html_url)"
+                    $Process = New-Object System.Diagnostics.Process
+                    $Process.StartInfo = $ProcessInfo
+                    $Process.Start() | Out-Null
+                    # Below $FinishedInAlottedTime returns boolean true/false
+                    $FinishedInAlottedTime = $Process.WaitForExit(15000)
+                    if (!$FinishedInAlottedTime) {
+                        $Process.Kill()
+                        Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                        Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                        $global:FunctionResult = "1"
+                        return
                     }
-                    else {
-                        git clone $RemoteGitRepoObject.html_url
-                    }
+                    $stdout = $Process.StandardOutput.ReadToEnd()
+                    $stderr = $Process.StandardError.ReadToEnd()
+                    $AllOutput = $stdout + $stderr
+                    Write-Host "##### BEGIN git clone Console Output #####"
+                    Write-Host "$AllOutput"
+                    Write-Host "##### END git clone Console Output #####"
+                    
+                }
+                else {
+                    git clone $RemoteGitRepoObject.html_url
                 }
             }
             else {
@@ -3420,12 +3419,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULSOXj7G9H7WVq3AsUKQf6n8M
-# 0kCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4q7SIggnCi3iCEsZxjaGzSN3
+# 09GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3480,11 +3478,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRcRcBJ3ETN
-# 6z2CgeGw1VCppsmlVzANBgkqhkiG9w0BAQEFAASCAQCcRfo+9Vr4RCXCOvg0Br1d
-# as88Q8tN7byZUWau38fFERGmBs+R0tpnlqoYm3HqZcp51sGUJz+MFyvqV5fbXeqZ
-# /m5EZoUcn6gjgs8buPTm1aS35Z9jxXtiW5hFUv0/nGw+NbgCMJ2Q80GeDfE39i7p
-# QhFPyfUvHAHmkL3AiHxmG7Kh+Uue2ph44MbXPXW4wjQKuDRvA0NorzBR2kJNp2ZQ
-# VVT1WISiMBB3C28MSxNaUaZZSB6/J3ayC58PWEufgLFKKSoBsdm/NQuLG3h5F82G
-# bbfOPtu/2Kr0cT8Wl84hq3z4h1h3lgkV4u3lTJ14UFJmSGSUI5x94R2NvP8OBy1G
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSLzGrQkE8h
+# 9QAPDFMg4EIDv/dssDANBgkqhkiG9w0BAQEFAASCAQAja6ABPNhJsnVANBa72hJs
+# UvuORsKhqy3awUBSSOyOZ+efyI5tDDLKmxiehV8n5cUfVrHWdIrGx3qYYVSOYnQN
+# 74IMFIHh3fx40x/XEsNqnS7wMrz3voqp/JwN2196xcrU4Vc/IYEzPk0iumAxpOVo
+# f9qAJlEamejbmi9xntgHczaRCspPP80G1JKZtPfU13wuTLc8VUrV1rkrps8HwEuu
+# TkvuyFX4DlrdwlfH3quFz/eTIQK2LYa1FxyNa9ykB2CNg6urM2McaqbGEeXL90km
+# E3bmeeKNud9bb+ZiRlUlNkE+Ag9d4ObKjpzB97/Yp9qN7YZghJENfRxc4MFtHm6k
 # SIG # End signature block
