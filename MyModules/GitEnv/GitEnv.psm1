@@ -2866,7 +2866,7 @@ function Clone-GitRepo {
         $GitRepoParentDirectory = $(Read-Host -Prompt "Please enter the full path to the directory that will contain the cloned Git repository."),
 
         [Parameter(Mandatory=$False)]
-        [string]$GitHubUserName,
+        [string]$GitHubUserName = $(Read-Host -Prompt "Please enter the GitHub UserName associated with the repo you would like to clone"),
 
         [Parameter(Mandatory=$False)]
         [string]$GitHubEmail,
@@ -3283,12 +3283,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmGffI3Gs/Sz02RdpQHVI6SnQ
-# 0LmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUaMIuQR7MlC3zYowBfdxw4gBL
+# 8ZmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3343,11 +3342,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTLw2B23raG
-# FP4mqETxkKnekv38vzANBgkqhkiG9w0BAQEFAASCAQBIdtVJxVEqB39YVWnK2eoP
-# He1/+fbKvqmKk+9TpVwOKwWM65w1jiyiH1Iov4sm0dvD3Mll6/IlaynWyFH4TB4H
-# ZyKRcRk1aMZnRTL7l5nbykBx1W0SOXQGtMuLx2XbjszLf4YdOFgD3de7WCR4cK08
-# QXkXfH5xxjdK2LhXq9rfE2rz8lhFYVsbtBost/QVoO+TsEo2bWVqmnJcVSOnJCMw
-# TQkTXsuKMppyP6bO+5uoE2GO8KFvlihCqTw7wHLZYit89zK8DbPNscab5JBzMGiE
-# bBX3VlPiRkaWdHFeY/RCjyB7k+t1ovwgcwYPlGOliOKi5Hk996/9bqaOqKwTiQSp
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR3M4PM8Z2q
+# eI4xB9Ew0jArWfamdzANBgkqhkiG9w0BAQEFAASCAQA/cUHVkY4zoeCi5CN47roU
+# 6MDbSkm+rzSS9h0USWSqCXa2E4EPvmEc+AhPTcEAjPvlzK57AINsVQtfjmSOk9/c
+# nT0CRjAZPUUT2QD4KrQFA4X45A7CMBSem/Fbmc9Y+nFMTXWC3A/t7Q5VXhsirBNa
+# McLh1wgaP8bZGQqBz5VwR8eMm30D57zsnKiPQwC878RyUvovi26gNF29QOVRIE3A
+# EMuJnwMUdAPvoHfJibUwtosBmK5ECuIkmRT05cVzHWTywN50w2MbZ4N5wXjyXunz
+# QM2NUhEjSv5vDaly6Cx6lK1HbbRJySXxi+c3yfTUFstOVFWhI+uqAi0RtYIrEk92
 # SIG # End signature block
