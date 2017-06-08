@@ -2973,6 +2973,19 @@ function Clone-GitRepo {
         else {
             $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
         }
+        if ($PublicRepoObject.Count -lt 1) {
+            Write-Warning "No public repositories were found! Halting!"
+        }
+        if ($PrivateRepoObjects.Count -lt 1) {
+            Write-Warning "No public repositories were found! Halting!"
+        }
+        if ($($PublicRepoObjects + $PrivateRepoObjects).Count -lt 1) {
+            Write-Verbose "No public or private repositories were found! Halting!"
+            Write-Error "No public or private repositories were found! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
 
         if ($CloneAllPrivateRepos) {
             foreach ($RepoObject in $PrivateRepoObjects) {
@@ -3018,6 +3031,12 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $($PublicRepoObjects + $PrivateRepoObjects) | Where-Object {$_.Name -eq $RemoteGitRepoName}
+            if (!$RemoteGitRepoObject) {
+                Write-Verbose "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
+                Write-Error "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
                 Set-Location $GitRepoParentDirectory
                 git clone $RemoteGitRepoObject.html_url
@@ -3032,6 +3051,12 @@ function Clone-GitRepo {
     }
     if ($NoPrivateReposParamSetCheck) {
         $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
+        if ($PublicRepoObjects.Count -lt 1) {
+            Write-Verbose "No public repositories were found! Halting!"
+            Write-Error "No public repositories were found! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
 
         if ($CloneAllPublicRepos -or $CloneAllRepos) {
             foreach ($RepoObject in $PublicRepoObjects) {
@@ -3049,6 +3074,12 @@ function Clone-GitRepo {
         }
         if ($RemoteGitRepoName) {
             $RemoteGitRepoObject = $PublicRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
+            if (!$RemoteGitRepoObject) {
+                Write-Verbose "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
+                Write-Error "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
             if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
                 Set-Location $GitRepoParentDirectory
                 git clone $RemoteGitRepoObject.html_url
@@ -3283,12 +3314,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUO8FJLEV1QR33DJle6P9QFFpJ
-# OyOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTZ9x1LRu61+kQP/wNkw8kwn/
+# fOWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3343,11 +3373,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTPO8CnT9BR
-# bdtC7olGWDw3p9qCDTANBgkqhkiG9w0BAQEFAASCAQCd0r2l49dgbJVBHKbW4jA6
-# EAWlE67a3x3BD5ngk+OjgyOzz8LHF0eclGgJGehzCuutUiT1skrN5pygrYVAxJUN
-# nO6AtSD6ojmlZqrgkvXLhLj6orKDy2r5aQtYon1mc9MKiEDtwgo7AILD/Y8w0ofI
-# 9c7gDDijp05KXFaKNPJxHNrtGkPw9T0u11dPpXUzOAMwGgOdS638/ixyVuh3rpT/
-# uf9HmLGkvGJa038/04tMDPP//NtQOsg1Q54eGQDumLTcpeYWI3H51VH4jYKgpxqb
-# Y0BSa2//MDQ3hTjjqgLYutWHkgSsQBdtlBj1ZuGc3lpyZlL/PW76ENGMcmj7orej
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ0tKivs4my
+# JN8Pbqi/Jpki5RkEfDANBgkqhkiG9w0BAQEFAASCAQBHl6xns5R7z/UQ+/6vR4Gm
+# Q+OIfzacmtZmwQXbtnZ3ggKEjXLYS5Lq8nb/CCt1fNNrZkqH5GIOrxPit5FBAjbF
+# dzxgQsFZdn2NcGCB8OFqFT8vG+Fg/T2v5izyBt/MZs/CrBx9gEvWpt0U8oujFU06
+# uZwmEmbWRjVbCnbTXV5H0lAN5HJz0YUfERxbSvSDgowAbHn87fSADJVMR9pzzdRk
+# s88ZOs+e9EHjKh4kZakHxsa/oraCJV8v1gKoPRUYnQvncZH3P9sqmm4OlmE/tP7a
+# nWiFH3IidgH6CqAVzDBrrqdi/fMx0ZbhdjIdExqapWvk7j2KlXj+XavsJ9TB7PMm
 # SIG # End signature block
