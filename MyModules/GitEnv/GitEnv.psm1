@@ -1757,10 +1757,15 @@ function Initialize-GitEnvironment {
             Mandatory=$False,
             ParameterSetName='HTTPS Auth'
         )]
-        [string]$PersonalAccessToken
+        $PersonalAccessToken
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+        # Convert SecureString to PlainText
+        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+    }
 
     $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
 
@@ -2051,10 +2056,15 @@ function Setup-GitAuthentication {
             Mandatory=$False,
             ParameterSetName='HTTPS Auth'
         )]
-        [string]$PersonalAccessToken
+        $PersonalAccessToken
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+        # Convert SecureString to PlainText
+        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+    }
 
     $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
 
@@ -2073,7 +2083,7 @@ function Setup-GitAuthentication {
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
     # because Setup-GitAuthentication function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
-        $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication."
+        $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
     }
     if ($ExistingSSHPrivateKeyPath) {
         $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
@@ -2456,7 +2466,7 @@ function Install-GitDesktop {
             Mandatory=$False,
             ParameterSetName='HTTPS Auth'
         )]
-        [string]$PersonalAccessToken,
+        $PersonalAccessToken,
 
         [Parameter(Mandatory=$False)]
         [ValidateSet("Stable", "Beta")]
@@ -2468,6 +2478,11 @@ function Install-GitDesktop {
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+        # Convert SecureString to PlainText
+        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+    }
 
     $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
 
@@ -2486,7 +2501,7 @@ function Install-GitDesktop {
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
     # because Setup-GitAuthentication function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
-        $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication."
+        $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
     }
     if ($ExistingSSHPrivateKeyPath) {
         $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
@@ -3065,7 +3080,7 @@ function Clone-GitRepo {
                     git config --global credential.helper wincred
                 }
                 if (!$PersonalAccessToken) {
-                    $PersonalAccessToken = Read-Host -Prompt "Please enter your GitHub Personal Access Token."
+                    $PersonalAccessToken = Read-Host -Prompt "Please enter your GitHub Personal Access Token." -AsSecureString
                 }
 
                 # Alternate Params for GitHub https auth
@@ -3497,12 +3512,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+gPkNY0xlpwH2W10KGaufVzO
-# QSygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURTXlEoKntlebomWlnpBY0cxd
+# KfygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3557,11 +3571,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR/IpMCYwk7
-# 9LDlU8CWSxxOqDrQwTANBgkqhkiG9w0BAQEFAASCAQBGQDLhQfyZoYLH4PSxp1lR
-# oz2FY2hnywuaBF/ryWw+GA/xPkvNEiFzGsyn66T0JNhq2QlzBeoowkrud49Myopb
-# JAvkqKDal8IEyTTneW/voMwY+NuL2tQ/wxkQ1m2i4WCD4uf3uUP3kDGAG2VoSAXN
-# a19c3X/S64Eqzn7mSrAVGKVRScpuzrkLzSakIegbW5tuZlp+wtx/fVIYw2YcFCre
-# yq08J23sLcZnHKiilEfXKrpwRBK+rgd2tVr3VHusRke6P9c9SA4SiBOswPvGML6U
-# 8U3sIx/yuXvm6iMJdKPmIap6Z7aVA4HM4E98bOvyueEWm+tUn1tOolRGLirn1FBy
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSPLk4WJvuk
+# cjwgIjx8FPBgpyNm3DANBgkqhkiG9w0BAQEFAASCAQAD8ZXIzKas3APhnsoVBNgO
+# 32vGSyqnhfUamYz7Wt9uS7VKWoL5kLniPvDJRY1rPO/L22EhHAde7TAFOo0BCW1/
+# nDl9UKj/Y05fuMpEFzdfance1PqiTb+6rCmHdKeUKd0HHGqLKEHkgD18zWVT9bxV
+# 61Gpc5RM2IzPexh+2KAMhSEZCxDyJlLXcmZHdq2OwANfTtI13YUwDDiytuUx4hTN
+# AfDa9mQF9LHAoUqQrcI5pSlXETss6zzcESVcE0wGWwqLHTbYm/6mxjBj6mLGRdmW
+# 1Z10oqQuh6BXeB0erTLgcvrOclEqK3rgxEeM79wapzhiTVdku2PRhTIuBgBzQYjg
 # SIG # End signature block
