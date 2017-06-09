@@ -2278,6 +2278,7 @@ function Setup-GitAuthentication {
         if ($global:FunctionResult -eq "1") {
             Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
             Write-Error "The Initialize-GitEnvironment function failed! Halting!"
+            Pop-Location
             $global:FunctionResult = "1"
             return
         }
@@ -2295,14 +2296,21 @@ function Setup-GitAuthentication {
     if ($AuthMethod -eq "https") {
         git config --global credential.helper wincred
 
-
+        # Alternate Stored Credentials Format
+        <#
         $ManageStoredCredsParams = @{
             Target  = "git:https://$PersonalAccessToken@github.com"
             User    = $PersonalAccessToken
             Pass    = 'x-oauth-basic'
             Comment = "Saved By Manage-StoredCredentials.ps1"
         }
-
+        #>
+        $ManageStoredCredsParams = @{
+            Target  = "git:https://$GitHubUserName@github.com"
+            User    = $GitHubUserName
+            Pass    = $PersonalAccessToken
+            Comment = "Saved By Manage-StoredCredentials.ps1"
+        }
         Manage-StoredCredentials -AddCred @ManageStoredCredsParams
 
         # Test https OAuth2 authentication
@@ -2925,7 +2933,7 @@ function Clone-GitRepo {
 
     $BoundParamsArrayOfKVP = $PSBoundParameters.GetEnumerator() | foreach {$_}
 
-    $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos"
+    $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos|CloneAllRepos"
     $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "CloneAllPublicRepos"
     if ($RemoteGitRepoName -and !$PersonalAccessToken) {
         $NoPrivateReposParamSetCheck = $true
@@ -2943,10 +2951,6 @@ function Clone-GitRepo {
             Write-Error "Please use *either* -CloneAllRepos *or* -CloneAllPrivateRepos *or* -RemoteGitRepoName *or* -CloneAllPublicRepos! Halting!"
             $global:FunctionResult = "1"
             return
-        }
-
-        if (!$PersonalAccessToken) {
-            $PersonalAccessToken = Read-Host -Prompt "Please enter your GitHub Personal Access Token."
         }
     }
     # For Params that are part of the NoPrivateRepos Parameter Set...
@@ -2989,6 +2993,7 @@ function Clone-GitRepo {
         if ($($PublicRepoObjects + $PrivateRepoObjects).Count -lt 1) {
             Write-Verbose "No public or private repositories were found! Halting!"
             Write-Error "No public or private repositories were found! Halting!"
+            Pop-Location
             $global:FunctionResult = "1"
             return
         }
@@ -3002,21 +3007,80 @@ function Clone-GitRepo {
         }
         # If we're cloning a private repo, we're going to need Windows Credential Caching to avoid prompts
         if ($CloningOneOrMorePrivateRepos) {
-            # Ensure Credentials Are Cached In Windows Credential Store
+            # Check the Windows Credential Store to see if we have appropriate credentials available already
+            # If not, add them to the Windows Credential Store
             $FindCachedCredentials = Manage-StoredCredentials -ShoCred | Where-Object {
                 $_.UserName -eq $GitHubUserName -and
-                $_.Password -eq $PersonalAccessToken
+                $_.Target -match "git"
+            }
+            if ($FindCachedCredentials.Count -gt 1) {
+                Write-Warning "More than one set of stored credentials matches the UserName $GitHubUserName and contains the string 'git' in the Target property."
+                Write-Host "Options are as follows:"
+                # We do NOT want the Password for any creds displayed in STDOUT...
+                # ...And it's possible that the GitHub PersonalAccessToken could be found in EITHER the Target Property OR the
+                # Password Property
+                $FindCachedCredentialsSansPassword = $FindCachedCredentials | foreach {
+                    $PotentialPersonalAccessToken = $($_.Target | Select-String -Pattern "https://.*?@git").Matches.Value -replace "https://","" -replace "@git",""
+                    if ($PotentialPersonalAccessToken -notmatch $GitHubUserName) {
+                        $_.Target = $_.Target -replace $PotentialPersonalAccessToken,"<redacted>"
+                        $_.PSObject.Properties.Remove('Password')
+                        $_
+                    }
+                }
+                for ($i=0; $i -lt $FindCachedCredentialsSansPassword.Count; $i++) {
+                    "`nOption $i)"
+                    $($($FindCachedCredentialsSansPassword[$i] | fl *) | Out-String).Trim()
+                }
+                $CachedCredentialChoice = Read-Host -Prompt "Please enter the Option Number that corresponds with the credentials you would like to use [0..$($FindCachedCredentials.Count-1)]"
+                if ($(0..$($FindCachedCredentials.Count-1)) -notcontains $CachedCredentialChoice) {
+                    Write-Verbose "Option Number $CachedCredentialChoice is not a valid Option Number! Halting!"
+                    Write-Error "Option Number $CachedCredentialChoice is not a valid Option Number! Halting!"
+                    Pop-Location
+                    $global:FunctionResult = "1"
+                    return
+                }
+                
+                if (!$PersonalAccessToken) {
+                    if ($FindCachedCredentials[$CachedCredentialChoice].Password -notmatch "oauth") {
+                        $PersonalAccessToken = $FindCachedCredentials[$CachedCredentialChoice].Password
+                    }
+                    else {
+                        $PersonalAccessToken = $($FindCachedCredentials[$CachedCredentialChoice].Target | Select-String -Pattern "https://.*?@git").Matches.Value -replace "https://","" -replace "@git",""
+                    }
+                }
+            }
+            if ($FindCachedCredentials.Count -eq $null -and $FindCachedCredentials -ne $null) {
+                if (!$PersonalAccessToken) {
+                    if ($FindCachedCredentials.Password -notmatch "oauth") {
+                        $PersonalAccessToken = $FindCachedCredentials[$CachedCredentialChoice].Password
+                    }
+                    else {
+                        $PersonalAccessToken = $($FindCachedCredentials.Target | Select-String -Pattern "https://.*?@git").Matches.Value -replace "https://","" -replace "@git",""
+                    }
+                }
             }
             if ($FindCachedCredentials -eq $null) {
                 $CurrentGitConfig = git config --list
                 if ($CurrentGitConfig -notcontains "credential.helper=wincred") {
                     git config --global credential.helper wincred
                 }
+                if (!$PersonalAccessToken) {
+                    $PersonalAccessToken = Read-Host -Prompt "Please enter your GitHub Personal Access Token."
+                }
 
+                # Alternate Params for GitHub https auth
+                <#
                 $ManageStoredCredsParams = @{
                     Target  = "git:https://$PersonalAccessToken@github.com"
                     User    = $PersonalAccessToken
                     Pass    = 'x-oauth-basic'
+                    Comment = "Saved By Manage-StoredCredentials.ps1"
+                }
+                #>
+                $ManageStoredCredsParams = @{
+                    Target  = "git:https://$GitHubUserName@github.com"
+                    User    = $GitHubUserName
+                    Pass    = $PersonalAccessToken
                     Comment = "Saved By Manage-StoredCredentials.ps1"
                 }
                 Manage-StoredCredentials -AddCred @ManageStoredCredsParams
@@ -3043,6 +3107,7 @@ function Clone-GitRepo {
                             $Process.Kill()
                             Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
                             Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Pop-Location
                             $global:FunctionResult = "1"
                             return
                         }
@@ -3096,6 +3161,7 @@ function Clone-GitRepo {
                             $Process.Kill()
                             Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
                             Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Pop-Location
                             $global:FunctionResult = "1"
                             return
                         }
@@ -3114,6 +3180,7 @@ function Clone-GitRepo {
                 else {
                     Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
                     Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Pop-Location
                     $global:FunctionResult = "1"
                     break
                 }
@@ -3124,6 +3191,7 @@ function Clone-GitRepo {
             if ($RemoteGitRepoObject -eq $null) {
                 Write-Verbose "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
                 Write-Error "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
+                Pop-Location
                 $global:FunctionResult = "1"
                 return
             }
@@ -3145,6 +3213,7 @@ function Clone-GitRepo {
                         $Process.Kill()
                         Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
                         Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                        Pop-Location
                         $global:FunctionResult = "1"
                         return
                     }
@@ -3163,6 +3232,7 @@ function Clone-GitRepo {
             else {
                 Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
                 Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Pop-Location
                 $global:FunctionResult = "1"
                 return
             }
@@ -3173,6 +3243,7 @@ function Clone-GitRepo {
         if ($PublicRepoObjects.Count -lt 1) {
             Write-Verbose "No public repositories were found! Halting!"
             Write-Error "No public repositories were found! Halting!"
+            Pop-Location
             $global:FunctionResult = "1"
             return
         }
@@ -3185,6 +3256,7 @@ function Clone-GitRepo {
                 else {
                     Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
                     Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Pop-Location
                     $global:FunctionResult = "1"
                     break
                 }
@@ -3195,6 +3267,7 @@ function Clone-GitRepo {
             if ($RemoteGitRepoObject -eq $null) {
                 Write-Verbose "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
                 Write-Error "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
+                Pop-Location
                 $global:FunctionResult = "1"
                 return
             }
@@ -3204,6 +3277,7 @@ function Clone-GitRepo {
             else {
                 Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
                 Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Pop-Location
                 $global:FunctionResult = "1"
                 return
             }
@@ -3421,11 +3495,14 @@ function Publish-MyGitRepo {
 }
 
 
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfuibLR5jkkaA53hqmxpMIqxx
-# hTigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+gPkNY0xlpwH2W10KGaufVzO
+# QSygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3480,11 +3557,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRA73roXdrb
-# YZxNXrnu3yti0R0eFzANBgkqhkiG9w0BAQEFAASCAQApEjwYZVEXuINcQAs1f8A5
-# Or4v1TkHQJfgrojAd29FZRZkYdJb43lBqvAp3k9ZfYdHaYhrVWgNoRnKv4LXbste
-# lpVg6j0dr4mNG8t3PJDtquDYcVkW89WsZwYSPaRxXPXFx0JOBo+OuaYHvEtBZbRz
-# /KvvBUP2OS9+aQLQR6l4zPkyhH8+K7uTJXkadcvYG/lTZBUWmwjXHuo4MqUElYS8
-# z3V1UelqCNujNuA7At4JjsP+2Ow9AoyYSyw69re4yZuU+OJNlhgkHs231rWApinh
-# 8WpPihxOQEC1yF6pF+sq8d55sa9h+he4mwMo3TrMMJa+UuIQqo4BfHZSVkkfQmIZ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR/IpMCYwk7
+# 9LDlU8CWSxxOqDrQwTANBgkqhkiG9w0BAQEFAASCAQBGQDLhQfyZoYLH4PSxp1lR
+# oz2FY2hnywuaBF/ryWw+GA/xPkvNEiFzGsyn66T0JNhq2QlzBeoowkrud49Myopb
+# JAvkqKDal8IEyTTneW/voMwY+NuL2tQ/wxkQ1m2i4WCD4uf3uUP3kDGAG2VoSAXN
+# a19c3X/S64Eqzn7mSrAVGKVRScpuzrkLzSakIegbW5tuZlp+wtx/fVIYw2YcFCre
+# yq08J23sLcZnHKiilEfXKrpwRBK+rgd2tVr3VHusRke6P9c9SA4SiBOswPvGML6U
+# 8U3sIx/yuXvm6iMJdKPmIap6Z7aVA4HM4E98bOvyueEWm+tUn1tOolRGLirn1FBy
 # SIG # End signature block
