@@ -60,6 +60,111 @@ function Verify-Directory {
 }
 
 
+function Reflect-Cmdlet {
+    [CmdletBinding()]
+    Param( 
+        [Parameter(Mandatory=$False)]
+        $CmdletOrFunc = $(Read-Host -Prompt "Please enter the name of the PowerShell cmdlet or function that you would like to investigate.")
+    )
+
+    ##### BEGIN Helper Functions #####
+
+    function Expand-Zip {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$true,Position=0)]
+            [string]$PathToZip,
+            [Parameter(Mandatory=$true,Position=1)]
+            [string]$TargetDir
+        )
+        
+        Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
+
+        if ($PSVersionTable.PSVersion.Major -ge 5) {
+            Expand-Archive -Path $PathToZip -DestinationPath $TargetDir
+        }
+        if ($PSVersionTable.PSVersion.Major -lt 5) {
+            # Load System.IO.Compression.Filesystem 
+            [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
+
+            # Unzip file
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
+        }
+    }
+
+    ##### END Helper Functions #####
+
+
+    ##### BEGIN Main Body #####
+
+    # See: https://powershell.org/forums/topic/how-i-can-see-powershell-module-methods-source-code/
+    # For Functions
+    if ($(Get-Command $CmdletOrFunc -ErrorAction SilentlyContinue).CommandType -eq "Function") {
+        if ($(Get-Command $CmdletOrFunc -ErrorAction SilentlyContinue).ScriptBlock.File -ne $null) {
+            $functionLocation = $(Get-Command $CmdletOrFunc).ScriptBlock.File
+        }
+        else {
+            Write-Verbose "Unable to find the file that contains this function's code. Halting!"
+            Write-Error "Unable to find the file that contains this function's code. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        
+    }
+    
+
+    # For Cmdlets (i.e. C# dll-based)
+    if ($(Get-Command $CmdletOrFunc -ErrorAction SilentlyContinue).CommandType -eq "Cmdlet") {
+        if (!$(Get-Command ILSpy -ErrorAction SilentlyContinue)) {
+            $ILSpySite = Invoke-WebRequest -Uri "http://ilspy.net/"
+            $ILSpyBinaryZip = $($ILSpySite.Links | ? {$_.href -like "*master*" -and $_.href -like "*.zip*" -and $_.href -like "*Binar*"}).href
+            $ILSpyBinaryZipFileName = $ILSpyBinaryZip | Split-Path -Leaf
+            $ILSpyBinaryZipFolderName = $ILSpyBinaryZipFileName -replace ".zip","" | Split-Path -Leaf
+            Invoke-WebRequest -Uri $ILSpyBinaryZip -OutFile "$HOME\Downloads\$ILSpyBinaryZipFileName"
+            if (!$(Test-Path "$HOME\Downloads\$ILSpyBinaryZipFolderName")) {
+                New-Item -Type Directory -Path "$HOME\Downloads\$ILSpyBinaryZipFolderName"
+            }
+            Expand-Zip -PathToZip "$HOME\Downloads\$ILSpyBinaryZipFileName" -TargetDir "$HOME\Downloads\$ILSpyBinaryZipFolderName"
+            Copy-Item -Recurse -Path "$HOME\Downloads\$ILSpyBinaryZipFolderName" -Destination "$HOME\Documents\$ILSpyBinaryZipFolderName"
+
+            $EnvPathArray = $env:Path -split ";"
+            if ($EnvPathArray -notcontains "$HOME\Documents\$ILSpyBinaryZipFolderName") {
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path$HOME\Documents\$ILSpyBinaryZipFolderName"
+                }
+                else {
+                    $env:Path = "$env:Path;$HOME\Documents\$ILSpyBinaryZipFolderName"
+                }
+            }
+        }
+
+        if ($(Get-Command $CmdletOrFunc).ImplementingType.Assembly.Location -ne $null) {
+            $dllLocation = $(Get-Command $CmdletOrFunc).ImplementingType.Assembly.Location
+        }
+        else {
+            Write-Verbose "Unable to find the dll file that $CmdletOrFunc is based on. It is possble that multiple dlls are used to create this cmdlet. Halting!"
+            Write-Error "Unable to find the dll file that $CmdletOrFunc is based on. It is possble that multiple dlls are used to create this cmdlet. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    if ($functionLocation) {
+        $(Get-Command $CmdletOrFunc).ScriptBlock
+    }
+    if ($dllLocation) {
+        ILSpy $dllLocation
+
+        Write-Host "Please wait up to 10 seconds for the ILSpy GUI to open."
+    }
+
+    # For CIM commands, browse the cdxml files in the command's module directory
+
+    ##### END Main Body #####
+
+}
+
+
 function Update-PackageManagement {
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
@@ -993,48 +1098,55 @@ function Start-PSLogging {
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
-    ##### BEGIN Main Body #####
+     ##### BEGIN Main Body #####
     # Setup File Watchers and Log Interactions
     # Run each File Watcher in its own runspace (if appropriate)
     # Add each Register-FileIOWatcher scriptblock to the below $ArrayOfFileIOWatcherPSObjects, and
     # loop through them when creating Runspaces
     $ArrayOfFileIOWatcherPSObjects = @()
 
+    $RegisterFileIOWatcherFunctionAsString = "function Register-FileIOWatcher {`n"+$(Reflect-Cmdlet Register-FileIOWatcher).ToString()+"`n}"
+    $LimitDirSizeFunctionAsString = "function Limit-DirectorySize {`n"+$(Reflect-Cmdlet Limit-DirectorySize).ToString()+"`n}"
 
-    # The below ConsoleHistoryWatcher adds Interactive PowerShell Sessions to $InteractivePSHistoryPath when $ConsoleHistoryPath is "Changed"
+    # The below SendHistoryToRunSpaces adds sends the last index of Get-History in current session to $global:synchash$i.History
+    # property in the first 3 runspaces ($i = 0, $i = 1) upon modification of $ConsoleHistoryPath via PSReadline
+    $SendHistoryToRunSpacesScriptBlock = @"
+    `$global:syncHash0.History = `$(Get-History)[-1]
+"@
+
+    $SHTRParams = @{
+        TargetDir = "$ConsoleHistDir"
+        FilesToWatchEasyMatch = "$ConsoleHistoryFileName"
+        Trigger = "Changed"
+        LogDir = $FileIOWatcherEventLogDir
+        FriendlyNameForEvent = "EventForSendingHistoryToRunspacesOnPSReadlineConsoleHistoryChange"
+        ActionToTakeScriptBlock = $SendHistoryToRunSpacesScriptBlock
+    }
+    Register-FileIOWatcher @SHTRParams -Silent
+
+
+    # The below ConsoleHistoryWatcher adds Interactive PowerShell Sessions to $InteractivePSHistoryPath and $SystemWidePSHistoryPath 
+    # when $ConsoleHistoryPath is "Changed"
     # NOTE: "Changed" triggers on file creation as well as modification, so no need for a separate Watcher Event on file creation.
-    $ConsoleHistoryWatcherScriptBlock = @"
+    $ConsoleHistoryWatcherScriptBlockPrep = @"
 Write-Verbose "The file `$FilesThatChangedFullPath was `$TriggerType at `$TimeStamp"
 try {
-    `$TryGettingHistory = `$(Get-History)[-1]
+    `$TryGettingHistory = `$syncHash.History
 }
 catch {
     Write-Verbose "Fewer than 1 command has been executed in PowerShell at this time."
 }
 if (`$TryGettingHistory) {
     if (!`$(Test-Path "$InteractivePSHistoryPath")) {
-        #`$(Get-History)[-1] | Export-Csv "$InteractivePSHistoryPath"
+        #`$TryGettingHistory | Export-Csv "$InteractivePSHistoryPath"
         `$MockCsvContent = '#TYPE Microsoft.PowerShell.Commands.HistoryInfo'+"``n"+'"Id","CommandLine","ExecutionStatus","StartExecutionTime","EndExecutionTime"'
         Set-Content -Path "$InteractivePSHistoryPath" -Value `$MockCsvContent
+        `$TryGettingHistory | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content "$InteractivePSHistoryPath"
+        `$TryGettingHistory | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content "$SystemWidePSHistoryPath"
     }
     else {
-        `$LastCommandInCsvFormat = `$(Get-History)[-1] | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1
-        `$pos = `$LastCommandInCsvFormat.IndexOf(",")
-        `$LastCommandWithoutId = `$LastCommandInCsvFormat.Substring(`$pos+1)
-
-        if (`$LastCommandInCsvFormat -ne `$(Get-Content "$InteractivePSHistoryPath")[-1] -and
-        `$(Get-Content "$InteractivePSHistoryPath")[-1] -notlike "*`$LastCommandWithoutId") {
-            if (`$(Test-Path "$SystemWidePSHistoryPath")) {
-                if (`$(Get-Content "$SystemWidePSHistoryPath")[-1] -notlike "*`$LastCommandWithoutId") {
-                    # Removes Column Headers (i.e. object property names) and appends file at DestPath
-                    `$(Get-History)[-1] | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content "$InteractivePSHistoryPath"
-                }
-            }
-            if (!`$(Test-Path "$SystemWidePSHistoryPath")) {
-                # Removes Column Headers (i.e. object property names) and appends file at DestPath
-                `$(Get-History)[-1] | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content "$InteractivePSHistoryPath"
-            }
-        }
+        `$TryGettingHistory | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content "$InteractivePSHistoryPath"
+        `$TryGettingHistory | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content "$SystemWidePSHistoryPath"
     }
 }
 if (!`$TryGettingHistory) {
@@ -1043,10 +1155,13 @@ if (!`$TryGettingHistory) {
         Set-Content -Path "$InteractivePSHistoryPath" -Value `$MockCsvContent
     }
     else {
-        Write-Verbose "The Interactive PowerShell History file "$InteractivePSHistoryPath" already exists, but no history is available in the current PowerShell Session. No action taken"
+        Write-Verbose "The Interactive PowerShell History file $InteractivePSHistoryPath already exists, but no history is available in the current PowerShell Session. No action taken"
     }
 }
 "@
+# The below ScriptBlock Object evaluates all of the Unescaped Variables Above.
+# The ScriptBlock Object gets passed to the Runspace
+$ConsoleHistoryWatcherScriptBlock = [scriptblock]::Create($ConsoleHistoryWatcherScriptBlockPrep)
     
     <#
     $CHWParams = @{
@@ -1059,67 +1174,11 @@ if (!`$TryGettingHistory) {
     }
     #>
 
-    $CHWRunspaceScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$ConsoleHistDir" `
-        -FilesToWatchEasyMatch "$ConsoleHistoryFileName" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForPSReadlineConsoleHistoryChange" `
-        -ActionToTakeScriptBlock $ConsoleHistoryWatcherScriptBlock -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $CHWRunspaceScriptBlock
-
-
-    # The below InteractivePSWatcher adds Interactive PowerShell Sessions to $SystemWidePSHistoryPath upon 
-    # modification of $InteractivePSHistoryPath
-    $InteractivePSWatcherScriptBlock = @"
-Write-Verbose "The file `$FilesThatChangedFullPath was `$TriggerType at `$TimeStamp"
-try {
-    `$TryGettingHistory = `$(Get-History)[-1]
-}
-catch {
-    Write-Verbose "Fewer than 1 command has been executed in PowerShell at this time."
-}
-if (`$TryGettingHistory) {
-    if (!`$(Test-Path "$SystemWidePSHistoryPath")) {
-        `$(Get-History)[-1] | Export-Csv "$SystemWidePSHistoryPath"
-    }
-    else {
-        `$LastCommandInCsvFormat = `$(Get-History)[-1] | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1
-        `$pos = `$LastCommandInCsvFormat.IndexOf(",")
-        `$LastCommandWithoutId = `$LastCommandInCsvFormat.Substring(`$pos+1)
-        `$LastCommandWithoutIdPrep = `$LastCommandInCsvFormat
-
-        if (`$LastCommandInCsvFormat -ne `$(Get-Content "$SystemWidePSHistoryPath")[-1] -and 
-        `$(Get-Content "$SystemWidePSHistoryPath")[-1] -notlike "*`$LastCommandWithoutId" -and 
-        `$(Get-Content "$SystemWidePSHistoryPath") -notcontains `$LastCommandInCsvFormat) {
-            # Removes Column Headers (i.e. object property names) and appends file at DestPath
-            `$(Get-History)[-1] | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content "$SystemWidePSHistoryPath"
-        }
-    }
-}
+    $CHWRunspaceScriptBlock = @"
+$RegisterFileIOWatcherFunctionAsString
+Register-FileIOWatcher -TargetDir "$ConsoleHistDir" -FilesToWatchEasyMatch "$ConsoleHistoryFileName" -Trigger "Changed" -LogDir "$FileIOWatcherEventLogDir" -FriendlyNameForEvent "EventForPSReadlineConsoleHistoryChange" -ActionToTakeScriptBlock `$ConsoleHistoryWatcherScriptBlock
 "@
-
-    <#
-    $IPSHParams = @{
-        TargetDir = "$InteractivePSHistDir"
-        FilesToWatchEasyMatch = "$InteractivePSHistoryFileName"
-        Trigger = "Changed"
-        LogDir = $FileIOWatcherEventLogDir
-        FriendlyNameForEvent = "EventForInteractivePSHistoryChange"
-        ActionToTakeScriptBlock = $InteractivePSWatcherScriptBlock
-    }
-    #>
-
-    $IPSHRunspaceScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$InteractivePSHistDir" `
-        -FilesToWatchEasyMatch "$InteractivePSHistoryFileName" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForInteractivePSHistoryChange" `
-        -ActionToTakeScriptBlock $InteractivePSWatcherScriptBlock -Silent
-    }
-    $ArrayOfFileIOWatcherPSObjects +=, $IPSHRunspaceScriptBlock
+    $ArrayOfFileIOWatcherPSObjects +=, $CHWRunspaceScriptBlock
 
 
     # The below Register-EngineEvent PowerShell.Exiting adds Uninteractive PowerShell Sessions to $UninteractivePSHistoryPath
@@ -1135,7 +1194,7 @@ if (!`$([Environment]::UserInteractive)) {
 
     # The below PSExitActionWatcher adds Uninteractive PowerShell Sessions to $SystemWidePSHistoryPath upon
     # modification of $UninteractivePSHistoryPath
-    $PSExitActionWatcherScriptBlock = @"
+    $PSExitActionWatcherScriptBlockPrep = @"
 Write-Verbose "The file `$FilesThatChangedFullPath was `$TriggerType at `$TimeStamp"
 if (!`$(Test-Path "$SystemWidePSHistoryPath")) {
     `$(Get-Content `$FilesThatChangedFullPath)[-1] | Set-Content "$SystemWidePSHistoryPath"
@@ -1145,6 +1204,9 @@ else {
     `$(Get-Content `$FilesThatChangedFullPath)[-1] | Add-Content "$SystemWidePSHistoryPath"
 }
 "@
+# The below ScriptBlock Object evaluates all of the Unescaped Variables Above.
+# The ScriptBlock Object gets passed to the Runspace
+$PSExitActionWatcherScriptBlock = [scriptblock]::Create($PSExitActionWatcherScriptBlockPrep)
 
     <#
     $UPSHParams = @{
@@ -1157,14 +1219,10 @@ else {
     }
     #>
 
-    $UPSHRunspaceScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" `
-        -FilesToWatchEasyMatch "$UninteractivePSHistoryFileName" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForUninteractivePSHistoryChange" `
-        -ActionToTakeScriptBlock $PSExitActionWatcherScriptBlock -Silent
-    }
+    $UPSHRunspaceScriptBlock = @"
+$RegisterFileIOWatcherFunctionAsString
+Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" -FilesToWatchEasyMatch "$UninteractivePSHistoryFileName" -Trigger "Changed" -LogDir "$FileIOWatcherEventLogDir" -FriendlyNameForEvent "EventForUninteractivePSHistoryChange" -ActionToTakeScriptBlock `$PSExitActionWatcherScriptBlock
+"@
     $ArrayOfFileIOWatcherPSObjects +=, $UPSHRunspaceScriptBlock
 
 
@@ -1179,111 +1237,13 @@ else {
     # The below SubDirectorySizeWatcher monitors each of the subdirectories under $LogDirectory and ensures each of them
     # stays under the size limit indicated by $SubDirectorySizeLimitInGB by deleting as many of the oldest files as
     # is necessary to bring the size of the given subdirectory back under the $SubDirectorySizeLimitInGB
-    $LimitDirSizeFunctionAsString = @'
-function Limit-DirectorySize {
-    [CmdletBinding(PositionalBinding=$True)]
-    Param( 
-        [Parameter(Mandatory=$False)]
-        $Directory = $(Read-Host -Prompt "Please enter the full path to the directory that will be assigned a size limit."),
-
-        [Parameter(Mandatory=$False)]
-        $SizeLimitInGB = $(Read-Host -Prompt "Please enter the maximum size in GB that you would like to allow the directory $Directory to grow to")
-    )
-
-    ## BEGIN Native Helper Functions ##
-
-    # The below Convert-Size function is from:
-    # http://techibee.com/powershell/convert-from-any-to-any-bytes-kb-mb-gb-tb-using-powershell/2376
-    function Convert-Size {
-        [cmdletbinding()]
-        param(
-            [Parameter(Mandatory=$True)]
-            [validateset("Bytes","KB","MB","GB","TB")]
-            [string]$From,
-
-            [Parameter(Mandatory=$True)]
-            [validateset("Bytes","KB","MB","GB","TB")]
-            [string]$To,
-
-            [Parameter(Mandatory=$True)]
-            [double]$Value,
-
-            [Parameter(Mandatory=$False)]
-            [int]$Precision = 4
-        )
-
-        switch($From) {
-            "Bytes" {$Value = $Value }
-            "KB" {$Value = $Value * 1024 }
-            "MB" {$Value = $Value * 1024 * 1024}
-            "GB" {$Value = $Value * 1024 * 1024 * 1024}
-            "TB" {$Value = $Value * 1024 * 1024 * 1024 * 1024}
-        }            
-                    
-        switch ($To) {
-            "Bytes" {return $value}
-            "KB" {$Value = $Value/1KB}
-            "MB" {$Value = $Value/1MB}
-            "GB" {$Value = $Value/1GB}
-            "TB" {$Value = $Value/1TB}
-        }
-
-        return [Math]::Round($value,$Precision,[MidPointRounding]::AwayFromZero)
-    }
-
-    ## END Native Helper Functions ##
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-    $DirectoryName = $Directory | Split-Path -Leaf
-    $SizeLimitInBytes = Convert-Size -From GB -To Bytes -Value $SizeLimitInGB
-    $DirSizeInBytes = $(Get-ChildItem $Directory | Measure-Object -Property Length -sum).sum
-
-    if ( !$($([uri]$Directory).IsAbsoluteURI -and $($([uri]$Directory).IsLoopBack -or $([uri]$Directory).IsUnc)) ) {
-        Write-Verbose "$Directory is not a valid directory path! Halting!"
-        Write-Error "$Directory is not a valid directory path! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    if (! $(Test-Path $Directory)) {
-        Write-Verbose "The path $Directory was not found! Halting!"
-        Write-Error "The path $Directory was not found! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
-
-    ##### BEGIN Main Body #####
-    if ($DirSizeInBytes -gt $SizeLimitInBytes) {
-        # Remove as many of the oldest files as necessary to get back under the size limit
-        $DifferenceBetweenLimitandActual = $DirSizeInBytes-$SizeLimitInBytes
-        $DirContentsOldToNew = Get-ChildItem $Directory | Where-Object {!$_.PSIsContainer} | Sort-Object -Property "LastWriteTime"
-        
-        $FilesToDeleteArray = @()
-        $NewSum = 0
-        for ($i=0; $i -lt $DirContentsOldToNew.Count; $i++) {
-            if ($NewSum -lt $DifferenceBetweenLimitandActual) {
-                $OldSum = $NewSum
-                $NewSum = $OldSum+$DirContentsOldToNew[$i].Length
-                $FilesToDeleteArray += $($DirContentsOldToNew[$i].FullName)
-            }
-        }
-
-        foreach ($Item in $FilesToDeleteArray) {
-            Remove-Item -Path $Item -Force
-        }
-    }
-
-    ##### END Main Body #####
-
-}
-'@
-
-
-    $SubDirectorySizeWatcherScriptBlock1 = @"
+    $SubDirectorySizeWatcherScriptBlock1Prep = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $InteractivePSHistDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
+# The below ScriptBlock Object evaluates all of the Unescaped Variables Above.
+# The ScriptBlock Object gets passed to the Runspace
+$SubDirectorySizeWatcherScriptBlock1 = [scriptblock]::Create($SubDirectorySizeWatcherScriptBlock1Prep)
 
     <#
     $IPSHSizeWatcherParams = @{
@@ -1296,21 +1256,20 @@ Limit-DirectorySize -Directory $InteractivePSHistDir -SizeLimitInGB $SubDirector
     }
     #>
 
-    $IPSHSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$InteractivePSHistDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForInteractivePSHistoryDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock1 -Silent
-    }
+    $IPSHSizeWatcherScriptBlock = @"
+$RegisterFileIOWatcherFunctionAsString
+Register-FileIOWatcher -TargetDir "$InteractivePSHistDir" -FilesToWatchEasyMatch "*.*" -Trigger "Changed" -LogDir "$FileIOWatcherEventLogDir" -FriendlyNameForEvent "EventForInteractivePSHistoryDirSize" -ActionToTakeScriptBlock `$SubDirectorySizeWatcherScriptBlock1
+"@
     $ArrayOfFileIOWatcherPSObjects +=, $IPSHSizeWatcherScriptBlock
 
 
-    $SubDirectorySizeWatcherScriptBlock2 = @"
+    $SubDirectorySizeWatcherScriptBlock2Prep = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $UninteractivePSHistDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
+# The below ScriptBlock Object evaluates all of the Unescaped Variables Above.
+# The ScriptBlock Object gets passed to the Runspace
+$SubDirectorySizeWatcherScriptBlock2 = [scriptblock]::Create($SubDirectorySizeWatcherScriptBlock2Prep)
 
     <#
     $UPSHSizeWatcherParams = @{
@@ -1323,21 +1282,20 @@ Limit-DirectorySize -Directory $UninteractivePSHistDir -SizeLimitInGB $SubDirect
     }
     #>
 
-    $UPSHSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForUninteractivePSHistoryDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock2 -Silent
-    }
+    $UPSHSizeWatcherScriptBlock = @"
+$RegisterFileIOWatcherFunctionAsString
+Register-FileIOWatcher -TargetDir "$UninteractivePSHistDir" -FilesToWatchEasyMatch "*.*" -Trigger "Changed" -LogDir "$FileIOWatcherEventLogDir" -FriendlyNameForEvent "EventForUninteractivePSHistoryDirSize" -ActionToTakeScriptBlock `$SubDirectorySizeWatcherScriptBlock2
+"@
     $ArrayOfFileIOWatcherPSObjects +=, $UPSHSizeWatcherScriptBlock
 
 
-    $SubDirectorySizeWatcherScriptBlock3 = @"
+    $SubDirectorySizeWatcherScriptBlock3Prep = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $SystemWidePSHistDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
+# The below ScriptBlock Object evaluates all of the Unescaped Variables Above.
+# The ScriptBlock Object gets passed to the Runspace
+$SubDirectorySizeWatcherScriptBlock3 = [scriptblock]::Create($SubDirectorySizeWatcherScriptBlock3Prep)
 
     <#
     $SWPSHSizeWatcherParams = @{
@@ -1350,21 +1308,20 @@ Limit-DirectorySize -Directory $SystemWidePSHistDir -SizeLimitInGB $SubDirectory
     }
     #>
 
-    $SWPSHSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$SystemWidePSHistDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForSystemWidePSHistDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock3 -Silent
-    }
+    $SWPSHSizeWatcherScriptBlock = @"
+$RegisterFileIOWatcherFunctionAsString
+Register-FileIOWatcher -TargetDir "$SystemWidePSHistDir" -FilesToWatchEasyMatch "*.*" -Trigger "Changed" -LogDir "$FileIOWatcherEventLogDir" -FriendlyNameForEvent "EventForSystemWidePSHistDirSize" -ActionToTakeScriptBlock `$SubDirectorySizeWatcherScriptBlock3
+"@
     $ArrayOfFileIOWatcherPSObjects +=, $SWPSHSizeWatcherScriptBlock
 
 
-    $SubDirectorySizeWatcherScriptBlock4 = @"
+    $SubDirectorySizeWatcherScriptBlock4Prep = @"
 $LimitDirSizeFunctionAsString
 Limit-DirectorySize -Directory $PSTranscriptDir -SizeLimitInGB $SubDirectorySizeLimitInGB
 "@
+# The below ScriptBlock Object evaluates all of the Unescaped Variables Above.
+# The ScriptBlock Object gets passed to the Runspace
+$SubDirectorySizeWatcherScriptBlock4 = [scriptblock]::Create($SubDirectorySizeWatcherScriptBlock4Prep)
 
     <#
     $TranscriptSizeWatcherParams = @{
@@ -1377,14 +1334,10 @@ Limit-DirectorySize -Directory $PSTranscriptDir -SizeLimitInGB $SubDirectorySize
     }
     #>
 
-    $TranscriptSizeWatcherScriptBlock = {
-        Register-FileIOWatcher -TargetDir "$PSTranscriptDir" `
-        -FilesToWatchEasyMatch "*.*" `
-        -Trigger "Changed" `
-        -LogDir $FileIOWatcherEventLogDir `
-        -FriendlyNameForEvent "EventForPSTranscriptDirSize" `
-        -ActionToTakeScriptBlock $SubDirectorySizeWatcherScriptBlock4 -Silent
-    }
+    $TranscriptSizeWatcherScriptBlock = @"
+$RegisterFileIOWatcherFunctionAsString
+Register-FileIOWatcher -TargetDir "$PSTranscriptDir" -FilesToWatchEasyMatch "*.*" -Trigger "Changed" -LogDir "$FileIOWatcherEventLogDir" -FriendlyNameForEvent "EventForPSTranscriptDirSize" -ActionToTakeScriptBlock `$SubDirectorySizeWatcherScriptBlock4
+"@
     $ArrayOfFileIOWatcherPSObjects +=, $TranscriptSizeWatcherScriptBlock
 
 
@@ -1437,7 +1390,7 @@ Limit-DirectorySize -Directory $PSTranscriptDir -SizeLimitInGB $SubDirectorySize
     $OtherVarsToPassToRunspaces = @("ConsoleHistDir","ConsoleHistoryFileName","ConsoleHistoryPath","InteractivePSHistoryFileName",
     "InteractivePSHistoryPath","UninteractivePSHistoryFileName","UninteractivePSHistoryPath","SystemWidePSHistoryFileName",
     "SystemWidePSHistoryPath","PSTranscriptFileName","PSTranscriptPath","FileIOWatcherEventLogDir")
-    $BlockVarsToPassToRunspaces = @("ConsoleHistoryWatcherScriptBlock","InteractivePSWatcherScriptBlock",
+    $BlockVarsToPassToRunspaces = @("ConsoleHistoryWatcherScriptBlock",
     "PSExitActionWatcherScriptBlock","LimitDirSizeFunctionAsString","SubDirectorySizeWatcherScriptBlock1",
     "SubDirectorySizeWatcherScriptBlock2","SubDirectorySizeWatcherScriptBlock3","SubDirectorySizeWatcherScriptBlock4",
     "IPSHSizeWatcherScriptBlock","UPSHSizeWatcherScriptBlock","SWPSHSizeWatcherScriptBlock","TranscriptSizeWatcherScriptBlock")
@@ -1448,7 +1401,7 @@ Limit-DirectorySize -Directory $PSTranscriptDir -SizeLimitInGB $SubDirectorySize
     # Prepare and Create Runspaces for each Excel SpreadSheet
     for ($i=0; $i -lt $ArrayOfFileIOWatcherPSObjects.Count; $i++)
     {
-        New-Variable -Name "syncHash$i" -Value $([hashtable]::Synchronized(@{}))
+        New-Variable -Name "syncHash$i" -Scope Global -Value $([hashtable]::Synchronized(@{}))
         $syncHashCollection +=, $(Get-Variable -Name "syncHash$i" -ValueOnly)
 
         New-Variable -Name "Runspace$i" -Value $([runspacefactory]::CreateRunspace())
@@ -1486,7 +1439,8 @@ Limit-DirectorySize -Directory $PSTranscriptDir -SizeLimitInGB $SubDirectorySize
             # Re-Import Any PS Modules
 
             # Run the FileIO Watcher ScriptBlock
-            Invoke-Expression "$FileIOWatcherScriptBlock"
+            $Result = Invoke-Expression "$FileIOWatcherScriptBlock"
+            $syncHash.Add("RegisterIOWatcher$i",$Result)
 
             $syncHash.CompleteFlag = "Complete"
 
