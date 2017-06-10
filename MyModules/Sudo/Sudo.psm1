@@ -556,7 +556,7 @@ exit"
     # PLEASE NOTE the use of single quotes in the below $InstallModuleExpression string
     $InstallModuleExpression = 'Install-Module -Name $ModuleToInstall -RequiredVersion $LatestVersion'
 
-    $SudoSession = Start-SudoSession -Credentials $MyCreds -Expression $InstallModuleExpression
+    $SudoSession = New-SudoSession -Credentials $MyCreds -Expression $InstallModuleExpression
 
     Remove-SudoSession -Credentials $MyCreds -OriginalConfigInfo $SudoSession.OriginalWSManAndRegistryStatus -SessionToRemove $SudoSession.ElevatedPSSession
 
@@ -664,11 +664,14 @@ exit"
 
 
 
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUEA6TWBnOp1sPEhsyG2U+3qXi
-# ASigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfew4WKaoizTv9lGv1yPboFP5
+# LYagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -723,11 +726,11 @@ exit"
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSAcg7edtpO
-# wrNmJ8y/5Ai5C4mNczANBgkqhkiG9w0BAQEFAASCAQA9ma8mU+lOwHQHF0VozNlb
-# X3tAkSfF/LzSCkCPG/hbB+nT7U2erQAwDsLMRZVRFMH87vLZDhmAPrfs4u1+7fYg
-# 3WdGdM0ITiSb+WoNZkJzlIchdOS/06a/ID7iLyVQLsvRAvBL/TzBoCZrCc4EJ5ym
-# +1mqA0vx0z1Ss2wao0f/BYkJvJZ90+bTMr9lpySl12kSnVCYt1//WafSS1L2p40F
-# BPpvOO0cXM9VEIoCUbNgG5I3wKDaj7vVaVWMeElvd1uauzh4nV3lLrIeUusTjvlB
-# AsICKWOLd7fwz1uSwvSBnkG6Uk3coipg0BTJ4HNsQy9vNMjCoFcOmgIzzsEF9Q7X
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQwezKjrlvM
+# 9GMXUUzYKWC7BhCfXjANBgkqhkiG9w0BAQEFAASCAQCZL1kAQBdseROnlWQiCzA6
+# ylLuKCQZ5UBj2jzFdkosmFdku48MLDdh8pAFL9gmA74FrnhPfV7HZZ/lS9SZ8FVY
+# /lWNC9ZmyjXZ3wE6YatMzIm1cMdr7gPMKE92B7rRAl2Z8iUvgapaiWJrmHhoeAKx
+# qNhH80BGRnMaZyyrvAe0m+aoj1cwXPLz6OAO8mw14yPsqQ3UVvsXbHpiOWRgCNCZ
+# frBRej7USr5CdkPdh+Bo5mPt6aT0QEMw5EnzPStyN6Nj35ZvToScrbXLvMt1vs+W
+# VSuL0Egt+ThEVeN4biWsI9B81rhDvynWZhVF1zgN3y9mGTniCyw01kgHZBtV7fmS
 # SIG # End signature block
