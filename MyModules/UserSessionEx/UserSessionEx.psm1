@@ -167,7 +167,7 @@ function Get-UserSessionViaQuery {
                     $RemoteHostIP = $RemoteHostIP[0]
                 }
                 $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-                $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+                $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
                 $pos = $RemoteHostNameFQDN.IndexOf(".")
                 $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
                 $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
@@ -187,7 +187,7 @@ function Get-UserSessionViaQuery {
             try {
                 $RemoteHostIP = $ComputerName[0]
                 $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-                $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+                $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
             }
             catch {
                 Write-Verbose "Unable to resolve $($ComputerName[0])!"
@@ -730,7 +730,7 @@ function Get-UserSessionViaCim {
                     $RemoteHostIP = $RemoteHostIP[0]
                 }
                 $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-                $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+                $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
                 $pos = $RemoteHostNameFQDN.IndexOf(".")
                 $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
                 $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
@@ -750,7 +750,7 @@ function Get-UserSessionViaCim {
             try {
                 $RemoteHostIP = $CompName[0]
                 $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-                $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+                $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
             }
             catch {
                 Write-Verbose "Unable to resolve $RemoteHost!"
@@ -980,7 +980,7 @@ function Get-WsManServerInfo {
                         $RemoteHostIP = $RemoteHostIP[0]
                     }
                     $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-                    $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+                    $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
                     $pos = $RemoteHostNameFQDN.IndexOf(".")
                     $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
                     $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
@@ -1000,7 +1000,7 @@ function Get-WsManServerInfo {
                 try {
                     $RemoteHostIP = $RemoteComputer[$i]
                     $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-                    $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+                    $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
                 }
                 catch {
                     Write-Warning "Unable to resolve $RemoteComputer to HostName using rDNS lookup. Please ensure there is a PTR record available for $RemoteComputer on your DNS Server. Moving on to next WSManClient..."
@@ -2032,7 +2032,7 @@ function Get-UserSessionEx {
                 $RemoteHostIP = $RemoteHostIP[0]
             }
             $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-            $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+            $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
             $pos = $RemoteHostNameFQDN.IndexOf(".")
             $RemoteHostNameFQDNPre = $RemoteHostNameFQDN.Substring(0, $pos)
             $RemoteHostNameFQDNPost = $RemoteHostNameFQDN.Substring($pos+1)
@@ -2052,7 +2052,7 @@ function Get-UserSessionEx {
         try {
             $RemoteHostIP = $HostName[0]
             $RemoteHostName = $(Resolve-DNSName $RemoteHostIP).NameHost
-            $RemoteHostNameFQDN = $(Resolve-DNSName $RemoteHostName).Name
+            $RemoteHostNameFQDN = $($(Resolve-DNSName $RemoteHostName) | ? {$_.IPAddress -eq $RemoteHostIP}).Name
         }
         catch {
             Write-Verbose "Unable to resolve $HostName!"
@@ -2148,10 +2148,20 @@ function Get-UserSessionEx {
     if ($UserAcct -ne $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1] -or
     $($HostName -ne $env:COMPUTERNAME -and $HostName -ne $(Resolve-DNSName $env:COMPUTERNAME).IPAddress) -or
     $HostName.Count -gt 1) {
-        $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName -RemoteCreds $FinalCreds
+        try {
+            $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName -RemoteCreds $FinalCreds -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Verbose $Error[0]
+        }
     }
     else {
-        $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName
+        try {
+            $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Verbose $Error[0]
+        }
     }
 
 
@@ -2269,14 +2279,11 @@ function Get-UserSessionEx {
 
 
 
-
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUI4CUdAbxid7cx/vYijEG1Sy2
-# k+agggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTsNex4naf/hbkevCKBV99Az2
+# cbmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2331,11 +2338,11 @@ function Get-UserSessionEx {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRTJxPTXVG5
-# 6FztPQqj9Z2M0i8jhzANBgkqhkiG9w0BAQEFAASCAQCdiZnTVUKR1U+KMoAj3+Hk
-# 0ZHA9Z7XVaU3LtN25zV95Hcc4MB38KQtxGHWcBCq+ahXHjnQnQPr6DQP67mk0Wcu
-# Mf1/XHKFpKIX3/QP6AiHbHFUnNUEhQuV5+S/IkaIzuNPkXOFswPv3P9/GNDZEvPE
-# 6AbKwSkneRsvxIKlZZ0QNf+CIZy7iNPn0Wm42KUHpIBcH/LPwosQojc099JXG3Jj
-# UfAVze1xRXO81q5qIhbpjr854mOQQrlaHHGpk7EJwXQ4lsbjWXIrAO+E9pnvpy4G
-# A7JyyF82Y2dR13QoEsn6kGYTSp6q0iRR5uP/ScWc38I64N+rJc9xO+ApMEfUHQf/
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQbcr5r6O2O
+# uFnl80OBElW4OFjZ5zANBgkqhkiG9w0BAQEFAASCAQCBjeUfRDgoAcaHbPMXdMgX
+# KxGmqF2s8HoZt4Daq0IJnZhMKt3L2GhFN9dK2chpdwOUF0X/SVmuN4YhjkTdl5sr
+# XdTpyKpLFgM0uOzH3V3KFeUzEfCEuRi4G5+krEcTDzLXtUKnLf+uKWDnGn3RQDhe
+# sEx4m3UsyYKIfZGdWSFEUQeuNTOM8WoW/B9GON2hXf8AgPZYYwV4pF1tTl8PqtMq
+# 1OgHXQQQQHOBHSkfB39tCn41P+Cf6IvSOGS0k+L+nZ93C3C3+EdMCwsmg+a7bgiJ
+# /ZEeYVIeVQVyC+5oiV1tNJkhvURRmihIpUzs4rXouQATA2YzCzkoKbx4nrWr/5km
 # SIG # End signature block
