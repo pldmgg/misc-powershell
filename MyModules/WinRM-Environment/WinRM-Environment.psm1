@@ -570,7 +570,12 @@ function Send-LocalObjects {
     # Get-UserSessionEx can only be executed if session is elevated
     if (Get-Elevation) {
         if (!$global:LocalHostUserSession) {
-            $global:LocalHostUserSession = Get-UserSessionEx
+            if ($(Get-Command Get-UserSessionEx -ErrorAction SilentlyContinue) -ne $null)
+                $global:LocalHostUserSession = Get-UserSessionEx
+            }
+            else {
+                $global:LocalHostUserSession = $null
+            }
         }
     }
     else {
@@ -2948,12 +2953,11 @@ function New-InteractivePSSession {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTdVMFsq+CaNoQS+zFK05OTXo
-# HvGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxAp0NYV6CIZjcIrQid3R8iDz
+# LgKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3008,11 +3012,11 @@ function New-InteractivePSSession {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTk9HGT+vj6
-# Ty/ZWfjmAniJvBFrKTANBgkqhkiG9w0BAQEFAASCAQAGC1To9GBbTnBKLt2O5cJP
-# 6FuKAuuaI5FO8gzyr40OdR5NVDMiqbT0flITh/vCso2VxSlDUOiOkOtBqiu5sOVu
-# G50E1mJUMAEutnJsAOaccKrpN9zr7vPgxAXLVqGufQZPNz7o8UaEXxs+ZZUZkQam
-# 7O48H7aBxaP3HEV4YLjTOKOW6kDZhkqNpsYoSllpOhQ/qpuXGbMWeLfWveFZ53UN
-# MYJZ8mnS7tKwFExdwKcVJ/Fz0DYneZVJ8SsHVabIZxH7xgUEbCCIx/IHdX/OMtWm
-# msFS0Vo5RFU/8C7FGW3bM5FkZl6rMlmI35NFKsbUnDt3HcmEthyxYR3mwgNIDdOc
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTZHL32qQ2R
+# R8BYl68IsbVkJJashDANBgkqhkiG9w0BAQEFAASCAQAgeP+tNR2+LK7shYxz7CjX
+# ywbvW65fQVbDc7oNkZuk4zK5HmE1PioLRYl3X+U9Nm3C5zocNeSIstyrHylSxgE8
+# tGK7PbDpFVBwe426eC7MZcXUOZrG/i2TBv8LA863cEpBM0ST4cEUaAYtXnBwUvX4
+# Cqfllhfw8z8DoMxWH31O4bbdGVXfGw/O8d+0sOa8hdCMp0lu96xYOlWC4lPO4+1x
+# +VTVA7aLsUgK4IIvtKXIpwdsoyrUVOzb5q2+u+L+vz5gnuCvU9vOWx953p7NIXq0
+# sV2kSa1MxV13PtdvaAZfLmbE8aI5QVO5nPigO4fWOL86q1qEcEkqN4K6788b3S+b
 # SIG # End signature block
