@@ -65,23 +65,27 @@ function global:Set-AWSEnvHelper {
     }
 
     # Set the AWS IAM Profile and Default AWS Region
-    $global:SetAWSCredentials = "Set-AWSCredentials -ProfileName $AWSProfile"
+    $global:SetAWSEnv = "Set-AWSCredentials -ProfileName $AWSProfile; Set-DefaultAWSRegion -Region $AWSRegion"
     $global:StoredAWSRegion = $AWSRegion
-    Set-DefaultAWSRegion -Region $AWSRegion
 
     Write-Host "Use the following command to complete setting the AWS Environment in your current scope:
-    Invoke-Expression `$global:SetAWSCredentials"
+    Invoke-Expression `$global:SetAWSEnv"
 
     $global:FunctionResult = "0"
 }
 
 
 
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxYkMZdgRE5eTtC5xbYmG7+rn
-# 8RqgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNZ6XXSplJ/ow28E/1SllSGea
+# YaegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -136,11 +140,11 @@ function global:Set-AWSEnvHelper {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTpqgcgkkDC
-# yU9plnKqpf45mhdyezANBgkqhkiG9w0BAQEFAASCAQAvedoe2AgeIbCsj/o005/d
-# jPSa9/1/b2HvBxQOAU3FD+egglpI2TNQo7Uz1Tqwa1iywkPChyCHxIUnvL+kWETA
-# bvpzjXgdgRiktpXLgzhDnOR1W4BVW/b5f7tTX0G17agdUosQOpx3wqoVAqs3+HHi
-# 4kkE8iQpghS3awoG25eGXfasNeFCdolq766pLdWtXQvBK47VRnDsQ+KRchZBEs+V
-# r5Z8m9veDdwJlQOwVPpopLtpiaOugXTfzVupKHOiLxMEDRZyGTR424mt5P0y7FPB
-# 64+1kLJ6/rmAVBi+zATi4y80gWztjMPVIngp4M85AwmmfslsYI7iVZz+jyEHKCdp
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRp+H9//nnJ
+# j8wOrgB5mNPqh4y7uTANBgkqhkiG9w0BAQEFAASCAQCZJ5/Op/2pG+lrqinfPUka
+# jaB1RNWwXhigZMWgtXMNYuXwVVLMl6mglbAC5a37jZW/vwOzRo/iiw1KnGmunNxw
+# XrQ96o7I530pxPdjCPJH4FXvQvg4OgMTLvbuvuHB9Ja7KHoop74c2/tqwWE6x0th
+# 4TP+N5S5TbUXWmyaZnr69yRFlUSBbRC7syBZk5ZA9A09RSP40xHswnP3tKjHBcPm
+# +n1Yg5mSY28U83ALQ7TGLdKZMYXCmdGCjsehEtAlEAQNTTuUe2ptXaupdGxVPec9
+# Nk/d9xS14G2IjZuNZ91jJVHngg9p4Dmpk52WN6UzgMJ8e3i5AJfOR4IqKRr6n+VZ
 # SIG # End signature block
