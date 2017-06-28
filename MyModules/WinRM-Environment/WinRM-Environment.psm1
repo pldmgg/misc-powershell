@@ -570,7 +570,7 @@ function Send-LocalObjects {
     # Get-UserSessionEx can only be executed if session is elevated
     if (Get-Elevation) {
         if (!$global:LocalHostUserSession) {
-            if ($(Get-Command Get-UserSessionEx -ErrorAction SilentlyContinue) -ne $null)
+            if ($(Get-Command Get-UserSessionEx -ErrorAction SilentlyContinue) -ne $null) {
                 $global:LocalHostUserSession = Get-UserSessionEx
             }
             else {
@@ -2112,7 +2112,7 @@ function Edit-FileWinRM {
                 return
             }
         }
-        Start-Process $Editor $FilePath
+        & $Editor $FilePath
     }
     # Assume $FilePath is on a Remote Host
     if ($RemoteHost -or $RemoteHostUser -or $RemoteHostPwd -or $PSSession) {
@@ -2389,7 +2389,7 @@ function Edit-FileWinRM {
                 return
             }
         }
-        Start-Process $Editor $LocalHostFileDestination
+        & $Editor $LocalHostFileDestination
 
         # After user is finished making edits to file locally, press any key to send the file back to original host
         Write-Host "Press any key to upload file back to remote host..."
@@ -2950,14 +2950,11 @@ function New-InteractivePSSession {
 
 
 
-
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxAp0NYV6CIZjcIrQid3R8iDz
-# LgKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUDjwvOkt9QnWbRNVFvUxrPFQn
+# MFegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3012,11 +3009,11 @@ function New-InteractivePSSession {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTZHL32qQ2R
-# R8BYl68IsbVkJJashDANBgkqhkiG9w0BAQEFAASCAQAgeP+tNR2+LK7shYxz7CjX
-# ywbvW65fQVbDc7oNkZuk4zK5HmE1PioLRYl3X+U9Nm3C5zocNeSIstyrHylSxgE8
-# tGK7PbDpFVBwe426eC7MZcXUOZrG/i2TBv8LA863cEpBM0ST4cEUaAYtXnBwUvX4
-# Cqfllhfw8z8DoMxWH31O4bbdGVXfGw/O8d+0sOa8hdCMp0lu96xYOlWC4lPO4+1x
-# +VTVA7aLsUgK4IIvtKXIpwdsoyrUVOzb5q2+u+L+vz5gnuCvU9vOWx953p7NIXq0
-# sV2kSa1MxV13PtdvaAZfLmbE8aI5QVO5nPigO4fWOL86q1qEcEkqN4K6788b3S+b
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRd89oCubeG
+# cjj5tdQsqvh5XHQA0zANBgkqhkiG9w0BAQEFAASCAQBLyxu089U7MZ8Syot+xwSm
+# 0/7rHmtj3fd7FnovJbYLJ0uIdqKDCUBpfXzximxXaa3mX1MaTe2dE3m8hAn7h3nY
+# F3weVVZS9PG0kJj119Ddg5c2KYGtfgn6Ei8ieDDamloRdOF8nzYEBtXN2DSnciRt
+# awri+PR0DGIGtuWHcOaIbgOjoFub7m5dRu+D6P4wBzZDntixz7JuNU2xd1SHITu/
+# pzEaNCXtvKCzZ41q7ecy6ReDnoPmiy+4rlrCbnDXY2OUzOMFACsT0odJ7jS3Hlzv
+# 2bA9PlD+Nxx94UvAHa5q+GyEiZftRFkSokPddOK859XVwGW23JD+QUnBQZ+3GWa6
 # SIG # End signature block
