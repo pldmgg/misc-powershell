@@ -1762,9 +1762,11 @@ function Initialize-GitEnvironment {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
-        # Convert SecureString to PlainText
-        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+    if ($PersonalAccessToken) {
+        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+            # Convert SecureString to PlainText
+            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+        }
     }
 
     $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
@@ -1911,6 +1913,15 @@ function Initialize-GitEnvironment {
             Write-Verbose "GitHub shell environment already setup"
         }
     }
+
+    if ($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "posh-git"}) -eq $null) {
+        Update-PackageManagement
+        Install-Module posh-git -Scope CurrentUser
+    }
+    if ($(Get-Module | Where-Object {$_.Name -eq "posh-git"}) -eq $null) {
+        Import-Module posh-git -Verbose
+    }
+    
 
     # Setup Authentication if requested #
     # Setup SSH
@@ -2061,9 +2072,11 @@ function Setup-GitAuthentication {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
-        # Convert SecureString to PlainText
-        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+    if ($PersonalAccessToken) {
+        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+            # Convert SecureString to PlainText
+            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+        }
     }
 
     $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
@@ -2122,11 +2135,43 @@ function Setup-GitAuthentication {
     }
 
     if ($AuthMethod -eq "ssh") {
+        # ssh Utilities could come from Git or From previously installed Windows OpenSSH. We want to make sure we use
+        # Windows OpenSSH
+        $Potential64ArchLocation = "C:\Program Files\OpenSSH-Win64"
+        $Potential32ArchLocation = "C:\Program Files (x86)\OpenSSH-Win32"
+        $Potential64ArchLocationRegex = $Potential64ArchLocation -replace "\\","\\"
+        $Potential32ArchLocationRegex = $($($Potential32ArchLocation -replace "\\","\\") -replace "(","\(") -replace ")","\)"
         if (!$(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and !$DownloadAndSetupDependencies) {
             Write-Verbose "The Setup-GitAuthentication function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitAuthentication function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
             Write-Error "The Setup-GitAuthentication function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitAuthentication function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
             $global:FunctionResult = "1"
             return
+        }
+        $NeedWinOpenSSHScenario1 = !$(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and $DownloadAndSetupDependencies
+        $NeedWinOpenSSHScenario2 = $(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and $(Get-Command "ssh-keygen" -All | Where-Object {
+            $_.Source -match "$Potential32ArchLocation\ssh.exe|$Potential64ArchLocation\ssh.exe"
+        }).Source -eq $null -and $DownloadAndSetupDependencies
+        if ($NeedWinOpenSSHScenario1 -or $NeedWinOpenSSHScenario2) {
+            $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
+            $request = [System.Net.WebRequest]::Create($url)
+            $request.AllowAutoRedirect = $false
+            $response = $request.GetResponse()
+            $Win64OpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + '/OpenSSH-Win64.zip'
+            Invoke-WebRequest -Uri $Win64OpenSSHDLLink -OutFile "$HOME\Downloads\OpenSSH-Win64.zip"
+            #if (!$(Test-Path "$HOME\Downloads\OpenSSH-Win64")) {
+            #    New-Item -Type Directory -Path "$HOME\Downloads\OpenSSH-Win64"
+            #}
+            # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
+            Unzip-File -PathToZip "$HOME\Downloads\OpenSSH-Win64.zip" -TargetDir "$HOME\Downloads"
+            $OpenSSHWin64Path = "$HOME\Downloads\OpenSSH-Win64"
+            $env:Path = "$OpenSSHWin64Path;$env:Path"
+        }
+        # Make sure we're using the Windows OpenSSH Version of ssh-keygen.exe by moving the Git SSH Utilities Path
+        # to the end of $env:Path
+        $RegexMatches = $($env:Path | Select-String -Pattern "$Potential64ArchLocationRegex|$Potential32ArchLocationRegex|C:\\Users\\testadmin\\AppData\\Local\\GitHub\\PortableGit_.*\\usr\\bin" -AllMatches).Matches
+        if ($RegexMatches[0].Value -match "Git") {
+            $RegexValueToReplace = $RegexMatches[0].Value -replace "\\","\\"
+            $env:Path = $($env:Path -replace "$RegexValueToReplace","") + ";" + $RegexMatches[0].Value
         }
 
         if (!$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
@@ -2148,31 +2193,12 @@ function Setup-GitAuthentication {
                         $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
                     }
                 }
+                else {
+                    $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+                }
             }
             if ($GitDesktopChannel -eq "Beta") {
                 $NewSSHKeyName = "GitAuthFor$CurrentUser"
-            }
-        }
-
-        # Get Win64-OpenSSH
-        if (!$(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and $DownloadAndSetupDependencies) {
-            $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
-            $request = [System.Net.WebRequest]::Create($url)
-            $request.AllowAutoRedirect=$false
-            $response=$request.GetResponse()
-            $Win64OpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + '/OpenSSH-Win64.zip'
-            Invoke-WebRequest -Uri $Win64OpenSSHDLLink -OutFile "$HOME\Downloads\OpenSSH-Win64.zip"
-            #if (!$(Test-Path "$HOME\Downloads\OpenSSH-Win64")) {
-            #    New-Item -Type Directory -Path "$HOME\Downloads\OpenSSH-Win64"
-            #}
-            # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
-            Unzip-File -PathToZip "$HOME\Downloads\OpenSSH-Win64.zip" -TargetDir "$HOME\Downloads"
-            $OpenSSHWin64Path = "$HOME\Downloads\OpenSSH-Win64"
-            if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path$OpenSSHWin64Path"
-            }
-            else {
-                $env:Path = "$env:Path;$OpenSSHWin64Path"
             }
         }
         
@@ -2479,9 +2505,11 @@ function Install-GitDesktop {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
-        # Convert SecureString to PlainText
-        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+    if ($PersonalAccessToken) {
+        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+            # Convert SecureString to PlainText
+            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+        }
     }
 
     $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
@@ -2917,6 +2945,13 @@ function Clone-GitRepo {
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    if ($PersonalAccessToken) {
+        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+            # Convert SecureString to PlainText
+            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+        }
+    }
+    
     # Make sure we have access to the git command
     if ($env:github_shell -ne $true -or !$(Get-Command git -ErrorAction SilentlyContinue)) {
         if (!$GitHubUserName) {
@@ -3512,11 +3547,23 @@ function Publish-MyGitRepo {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURTXlEoKntlebomWlnpBY0cxd
-# KfygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7mSHcuEUzRrrVO2oIpLbZvEQ
+# bXGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3571,11 +3618,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSPLk4WJvuk
-# cjwgIjx8FPBgpyNm3DANBgkqhkiG9w0BAQEFAASCAQAD8ZXIzKas3APhnsoVBNgO
-# 32vGSyqnhfUamYz7Wt9uS7VKWoL5kLniPvDJRY1rPO/L22EhHAde7TAFOo0BCW1/
-# nDl9UKj/Y05fuMpEFzdfance1PqiTb+6rCmHdKeUKd0HHGqLKEHkgD18zWVT9bxV
-# 61Gpc5RM2IzPexh+2KAMhSEZCxDyJlLXcmZHdq2OwANfTtI13YUwDDiytuUx4hTN
-# AfDa9mQF9LHAoUqQrcI5pSlXETss6zzcESVcE0wGWwqLHTbYm/6mxjBj6mLGRdmW
-# 1Z10oqQuh6BXeB0erTLgcvrOclEqK3rgxEeM79wapzhiTVdku2PRhTIuBgBzQYjg
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSAhYYT/TZp
+# CgWTyQcnPAdre1/txDANBgkqhkiG9w0BAQEFAASCAQBBry6SwLbi2IqNkNJps5EM
+# pBQGyPo4JeqP8x+HhbkFAfmzoMGG4oSNv3HVHAKwv65aX45Bi/rQkzdzoIGHg+OY
+# 47uBREJu7HzbH8cYQ2Che0eS+SeZuAI+qvge4lTLvbu9cGrxlzy53y4sUefouTJc
+# /q/mwO5g5VDgBKLsDyFQ5vaNuGuS4P2la1wFAZyhO5n8khG9sriBXdmIiL9AoK2G
+# eAjL+yfNnHUY99Uo4lHekJIYMnOn9A59ralc4DZ+KixAcc/ERkZpJv1Y+Pn2273Y
+# mz3EZCwUwrnDkJkPHhrQ6RPvgVfwXfm14v/zm7q+r8fW1Ty2+zYixswmBnGXdU4+
 # SIG # End signature block
