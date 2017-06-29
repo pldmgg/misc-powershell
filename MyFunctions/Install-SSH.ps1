@@ -18,7 +18,6 @@
 #>
 
 function Install-SSH {
-
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
@@ -261,8 +260,8 @@ function Install-SSH {
     Set-Content -Value $UpdatedsshdContent -Path $sshdConfigPath
 
     if (Test-Path "$FinalSSHUtilitySourceDir\install-sshd.ps1") {
-        $FinalSSHUtilitySourceDir\install-sshd.ps1
-        $FinalSSHUtilitySourceDir\FixHostFilePermissions.ps1 -Confirm:$false
+        & "$FinalSSHUtilitySourceDir\install-sshd.ps1"
+        #& "$FinalSSHUtilitySourceDir\FixHostFilePermissions.ps1" -Confirm:$false
     }
     else {
         Write-Warning "The SSHD Service still needs to be configured!"
@@ -287,22 +286,7 @@ function Install-SSH {
     }
 
     # Setup Host Keys
-    Start-Service ssh-agent
-
-    Start-Sleep -Seconds 5
-
-    if ($(Get-Service "ssh-agent").Status -ne "Running") {
-        Write-Verbose "The ssh-agent service did not start succesfully! Halting!"
-        Write-Error "The ssh-agent service did not start succesfully! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if (!$(Test-Path $RootDrive\.ssh)) {
-        New-Item -ItemType Directory -Path $RootDrive\.ssh
-    }
-
-    Push-Location $RootDrive\.ssh
+    Push-Location $FinalSSHUtilitySourceDir
 
     $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
     $ProcessInfo.FileName = "ssh-keygen.exe"
@@ -322,6 +306,17 @@ function Install-SSH {
     $PubPrivKeyPairFiles = Get-ChildItem -Path "$RootDrive\.ssh" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -like "*ssh_host*"}
     $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
     $PrivKeys = $PubPrivKeyPairFiles | foreach {if ($PubKeys -notcontains $_) {$_}}
+    
+    Start-Service ssh-agent
+
+    Start-Sleep -Seconds 5
+
+    if ($(Get-Service "ssh-agent").Status -ne "Running") {
+        Write-Verbose "The ssh-agent service did not start succesfully! Halting!"
+        Write-Error "The ssh-agent service did not start succesfully! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
     
     foreach ($PrivKey in $PrivKeys) {
         ssh-add.exe $PrivKey.FullName
@@ -353,13 +348,11 @@ function Install-SSH {
 
 
 
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3Q6G5ReE0Pn3PMLrbCAi5ABX
-# mHugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYfFbc7UKO8E6bId2lk9jwfcA
+# W+igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -414,11 +407,11 @@ function Install-SSH {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSXcoEXN6C2
-# CVelNi4t5lht5QcFvjANBgkqhkiG9w0BAQEFAASCAQALVNrC1BfGlwIb0Ryl/1nt
-# /1Yk+DhoQB17fAvD2Te+6120hlVDrs93q9MBgPKHiWouRUeuEm6lBl8+JMNYWakJ
-# bfIpVV+MAYNd/shRSGqNal3z/QLQAOu7eucntmhSJBwBlHE1AbADpHi57KXAXV1h
-# ygkwXFYpMNYrKPYmLKbuw72nc/W+aztShTBCa3h6UQhtTmPr3nmEQh+ZbFvwn+lH
-# TAlHgA4CWcJqwnvhJ/jPAn9h6ZAJi9hZ5hGtCNZYI8v7tTRJ+d9V/Vywt2owNXO0
-# /weMwF4fVXP4ysHMKzZB9maE7le5+YekpPnD/80JTyDIODC/ZtPZ3XLhX1Se6nDq
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTd7g8CyO3d
+# /30AWenknHMBn0WIkDANBgkqhkiG9w0BAQEFAASCAQAfBZHsVf8N/8K+r2GBT5lC
+# JZDOsjHeuJ7bB2PIzlk9P4J6grcgZ5fic8b56jGE1dDMMOQWlNpHbqvkie4OsKoh
+# 33cz+2W0LukYapg5a99CFTs1sqe4L4AUzJRDjEUI+/QBczR24HSBB3+jg0mVXeoX
+# lqjS+/BpcD08MsQwL8ZSjoMnjP63qmy/hkb23d4Q8g/ZZ/kdTWrzWRgjbKo0Cmb2
+# jkMO1jmSM3+rWbN1iRtGg9Y0ZuuCHJrYOgekoHZ70mkZJezMkkfBgSpvWdwiACQT
+# Q6LJ1t5HTzK98RyyjnND85CybiSYtT3NirQY0DhEqlqf/ssQACoprUUA8gSmeqi8
 # SIG # End signature block
