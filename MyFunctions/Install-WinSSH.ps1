@@ -1,30 +1,62 @@
 <#
 .SYNOPSIS
-    Short description
+    Install OpenSSH-Win64. Optionally install the latest PowerShell Core Beta. Optionally create new SSH Key Pair.
+
 .DESCRIPTION
-    Long description
-.NOTES
-    NOTE
-.PARAMETER PowerShell6Path
-    N parameter
+    See .SYNOPSIS
+
+.PARAMETER RemoveHostPrivateKeys
+    OPTIONAL
+
+    This parameter is a switch. Use it to remove the Host Private Keys after they are added to the ssh-agent during
+    sshd setup/config. Default is NOT to remove the host private keys.
+
+.PARAMETER NewSSHKeyName
+    OPTIONAL
+
+    This parameter takes a string that represents the filename of the new SSH Key pair that you would like to create.
+    This string is used in the filename of the private key file as well as the public key file (with the .pub extension).
+
+.PARAMETER NewSSHKeyPwd
+    OPTIONAL
+
+    This parameter takes a string that represents the password used to protect the new SSH Private Key.
+
+.PARAMETER NewSSHKeyPurpose
+    OPTIONAL
+
+    This parameter takes a string that represents the purpose of the new SSH Key Pair. It will be used in the
+    "-C" (i.e. "comment") parameter of ssh-keygen.
+
+.PARAMETER SetupPowerShell6
+    OPTIONAL
+
+    This parameter is a switch. Use it to install the latest PowerShell 6 Beta.
+
+    IMPORTANT NOTE: PowerShell 6 Beta is installed *alongside* existing PowerShell version.
+
 .EXAMPLE
-    Example of how to use this cmdlet
-.EXAMPLE
-    Another example of how to use this cmdlet
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
+    Install-WinSSH -NewSSHKeyName "testadmin-to-Debian8Jessie" -NewSSHKeyPurpose "testadmin-to-Debian8Jessie"
+
 #>
 
-function Install-SSH {
+function Install-WinSSH {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
-        [string]$PowerShell6Path = "C:\Program Files\PowerShell\6.0.0-beta.3\powershell.exe",
+        [switch]$RemoveHostPrivateKeys,
 
         [Parameter(Mandatory=$False)]
-        [switch]$RemovePrivateKeys
+        [string]$NewSSHKeyName,
+
+        [Parameter(Mandatory=$False)]
+        [string]$NewSSHKeyPwd,
+
+        [Parameter(Mandatory=$False)]
+        [string]$NewSSHKeyPurpose,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SetupPowerShell6
      )
 
     ## BEGIN Native Helper Functions ##
@@ -171,6 +203,125 @@ function Install-SSH {
         }
     }
 
+    function Unzip-File {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$true,Position=0)]
+            [string]$PathToZip,
+            
+            [Parameter(Mandatory=$true,Position=1)]
+            [string]$TargetDir,
+
+            [Parameter(Mandatory=$false,Position=2)]
+            [string[]]$SpecificItem
+        )
+
+        ##### BEGIN Native Helper Functions #####
+        
+        function Get-ZipChildItems {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$false,Position=0)]
+                [string]$ZipFile = $(Read-Host -Prompt "Please enter the full path to the zip file")
+            )
+
+            $shellapp = new-object -com shell.application
+            $zipFileComObj = $shellapp.Namespace($ZipFile)
+            $i = $zipFileComObj.Items()
+            Get-ZipChildItems_Recurse $i
+        }
+
+        function Get-ZipChildItems_Recurse {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$true,Position=0)]
+                $items
+            )
+
+            foreach($si in $items) {
+                if($si.getfolder -ne $null) {
+                    # Loop through subfolders 
+                    Get-ZipChildItems_Recurse $si.getfolder.items()
+                }
+                # Spit out the object
+                $si
+            }
+        }
+
+        ##### END Native Helper Functions #####
+
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+        if (!$(Test-Path $PathToZip)) {
+            Write-Verbose "The path $PathToZip was not found! Halting!"
+            Write-Error "The path $PathToZip was not found! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($(Get-ChildItem $PathToZip).Extension -ne ".zip") {
+            Write-Verbose "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+            Write-Error "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+        ##### BEGIN Main Body #####
+
+        Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
+
+        if (!$SpecificItem) {
+            if ($PSVersionTable.PSVersion.Major -ge 5) {
+                Expand-Archive -Path $PathToZip -DestinationPath $TargetDir
+            }
+            if ($PSVersionTable.PSVersion.Major -lt 5) {
+                # Load System.IO.Compression.Filesystem 
+                [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
+
+                # Unzip file
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
+            }
+        }
+        if ($SpecificItem) {
+            $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
+
+            foreach($searchitem in $SpecificItem) {
+                [array]$potentialItems = foreach ($item in $ZipSubItems) {
+                    if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                        $item
+                    }
+                }
+
+                if ($potentialItems.Count -eq 1) {
+                    $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
+                }
+                if ($potentialItems.Count -gt 1) {
+                    Write-Warning "More than one item within $ZipFileNameWExt matches $searchitem."
+                    Write-Host "Matches include the following:"
+                    for ($i=0; $i -lt $potentialItems.Count; $i++){
+                        "$i) $($($potentialItems[$i]).Path)"
+                    }
+                    $Choice = Read-Host -Prompt "Please enter the number corresponding to the item you would like to extract [0..$($($potentialItems.Count)-1)]"
+                    if ($(0..$($($potentialItems.Count)-1)) -notcontains $Choice) {
+                        Write-Warning "The number indicated does is not a valid choice! Skipping $searchitem..."
+                        continue
+                    }
+                    for ($i=0; $i -lt $potentialItems.Count; $i++){
+                        $shell.Namespace($TargetDir).CopyHere($potentialItems[$Choice], 0x14)
+                    }
+                }
+                if ($potentialItems.Count -lt 1) {
+                    Write-Warning "No items within $ZipFileNameWExt match $searchitem! Skipping..."
+                    continue
+                }
+            }
+        }
+
+        ##### END Main Body #####
+    }
+
     ## END Native Helper Functions ##
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
@@ -183,32 +334,73 @@ function Install-SSH {
     }
 
     # Load and Run Update-PackageManagement function
+    <#
     $UpdatePMString = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions/Update-PackageManagement.ps1"
     $UpdatePMScriptBlock = [scriptblock]::Create($UpdatePMString.Content)
     . $UpdatePMScriptBlock
     Update-PackageManagement
-
-    # Load Replace-Text function used for modifying sshd_config
-    <#
-    $ReplaceTextString = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/Replace-Text.ps1"
-    $ReplaceTextScriptBlock = [scriptblock]::Create($ReplaceTextString.Content)
-    . $ReplaceTextScriptBlock
     #>
+
+    if ($SetupPowerShell6) {
+        if (!$(Test-Path "C:\Program Files\PowerShell\6.0.0*")) {
+            $LatestPowerShellCoreVersionPrep = Invoke-WebRequest -Uri "https://github.com/powershell/powershell/releases"
+            $LatestPowerShellCoreVersionhref = $($LatestPowerShellCoreVersionPrep.Links | Where-Object {$_.href -like "*beta*win10*x64.msi"})[0].href
+            $LatestPowerShellCoreVersionURL = "https://github.com/powershell/powershell/releases" + $LatestPowerShellCoreVersionhref
+            $DownloadPath = "$HOME\Downloads\$($LatestPowerShellCoreVersionURL | Split-Path -Leaf)"
+
+            Invoke-WebRequest -Uri $LatestPowerShellCoreVersionURL -OutFile $DownloadPath
+
+            $DataStamp = Get-Date -Format yyyyMMddTHHmmss
+            $MSIFullPath = $DownloadPath
+            $MSIParentDir = $MSIFullPath | Split-Path -Parent
+            $MSIFileName = $MSIFullPath | Split-Path -Leaf
+            $MSIFileNameOnly = $MSIFileName -replace "\.msi",""
+            $logFile = "$MSIParentDir\$MSIFileNameOnly$DataStamp.log"
+            $MSIArguments = @(
+                "/i"
+                $MSIFullPath
+                "/qn"
+                "/norestart"
+                "/L*v"
+                $logFile
+            )
+            # Install PowerShell Core 6
+            Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
+        }
+    }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
     ##### BEGIN Main Body #####
 
-    if (!$(Get-Package -Name OpenSSH -ErrorAction SilentlyContinue)) {
+    # There's something wrong with the 0.0.16.0 OpenSSH-Win64 Chocolatey Package...
+    #if (!$(Get-Package -Name OpenSSH -ErrorAction SilentlyContinue)) {
+    if (!$(Test-Path "$env:ProgramFiles\OpenSSH-Win64")) {
         try {
+            # There's something wrong with the 0.0.16.0 OpenSSH-Win64 Chocolatey Package...
+            <#
             Install-Package -Name OpenSSH
             if (!$?) {
                 throw
             }
+            #>
+            $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
+            $request = [System.Net.WebRequest]::Create($url)
+            $request.AllowAutoRedirect = $false
+            $response = $request.GetResponse()
+            $Win64OpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + '/OpenSSH-Win64.zip'
+            Invoke-WebRequest -Uri $Win64OpenSSHDLLink -OutFile "$HOME\Downloads\OpenSSH-Win64.zip"
+
+            # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
+            Unzip-File -PathToZip "$HOME\Downloads\OpenSSH-Win64.zip" -TargetDir "$HOME\Downloads"
+            Move-Item "$HOME\Downloads\OpenSSH-Win64" "$env:ProgramFiles\OpenSSH-Win64"
+            Enable-NTFSAccessInheritance -Path "$env:ProgramFiles\OpenSSH-Win64" -RemoveExplicitAccessRules
+            $OpenSSHWin64Path = "$env:ProgramFiles\OpenSSH-Win64"
+            $env:Path = "$OpenSSHWin64Path;$env:Path"
         }
         catch {
-            Write-Verbose "Installation of OpenSSH failed! Halting!"
+            Write-Error $Error[0]
             Write-Error "Installation of OpenSSH failed! Halting!"
             $global:FunctionResult = "1"
             return
@@ -256,12 +448,11 @@ function Install-SSH {
     # Add a line for PowerShell under Subsystems in sshd_config
     $sshdContent = Get-Content $sshdConfigPath
     $LineToReplace = $sshdContent | Where-Object {$_ -like "*sftp-server.exe*"}
-    $UpdatedsshdContent = $sshdContent -replace "$LineToReplace","$LineToReplace`nSubsystem   powershell $PowerShell6Path -sshd -NoLogo -NoProfile"
+    $UpdatedsshdContent = $sshdContent -replace "$LineToReplace","$LineToReplace`nSubsystem   powershell $PowerShell6Path -sshs -NoLogo -NoProfile"
     Set-Content -Value $UpdatedsshdContent -Path $sshdConfigPath
 
     if (Test-Path "$FinalSSHUtilitySourceDir\install-sshd.ps1") {
         & "$FinalSSHUtilitySourceDir\install-sshd.ps1"
-        #& "$FinalSSHUtilitySourceDir\FixHostFilePermissions.ps1" -Confirm:$false
     }
     else {
         Write-Warning "The SSHD Service still needs to be configured!"
@@ -303,7 +494,7 @@ function Install-SSH {
     $stderr = $Process.StandardError.ReadToEnd()
     $AllOutput = $stdout + $stderr
     
-    $PubPrivKeyPairFiles = Get-ChildItem -Path "$RootDrive\.ssh" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -like "*ssh_host*"}
+    $PubPrivKeyPairFiles = Get-ChildItem -Path "$FinalSSHUtilitySourceDir" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -like "*ssh_host*"}
     $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
     $PrivKeys = $PubPrivKeyPairFiles | foreach {if ($PubKeys -notcontains $_) {$_}}
     
@@ -321,12 +512,18 @@ function Install-SSH {
     foreach ($PrivKey in $PrivKeys) {
         ssh-add.exe $PrivKey.FullName
 
-        if ($RemovePrivateKeys) {
+        if ($RemoveHostPrivateKeys) {
             Remove-Item $PrivKey
         }
     }
 
     Pop-Location
+
+    Set-Service sshd -StartupType Automatic
+    Set-Service ssh-agent -StartupType Automatic
+
+    # IMPORTANT: It is important that File Permissions are "Fixed" at the end, otherwise previous steps break
+    & "$FinalSSHUtilitySourceDir\FixHostFilePermissions.ps1" -Confirm:$false
 
     Start-Service sshd
 
@@ -339,8 +536,89 @@ function Install-SSH {
         return
     }
 
-    Set-Service sshd -StartupType Automatic
-    Set-Service ssh-agent -StartupType Automatic
+    if ($NewSSHKeyName) {
+        # Create new public/private keypair
+        if (!$(Test-Path "$HOME\.ssh")) {
+            New-Item -Type Directory -Path "$HOME\.ssh"
+        }
+
+        if ($NewSSHKeyPwd) {
+            ssh-keygen.exe -t rsa -b 2048 -f "$HOME\.ssh\$NewSSHKeyName" -q -N "$NewSSHKeyPwd" -C "$NewSSHKeyPurpose"
+        }
+        else {
+             # Need PowerShell Await Module (Windows version of Linux Expect) for ssh-keygen with null password
+            if ($(Get-Module -ListAvailable).Name -notcontains "Await") {
+                # Install-Module "Await" -Scope CurrentUser
+                # Clone PoshAwait repo to .zip
+                Invoke-WebRequest -Uri "https://github.com/pldmgg/PoshAwait/archive/master.zip" -OutFile "$HOME\PoshAwait.zip"
+                $tempDirectory = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())
+                [IO.Directory]::CreateDirectory($tempDirectory)
+                Unzip-File -PathToZip "$HOME\PoshAwait.zip" -TargetDir "$tempDirectory"
+                if (!$(Test-Path "$HOME\Documents\WindowsPowerShell\Modules\Await")) {
+                    New-Item -Type Directory "$HOME\Documents\WindowsPowerShell\Modules\Await"
+                }
+                Copy-Item -Recurse -Path "$tempDirectory\PoshAwait-master\*" -Destination "$HOME\Documents\WindowsPowerShell\Modules\Await"
+                Remove-Item -Recurse -Path $tempDirectory -Force
+            }
+
+            # Make private key password $null
+            Import-Module Await
+            if (!$?) {
+                Write-Verbose "Unable to load the Await Module! Halting!"
+                Write-Error "Unable to load the Await Module! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+
+            Start-AwaitSession
+            Start-Sleep -Seconds 1
+            Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
+            $PSAwaitProcess = $($(Get-Process | ? {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
+            Start-Sleep -Seconds 1
+            Send-AwaitCommand "`$env:Path = '$env:Path'"
+            Start-Sleep -Seconds 1
+            Send-AwaitCommand "ssh-keygen.exe -t rsa -b 2048 -f `"$HOME\.ssh\$NewSSHKeyName`" -C `"$NewSSHKeyPurpose`""
+            Start-Sleep -Seconds 2
+            Send-AwaitCommand ""
+            Start-Sleep -Seconds 2
+            Send-AwaitCommand ""
+            Start-Sleep -Seconds 1
+            $SSHKeyGenConsoleOutput = Receive-AwaitResponse
+            Write-hOst ""
+            Write-Host "##### BEGIN ssh-keygen Console Output From PSAwaitSession #####"
+            Write-Host "$SSHKeyGenConsoleOutput"
+            Write-Host "##### END ssh-keygen Console Output From PSAwaitSession #####"
+            Write-Host ""
+            # If Stop-AwaitSession errors for any reason, it doesn't return control, so we need to handle in try/catch block
+            try {
+                Stop-AwaitSession
+            }
+            catch {
+                if ($PSAwaitProcess.Id -eq $PID) {
+                    Write-Verbose "The PSAwaitSession never spawned! Halting!"
+                    Write-Error "The PSAwaitSession never spawned! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                else {
+                    Stop-Process -Id $PSAwaitProcess.Id
+                }
+            }
+        }
+
+        if (!$(Test-Path "$HOME\.ssh\$NewSSHKeyName")) {
+            Write-Verbose "The New SSH Key Pair was NOT created! Halting!"
+            Write-Error "The New SSH Key Pair was NOT created! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        # Add the New Private Key to the ssh-agent
+        ssh-add.exe "$HOME\.ssh\$NewSSHKeyName"
+
+        Write-Host "Add the following RSA Public Key to ~/.ssh/authorized_keys on your linux host"
+        Write-Host "$(Get-Content $HOME\.ssh\$NewSSHKeyName.pub)"
+    }
 
     ##### END Main Body #####
 
@@ -348,11 +626,17 @@ function Install-SSH {
 
 
 
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYfFbc7UKO8E6bId2lk9jwfcA
-# W+igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVNG+N0E1V17FqodNlWOruClM
+# tnmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -407,11 +691,11 @@ function Install-SSH {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTd7g8CyO3d
-# /30AWenknHMBn0WIkDANBgkqhkiG9w0BAQEFAASCAQAfBZHsVf8N/8K+r2GBT5lC
-# JZDOsjHeuJ7bB2PIzlk9P4J6grcgZ5fic8b56jGE1dDMMOQWlNpHbqvkie4OsKoh
-# 33cz+2W0LukYapg5a99CFTs1sqe4L4AUzJRDjEUI+/QBczR24HSBB3+jg0mVXeoX
-# lqjS+/BpcD08MsQwL8ZSjoMnjP63qmy/hkb23d4Q8g/ZZ/kdTWrzWRgjbKo0Cmb2
-# jkMO1jmSM3+rWbN1iRtGg9Y0ZuuCHJrYOgekoHZ70mkZJezMkkfBgSpvWdwiACQT
-# Q6LJ1t5HTzK98RyyjnND85CybiSYtT3NirQY0DhEqlqf/ssQACoprUUA8gSmeqi8
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSCO3FOqcb/
+# 615oRzHIE7DdeK/XEjANBgkqhkiG9w0BAQEFAASCAQAuRpKWAQZT+2bI1+YLVutS
+# 3H0Kl9wvr/LoLzWKwVSJFfo4qgN63ej+V7yrrGB3FPYzwQM7N1lh3Kp+d1CjTl4k
+# KgqqnsjnVsTcMZ6oJymDMQVCUUorM4VCGga6Z8199tdC9LyJtEcM6EQZhLK8EkL0
+# Fjz4pACLvpjMC5a29qMFl/jMtNbck7Is19bfFf+i68xc2S7SnR6iDQJpzjnDFaeN
+# WitWtRC5Kcromk1Q9Uw8wVdrtKrVNbFN3KY5PZs+45GoAlnkNx+OQoMGehISBEzp
+# E7Xu0qKoWdK0fz6qvRr46XVb1XRldYj0zh93S0Cg0wqjTTmXdBxWDGhMaXHaami2
 # SIG # End signature block
