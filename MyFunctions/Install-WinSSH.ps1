@@ -56,7 +56,11 @@ function Install-WinSSH {
         [string]$NewSSHKeyPurpose,
 
         [Parameter(Mandatory=$False)]
-        [switch]$SetupPowerShell6
+        [switch]$SetupPowerShell6,
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("alpha", "beta", "stable")]
+        [string]$PowerShell6Channel = "beta"
      )
 
     ## BEGIN Native Helper Functions ##
@@ -342,9 +346,23 @@ function Install-WinSSH {
     #>
 
     if ($SetupPowerShell6) {
-        if (!$(Test-Path "C:\Program Files\PowerShell\6.0.0*")) {
+        $PowerShell6Path = $(Resolve-Path "$env:ProgramFiles\PowerShell\6*\powershell.exe").Path
+        $WindowsOSVersion = [version]$(Get-CimInstance -ClassName Win32_OperatingSystem).Version
+        if ($WindowsOSVersion.Major -ge 10) {
+            $WinVer = "win10"
+        }
+        if ($WindowsOSVersion.Major -eq 6 -and $WindowsOSVersion.Minor -eq 3) {
+            $WinVer = "win81"
+        }
+        if (!$WinVer) {
+            Write-Verbose "Unable to find installer for Windows Version $($WindowsOSVersion.ToString())! Halting!"
+            Write-Error "Unable to find installer for Windows Version $($WindowsOSVersion.ToString())! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if (!$(Test-Path $PowerShell6Path)) {
             $LatestPowerShellCoreVersionPrep = Invoke-WebRequest -Uri "https://github.com/powershell/powershell/releases"
-            $LatestPowerShellCoreVersionhref = $($LatestPowerShellCoreVersionPrep.Links | Where-Object {$_.href -like "*beta*win10*x64.msi"})[0].href
+            $LatestPowerShellCoreVersionhref = $($LatestPowerShellCoreVersionPrep.Links | Where-Object {$_.href -like "*$PowerShell6Channel*$WinVer*x64.msi"})[0].href
             $LatestPowerShellCoreVersionURL = "https://github.com/powershell/powershell/releases" + $LatestPowerShellCoreVersionhref
             $DownloadPath = "$HOME\Downloads\$($LatestPowerShellCoreVersionURL | Split-Path -Leaf)"
 
@@ -448,7 +466,7 @@ function Install-WinSSH {
     # Add a line for PowerShell under Subsystems in sshd_config
     $sshdContent = Get-Content $sshdConfigPath
     $LineToReplace = $sshdContent | Where-Object {$_ -like "*sftp-server.exe*"}
-    $UpdatedsshdContent = $sshdContent -replace "$LineToReplace","$LineToReplace`nSubsystem   powershell $PowerShell6Path -sshs -NoLogo -NoProfile"
+    $UpdatedsshdContent = $sshdContent -replace "$LineToReplace","$LineToReplace`nSubsystem   powershell C:/Program Files/PowerShell/6.0.0-beta.3/powershell.exe $PowerShell6Path -sshs -NoLogo -NoProfile"
     Set-Content -Value $UpdatedsshdContent -Path $sshdConfigPath
 
     if (Test-Path "$FinalSSHUtilitySourceDir\install-sshd.ps1") {
