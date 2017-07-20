@@ -68,7 +68,15 @@ function Unzip-File {
         return
     }
 
-    $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+    $ZipFileNameWExt = $(Get-ChildItem $PathToZip).Name
+
+    if ($SpecificItem) {
+        foreach ($item in $SpecificItem) {
+            if ($SpecificItem -match "\\") {
+                $SpecificItem = $SpecificItem -replace "\\","\\"
+            }
+        }
+    }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -91,12 +99,14 @@ function Unzip-File {
     if ($SpecificItem) {
         $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
 
-        foreach($searchitem in $SpecificItem) {
+        foreach ($searchitem in $SpecificItem) {
             [array]$potentialItems = foreach ($item in $ZipSubItems) {
-                if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                if ($item.Path -match $searchitem) {
                     $item
                 }
             }
+
+            $shell = new-object -com shell.application
 
             if ($potentialItems.Count -eq 1) {
                 $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
@@ -4142,12 +4152,11 @@ if(Win32.CertStrToName(X509_ASN_ENCODING, DN, CERT_X500_NAME_STR, IntPtr.Zero, n
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0TRnSmWz+Hc2352slP2QCrVL
-# v5GgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUn1rkQ9XQ2ANFSXkzrgIoXTCi
+# 1PWgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4202,11 +4211,11 @@ if(Win32.CertStrToName(X509_ASN_ENCODING, DN, CERT_X500_NAME_STR, IntPtr.Zero, n
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSn3oCa4gYu
-# IV8y/p3GK5J8QGcK+TANBgkqhkiG9w0BAQEFAASCAQAxevne0DjXPO5mhgDNJM+Y
-# YgrQDD2bCCv60lxwFYnONidKTLwb0/fPtIz219nNfrBk8w5ZNag/QT2y2vpXgfEL
-# y32yJipplYqbApSGQJb/+Wb0W3EAUUqHl9VXEqudvrMK18mU+8Fr0YLw6s8lPDUI
-# pQYmPS6Hk9I4oO/DgTrvh9OosaKkf5yo06ZCyo8CAMJOX5xiKllDyxm9+wcgKXzw
-# bCaLFKzkly7RUEdZoV3XpskRjfts1anHBvnJ/mabqbvwnqWAbGGPmf/jSUeP9PiT
-# FAKPrAQgccOIiFZf4ykqOJggkvtXLzzTg9oqT0iTi1uHz+ko3dzpRx/3lptbYLCd
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTF7wDhaDnI
+# ACYw7WJXZI/aqcb+zjANBgkqhkiG9w0BAQEFAASCAQBhJdXs7Rf6LFV+P2y9sXFb
+# u3GsMo5t7hB420OQQQlPWPMTTNfI939ObRISboATvpODfBXgYB/jYPlCffRf7MoD
+# BW6l3C+9PBZrsyIOihw+6+BZZ/A03gv14t60dHVm/aaeT8G+jKuO976Eq1xUCX63
+# IcgRmH3hbxCnf9S/MgWgg/dkklazGVbX7gHKKxXaR7ipoB/3eUFJ41JSmNLU21PE
+# rIHOp8tM3vyNceX+ExXtR+yww0tsBQ5a/o8d2BgPMTa5PO+OBT0uEAirc84MhZ4x
+# 3Q1UEO3a1VMQYDeJJzymQ6dhisM8L4tAIImO1hCKzu44XrYvw1UMNeJb9OCOzJap
 # SIG # End signature block

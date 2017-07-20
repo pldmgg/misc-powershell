@@ -178,7 +178,15 @@ function Get-PrivateKeyProperty {
             return
         }
 
-        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).Name
+
+        if ($SpecificItem) {
+            foreach ($item in $SpecificItem) {
+                if ($SpecificItem -match "\\") {
+                    $SpecificItem = $SpecificItem -replace "\\","\\"
+                }
+            }
+        }
 
         ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -201,12 +209,14 @@ function Get-PrivateKeyProperty {
         if ($SpecificItem) {
             $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
 
-            foreach($searchitem in $SpecificItem) {
+            foreach ($searchitem in $SpecificItem) {
                 [array]$potentialItems = foreach ($item in $ZipSubItems) {
-                    if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                    if ($item.Path -match $searchitem) {
                         $item
                     }
                 }
+
+                $shell = new-object -com shell.application
 
                 if ($potentialItems.Count -eq 1) {
                     $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
@@ -679,12 +689,11 @@ function Get-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUS7KQlCnCVv0ZUkRYaCYnHijS
-# p0igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1nSopAsaaGASuyPryxUvw0Z6
+# SLSgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -739,11 +748,11 @@ function Get-PrivateKeyProperty {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRdXzHjkKLz
-# DPsc/1jaslM2GHXBHjANBgkqhkiG9w0BAQEFAASCAQBnB+VVIIt5NcpIfhShrFoQ
-# ZkmjpJHQLKgcQGq72dWm+pjbz4eEzpuD780aMSrIBQcY8v0/l2W5uNFuZPn+vfc6
-# 03NL/MBWH+OTdoOM5ZvI7UkSYBaPddXXuQU4HIuWl1GS2FjCLqw+1dD5ZQLisbgS
-# VKS89R0BTBomu+U5rFckgtERUD5LQR2wo7hj/SiGqxIgM/oAPrTnmO1W8JdorZKR
-# qNS6UAi+nf72ySP4+YaXVzSMUZs2roF8lLz7NAq3Iy+WDY3hZXscI0hZPprnsZam
-# FKotf4ZPyIPTcrGZPPOjWNlJsydWAep9ffWAgCwVz/iAgQBPbQttdd3y/pRNUi1D
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTtdShml57m
+# 5lbn6IBEjngyMS+iqTANBgkqhkiG9w0BAQEFAASCAQBKV5X/nNs52BdwunbTYAbe
+# wSX1DNE9A82JEN4VRCVdVffun3TGjljalLQmQXTJFcWJcIGAUCQdtQgjKKGrHGFq
+# zo4SDgpSWzALyq/wUHOhUVHs5X57NAtpwMy8Lq79trjwTY65tOF9W3LAw5eId0M6
+# WO51cJXRX+8tTrjXUnP6ZLWW2zRYgkj2EaDQqXTgpNGMmbzVviQdeMFwVLVOOl1/
+# biL8Zr4Y+0XrHIRSWKLNAjypy/HwQEcvLQjvPXdgoEcel82JJXxt9pSaJX4sIY/p
+# GdhXOM/Oq2ZFZzPs5/Uz9SaK3WVxm3H/ZBcH1NLMlQ+JlAs9/ItRMRjcMT5pMkUb
 # SIG # End signature block

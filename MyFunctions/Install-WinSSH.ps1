@@ -268,7 +268,15 @@ function Install-WinSSH {
             return
         }
 
-        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).Name
+
+        if ($SpecificItem) {
+            foreach ($item in $SpecificItem) {
+                if ($SpecificItem -match "\\") {
+                    $SpecificItem = $SpecificItem -replace "\\","\\"
+                }
+            }
+        }
 
         ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -291,12 +299,14 @@ function Install-WinSSH {
         if ($SpecificItem) {
             $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
 
-            foreach($searchitem in $SpecificItem) {
+            foreach ($searchitem in $SpecificItem) {
                 [array]$potentialItems = foreach ($item in $ZipSubItems) {
-                    if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                    if ($item.Path -match $searchitem) {
                         $item
                     }
                 }
+
+                $shell = new-object -com shell.application
 
                 if ($potentialItems.Count -eq 1) {
                     $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
@@ -649,12 +659,11 @@ function Install-WinSSH {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVNG+N0E1V17FqodNlWOruClM
-# tnmgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUg6IU8ku2nMAT5dwKhTY9AGAs
+# M/+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -709,11 +718,11 @@ function Install-WinSSH {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSCO3FOqcb/
-# 615oRzHIE7DdeK/XEjANBgkqhkiG9w0BAQEFAASCAQAuRpKWAQZT+2bI1+YLVutS
-# 3H0Kl9wvr/LoLzWKwVSJFfo4qgN63ej+V7yrrGB3FPYzwQM7N1lh3Kp+d1CjTl4k
-# KgqqnsjnVsTcMZ6oJymDMQVCUUorM4VCGga6Z8199tdC9LyJtEcM6EQZhLK8EkL0
-# Fjz4pACLvpjMC5a29qMFl/jMtNbck7Is19bfFf+i68xc2S7SnR6iDQJpzjnDFaeN
-# WitWtRC5Kcromk1Q9Uw8wVdrtKrVNbFN3KY5PZs+45GoAlnkNx+OQoMGehISBEzp
-# E7Xu0qKoWdK0fz6qvRr46XVb1XRldYj0zh93S0Cg0wqjTTmXdBxWDGhMaXHaami2
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRAM7st+j7A
+# MkbmVcANpqK3ZEdBfjANBgkqhkiG9w0BAQEFAASCAQB7okClU2zH4s0Y3NpB2RsH
+# QOXF1OBxskO+wYVmT/ohLUEnlcNVmbqhWEXzEw80wa41gbOH5ODzNNhWS14KN3YJ
+# yt3bIGS5NF3mPYCaPKM7DHYe43QtAnYVUpDbBiRGfHMbiwaUhIVCkq+GXW9UaSdb
+# qhFoalvuhpHioC/ZxE1tGQzNhRlaC1OcfSLL3uQGozS80RckfDVDurKlNnYvlvme
+# JoCJraN6Wt5nMil+Sh3hsAVPEd+Ms7501+l7lstBkL/DxHjGDCo1YgrHWrcd0LEd
+# 0FqXKuA4t0CgfWNh5vG3iRwi+pnvq/L6ULbuqUWGAG/43J0TIm2EA8Ic+4SeNj9A
 # SIG # End signature block

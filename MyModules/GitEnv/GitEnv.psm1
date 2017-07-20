@@ -77,7 +77,15 @@ function Unzip-File {
         return
     }
 
-    $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+    $ZipFileNameWExt = $(Get-ChildItem $PathToZip).Name
+
+    if ($SpecificItem) {
+        foreach ($item in $SpecificItem) {
+            if ($SpecificItem -match "\\") {
+                $SpecificItem = $SpecificItem -replace "\\","\\"
+            }
+        }
+    }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -100,12 +108,14 @@ function Unzip-File {
     if ($SpecificItem) {
         $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
 
-        foreach($searchitem in $SpecificItem) {
+        foreach ($searchitem in $SpecificItem) {
             [array]$potentialItems = foreach ($item in $ZipSubItems) {
-                if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                if ($item.Path -match $searchitem) {
                     $item
                 }
             }
+
+            $shell = new-object -com shell.application
 
             if ($potentialItems.Count -eq 1) {
                 $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
@@ -3557,12 +3567,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHlc+XY6R/vv2sVC6JmX2Si+A
-# slagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvSMWnH7v9Xe5xXsEr1UpnhmF
+# QlygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3617,11 +3626,11 @@ function Publish-MyGitRepo {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBS12INatUfd
-# 6+/FfVxj7SAP9X275DANBgkqhkiG9w0BAQEFAASCAQCFJa8mRbU8pEgK3x5+BTmG
-# 7ELY2QWLYA46GlIiKqArdDmWWjvMoPlOPWQF8C5aFLfatwUncyO45Ps5RA1t2DtQ
-# qlOLy+PdW7OInEmnjB7aXrPy741NXze5q6UTYg96Y82cy5WJoaykLs5/iUPy1vje
-# l+ze9RViNlAJy5WSeGE5EsY7LRoIlBa8FTC58elzyaCSt3JU5JUKtJF4Q4F5W6PI
-# vPGG9/AFB2ST9QBYYljd3eQaY2bfFt1hXIgAbVwVrPuoTbve981sdOCPhaRwkeOg
-# S8FSXQ9+YKr1WtCvNTJ1dPLDWulYkK2ngm4ZrrFlP3YWTHMq2BK6f6CZKZXr2+FF
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRpqakiD+E1
+# iciUYPSWyhQr7nv0jTANBgkqhkiG9w0BAQEFAASCAQAkR5NlwEfnwEKwJfWwWnrk
+# WnLb+uDZmG0G+VBtfx74ZpGi+ygf1sIU0uxFALdpNLm6s49A4PH3jzzYOoWCrVqU
+# R9tU/4jMBqSD/NUg6YzF+MjEU1OZSm6KrJImxslZkaUQ/a8PRptZvIzq/H0G/gtu
+# onA+94cFElUQGoFx29eqycWA5+DKG+QBStpNsBA0oVKd3EvQeoc0to58EZvueyHK
+# Nu/RblTWR5z/qir15h1qYvrOSxpohL0fLxR/4FQ/eevy8SNiqnOAiP0o6phVDIoL
+# I/eWmxJZnJfu8G06w/9R3TsnFOe6J2VvAi25QFBwQ4B1E8knetuHBQgBlY09k1wY
 # SIG # End signature block

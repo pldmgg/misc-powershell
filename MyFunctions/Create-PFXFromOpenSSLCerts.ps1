@@ -116,7 +116,15 @@ function Create-PFXFromOpenSSLCerts {
             return
         }
 
-        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).name
+        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).Name
+
+        if ($SpecificItem) {
+            foreach ($item in $SpecificItem) {
+                if ($SpecificItem -match "\\") {
+                    $SpecificItem = $SpecificItem -replace "\\","\\"
+                }
+            }
+        }
 
         ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -139,12 +147,14 @@ function Create-PFXFromOpenSSLCerts {
         if ($SpecificItem) {
             $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
 
-            foreach($searchitem in $SpecificItem) {
+            foreach ($searchitem in $SpecificItem) {
                 [array]$potentialItems = foreach ($item in $ZipSubItems) {
-                    if ($($item.Path -split "$ZipFileNameWExt\\")[-1] -match "$searchitem") {
+                    if ($item.Path -match $searchitem) {
                         $item
                     }
                 }
+
+                $shell = new-object -com shell.application
 
                 if ($potentialItems.Count -eq 1) {
                     $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
@@ -504,12 +514,11 @@ function Create-PFXFromOpenSSLCerts {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2R9OWeP4vz4oK3uauYTDOyBp
-# d2ygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfhIqkOm7r/G+XtRS49vPBBaW
+# ST6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -564,11 +573,11 @@ function Create-PFXFromOpenSSLCerts {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTU+LeaNQyV
-# MrWU5imExHZKLcweAzANBgkqhkiG9w0BAQEFAASCAQBPviuxtGsexTSgmIw6g6b1
-# 0+tsLcUvIo1RY+dEueqJ2idZWFVro7mHag3P2h33M4VYjCST/uLGh7P+dL2ceLa9
-# ybgPDA8nlrXTLGvjvqtEqZ4E2mGlSqzNSZIhHR23DeE0ykiI17ItNVmz5X5NoXCa
-# SM+T2lFIObScc835kAzUeiP211A6K4SMde9uiICTAXA+RA80m3tTvJdiSFnKr7GC
-# Snl5qdcgXW0HX6oYCPzjkzpx8EjV3S6aWy1jNS4ZsxjAyIC4Bhv3r8O6X4OrnRBy
-# 4a8CGOvV95achv4pKhpsGSYwOdLjKj+IEvEb7LowyzaSPsKmIQ92/Z4tm+QMdf3k
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTf5EY5RMDg
+# M7AbDStJIgm91etibjANBgkqhkiG9w0BAQEFAASCAQABWG5jxkVi3XWhdCgSazwP
+# Ud8yJG5eNJDLPIH1x7Rpr10hk4BLyiGbf99+KUXVzoviXm3eL+F2XGFdC5x5lAAz
+# MB7cJ3sjdstKChO6w+FH1/fs+qZGHHqQf8gQA1c9iF3dF6hGc7Ndr2cVVxwHL1bd
+# fwUqSDoBgsKVPHCDWSdDuiCZD/DKbTQVImHcf1FIsC8YBgyXab15LRlfu3e6A03W
+# a3EVhICuI0cwk/EnqUDwDWIBx7fsfTbMf3lEHYCO8v+U0RBMIeDn6sA8ofgONsX1
+# XP98Llq1QeVPZ0sFGGStmzpPxvQIoHBAaCG27UTd6VxipucI2suC03F15SX+OOMt
 # SIG # End signature block
