@@ -12,121 +12,300 @@ function Unzip-File {
         [string[]]$SpecificItem
     )
 
-    ##### BEGIN Native Helper Functions #####
-    
-    function Get-ZipChildItems {
-        [CmdletBinding()]
-        Param(
-            [Parameter(Mandatory=$false,Position=0)]
-            [string]$ZipFile = $(Read-Host -Prompt "Please enter the full path to the zip file")
+    if ($PSVersionTable.PSEdition -eq "Core") {
+        [System.Collections.ArrayList]$AssembliesToCheckFor = @("System.Console","System","System.IO",
+            "System.IO.Compression","System.IO.Compression.Filesystem","System.IO.Compression.ZipFile"
         )
 
-        $shellapp = new-object -com shell.application
-        $zipFileComObj = $shellapp.Namespace($ZipFile)
-        $i = $zipFileComObj.Items()
-        Get-ZipChildItems_Recurse $i
-    }
+        [System.Collections.ArrayList]$NeededAssemblies = @()
 
-    function Get-ZipChildItems_Recurse {
-        [CmdletBinding()]
-        Param(
-            [Parameter(Mandatory=$true,Position=0)]
-            $items
-        )
+        foreach ($assembly in $AssembliesToCheckFor) {
+            try {
+                [System.Collections.ArrayList]$Failures = @()
+                try {
+                    $TestLoad = [System.Reflection.Assembly]::LoadWithPartialName($assembly)
+                    if (!$TestLoad) {
+                        throw
+                    }
+                }
+                catch {
+                    $null = $Failures.Add("Failed LoadWithPartialName")
+                }
 
-        foreach($si in $items) {
-            if($si.getfolder -ne $null) {
-                # Loop through subfolders 
-                Get-ZipChildItems_Recurse $si.getfolder.items()
-            }
-            # Spit out the object
-            $si
-        }
-    }
+                try {
+                    $null = Invoke-Expression "[$assembly]"
+                }
+                catch {
+                    $null = $Failures.Add("Failed TabComplete Check")
+                }
 
-    ##### END Native Helper Functions #####
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-    if (!$(Test-Path $PathToZip)) {
-        Write-Verbose "The path $PathToZip was not found! Halting!"
-        Write-Error "The path $PathToZip was not found! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    if ($(Get-ChildItem $PathToZip).Extension -ne ".zip") {
-        Write-Verbose "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
-        Write-Error "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    $ZipFileNameWExt = $(Get-ChildItem $PathToZip).Name
-
-    if ($SpecificItem) {
-        foreach ($item in $SpecificItem) {
-            if ($SpecificItem -match "\\") {
-                $SpecificItem = $SpecificItem -replace "\\","\\"
-            }
-        }
-    }
-
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
-
-    ##### BEGIN Main Body #####
-
-    Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
-
-    if (!$SpecificItem) {
-        if ($PSVersionTable.PSVersion.Major -ge 5) {
-            Expand-Archive -Path $PathToZip -DestinationPath $TargetDir
-        }
-        if ($PSVersionTable.PSVersion.Major -lt 5) {
-            # Load System.IO.Compression.Filesystem 
-            [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
-
-            # Unzip file
-            [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
-        }
-    }
-    if ($SpecificItem) {
-        $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
-
-        foreach ($searchitem in $SpecificItem) {
-            [array]$potentialItems = foreach ($item in $ZipSubItems) {
-                if ($item.Path -match $searchitem) {
-                    $item
+                if ($Failures.Count -gt 1) {
+                    $Failures
+                    throw
                 }
             }
-
-            $shell = new-object -com shell.application
-
-            if ($potentialItems.Count -eq 1) {
-                $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
-            }
-            if ($potentialItems.Count -gt 1) {
-                Write-Warning "More than one item within $ZipFileNameWExt matches $searchitem."
-                Write-Host "Matches include the following:"
-                for ($i=0; $i -lt $potentialItems.Count; $i++){
-                    "$i) $($($potentialItems[$i]).Path)"
+            catch {
+                Write-Host "Downloading $assembly..."
+                $NewAssemblyDir = "$HOME\Downloads\$assembly"
+                $NewAssemblyDllPath = "$NewAssemblyDir\$assembly.dll"
+                if (!$(Test-Path $NewAssemblyDir)) {
+                    New-Item -ItemType Directory -Path $NewAssemblyDir
                 }
-                $Choice = Read-Host -Prompt "Please enter the number corresponding to the item you would like to extract [0..$($($potentialItems.Count)-1)]"
-                if ($(0..$($($potentialItems.Count)-1)) -notcontains $Choice) {
-                    Write-Warning "The number indicated does is not a valid choice! Skipping $searchitem..."
+                if (Test-Path "$NewAssemblyDir\$assembly*.zip") {
+                    Remove-Item "$NewAssemblyDir\$assembly*.zip" -Force
+                }
+                $OutFileBaseNamePrep = Invoke-WebRequest "https://www.nuget.org/api/v2/package/$assembly" -DisableKeepAlive -UseBasicParsing
+                $OutFileBaseName = $($OutFileBaseNamePrep.BaseResponse.ResponseUri.AbsoluteUri -split "/")[-1] -replace "nupkg","zip"
+                Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/$assembly" -OutFile "$NewAssemblyDir\$OutFileBaseName"
+                Expand-Archive -Path "$NewAssemblyDir\$OutFileBaseName" -TargetDir $NewAssemblyDir
+
+                $PossibleDLLs = Get-ChildItem -Recurse $NewAssemblyDir | Where-Object {$_.Name -eq "$assembly.dll" -and $_.Parent -notmatch "net[0-9]" -and $_.Parent -match "core|standard"}
+
+                if ($PossibleDLLs.Count -gt 1) {
+                    Write-Warning "More than one item within $NewAssemblyDir\$OutFileBaseName matches $assembly.dll"
+                    Write-Host "Matches include the following:"
+                    for ($i=0; $i -lt $PossibleDLLs.Count; $i++){
+                        "$i) $($($PossibleDLLs[$i]).FullName)"
+                    }
+                    $Choice = Read-Host -Prompt "Please enter the number corresponding to the .dll you would like to load [0..$($($PossibleDLLs.Count)-1)]"
+                    if ($(0..$($($PossibleDLLs.Count)-1)) -notcontains $Choice) {
+                        Write-Error "The number indicated does is not a valid choice! Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                    # Install to GAC
+                    [System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
+                    $publish = New-Object System.EnterpriseServices.Internal.Publish
+                    $publish.GacInstall($PossibleDLLs[$Choice].FullName)
+
+                    # Copy it to the root of $NewAssemblyDir\$OutFileBaseName
+                    Copy-Item -Path "$($PossibleDLLs[$Choice].FullName)" -Destination "$NewAssemblyDir\$assembly.dll"
+
+                    # Remove everything else that was extracted with Expand-Archive
+                    Get-ChildItem -Recurse $NewAssemblyDir | Where-Object {
+                        $_.FullName -ne "$NewAssemblyDir\$assembly.dll" -and
+                        $_.FullName -ne "$NewAssemblyDir\$OutFileBaseName"
+                    } | Remove-Item -Recurse -Force
+                    
+                }
+                if ($PossibleDLLs.Count -lt 1) {
+                    Write-Error "No matching .dll files were found within $NewAssemblyDir\$OutFileBaseName ! Halting!"
                     continue
                 }
-                for ($i=0; $i -lt $potentialItems.Count; $i++){
-                    $shell.Namespace($TargetDir).CopyHere($potentialItems[$Choice], 0x14)
+                if ($PossibleDLLs.Count -eq 1) {
+                    # Install to GAC
+                    [System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
+                    $publish = New-Object System.EnterpriseServices.Internal.Publish
+                    $publish.GacInstall($PossibleDLLs.FullName)
+
+                    # Copy it to the root of $NewAssemblyDir\$OutFileBaseName
+                    Copy-Item -Path "$($PossibleDLLs[$Choice].FullName)" -Destination "$NewAssemblyDir\$assembly.dll"
+
+                    # Remove everything else that was extracted with Expand-Archive
+                    Get-ChildItem -Recurse $NewAssemblyDir | Where-Object {
+                        $_.FullName -ne "$NewAssemblyDir\$assembly.dll" -and
+                        $_.FullName -ne "$NewAssemblyDir\$OutFileBaseName"
+                    } | Remove-Item -Recurse -Force
                 }
             }
-            if ($potentialItems.Count -lt 1) {
-                Write-Warning "No items within $ZipFileNameWExt match $searchitem! Skipping..."
-                continue
+            finally {
+                $AssemblyFullInfo = [System.Reflection.Assembly]::LoadWithPartialName($assembly).FullName
+                $null = $NeededAssemblies.Add([pscustomobject]@{
+                    AssemblyName = "$assembly"
+                    Available = if ($AssemblyFullInfo){$true} else {$false}
+                    AssemblyInfo = $AssemblyFullInfo
+                })
             }
+        }
+
+        if ($NeededAssemblies.Available -contains $false) {
+            $AssembliesNotFound = $($NeededAssemblies | Where-Object {$_.Available -eq $false}).AssemblyName
+            Write-Error "The following assemblies cannot be found:`n$AssembliesNotFound`nHalting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $script:Assem = $NeededAssemblies.AssemblyInfo
+
+        $Source = @"
+        using System;
+        using System.IO;
+        using System.IO.Compression;
+
+        namespace MyCore.Utils
+        {
+            public static class Zip
+            {
+                public static void ExtractAll(string sourcepath, string destpath)
+                {
+                    string zipPath = @sourcepath;
+                    string extractPath = @destpath;
+
+                    using (ZipArchive archive = ZipFile.Open(zipPath, ZipArchiveMode.Update))
+                    {
+                        archive.ExtractToDirectory(extractPath);
+                    }
+                }
+
+                public static void ExtractSpecific(string sourcepath, string destpath, string specificitem)
+                {
+                    string zipPath = @sourcepath;
+                    string extractPath = @destpath;
+                    string itemout = @specificitem.Replace(@"\","/");
+
+                    //Console.WriteLine(itemout);
+
+                    using (ZipArchive archive = ZipFile.OpenRead(zipPath))
+                    {
+                        foreach (ZipArchiveEntry entry in archive.Entries)
+                        {
+                            //Console.WriteLine(entry.FullName);
+                            //bool satisfied = new bool();
+                            //satisfied = entry.FullName.IndexOf(@itemout, 0, StringComparison.CurrentCultureIgnoreCase) != -1;
+                            //Console.WriteLine(satisfied);
+
+                            if (entry.FullName.IndexOf(@itemout, 0, StringComparison.CurrentCultureIgnoreCase) != -1)
+                            {
+                                string finaloutputpath = extractPath + "\\" + entry.Name;
+                                entry.ExtractToFile(finaloutputpath, true);
+                            }
+                        }
+                    } 
+                }
+            }
+        }
+"@
+
+        Add-Type -ReferencedAssemblies $script:Assem -TypeDefinition $Source
+
+        if (!$SpecificItem) {
+            [MyCore.Utils.Zip]::ExtractAll($PathToZip, $TargetDir)
+        }
+        else {
+            [MyCore.Utils.Zip]::ExtractSpecific($PathToZip, $TargetDir, $SpecificItem)
         }
     }
 
-    ##### END Main Body #####
+
+    if ($PSVersionTable.PSEdition -eq "Desktop") {
+        if ($SpecificItem) {
+            foreach ($item in $SpecificItem) {
+                if ($SpecificItem -match "\\") {
+                    $SpecificItem = $SpecificItem -replace "\\","\\"
+                }
+            }
+        }
+
+        ##### BEGIN Native Helper Functions #####
+        function Get-ZipChildItems {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$false,Position=0)]
+                [string]$ZipFile = $(Read-Host -Prompt "Please enter the full path to the zip file")
+            )
+
+            $shellapp = new-object -com shell.application
+            $zipFileComObj = $shellapp.Namespace($ZipFile)
+            $i = $zipFileComObj.Items()
+            Get-ZipChildItems_Recurse $i
+        }
+
+        function Get-ZipChildItems_Recurse {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$true,Position=0)]
+                $items
+            )
+
+            foreach($si in $items) {
+                if($si.getfolder -ne $null) {
+                    # Loop through subfolders 
+                    Get-ZipChildItems_Recurse $si.getfolder.items()
+                }
+                # Spit out the object
+                $si
+            }
+        }
+
+        ##### END Native Helper Functions #####
+
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+        if (!$(Test-Path $PathToZip)) {
+            Write-Verbose "The path $PathToZip was not found! Halting!"
+            Write-Error "The path $PathToZip was not found! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($(Get-ChildItem $PathToZip).Extension -ne ".zip") {
+            Write-Verbose "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+            Write-Error "The file specified by the -PathToZip parameter does not have a .zip file extension! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $ZipFileNameWExt = $(Get-ChildItem $PathToZip).Name
+
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+        ##### BEGIN Main Body #####
+
+        Write-Verbose "NOTE: PowerShell 5.0 uses Expand-Archive cmdlet to unzip files"
+
+        if (!$SpecificItem) {
+            if ($PSVersionTable.PSVersion.Major -ge 5) {
+                Expand-Archive -Path $PathToZip -DestinationPath $TargetDir
+            }
+            if ($PSVersionTable.PSVersion.Major -lt 5) {
+                # Load System.IO.Compression.Filesystem 
+                [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
+
+                # Unzip file
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($PathToZip, $TargetDir)
+            }
+        }
+        if ($SpecificItem) {
+            $ZipSubItems = Get-ZipChildItems -ZipFile $PathToZip
+
+            foreach ($searchitem in $SpecificItem) {
+                [array]$potentialItems = foreach ($item in $ZipSubItems) {
+                    if ($item.Path -match $searchitem) {
+                        $item
+                    }
+                }
+
+                $shell = new-object -com shell.application
+
+                if ($potentialItems.Count -eq 1) {
+                    $shell.Namespace($TargetDir).CopyHere($potentialItems[0], 0x14)
+                }
+                if ($potentialItems.Count -gt 1) {
+                    Write-Warning "More than one item within $ZipFileNameWExt matches $searchitem."
+                    Write-Host "Matches include the following:"
+                    for ($i=0; $i -lt $potentialItems.Count; $i++){
+                        "$i) $($($potentialItems[$i]).Path)"
+                    }
+                    $Choice = Read-Host -Prompt "Please enter the number corresponding to the item you would like to extract [0..$($($potentialItems.Count)-1)]"
+                    if ($(0..$($($potentialItems.Count)-1)) -notcontains $Choice) {
+                        Write-Warning "The number indicated does is not a valid choice! Skipping $searchitem..."
+                        continue
+                    }
+                    for ($i=0; $i -lt $potentialItems.Count; $i++){
+                        $shell.Namespace($TargetDir).CopyHere($potentialItems[$Choice], 0x14)
+                    }
+                }
+                if ($potentialItems.Count -lt 1) {
+                    Write-Warning "No items within $ZipFileNameWExt match $searchitem! Skipping..."
+                    continue
+                }
+            }
+        }
+        ##### END Main Body #####
+    }
 }
+
+
+
+
 
 
 
@@ -138,8 +317,8 @@ function Unzip-File {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgq0gwilym1tyUwvyGW7iAapq
-# /G6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBy+bA0cd7iff4IezZJBE7LlI
+# 8xGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -194,11 +373,11 @@ function Unzip-File {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT0/hs8M3cH
-# eHvppmkvipu+l2BSODANBgkqhkiG9w0BAQEFAASCAQBf9B5tjdpVltqW+WSol/yX
-# 0GJa7rARxfnUzTixpdedbqM12G4l1o9JrjvV85dUf2/TUea+ddLcjqQX2ic9NIPz
-# RMkQjAU5z8i0pn6iKlldP+GjokmHgExmh5j2Tta7VNisqv47SSeKOcb8LgkYS5Uj
-# FHL4y/Q8iTP3xsX0Giuve0I8/+TEclz4rwAMaMfGV3BfWRwBCQIkq5BQLokjl+Ek
-# xotxejGiycn9BYDd4+mViS618XvTf/iOhUV6cRj9vX2R/6llVcq/l1UGLJwH6oiE
-# Pn46bBzPojfHEeSTLGntnA3RcHBLXmbedKRntDfApAqmbLyJ/lhMjd80pmKAB93y
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSrqqsYckrS
+# 4v2YPiEu1cOvJjJ3zTANBgkqhkiG9w0BAQEFAASCAQBew/hUJIqSbtNSRngf/Jc+
+# BklzO7CPjlNt3RhGTx6gG/re4vkVfQ5tqgBuLeEfLjUUX6UM6Fs8GUxOoZS6EaEs
+# reVoYa42j4Dm1mRhkKMJfodkiNpPiyrLkugHu4XK7eGqHpy6KbE8fD5AzD78rZez
+# V9PJ1pL0eZaVtlrjm+50XlLgkmJl9hM30skqTjKHba2lAhbidcyI7KHykX2qFD8j
+# Lm4G4a3EzYk82PE2+coOXiPY5idk9k8SAityWb2nm9yFr/kO+nEXr2UIbXOS8GMs
+# N3PTVE+AIUS79AZiXc7EG2vgWbCqKe2ghjEeY5jknc3VrtRxahInJbwMW7bXM4Wz
 # SIG # End signature block
