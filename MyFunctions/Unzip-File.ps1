@@ -57,7 +57,7 @@ function Unzip-File {
                 $OutFileBaseNamePrep = Invoke-WebRequest "https://www.nuget.org/api/v2/package/$assembly" -DisableKeepAlive -UseBasicParsing
                 $OutFileBaseName = $($OutFileBaseNamePrep.BaseResponse.ResponseUri.AbsoluteUri -split "/")[-1] -replace "nupkg","zip"
                 Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/$assembly" -OutFile "$NewAssemblyDir\$OutFileBaseName"
-                Expand-Archive -Path "$NewAssemblyDir\$OutFileBaseName" -TargetDir $NewAssemblyDir
+                Expand-Archive -Path "$NewAssemblyDir\$OutFileBaseName" -DestinationPath $NewAssemblyDir
 
                 $PossibleDLLs = Get-ChildItem -Recurse $NewAssemblyDir | Where-Object {$_.Name -eq "$assembly.dll" -and $_.Parent -notmatch "net[0-9]" -and $_.Parent -match "core|standard"}
 
@@ -73,10 +73,13 @@ function Unzip-File {
                         $global:FunctionResult = "1"
                         return
                     }
-                    # Install to GAC
-                    [System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
-                    $publish = New-Object System.EnterpriseServices.Internal.Publish
-                    $publish.GacInstall($PossibleDLLs[$Choice].FullName)
+
+                    if ($PSVersionTable.Platform -eq "Win32NT") {
+                        # Install to GAC
+                        [System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
+                        $publish = New-Object System.EnterpriseServices.Internal.Publish
+                        $publish.GacInstall($PossibleDLLs[$Choice].FullName)
+                    }
 
                     # Copy it to the root of $NewAssemblyDir\$OutFileBaseName
                     Copy-Item -Path "$($PossibleDLLs[$Choice].FullName)" -Destination "$NewAssemblyDir\$assembly.dll"
@@ -93,10 +96,12 @@ function Unzip-File {
                     continue
                 }
                 if ($PossibleDLLs.Count -eq 1) {
-                    # Install to GAC
-                    [System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
-                    $publish = New-Object System.EnterpriseServices.Internal.Publish
-                    $publish.GacInstall($PossibleDLLs.FullName)
+                    if ($PSVersionTable.Platform -eq "Win32NT") {
+                        # Install to GAC
+                        [System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
+                        $publish = New-Object System.EnterpriseServices.Internal.Publish
+                        $publish.GacInstall($PossibleDLLs.FullName)
+                    }
 
                     # Copy it to the root of $NewAssemblyDir\$OutFileBaseName
                     Copy-Item -Path "$($PossibleDLLs[$Choice].FullName)" -Destination "$NewAssemblyDir\$assembly.dll"
@@ -108,14 +113,21 @@ function Unzip-File {
                     } | Remove-Item -Recurse -Force
                 }
             }
-            finally {
-                $AssemblyFullInfo = [System.Reflection.Assembly]::LoadWithPartialName($assembly).FullName
-                $null = $NeededAssemblies.Add([pscustomobject]@{
-                    AssemblyName = "$assembly"
-                    Available = if ($AssemblyFullInfo){$true} else {$false}
-                    AssemblyInfo = $AssemblyFullInfo
-                })
+            $AssemblyFullInfo = [System.Reflection.Assembly]::LoadWithPartialName($assembly)
+            if (!$AssemblyFullInfo) {
+                $AssemblyFullInfo = [System.Reflection.Assembly]::LoadFile("$NewAssemblyDir\$assembly.dll")
             }
+            if (!$AssemblyFullInfo) {
+                Write-Error "The assembly $assembly could not be found or otherwise loaded! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+            $null = $NeededAssemblies.Add([pscustomobject]@{
+                AssemblyName = "$assembly"
+                Available = if ($AssemblyFullInfo){$true} else {$false}
+                AssemblyInfo = $AssemblyFullInfo
+                AssemblyLocation = $AssemblyFullInfo.Location
+            })
         }
 
         if ($NeededAssemblies.Available -contains $false) {
@@ -125,7 +137,7 @@ function Unzip-File {
             return
         }
 
-        $script:Assem = $NeededAssemblies.AssemblyInfo
+        $Assem = $NeededAssemblies.AssemblyInfo.FullName
 
         $Source = @"
         using System;
@@ -176,7 +188,7 @@ function Unzip-File {
         }
 "@
 
-        Add-Type -ReferencedAssemblies $script:Assem -TypeDefinition $Source
+        Add-Type -ReferencedAssemblies $Assem -TypeDefinition $Source
 
         if (!$SpecificItem) {
             [MyCore.Utils.Zip]::ExtractAll($PathToZip, $TargetDir)
@@ -187,7 +199,7 @@ function Unzip-File {
     }
 
 
-    if ($PSVersionTable.PSEdition -eq "Desktop") {
+    if ($PSVersionTable.PSEdition -eq "Desktop" -and $PSVersionTable.Platform -eq "Win32NT") {
         if ($SpecificItem) {
             foreach ($item in $SpecificItem) {
                 if ($SpecificItem -match "\\") {
@@ -317,8 +329,8 @@ function Unzip-File {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBy+bA0cd7iff4IezZJBE7LlI
-# 8xGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUr6MWFqhVfoKfBvLM0SjrIuc7
+# C7CgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -373,11 +385,11 @@ function Unzip-File {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSrqqsYckrS
-# 4v2YPiEu1cOvJjJ3zTANBgkqhkiG9w0BAQEFAASCAQBew/hUJIqSbtNSRngf/Jc+
-# BklzO7CPjlNt3RhGTx6gG/re4vkVfQ5tqgBuLeEfLjUUX6UM6Fs8GUxOoZS6EaEs
-# reVoYa42j4Dm1mRhkKMJfodkiNpPiyrLkugHu4XK7eGqHpy6KbE8fD5AzD78rZez
-# V9PJ1pL0eZaVtlrjm+50XlLgkmJl9hM30skqTjKHba2lAhbidcyI7KHykX2qFD8j
-# Lm4G4a3EzYk82PE2+coOXiPY5idk9k8SAityWb2nm9yFr/kO+nEXr2UIbXOS8GMs
-# N3PTVE+AIUS79AZiXc7EG2vgWbCqKe2ghjEeY5jknc3VrtRxahInJbwMW7bXM4Wz
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSEE+5kAYv/
+# jniq4q6R5e69Io5AAzANBgkqhkiG9w0BAQEFAASCAQCFvSihlVMEDxfHDOuyIvWo
+# frU/ogdCUKmTzbME+YJBeMD835xKYlCcglvOWCaaZ9bytTWrkAZoPoV93iUU3Ozg
+# UCy2dstWc8dZoGdxGwBqp7DXjwpioeT/DkvYRaPW4jrNE7/raXFlorlfRuF1zC5C
+# KNWbPykZ0cIog4vsabykVTJsyJg1L/Qdl/9D3rQr0kgyVh0Q20XAV5t4uw3yfTX+
+# MWM9rCvW0UvwrOHtWx4K/jRFr1DF8oSjOR8VA1DCS97LxCXtiXaHVF2wKd6g1/F2
+# TyithJwG8GB74Ch4Av6pXNxTocKo0Oy9pWX2ig5dc0W6seVTH6c4I4KcxusPbrNe
 # SIG # End signature block
