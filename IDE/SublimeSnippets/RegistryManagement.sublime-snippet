@@ -1,0 +1,30 @@
+<snippet>
+	<content><![CDATA[
+<#
+
+Registry PropertyType Reference:
+
+REG_SZ = String 
+REG_DWORD = DWord 
+REG_QWORD = QWord 
+REG_MULTI_SZ = MultiString 
+REG_BINARY = Binary
+
+#>
+
+if (!\$(Test-Path HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation)) {
+    New-Item -Path HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation
+}
+if (!\$(Test-Path HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefaultCredentials)) {
+    New-Item -Path HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefaultCredentials
+}
+Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation -Name AllowFreshCredentials -Value 1 -Type DWord
+Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation -Name ConcatenateDefaults_AllowFresh -Value 1 -Type DWord
+Set-ItemProperty -Path HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation -Name 1 -Value WSMAN/\$env:COMPUTERNAME.\$(\$(Get-CimInstance -ClassName Win32_ComputerSystem).Domain) -Type String
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>registry</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

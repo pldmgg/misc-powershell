@@ -1,0 +1,23 @@
+<snippet>
+	<content><![CDATA[
+\$ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+\$ProcessInfo.FileName = "ssh.exe"
+\$ProcessInfo.RedirectStandardError = \$true
+\$ProcessInfo.RedirectStandardOutput = \$true
+\$ProcessInfo.UseShellExecute = \$false
+\$ProcessInfo.Arguments = "-T git@github.com"
+\$Process = New-Object System.Diagnostics.Process
+\$Process.StartInfo = \$ProcessInfo
+\$Process.Start() | Out-Null
+\$Process.WaitForExit()
+\$stdout = \$Process.StandardOutput.ReadToEnd()
+\$stderr = \$Process.StandardError.ReadToEnd()
+\$AllOutput = \$stdout + \$stderr
+
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>processstart</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

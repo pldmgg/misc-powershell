@@ -1,0 +1,93 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+
+# NuGet Packages downloaded/installed via Visual Studio Project can be found here:
+# \$HOME\\.nuget\\packages
+
+###### If the appropriate Assembly is already in the GAC under C:\\Windows\\Microsoft.Net\\assembly\\GAC_MSIL #####
+\$AssemblyDllFilePath = [System.Reflection.Assembly]::LoadWithPartialName('System.Net.NetworkInformation').Location
+\$AssemblyFullInfo = [System.Reflection.Assembly]::LoadWithPartialName('System.Net.NetworkInformation').FullName
+\$AssemblyFullInfoFromDll = [System.Reflection.AssemblyName]::GetAssemblyName(\$AssemblyDllFilePath).FullName
+
+###### If you need to download the assembly from NuGet... #####
+## If you are planning on running the CSharp code on .Net Framework 45 or 46 ##
+# Get the .dll under lib\net45 or lib\46...
+\$NewNewtonSoftDir = "\$HOME\\Downloads\\NewtonSoft-JSON"
+\$NewtonSoftJsonAssemblyDllPath = "\$NewNewtonSoftDir\\Newtonsoft.Json.dll"
+if (!\$(Test-Path \$NewNewtonSoftDir)) {
+    New-Item -ItemType Directory -Path \$NewNewtonSoftDir
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Newtonsoft.Json/9.0.1" -OutFile "\$NewNewtonSoftDir\\newtonsoft.json.9.0.1.zip"
+    Unzip-File -PathToZip "\$NewNewtonSoftDir\newtonsoft.json.9.0.1.zip" -TargetDir \$NewNewtonSoftDir -SpecificItem "lib\net45\Newtonsoft.Json.dll"
+}
+# ...and feel free to run under normal PowerShell implementation (such as PowerShell 5.1 which runs on .Net Framework 4.0)
+
+## If you are planning on running CSharp code on PowerShell Core, ##
+# Get the .dll under the lib\netcore50 or lib\netstandard1.X
+\$NewNewtonSoftDir = "\$HOME\\Downloads\\NewtonSoft-JSON"
+\$NewtonSoftJsonAssemblyDllPath = "\$NewNewtonSoftDir\\Newtonsoft.Json.dll"
+if (!\$(Test-Path \$NewNewtonSoftDir)) {
+    New-Item -ItemType Directory -Path \$NewNewtonSoftDir
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Newtonsoft.Json/9.0.1" -OutFile "\$NewNewtonSoftDir\\newtonsoft.json.9.0.1.zip"
+    Unzip-File -PathToZip "\$NewNewtonSoftDir\newtonsoft.json.9.0.1.zip" -TargetDir \$NewNewtonSoftDir -SpecificItem "lib\netcore50\Newtonsoft.Json.dll"
+}
+# ...and run under PowerShell Core. 
+# NOTE: Dependencies are most likely radically different under for Core! It's probably easiest to build
+# a Visual Studio project, target .Net Core framework, use NuGet in Visual Studio to download the dependencies
+# and get the downloaded .dll files in \$HOME\\.nuget\\packages
+
+# IMPORTANT NOTE: If some dependency assemblies already exist in the GAC, and the version in the GAC is
+# insufficient you need to remove it before installing the new version! Be very careful with removing
+# assemblies from the GAC. In general, NEVER remove any existing GAC assembly wit "System" in the
+# AppDomain name.
+# (To remove, see "\$publish.GacRemove(\$OldAssemblyLocation)" below)
+
+# After downloading the new assembly, install to the GAC via the following:
+\$AssemblyDllFilePath = "\$HOME\Downloads\Newtonsoft.JSON\lib\netstandard1.3\Newtonsoft.Json.dll"
+
+# Publish to the GAC using the following
+[System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
+\$publish = New-Object System.EnterpriseServices.Internal.Publish
+\$publish.GacInstall(\$AssemblyDllFilePath)
+#\$publish.GacRemove(\$OldAssemblyLocation)
+
+
+###### Run the inline CSharp using the Add-Type cmdlet as below #####
+\$Assem = @(
+	\$AssemblyFullInfo
+)
+
+\$Source = @"
+using System;
+using System.Net.NetworkInformation;
+
+namespace PaulD.IPTools
+{ 
+    public static class TCPConnections
+    {
+        public static void ShowActiveTcpConnections()
+        {
+            Console.WriteLine("Active TCP Connections");
+            IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
+            TcpConnectionInformation[] connections = properties.GetActiveTcpConnections();
+            foreach (TcpConnectionInformation c in connections)
+            {
+                Console.WriteLine("{0} <==> {1}",
+                                  c.LocalEndPoint.ToString(),
+                                  c.RemoteEndPoint.ToString());
+            }
+        }
+    }
+}
+"@
+
+Add-Type -ReferencedAssemblies \$Assem -TypeDefinition \$Source -Language CSharp
+
+[PaulD.IPTools.TCPConnections]::ShowActiveTcpConnections()
+
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>csharp</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

@@ -1,0 +1,25 @@
+<snippet>
+	<content><![CDATA[
+\$DataStamp = Get-Date -Format yyyyMMddTHHmmss
+\$MSIFullPath = "\$HOME\Downloads\GitDesktop.msi"
+\$MSIParentDir = \$MSIFullPath | Split-Path -Parent
+\$MSIFileName = \$MSIFullPath | Split-Path -Leaf
+\$MSIFileNameOnly = \$MSIFileName -replace "\.msi",""
+\$logFile = "\$MSIFileNameOnly\$DataStamp.log"
+\$MSIArguments = @(
+    "/i"
+    \$MSIFullPath
+    "/qn"
+    "/norestart"
+    "/L*v"
+    \$logFile
+)
+Start-Process "msiexec.exe" -ArgumentList \$MSIArguments -Wait -NoNewWindow
+
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>installmsi</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

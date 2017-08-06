@@ -1,6 +1,6 @@
 <snippet>
 	<content><![CDATA[
-$emailParameter = @{
+\$emailParameter = @{
 	From = ${1:"user@domain.com"}
 	To = ${2:"user1@domain.com, User2 <user2@domain.com>"}
 	Subject = ${3:"Notice of script failure"}

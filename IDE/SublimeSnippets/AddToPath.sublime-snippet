@@ -1,0 +1,15 @@
+<snippet>
+	<content><![CDATA[
+if (\$env:Path[-1] -eq ";") {
+    \$env:Path = "\$env:Path\$MSBuildParentDir"
+}
+else {
+    \$env:Path = "\$env:Path;\$MSBuildParentDir"
+}
+
+$0]]></content>
+	<!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+	<tabTrigger>addtopath</tabTrigger>
+	<!-- Optional: Set a scope to limit where the snippet will trigger -->
+	<scope>source.powershell</scope>
+</snippet>

@@ -1,0 +1,18 @@
+<snippet>
+    <content><![CDATA[
+# Letters only 10 characters long:
+\$randstring = -join ((1..100) | %{(65..90) + (97..122) | Get-Random} | % {[char]\$_})
+
+# Letters and numbers 10 characters long
+\$randstring = -join (0..10 | % {[char][int]((65..90) + (97..122) + (48..57) | Get-Random)})
+
+# Letters, numbers, and symbols 10 characters long
+\$randstring = -join (0..10 | % {[char][int]((65..90) + (97..122) + (48..57) + (35,36,42,43,44,45,46,47,58,59,61,63,64,91,92,93,95,123,125,126) | Get-Random)})
+
+
+$0]]></content>
+    <!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+    <tabTrigger>randstring</tabTrigger>
+    <!-- Optional: Set a scope to limit where the snippet will trigger -->
+    <scope>source.powershell</scope>
+</snippet>

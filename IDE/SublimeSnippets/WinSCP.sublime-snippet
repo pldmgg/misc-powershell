@@ -1,0 +1,21 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+if (\$(Check-InstalledPrograms -ProgramTitleSearchTerm "WinSCP").DisplayName -ne $null) {
+    Invoke-WebRequest -Uri "https://cdn.winscp.net/files/WinSCP-5.9.5-Automation.zip?secure=FS9qKIgo7Mzm7TR6kXeRLA==,1496675795" -OutFile "\$HOME\Downloads\WinSCP-5.9.5-Automation.zip"
+    if (!\$(Test-Path "\$HOME\Downloads\WinSCP")) {
+        New-Item -Type Directory -Path "\$HOME\Downloads\WinSCP"
+    }
+    Unzip-File -PathToZip "\$HOME\Downloads\WinSCP-5.9.5-Automation.zip" -TargetDir "\$HOME\Downloads\WinSCP"
+
+    # Note: Add-Type doesn't work with WinSCPnet.dll for some reason, so using .Net LoadFile method
+    # Add-Type "\$HOME\Downloads\WinSCP\WinSCPnet.dll"
+    [System.Reflection.Assembly]::LoadFile("\$HOME\Downloads\WinSCP\WinSCPnet.dll")
+}
+
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>winscp</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

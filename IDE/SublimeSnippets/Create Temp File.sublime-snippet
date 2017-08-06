@@ -1,0 +1,18 @@
+<!-- See http://www.sublimetext.com/docs/snippets for more information -->
+<snippet>
+    <content><![CDATA[
+#\$tmpDir = [IO.Path]::GetTempPath()
+#\$tmpFile = [IO.Path]::GetTempFileName()
+
+\$tempfile = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())
+New-Item -Type File -path \$tempfile
+
+\$tempDirectory = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())
+[IO.Directory]::CreateDirectory(\$tempDirectory)
+
+$0]]></content>
+    <!-- Optional: Tab trigger to activate the snippet -->
+    <tabTrigger>tmp</tabTrigger>
+    <!-- Optional: Scope the tab trigger will be active in -->
+    <scope>source.powershell</scope>
+</snippet>

@@ -2,7 +2,6 @@
 <snippet>
     <content><![CDATA[
 if (! \$(Test-Path \$SamplePath)) {
-    Write-Verbose "The path \$Sample was not found! Halting!"
     Write-Error "The path \$SamplePath was not found! Halting!"
     \$global:FunctionResult = "1"
     return

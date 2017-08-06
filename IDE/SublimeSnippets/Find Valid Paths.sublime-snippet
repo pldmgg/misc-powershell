@@ -4,11 +4,11 @@
 
 # \$RegexURL comes from: http://daringfireball.net/2010/07/improved_regex_for_matching_urls
 # Distill one or more strings that are valid paths from unknown object
-\$RegexLocalOrUNCPath = '^(([a-zA-Z]:\\\\)|(\\\\\\\\))(((?![<>:"/\\\\|?*]).)+((?<![ .])\\\\)?)*\$'
+\$RegexLocalOrUNCPath = '^(([a-zA-Z]:\\\\)|(\\\\\\\\))(((?![<>:"\\/\\\\|?*]).)+((?<![ .])\\\\)?)*\$'
 \$RegexURL = "(?i)\\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'`".,<>?«»“”‘’]))"
 
-\$RegexDirectoryPath = '^(([a-zA-Z]:\\\\)|(\\\\\\\\))((?![.<>:"/\\\\|?*]).)+((?![.<>:"/|?*]).)+\$'
-\$RegexFilePath = '^(([a-zA-Z]:\\\\)|(\\\\\\\\))((?![.<>:"/\\\\|?*]).)+((?![<>:"/|?*]).)+((.*?\\.)|(.*?\\.[\w]+))+\$'
+\$RegexDirectoryPath = '^(([a-zA-Z]:\\\\)|(\\\\\\\\))((?![.<>:"\\/\\\\|?*]).)+((?![.<>:"\\/|?*]).)+\$'
+\$RegexFilePath = '^(([a-zA-Z]:\\\\)|(\\\\\\\\))((?![.<>:"\\/\\\\|?*]).)+((?![<>:"\\/|?*]).)+((.*?\\.)|(.*?\\.[\w]+))+\$'
 
 # Finding potential Local or UNC in a block of text
 \$TextBlock = Get-Content \$HOME\textblock.txt
@@ -25,6 +25,17 @@ if ( !\$(\$([uri]\$TargetDir).IsAbsoluteURI -and \$(\$([uri]\$TargetDir).IsLoopB
     Write-Error "\$TargetDir is not a valid directory path! Halting!"
     \$global:FunctionResult = "1"
     return
+}
+
+# Determine if string is a URL, a local path, or a UNC path
+if ([uri]\$TargetString.Scheme -match "http") {
+	Write-Host "\$TargetSring is a URL"
+}
+if ([uri]\$TargetString.Scheme -eq "file" -and [uri]\$TargetString.Host -ne \$null) {
+	Write-Host "\$TargetString is a UNC path"
+}
+if ([uri]\$TargetString.Scheme -eq "file" -and [uri]\$TargetString.Host -eq \$null) {
+	Write-Host "\$TargetString is a local path"
 }
 
 $0]]></content>
