@@ -76,7 +76,7 @@ function Split-LogFiles {
 
     ### END Parameter Validation ###
 
-    ### BEGIN Main Body ###
+    ##### BEGIN Main Body #####
 
     if ($Recurse) {
         $FilesInDirectory = Get-ChildItem -Recurse $DirectoryContainingFiles | Where-Object {$_.PSIsContainer -eq $false}
@@ -116,8 +116,9 @@ function Split-LogFiles {
             }
         }
     }
-}
 
+    ##### END Main Body #####
+}
 
 
 
@@ -129,8 +130,8 @@ function Split-LogFiles {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGDu8FLWc9hnAiczYtOynwPGO
-# cdKgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhCSuA8P8dwpRH8gb9kWpChZ1
+# +A+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -185,11 +186,11 @@ function Split-LogFiles {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBThY/5LA0ml
-# x8QdQZ6G/aahVxqEqDANBgkqhkiG9w0BAQEFAASCAQCZj9ky3SauzPw6pEeKbVeb
-# 92cUL0DmAM9Kvi61aM1DWGpP3ayMTOiRTwvTY3ClKkERNJEs1kAgWpe8AHO9/Rw9
-# HA//1DYed/1e5+uoU9QN/3IzRTG62qDAEIQAu27SboAheHkth4lQPyCCXPLnuZ/g
-# FU4qfu6dPb97BRbjYhGmUSXA2nLG4Q5Yr4ZdmyU+5GouNuvt8ccxdOh0YuEAz8nb
-# MqpNHtRzIr+N/srO1anlZVreSExqKtF7Ot8c6tQxh2vTRaL4EKuf9hnba+FjNLjE
-# VDPofnh/QD4/5j+sdyPz+8W0Sb+V14AwkT+VPllfTW68aox+vxQ2/TciwRicIlFt
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQ0Pu51C3Ht
+# GKiy8McKAcXfJMVTJTANBgkqhkiG9w0BAQEFAASCAQAgjV9M3F0rZTa+Bm13LzYi
+# 9aDexvZzu/iUfcQBQeUbT5Up2m8T6xtzB6B1qjUUjp/fqZWSImgGYTin2Gc8nvSJ
+# JvbxZA1kFixUVDEO1AGbgfhG3TFtEHCnApmV1PInRVAVCpZ27ygmEmF35xavGPNz
+# xYJA5RGwIRStw71kJyzx2gu/zcRjB8x2drtotWCLFYnwprkmq4Xm9bKqI0BSL/xf
+# 0PWD9Xw4VdL7MGlN8+Ywizvn1byO+2QqmHlR/AR/aJmjsMwkk03NnYfwC4ke1adL
+# 47S5aSuw/0jMAsPv+lSiLfMB9CP/jHriWqL9heaAbQqOkN43x3dr1pNkFvSXC71e
 # SIG # End signature block
