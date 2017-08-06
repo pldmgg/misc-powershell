@@ -78,7 +78,7 @@ function Load-ModulesFrom {
     [System.Collections.ArrayList]$PotentialPSD1FilesToLoad = @()
     [System.Collections.ArrayList]$FinalPSD1FilesToLoad = @()
     foreach ($ModItem in $FinalModulesToLoad) {
-        # Make sure the Module is not already loaded...
+        # Make sure the Module is not already loaded
         if ($(Get-Module).Name -contains $ModItem.Name) {
             Write-Warning "$($ModItem.Name) is already loaded from $($(Get-Module -Name $($ModItem.Name)).ModuleBase)! Skipping..."
             continue
@@ -144,8 +144,8 @@ function Load-ModulesFrom {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwMi+Ya2SxEAK23S03zuqyk1P
-# ZvOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUPQ1LrCnpcCwugbzbICe3uLvp
+# N5KgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -200,11 +200,11 @@ function Load-ModulesFrom {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT8T5WHjg0m
-# 6Jw/ED5Ol+4m3bj8RDANBgkqhkiG9w0BAQEFAASCAQCOB1/yx4FSNLamunfbx5CZ
-# NY/0MtItxhTHEEPKXLA4bHR/aiFiwPNUxGFd57kXTeFH8LSDYfPLcPxyY1JeDNYS
-# t3NuuUiioxGZAXAvN5HqQStZ8RKTohK++rtu/d2ZV1KHiRMt5/0LGTg4/pH63B4D
-# d679NyIRwG18L7jUYRnv9047zLxTr61pmcUZJZDGVRaS9wmz1+hqa3M8rZhdOk9F
-# mZ+iSIbCnz1VN048j+Bp9Oj96S173thUgzhoBNP3rgYedx7WaJiHcFBJJ/OHHr9L
-# l+0tOES15j6d9QYf+MHI8ImamlPYnegE7oOzmbJUEjMuStFVyvrDIDacN+Nf2D13
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRpHiRDwL+u
+# onQV3MXB0j5yHMV7pTANBgkqhkiG9w0BAQEFAASCAQAff8nZe+KAClyYN4myZ2s9
+# u1KvjOlzXv88lmRRz8opPQ76I6veSXPcAUt2lrHmoLPnVAnstkdI2bY9m4m9NO2e
+# jVJWPRArglHj1Ykto1cGDl7auc/xAXpyS+CNyh5YfjFCdhjmYNNh1J4q+2NQYURW
+# W/ARQ+t1iAjC0m6rqhqwyDUeZUwTS8ptKKrqfChTAxz5ZEh302whS3Hkq4Ud39LC
+# uXhQFksPA7AQ9i4+ln6bHMvqL9L8WukZT7mYrtGsRlUgIHDD7gymX6fJn2z6DM5F
+# PwyhOBSEC2FbZCt5ty2npCqZ8UPfNMxJwRaKgPmNSZYOhU7spws9T9QyeedsRI/M
 # SIG # End signature block
