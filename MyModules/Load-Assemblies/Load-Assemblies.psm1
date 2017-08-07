@@ -598,7 +598,8 @@ function Install-AssemblyViaNuGet {
                 $global:FunctionResult = "0"
                 Unzip-File -PathToZip "$NewAssemblyDir\$OutFileBaseName" -TargetDir $NewAssemblyDir -SpecificItem "$subdir\$AssemblyName.dll"
                 if ($global:FunctionResult -eq "0") {
-                    $Found.Add("$subdir\$AssemblyName.dll")
+                    Write-Host "$subdir\$AssemblyName.dll"
+                    $null = $Found.Add("$subdir\$AssemblyName.dll")
                 }
                 else {
                     throw
@@ -614,7 +615,7 @@ function Install-AssemblyViaNuGet {
                     # Install to GAC
                     [System.Reflection.Assembly]::LoadWithPartialName("System.EnterpriseServices")
                     $publish = New-Object System.EnterpriseServices.Internal.Publish
-                    $publish.GacInstall($Found[0])
+                    $publish.GacInstall("$NewAssemblyDir\$AssemblyName.dll")
                 }
                 if ($PSVersionTable.Platform -eq "Linux") {
                     $GACEquivalentPath = [System.AppDomain]::CurrentDomain.GetAssemblies()[0].Location | Split-Path -Parent
@@ -741,8 +742,8 @@ function Load-Assemblies {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/TVYBZ2RjsAU9Zyf6+v2+0zz
-# ANegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQJCsy9hD2oN7RNK1yw5WXz5b
+# z6ugggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -797,11 +798,11 @@ function Load-Assemblies {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQemvPcBtkv
-# GM9GJQ1z7IBQSJoHUzANBgkqhkiG9w0BAQEFAASCAQAtdlAv+yINQgIiG9RwSE2u
-# uaAgTp6mN6XpKbdnkQOWChM86K7bx+ivlY2oq1OaQgKStVE5hwUCDvcAU70fnJLm
-# 9bUfjLfB7jVcpv4LSnL8av0hirEQ06P9ODeSTOLYKTHLUD943b0Zd2CAupg3TYHc
-# ObhgKPn+dihn+MeNjGZB4i6zugeop7l72UFyAyPKIEFdw+VU7CoEjcEV+JGiGiM3
-# lyPyxa2LBKWeuZWHdwZCdNfbDZOcEN8uf0PVxJls4sOdo+/vK4K5TEL5fwFa6YlO
-# GpI66oiMnrdrslf8b9KwOxQNWV/kX9InISv9RbbyPuGCSQQRVFKAi8VcWeK7yZ4Z
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRA4iVqmDqW
+# eAGI5T8ulwkLeJpEqDANBgkqhkiG9w0BAQEFAASCAQCW7cEvjpLGgGdx605MWbJP
+# JqqJLAZqek6WEwBnaWHd5blKuBtZoH5qiUZ6L353iG26xOfOTRe2kFO2RQMjw0Vz
+# FDANfleGWFa+188iaILlGqNZ1fgxtCXUo4BYOXYk4ABf1Szv4jtJs9zcGM2E9MR4
+# gDQoXcfz8vWCOTadH4yjL42EEjL9N0Jt/3GZoe794bkAFmTqjTrZw7w796Wq6VgC
+# TI53M5T0ZaqPPOSgAshU5/0b/OGX5b5vvEslmH6b7rYIjf/UWELr4xP159j4E4FM
+# SyIgy9Rd5bYz/zCcHpSitgWgd2AWOgHRL6A/HPAbK+ZGvoQP3pMx9/oMELPShs12
 # SIG # End signature block
