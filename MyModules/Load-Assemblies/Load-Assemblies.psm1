@@ -197,7 +197,7 @@ function Unzip-File {
         }
     }
 
-    if ($PSVersionTable.PSEdition -eq "Desktop" -and $PSVersionTable.Platform -eq "Win32NT") {
+    if ($PSVersionTable.PSEdition -eq "Desktop" -and $($($PSVersionTable.Platform -and $PSVersionTable.Platform -eq "Win32NT") -or !$PSVersionTable.Platform)) {
         if ($SpecificItem) {
             foreach ($item in $SpecificItem) {
                 if ($SpecificItem -match "\\") {

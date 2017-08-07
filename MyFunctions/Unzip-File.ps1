@@ -199,7 +199,7 @@ function Unzip-File {
     }
 
 
-    if ($PSVersionTable.PSEdition -eq "Desktop" -and $PSVersionTable.Platform -eq "Win32NT") {
+    if ($PSVersionTable.PSEdition -eq "Desktop" -and $($($PSVersionTable.Platform -and $PSVersionTable.Platform -eq "Win32NT") -or !$PSVersionTable.Platform)) {
         if ($SpecificItem) {
             foreach ($item in $SpecificItem) {
                 if ($SpecificItem -match "\\") {
@@ -329,8 +329,8 @@ function Unzip-File {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUr6MWFqhVfoKfBvLM0SjrIuc7
-# C7CgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZZRRYcBINB2VzUPfjqn+8FzJ
+# 156gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -385,11 +385,11 @@ function Unzip-File {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSEE+5kAYv/
-# jniq4q6R5e69Io5AAzANBgkqhkiG9w0BAQEFAASCAQCFvSihlVMEDxfHDOuyIvWo
-# frU/ogdCUKmTzbME+YJBeMD835xKYlCcglvOWCaaZ9bytTWrkAZoPoV93iUU3Ozg
-# UCy2dstWc8dZoGdxGwBqp7DXjwpioeT/DkvYRaPW4jrNE7/raXFlorlfRuF1zC5C
-# KNWbPykZ0cIog4vsabykVTJsyJg1L/Qdl/9D3rQr0kgyVh0Q20XAV5t4uw3yfTX+
-# MWM9rCvW0UvwrOHtWx4K/jRFr1DF8oSjOR8VA1DCS97LxCXtiXaHVF2wKd6g1/F2
-# TyithJwG8GB74Ch4Av6pXNxTocKo0Oy9pWX2ig5dc0W6seVTH6c4I4KcxusPbrNe
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRdxRkJNiaI
+# UC9c8rXuFnLXw9RLcDANBgkqhkiG9w0BAQEFAASCAQBQHHVf40n5sy2vRxWmSOrU
+# /iF1NtTA6biiWCJ7rrCGrfN+jxGlY21jBDOvqvKckpDsV1Br3GNWAsUfSHbyc2ug
+# xnYpa2u60fsRmaSAQj/Bh386ob306tLjmLOQmQmbSUrTvdbMgmNpOEygzwbVGthS
+# dhdRJdC3Mjmf2foy5D/AIu/jWNFkDM4eTP1cO/7SzT+rucu6pMGgXsOcCvCrmxia
+# 4vthYDRbvFIMs7xFcW/fk0+1MU6UJYYgRU9M8LxlX8PsNNPfD5DRq4IK9Yc7phdi
+# 96/4OLGKPQ7eJgEwi9wHfyha9uERM3v5QkL3PF+D+o9L/5lLivsmzU19KDGCKDBo
 # SIG # End signature block
