@@ -15,6 +15,45 @@ function global:Set-AWSEnvHelper {
         Import-Module AWSPowerShell
     }
 
+    # Ensure System Path and $env:Path can find aws.exe, if it is installed
+    $AWSCli64 = "$env:ProgramFiles\Amazon\AWSCLI"
+    $AWSCli32 = "${env:ProgramFiles(x86)}\Amazon\AWSCLI"
+    if (Test-Path $AWSCli64) {
+        $AWSCliPathToAdd = $AWSCli64
+    }
+    elseif (Test-Path $AWSCli32) {
+        $AWSCliPathToAdd = $AWSCli32
+    }
+    else {
+        Write-Host "Unable to find aws.exe directory. It is probably not installed. Continuing..."
+    }
+
+    if ($AWSCliPathToAdd) {
+        # Update $env:Path that is specific to the current PowerShell Session
+        $envPathArray = $env:Path -split ";"
+        if ($envPathArray -notcontains $AWSCliPathToAdd) {
+            if ($env:Path[-1] -eq ";") {
+                $env:Path = "$env:Path$AWSCliPathToAdd"
+            }
+            else {
+                $env:Path = "$env:Path;$AWSCliPathToAdd"
+            }
+        }
+        
+        # Make a Permanent Change to the System PATH if necessary
+        $OldSystemPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+        $OldSystemPathArray = $OldSystemPath -split ";"
+        if ($OldSystemPathArray -contains $AWSCliPathToAdd) {
+            if ($OldSystemPath[-1] -eq ";") {
+                $UpdatedSystemPath = "$OldSystemPath$AWSCliPathToAdd"
+            }
+            else {
+                $UpdatedSystemPath = "$OldSystemPath;$AWSCliPathToAdd"
+            }
+            Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $UpdatedSystemPath
+        }
+    }
+
     # Validate $AWSIAMProfile parameter...
     $ValidAWSIAMProfiles = Get-AWSCredentials -ListProfiles
     if ($AWSProfile -eq $null) {
@@ -68,24 +107,19 @@ function global:Set-AWSEnvHelper {
     $global:SetAWSEnv = "Set-AWSCredentials -ProfileName $AWSProfile; Set-DefaultAWSRegion -Region $AWSRegion"
     $global:StoredAWSRegion = $AWSRegion
 
-    Write-Host "Use the following command to complete setting the AWS Environment in your current scope:
-    Invoke-Expression `$global:SetAWSEnv"
+    Write-Host "Use the following command to complete setting the AWS Environment in your current scope:"
+    Write-Host "Invoke-Expression `$global:SetAWSEnv"
 
     $global:FunctionResult = "0"
 }
 
 
 
-
-
-
-
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNZ6XXSplJ/ow28E/1SllSGea
-# YaegggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeip23xI3khaC32AfcQj7emq8
+# ITagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -140,11 +174,11 @@ function global:Set-AWSEnvHelper {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRp+H9//nnJ
-# j8wOrgB5mNPqh4y7uTANBgkqhkiG9w0BAQEFAASCAQCZJ5/Op/2pG+lrqinfPUka
-# jaB1RNWwXhigZMWgtXMNYuXwVVLMl6mglbAC5a37jZW/vwOzRo/iiw1KnGmunNxw
-# XrQ96o7I530pxPdjCPJH4FXvQvg4OgMTLvbuvuHB9Ja7KHoop74c2/tqwWE6x0th
-# 4TP+N5S5TbUXWmyaZnr69yRFlUSBbRC7syBZk5ZA9A09RSP40xHswnP3tKjHBcPm
-# +n1Yg5mSY28U83ALQ7TGLdKZMYXCmdGCjsehEtAlEAQNTTuUe2ptXaupdGxVPec9
-# Nk/d9xS14G2IjZuNZ91jJVHngg9p4Dmpk52WN6UzgMJ8e3i5AJfOR4IqKRr6n+VZ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBSCXP6OfaGf
+# GdT1cxam+eS3UONK9jANBgkqhkiG9w0BAQEFAASCAQAyCmFVK21kpgDFLuz6DJxA
+# CFWR03xr9oXeU7gUrE/n/RsI9iam8RNevGtL9HcBE+cg6G88D2HrRXjsiPnsk5Sc
+# rwXA2r0dChapbsIcQYDTfuOd6y3k6Eg/QIXR/VSOLtyhkrzupZc2d3AGix5gU35c
+# wDv5yA54V8ennmwd04eRv686lkuJuV0Y+qtCvy76VPq8kVg01ibxpo66kuc4Brpt
+# WtRWy3nGnnOlDZ7FxyKViN640cbRDW6/WNdsJXIBKo6s6efdy36ail21W15jXh2x
+# SwuFWiFtx+j5Qs/nraNBDCnWHQqUvhGaNDYBD1TmLyggF/Kbw+fniTBHGUcGtTOk
 # SIG # End signature block
