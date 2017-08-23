@@ -17,7 +17,6 @@
 
         $listofstrings = New-GenericObject System.Collections.Generic.List System.String
 
-
 .PARAMETER typeName
     MANDATORY
 
@@ -49,25 +48,27 @@
 .EXAMPLE
     # Generic type with a non-default constructor 
     New-GenericObject System.Collections.Generic.LinkedListNode System.Int32 10
-
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
 #>
-
-function New-GenericObject {    
+function New-GenericObject {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [string]$typeName = $(Read-Host -Prompt "Please specify a generic type name"),
 
         [Parameter(Mandatory=$False)]
-        [string]$typeParameters = $(Read-Host -Prompt "Please specify the type parameters"),
+        [string[]]$typeParameters = $(Read-Host -Prompt "Please specify the type parameters"),
 
         [Parameter(Mandatory=$False)]
-        [string]$constructorParameters
-    ) 
+        [object[]]$constructorParameters
+    )
+
+    <#
+    param( 
+    [string] $typeName = $(throw "Please specify a generic type name"), 
+    [string[]] $typeParameters = $(throw "Please specify the type parameters"), 
+    [object[]] $constructorParameters 
+    )
+    #>
 
     ## Create the generic type name 
     $genericTypeName = $typeName + '`' + $typeParameters.Count 
@@ -108,8 +109,8 @@ function New-GenericObject {
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURK9NI7lIdoOvGA6ExreuXYvA
-# LxOgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUg1xwC9fSkk6+yePErmtP31Oe
+# 90KgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -164,11 +165,11 @@ function New-GenericObject {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTS05cCJ88A
-# hEI10jGriC+xYADLKTANBgkqhkiG9w0BAQEFAASCAQBSoEYB041kFT3gKiqQde4v
-# IR65DvLhSSK+jvaswvArqNnISg2ibA021IopvNwrOi1hKdJsyUSmtG0z4S1kjbvH
-# 5GzNlky4D8dAWFdxLW22PzRYxRdtTkYxytGxAzNVjQob1f2aH3/WN9/VSC8RYudS
-# RBYoLxsjtYNBH2j1tniLxdMvCbyosNsKZVStEONlHBBwGLaOyQdTJylAVOCzxh08
-# aDVSMd3Rf+aQk3o2eX/ZDgmx6HtuGKOPwqVPc/ZAHB4KoWwbECyuZifTdmaVamXQ
-# PZUOlEIOTU1ej0iKmXtXT8/FSZDnPay4F2EJpz62z9sjgwdL/RYjXnT+TTpFHUJu
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBREedAvAIZ0
+# 7Qv8l4dOuYxvLMjoLzANBgkqhkiG9w0BAQEFAASCAQCB9/JFIg/7BHrR9XGJpnOF
+# SAQiRbyVVllZR4B8W9hQ2/ADMrckJYYwyYaHtygoCnL0UbVuG5R7pvhKP9NhGPF6
+# YQevLGzB9x+lI6cUz542kKDYLmec+8Alze3GMWHF+oaApMnj9gOL9Pp2FV+mDKq0
+# eXuM20dGjCHGmsR4RoOQh3YZyctU0AQd2XMBGm+Dm10zOPwK62cfPA6a9vAsMfa2
+# FgjNO+g5N3QQwZasw7u/90cclIVuQqqEWOblXvtOOgH+fWe2iGNx4PPB6CDoHzEa
+# xpG6Qj7AZZ2YZ3IPBcaa59xqWRwWeC38xP9T2lg2P18jAdSND/XhdmwY2Oe5Rvcr
 # SIG # End signature block

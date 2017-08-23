@@ -17,7 +17,6 @@
 
         $listofstrings = New-GenericObject System.Collections.Generic.List System.String
 
-
 .PARAMETER typeName
     MANDATORY
 
@@ -49,25 +48,27 @@
 .EXAMPLE
     # Generic type with a non-default constructor 
     New-GenericObject System.Collections.Generic.LinkedListNode System.Int32 10
-
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
 #>
-
-function New-GenericObject {    
+function New-GenericObject {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
         [string]$typeName = $(Read-Host -Prompt "Please specify a generic type name"),
 
         [Parameter(Mandatory=$False)]
-        [string]$typeParameters = $(Read-Host -Prompt "Please specify the type parameters"),
+        [string[]]$typeParameters = $(Read-Host -Prompt "Please specify the type parameters"),
 
         [Parameter(Mandatory=$False)]
-        [string]$constructorParameters
-    ) 
+        [object[]]$constructorParameters
+    )
+
+    <#
+    param( 
+    [string] $typeName = $(throw "Please specify a generic type name"), 
+    [string[]] $typeParameters = $(throw "Please specify the type parameters"), 
+    [object[]] $constructorParameters 
+    )
+    #>
 
     ## Create the generic type name 
     $genericTypeName = $typeName + '`' + $typeParameters.Count 
@@ -218,8 +219,8 @@ $Combos = Invoke-Expression "[$TypeNameToUpdate]`$NetCoreStrings.CrossWith([$Typ
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJPdweRPOxDISMJxK/5LuxLpx
-# fOCgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUllQAPOGTfBbQDC0bH/fA4Snt
+# qRagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -274,11 +275,11 @@ $Combos = Invoke-Expression "[$TypeNameToUpdate]`$NetCoreStrings.CrossWith([$Typ
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT+c4V6h4Xd
-# f6bMxkouVjdKzy1wADANBgkqhkiG9w0BAQEFAASCAQAJvpJUP/LD8Z6Bv535VN7b
-# 9LeVhJlBTWJakPl9FQQ0TV5Lfc1l1q/qsorNilT3Vi9c7+itLUme4Z+E6JLMnHe9
-# /ny8noUhcLDV1GLfMHBTmeaCFJIMUz/L7CWyRk7cyJtwIpFuT47vOyjRcYG+HBjf
-# HlL1cjdOPGrYdxl139CYmJ7hXLZ1wKf5UhVXCR5cTQYpXDDTX8a2o6PBm/vW/11F
-# ozz7RwP6QFsxDlYZvHJkQkMqe/v9ESnatl+flnwYPdVATAs/TVHhep1z7MgjOftS
-# huqa1PcnO1TRrSWRXO0vdt4EsIdU/ejdPWDTvg02QnZUl/OxhH4V9X67e9DFA3JZ
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRyKYPY8aP6
+# 8Kzbl5w4MuTfJKepAjANBgkqhkiG9w0BAQEFAASCAQAEYzvU4j6W/xkunqjPjj4E
+# kYbzHXcFzKz4a75T8QNABqQKtiGgViMMBrUL8nPf6veG5MnzGicP1sGHbOaJIRRA
+# 9A3BwF5w4tvrhNJHjKheqyWjK1qRv0Omqumb6dr+YOCv20AXdf/7CrUP8evWqLYE
+# DAqTj9tLrsvhuYN+CPz2T/ayP4bs7vpuzKStt42ZyqIJfpzWf5xYMjogw9FVri46
+# 8CHt09YuOMzSiuWveLJWLWZWzHpC9nTyyHGuk9nppplhe5G4yIcRgMnMS6EhhJUA
+# RfiW619tynCG8oBs7BuPfSlH7B4rT05+Q4Rhnv4CByNkVdh9o2BS1BspME/Ehybr
 # SIG # End signature block
