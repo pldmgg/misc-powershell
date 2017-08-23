@@ -124,6 +124,7 @@ namespace PaulD.Extensions
     public static class IEnumerableCombinatorics
     {
         // IEnumerable Extension Methods from: 
+        // https://stackoverflow.com/questions/12473575/combinations-of-multiple-list/12473845#12473845
         // This method takes two sequences of T, and returns
         //  - each element of the first sequence,
         //        wrapped in its own one-element sequence
