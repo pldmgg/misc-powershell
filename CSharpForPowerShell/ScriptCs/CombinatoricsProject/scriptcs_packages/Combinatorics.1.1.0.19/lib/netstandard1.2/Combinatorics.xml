@@ -1,0 +1,820 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Combinatorics</name>
+    </assembly>
+    <members>
+        <member name="T:Combinatorics.Collections.Combinations`1">
+            <summary>
+            Combinations defines a meta-collection, typically a list of lists, of all possible 
+            subsets of a particular size from the set of values.  This list is enumerable and 
+            allows the scanning of all possible combinations using a simple foreach() loop.
+            Within the returned set, there is no prescribed order.  This follows the mathematical
+            concept of choose.  For example, put 10 dominoes in a hat and pick 5.  The number of possible
+            combinations is defined as "10 choose 5", which is calculated as (10!) / ((10 - 5)! * 5!).
+            </summary>
+            <remarks>
+            The MetaCollectionType parameter of the constructor allows for the creation of
+            two types of sets,  those with and without repetition in the output set when 
+            presented with repetition in the input set.
+            
+            When given a input collect {A B C} and lower index of 2, the following sets are generated:
+            MetaCollectionType.WithRepetition =>
+            {A A}, {A B}, {A C}, {B B}, {B C}, {C C}
+            MetaCollectionType.WithoutRepetition =>
+            {A B}, {A C}, {B C}
+            
+            Input sets with multiple equal values will generate redundant combinations in proprotion
+            to the likelyhood of outcome.  For example, {A A B B} and a lower index of 3 will generate:
+            {A A B} {A A B} {A B B} {A B B}
+            </remarks>
+            <typeparam name="T">The type of the values within the list.</typeparam>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.#ctor">
+            <summary>
+            No default constructor, must provided a list of values and size.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.#ctor(System.Collections.Generic.IList{`0},System.Int32)">
+            <summary>
+            Create a combination set from the provided list of values.
+            The upper index is calculated as values.Count, the lower index is specified.
+            Collection type defaults to MetaCollectionType.WithoutRepetition
+            </summary>
+            <param name="values">List of values to select combinations from.</param>
+            <param name="lowerIndex">The size of each combination set to return.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.#ctor(System.Collections.Generic.IList{`0},System.Int32,Combinatorics.Collections.GenerateOption)">
+            <summary>
+            Create a combination set from the provided list of values.
+            The upper index is calculated as values.Count, the lower index is specified.
+            </summary>
+            <param name="values">List of values to select combinations from.</param>
+            <param name="lowerIndex">The size of each combination set to return.</param>
+            <param name="type">The type of Combinations set to generate.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.GetEnumerator">
+            <summary>
+            Gets an enumerator for collecting the list of combinations.
+            </summary>
+            <returns>The enumerator.</returns>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.System#Collections#IEnumerable#GetEnumerator">
+            <summary>
+            Gets an enumerator for collecting the list of combinations.
+            </summary>
+            <returns>The enumerator.</returns>
+        </member>
+        <member name="T:Combinatorics.Collections.Combinations`1.Enumerator">
+            <summary>
+            The enumerator that enumerates each meta-collection of the enclosing Combinations class.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.Enumerator.#ctor(Combinatorics.Collections.Combinations{`0})">
+            <summary>
+            Construct a enumerator with the parent object.
+            </summary>
+            <param name="source">The source combinations object.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.Enumerator.Reset">
+            <summary>
+            Resets the combinations enumerator to the first combination.  
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.Enumerator.MoveNext">
+            <summary>
+            Advances to the next combination of items from the set.
+            </summary>
+            <returns>True if successfully moved to next combination, False if no more unique combinations exist.</returns>
+            <remarks>
+            The heavy lifting is done by the permutations object, the combination is generated
+            by creating a new list of those items that have a true in the permutation parrellel array.
+            </remarks>
+        </member>
+        <member name="P:Combinatorics.Collections.Combinations`1.Enumerator.Current">
+            <summary>
+            The current combination
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Combinations`1.Enumerator.System#Collections#IEnumerator#Current">
+            <summary>
+            The current combination
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.Enumerator.Dispose">
+            <summary>
+            Cleans up non-managed resources, of which there are none used here.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.Enumerator.ComputeCurrent">
+            <summary>
+            The only complex function of this entire wrapper, ComputeCurrent() creates
+            a list of original values from the bool permutation provided.  
+            The exception for accessing current (InvalidOperationException) is generated
+            by the call to .Current on the underlying enumeration.
+            </summary>
+            <remarks>
+            To compute the current list of values, the underlying permutation object
+            which moves with this enumerator, is scanned differently based on the type.
+            The items have only two values, true and false, which have different meanings:
+            
+            For type WithoutRepetition, the output is a straightforward subset of the input array.  
+            E.g. 6 choose 3 without repetition
+            Input array:   {A B C D E F}
+            Permutations:  {0 1 0 0 1 1}
+            Generates set: {A   C D    }
+            Note: size of permutation is equal to upper index.
+            
+            For type WithRepetition, the output is defined by runs of characters and when to 
+            move to the next element.
+            E.g. 6 choose 5 with repetition
+            Input array:   {A B C D E F}
+            Permutations:  {0 1 0 0 1 1 0 0 1 1}
+            Generates set: {A   B B     D D    }
+            Note: size of permutation is equal to upper index - 1 + lower index.
+            </remarks>
+        </member>
+        <member name="F:Combinatorics.Collections.Combinations`1.Enumerator._myParent">
+            <summary>
+            Parent object this is an enumerator for.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Combinations`1.Enumerator._myCurrentList">
+            <summary>
+            The current list of values, this is lazy evaluated by the Current property.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Combinations`1.Enumerator._myPermutationsEnumerator">
+            <summary>
+            An enumertor of the parents list of lexicographic orderings.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Combinations`1.Count">
+            <summary>
+            The number of unique combinations that are defined in this meta-collection.
+            This value is mathematically defined as Choose(M, N) where M is the set size
+            and N is the subset size.  This is M! / (N! * (M-N)!).
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Combinations`1.Type">
+            <summary>
+            The type of Combinations set that is generated.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Combinations`1.UpperIndex">
+            <summary>
+            The upper index of the meta-collection, equal to the number of items in the initial set.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Combinations`1.LowerIndex">
+            <summary>
+            The lower index of the meta-collection, equal to the number of items returned each iteration.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Combinations`1.Initialize(System.Collections.Generic.IList{`0},System.Int32,Combinatorics.Collections.GenerateOption)">
+            <summary>
+            Initialize the combinations by settings a copy of the values from the 
+            </summary>
+            <param name="values">List of values to select combinations from.</param>
+            <param name="lowerIndex">The size of each combination set to return.</param>
+            <param name="type">The type of Combinations set to generate.</param>
+            <remarks>
+            Copies the array and parameters and then creates a map of booleans that will 
+            be used by a permutations object to refence the subset.  This map is slightly
+            different based on whether the type is with or without repetition.
+            
+            When the type is WithoutRepetition, then a map of upper index elements is
+            created with lower index false's.  
+            E.g. 8 choose 3 generates:
+            Map: {1 1 1 1 1 0 0 0}
+            Note: For sorting reasons, false denotes inclusion in output.
+            
+            When the type is WithRepetition, then a map of upper index - 1 + lower index
+            elements is created with the falses indicating that the 'current' element should
+            be included and the trues meaning to advance the 'current' element by one.
+            E.g. 8 choose 3 generates:
+            Map: {1 1 1 1 1 1 1 1 0 0 0} (7 trues, 3 falses).
+            </remarks>
+        </member>
+        <member name="F:Combinatorics.Collections.Combinations`1._myValues">
+            <summary>
+            Copy of values object is intialized with, required for enumerator reset.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Combinations`1._myPermutations">
+            <summary>
+            Permutations object that handles permutations on booleans for combination inclusion.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Combinations`1._myMetaCollectionType">
+            <summary>
+            The type of the combination collection.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Combinations`1._myLowerIndex">
+            <summary>
+            The lower index defined in the constructor.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.GenerateOption">
+            <summary>
+            Indicates whether a Permutation, Combination or Variation meta-collections
+            generate repetition sets.  
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.GenerateOption.WithoutRepetition">
+            <summary>
+            Do not generate additional sets, typical implementation.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.GenerateOption.WithRepetition">
+            <summary>
+            Generate additional sets even if repetition is required.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.IMetaCollection`1">
+            <summary>
+            Interface for Permutations, Combinations and any other classes that present
+            a collection of collections based on an input collection.  The enumerators that 
+            this class inherits defines the mechanism for enumerating through the collections.  
+            </summary>
+            <typeparam name="T">The of the elements in the collection, not the type of the collection.</typeparam>
+        </member>
+        <member name="P:Combinatorics.Collections.IMetaCollection`1.Count">
+            <summary>
+            The count of items in the collection.  This is not inherited from
+            ICollection since this meta-collection cannot be extended by users.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.IMetaCollection`1.Type">
+            <summary>
+            The type of the meta-collection, determining how the collections are 
+            determined from the inputs.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.IMetaCollection`1.UpperIndex">
+            <summary>
+            The upper index of the meta-collection, which is the size of the input collection.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.IMetaCollection`1.LowerIndex">
+            <summary>
+            The lower index of the meta-collection, which is the size of each output collection.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.Permutations`1">
+            <summary>
+            Permutations defines a meta-collection, typically a list of lists, of all
+            possible orderings of a set of values.  This list is enumerable and allows
+            the scanning of all possible permutations using a simple foreach() loop.
+            The MetaCollectionType parameter of the constructor allows for the creation of
+            two types of sets,  those with and without repetition in the output set when 
+            presented with repetition in the input set.
+            </summary>
+            <remarks>
+            When given a input collect {A A B}, the following sets are generated:
+            MetaCollectionType.WithRepetition =>
+            {A A B}, {A B A}, {A A B}, {A B A}, {B A A}, {B A A}
+            MetaCollectionType.WithoutRepetition =>
+            {A A B}, {A B A}, {B A A}
+            
+            When generating non-repetition sets, ordering is based on the lexicographic 
+            ordering of the lists based on the provided Comparer.  
+            If no comparer is provided, then T must be IComparable on T.
+            
+            When generating repetition sets, no comparisions are performed and therefore
+            no comparer is required and T does not need to be IComparable.
+            </remarks>
+            <typeparam name="T">The type of the values within the list.</typeparam>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.#ctor">
+            <summary>
+            No default constructor, must at least provided a list of values.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.#ctor(System.Collections.Generic.ICollection{`0})">
+            <summary>
+            Create a permutation set from the provided list of values.  
+            The values (T) must implement IComparable.  
+            If T does not implement IComparable use a constructor with an explict IComparer.
+            The repetition type defaults to MetaCollectionType.WithholdRepetitionSets
+            </summary>
+            <param name="values">List of values to permute.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.#ctor(System.Collections.Generic.ICollection{`0},Combinatorics.Collections.GenerateOption)">
+            <summary>
+            Create a permutation set from the provided list of values.  
+            If type is MetaCollectionType.WithholdRepetitionSets, then values (T) must implement IComparable.  
+            If T does not implement IComparable use a constructor with an explict IComparer.
+            </summary>
+            <param name="values">List of values to permute.</param>
+            <param name="type">The type of permutation set to calculate.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.#ctor(System.Collections.Generic.IList{`0},System.Collections.Generic.IComparer{`0})">
+            <summary>
+            Create a permutation set from the provided list of values.  
+            The values will be compared using the supplied IComparer.
+            The repetition type defaults to MetaCollectionType.WithholdRepetitionSets
+            </summary>
+            <param name="values">List of values to permute.</param>
+            <param name="comparer">Comparer used for defining the lexigraphic order.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.GetEnumerator">
+            <summary>
+            Gets an enumerator for collecting the list of permutations.
+            </summary>
+            <returns>The enumerator.</returns>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.System#Collections#IEnumerable#GetEnumerator">
+            <summary>
+            Gets an enumerator for collecting the list of permutations.
+            </summary>
+            <returns>The enumerator.</returns>
+        </member>
+        <member name="T:Combinatorics.Collections.Permutations`1.Enumerator">
+            <summary>
+            The enumerator that enumerates each meta-collection of the enclosing Permutations class.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.Enumerator.#ctor(Combinatorics.Collections.Permutations{`0})">
+            <summary>
+            Construct a enumerator with the parent object.
+            </summary>
+            <param name="source">The source Permutations object.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.Enumerator.Reset">
+            <summary>
+            Resets the permutations enumerator to the first permutation.  
+            This will be the first lexicographically order permutation.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.Enumerator.MoveNext">
+            <summary>
+            Advances to the next permutation.
+            </summary>
+            <returns>True if successfully moved to next permutation, False if no more permutations exist.</returns>
+            <remarks>
+            Continuation was tried (i.e. yield return) by was not nearly as efficient.
+            Performance is further increased by using value types and removing generics, that is, the LexicographicOrder parellel array.
+            This is a issue with the .NET CLR not optimizing as well as it could in this infrequently used scenario.
+            </remarks>
+        </member>
+        <member name="P:Combinatorics.Collections.Permutations`1.Enumerator.System#Collections#IEnumerator#Current">
+            <summary>
+            The current permutation.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Permutations`1.Enumerator.Current">
+            <summary>
+            The current permutation.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.Enumerator.Dispose">
+            <summary>
+            Cleans up non-managed resources, of which there are none used here.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.Enumerator.NextPermutation">
+            <summary>
+            Calculates the next lexicographical permutation of the set.
+            This is a permutation with repetition where values that compare as equal will not 
+            swap positions to create a new permutation.
+            http://www.cut-the-knot.org/do_you_know/AllPerm.shtml
+            E. W. Dijkstra, A Discipline of Programming, Prentice-Hall, 1997  
+            </summary>
+            <returns>True if a new permutation has been returned, false if not.</returns>
+            <remarks>
+            This uses the integers of the lexicographical order of the values so that any
+            comparison of values are only performed during initialization. 
+            </remarks>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.Enumerator.Swap(System.Int32,System.Int32)">
+            <summary>
+            Helper function for swapping two elements within the internal collection.
+            This swaps both the lexicographical order and the values, maintaining the parallel array.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1.Enumerator._myTemp">
+            <summary>
+            Single instance of swap variable for T, small performance improvement over declaring in Swap function scope.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1.Enumerator._myKviTemp">
+            <summary>
+            Single instance of swap variable for int, small performance improvement over declaring in Swap function scope.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1.Enumerator._myPosition">
+            <summary>
+            Flag indicating the position of the enumerator.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1.Enumerator._myLexicographicalOrders">
+            <summary>
+            Parrellel array of integers that represent the location of items in the myValues array.
+            This is generated at Initialization and is used as a performance speed up rather that
+            comparing T each time, much faster to let the CLR optimize around integers.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1.Enumerator.MyValues">
+            <summary>
+            The list of values that are current to the enumerator.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1.Enumerator._myParent">
+            <summary>
+            The set of permuations that this enumerator enumerates.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.Permutations`1.Enumerator.Position">
+            <summary>
+            Internal position type for tracking enumertor position.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Permutations`1.Count">
+            <summary>
+            The count of all permutations that will be returned.
+            If type is MetaCollectionType.WithholdGeneratedSets, then this does not double count permutations with multiple identical values.  
+            I.e. count of permutations of "AAB" will be 3 instead of 6.  
+            If type is MetaCollectionType.WithRepetition, then this is all combinations and is therefore N!, where N is the number of values.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Permutations`1.Type">
+            <summary>
+            The type of Permutations set that is generated.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Permutations`1.UpperIndex">
+            <summary>
+            The upper index of the meta-collection, equal to the number of items in the initial set.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Permutations`1.LowerIndex">
+            <summary>
+            The lower index of the meta-collection, equal to the number of items returned each iteration.
+            For Permutation, this is always equal to the UpperIndex.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.Initialize(System.Collections.Generic.ICollection{`0},Combinatorics.Collections.GenerateOption,System.Collections.Generic.IComparer{`0})">
+             <summary>
+             Common intializer used by the multiple flavors of constructors.
+             </summary>
+             <remarks>
+             Copies information provided and then creates a parellel int array of lexicographic
+             orders that will be used for the actual permutation algorithm.  
+             The input array is first sorted as required for WithoutRepetition and always just for consistency.
+             This array is constructed one of two way depending on the type of the collection.
+            
+             When type is MetaCollectionType.WithRepetition, then all N! permutations are returned
+             and the lexicographic orders are simply generated as 1, 2, ... N.  
+             E.g.
+             Input array:          {A A B C D E E}
+             Lexicograhpic Orders: {1 2 3 4 5 6 7}
+             
+             When type is MetaCollectionType.WithoutRepetition, then fewer are generated, with each
+             identical element in the input array not repeated.  The lexicographic sort algorithm
+             handles this natively as long as the repetition is repeated.
+             E.g.
+             Input array:          {A A B C D E E}
+             Lexicograhpic Orders: {1 1 2 3 4 5 5}
+             </remarks>
+        </member>
+        <member name="M:Combinatorics.Collections.Permutations`1.GetCount">
+            <summary>
+            Calculates the total number of permutations that will be returned.  
+            As this can grow very large, extra effort is taken to avoid overflowing the accumulator.  
+            While the algorithm looks complex, it really is just collecting numerator and denominator terms
+            and cancelling out all of the denominator terms before taking the product of the numerator terms.  
+            </summary>
+            <returns>The number of permutations.</returns>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1._myValues">
+            <summary>
+            A list of T that represents the order of elements as originally provided, used for Reset.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1._myLexicographicOrders">
+            <summary>
+            Parrellel array of integers that represent the location of items in the myValues array.
+            This is generated at Initialization and is used as a performance speed up rather that
+            comparing T each time, much faster to let the CLR optimize around integers.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.Permutations`1.SelfComparer`1">
+            <summary>
+            Inner class that wraps an IComparer around a type T when it is IComparable
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1._myCount">
+            <summary>
+            The count of all permutations.  Calculated at Initialization and returned by Count property.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Permutations`1._myMetaCollectionType">
+            <summary>
+            The type of Permutations that this was intialized from.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.SmallPrimeUtility">
+            <summary>
+            Utility class that maintains a small table of prime numbers and provides
+            simple implementations of Prime Factorization algorithms.  
+            This is a quick and dirty utility class to support calculations of permutation
+            sets with indexes under 2^31.
+            The prime table contains all primes up to Sqrt(2^31) which are all of the primes
+            requires to factorize any Int32 positive integer.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.SmallPrimeUtility.#ctor">
+            <summary>
+            Utility class, no instances allowed.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.SmallPrimeUtility.Factor(System.Int32)">
+            <summary>
+            Performs a prime factorization of a given integer using the table of primes in PrimeTable.
+            Since this will only factor Int32 sized integers, a simple list of factors is returned instead
+            of the more scalable, but more difficult to consume, list of primes and associated exponents.
+            </summary>
+            <param name="i">The number to factorize, must be positive.</param>
+            <returns>A simple list of factors.</returns>
+        </member>
+        <member name="M:Combinatorics.Collections.SmallPrimeUtility.MultiplyPrimeFactors(System.Collections.Generic.IList{System.Int32},System.Collections.Generic.IList{System.Int32})">
+            <summary>
+            Given two integers expressed as a list of prime factors, multiplies these numbers
+            together and returns an integer also expressed as a set of prime factors.
+            This allows multiplication to overflow well beyond a Int64 if necessary.  
+            </summary>
+            <param name="lhs">Left Hand Side argument, expressed as list of prime factors.</param>
+            <param name="rhs">Right Hand Side argument, expressed as list of prime factors.</param>
+            <returns>Product, expressed as list of prime factors.</returns>
+        </member>
+        <member name="M:Combinatorics.Collections.SmallPrimeUtility.DividePrimeFactors(System.Collections.Generic.IList{System.Int32},System.Collections.Generic.IList{System.Int32})">
+            <summary>
+            Given two integers expressed as a list of prime factors, divides these numbers
+            and returns an integer also expressed as a set of prime factors.
+            If the result is not a integer, then the result is undefined.  That is, 11 / 5
+            when divided by this function will not yield a correct result.
+            As such, this function is ONLY useful for division with combinatorial results where 
+            the result is known to be an integer AND the division occurs as the last operation(s).
+            </summary>
+            <param name="numerator">Numerator argument, expressed as list of prime factors.</param>
+            <param name="denominator">Denominator argument, expressed as list of prime factors.</param>
+            <returns>Resultant, expressed as list of prime factors.</returns>
+        </member>
+        <member name="M:Combinatorics.Collections.SmallPrimeUtility.EvaluatePrimeFactors(System.Collections.Generic.IList{System.Int32})">
+            <summary>
+            Given a list of prime factors returns the long representation.
+            </summary>
+            <param name="value">Integer, expressed as list of prime factors.</param>
+            <returns>Standard long representation.</returns>
+        </member>
+        <member name="M:Combinatorics.Collections.SmallPrimeUtility.#cctor">
+            <summary>
+            Static initializer, set up prime table.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.SmallPrimeUtility.CalculatePrimes">
+            <summary>
+            Calculate all primes up to Sqrt(2^32) = 2^16.  
+            This table will be large enough for all factorizations for Int32's.
+            Small tables are best built using the Sieve Of Eratosthenes,
+            Reference: http://primes.utm.edu/glossary/page.php?sort=SieveOfEratosthenes
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.SmallPrimeUtility.PrimeTable">
+            <summary>
+            A List of all primes from 2 to 2^16.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.Variations`1">
+            <summary>
+            Variations defines a meta-collection, typically a list of lists, of all possible 
+            ordered subsets of a particular size from the set of values.  
+            This list is enumerable and allows the scanning of all possible Variations using a simple 
+            foreach() loop even though the variations are not all in memory.
+            </summary>
+            <remarks>
+            The MetaCollectionType parameter of the constructor allows for the creation of
+            normal Variations and Variations with Repetition.
+            
+            When given an input collect {A B C} and lower index of 2, the following sets are generated:
+            MetaCollectionType.WithoutRepetition generates 6 sets: =>
+                {A B}, {A B}, {B A}, {B C}, {C A}, {C B}
+            MetaCollectionType.WithRepetition generates 9 sets:
+                {A A}, {A B}, {A B}, {B A}, {B B }, {B C}, {C A}, {C B}, {C C}
+            
+            The equality of multiple inputs is not considered when generating variations.
+            </remarks>
+            <typeparam name="T">The type of the values within the list.</typeparam>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.#ctor">
+            <summary>
+            No default constructor, must provided a list of values and size.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.#ctor(System.Collections.Generic.IEnumerable{`0},System.Int32)">
+            <summary>
+            Create a variation set from the indicated list of values.
+            The upper index is calculated as values.Count, the lower index is specified.
+            Collection type defaults to MetaCollectionType.WithoutRepetition
+            </summary>
+            <param name="values">List of values to select Variations from.</param>
+            <param name="lowerIndex">The size of each variation set to return.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.#ctor(System.Collections.Generic.IEnumerable{`0},System.Int32,Combinatorics.Collections.GenerateOption)">
+            <summary>
+            Create a variation set from the indicated list of values.
+            The upper index is calculated as values.Count, the lower index is specified.
+            </summary>
+            <param name="values">List of values to select variations from.</param>
+            <param name="lowerIndex">The size of each vatiation set to return.</param>
+            <param name="type">Type indicates whether to use repetition in set generation.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.GetEnumerator">
+            <summary>
+            Gets an enumerator for the collection of Variations.
+            </summary>
+            <returns>The enumerator.</returns>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.System#Collections#IEnumerable#GetEnumerator">
+            <summary>
+            Gets an enumerator for the collection of Variations.
+            </summary>
+            <returns>The enumerator.</returns>
+        </member>
+        <member name="T:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition">
+            <summary>
+            An enumerator for Variations when the type is set to WithRepetition.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition.#ctor(Combinatorics.Collections.Variations{`0})">
+            <summary>
+            Construct a enumerator with the parent object.
+            </summary>
+            <param name="source">The source Variations object.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition.Reset">
+            <summary>
+            Resets the Variations enumerator to the first variation.  
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition.MoveNext">
+            <summary>
+            Advances to the next variation.
+            </summary>
+            <returns>True if successfully moved to next variation, False if no more variations exist.</returns>
+            <remarks>
+            Increments the internal myListIndexes collection by incrementing the last index
+            and overflow/carrying into others just like grade-school arithemtic.  If the 
+            finaly carry flag is set, then we would wrap around and are therefore done.
+            </remarks>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition.Current">
+            <summary>
+            The current variation
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition.System#Collections#IEnumerator#Current">
+            <summary>
+            The current variation.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition.Dispose">
+            <summary>
+            Cleans up non-managed resources, of which there are none used here.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition.ComputeCurrent">
+            <summary>
+            Computes the current list based on the internal list index.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition._myParent">
+            <summary>
+            Parent object this is an enumerator for.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition._myCurrentList">
+            <summary>
+            The current list of values, this is lazy evaluated by the Current property.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1.EnumeratorWithRepetition._myListIndexes">
+            <summary>
+            An enumertor of the parents list of lexicographic orderings.
+            </summary>
+        </member>
+        <member name="T:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition">
+            <summary>
+            An enumerator for Variations when the type is set to WithoutRepetition.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition.#ctor(Combinatorics.Collections.Variations{`0})">
+            <summary>
+            Construct a enumerator with the parent object.
+            </summary>
+            <param name="source">The source Variations object.</param>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition.Reset">
+            <summary>
+            Resets the Variations enumerator to the first variation.  
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition.MoveNext">
+            <summary>
+            Advances to the next variation.
+            </summary>
+            <returns>True if successfully moved to next variation, False if no more variations exist.</returns>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition.Current">
+            <summary>
+            The current variation.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition.System#Collections#IEnumerator#Current">
+            <summary>
+            The current variation.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition.Dispose">
+            <summary>
+            Cleans up non-managed resources, of which there are none used here.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition.ComputeCurrent">
+            <summary>
+            Creates a list of original values from the int permutation provided.  
+            The exception for accessing current (InvalidOperationException) is generated
+            by the call to .Current on the underlying enumeration.
+            </summary>
+            <remarks>
+            To compute the current list of values, the element to use is determined by 
+            a permutation position with a non-MaxValue value.  It is placed at the position in the
+            output that the index value indicates.
+            
+            E.g. Variations of 6 choose 3 without repetition
+            Input array:   {A B C D E F}
+            Permutations:  {- 1 - - 3 2} (- is Int32.MaxValue)
+            Generates set: {B F E}
+            </remarks>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition._myParent">
+            <summary>
+            Parent object this is an enumerator for.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition._myCurrentList">
+            <summary>
+            The current list of values, this is lazy evaluated by the Current property.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1.EnumeratorWithoutRepetition._myPermutationsEnumerator">
+            <summary>
+            An enumertor of the parents list of lexicographic orderings.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.Count">
+            <summary>
+            The number of unique variations that are defined in this meta-collection.
+            </summary>
+            <remarks>
+            Variations with repetitions does not behave like other meta-collections and it's
+            count is equal to N^P, where N is the upper index and P is the lower index.
+            </remarks>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.Type">
+            <summary>
+            The type of Variations set that is generated.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.UpperIndex">
+            <summary>
+            The upper index of the meta-collection, equal to the number of items in the initial set.
+            </summary>
+        </member>
+        <member name="P:Combinatorics.Collections.Variations`1.LowerIndex">
+            <summary>
+            The lower index of the meta-collection, equal to the number of items returned each iteration.
+            </summary>
+        </member>
+        <member name="M:Combinatorics.Collections.Variations`1.Initialize(System.Collections.Generic.IEnumerable{`0},System.Int32,Combinatorics.Collections.GenerateOption)">
+            <summary>
+            Initialize the variations for constructors.
+            </summary>
+            <param name="values">List of values to select variations from.</param>
+            <param name="lowerIndex">The size of each variation set to return.</param>
+            <param name="type">The type of variations set to generate.</param>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1._myValues">
+            <summary>
+            Copy of values object is intialized with, required for enumerator reset.
+            </summary>
+        </member>
+        <member name="F:Combinatorics.Collections.Variations`1._myPermutations">
+            <summary>
+            Permutations object that handles permutations on int for variation inclusion and ordering.
+            </summary>
+        </member>
+    </members>
+</doc>

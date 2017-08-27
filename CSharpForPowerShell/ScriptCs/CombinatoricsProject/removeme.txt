@@ -1,0 +1,18 @@
+Microsoft (R) API Portability Analyzer v1.4.0.alpha.00199
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+This tool analyzes .NET assemblies to determine possible problems moving between .NET platforms (such as
+Windows Store, desktop, Mono, .NET Core, etc) as well as between .NET Framework versions (ie 4.x->4.y).
+
+To learn more about how this tool works, including the data we are collecting, 
+go here - http://go.microsoft.com/fwlink/?LinkId=397652
+
+Detecting assembly references                      [Done]
+Analyzing compatibility                            [Done]
+Writing Json report                                [Done]
+Computing report.                                  [Done]
+
+Wrote output to file:
+V:\powershell\PowerShellDrafts\CSharpForPowerShell\ScriptCs\CombinatoricsProject\CombinatoricsDLLAnalysis.json
+
+* File 'CombinatoricsDLLAnalysis.json' already exists and will be overwritten.
