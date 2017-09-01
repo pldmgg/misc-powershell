@@ -28,7 +28,10 @@ function Get-SonicWallRules {
         [string]$SonicWallIPAddress,
 
         [Parameter(Mandatory=$True)]
-        [string]$SonicWallUserName
+        [string]$SonicWallUserName,
+
+        [Parameter(Mandatory=$False)]
+        [string]$SonicWallCommand = "show access-rules custom"
      )
 
     ##### BEGIN Native Helper Functions #####
@@ -111,7 +114,7 @@ function Get-SonicWallRules {
     Start-Sleep -Seconds 1
     Send-AwaitCommand "Push-Location $OpenSSHWin64Path"
     Start-Sleep -Seconds 1
-    Send-AwaitCommand ".\ssh -oStrictHostKeyChecking=no -t $SonicWallUserName@$SonicWallIPAddress 'show access-rules custom'"
+    Send-AwaitCommand ".\ssh -oStrictHostKeyChecking=no -t $SonicWallUserName@$SonicWallIPAddress '$SonicWallCommand'"
     Start-Sleep -Seconds 2
     $SSHCmdConsoleOutput = Receive-AwaitResponse
     if ($SSHCmdConsoleOutput -like "*no matching key exchange method found*") {
