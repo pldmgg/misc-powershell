@@ -55,6 +55,11 @@ function Get-SonicWallRules {
         return
     }
 
+    $SonicWallPassword = Read-Host -Prompt "Please enter the password for $SonicWallUserName" -AsSecureString
+
+    # Convert SecureString to PlainText
+    $SonicWallPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SonicWallPassword))
+
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
@@ -67,43 +72,76 @@ function Get-SonicWallRules {
 
     Install-WinSSH
 
+    $OpenSSHWin64Path = "$env:ProgramFiles\OpenSSH-Win64"
+
     # SSH into the Sonic Wall Device. This will prompt you for a password and potentially
     # prompt you to accept the remote host key if this is your first time SSH-ing into the device
     # ssh -t $SonicWallUserName@$SonicWallIPAddress 'show access-rules custom'
 
-    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $ProcessInfo.FileName = "ssh.exe"
-    $ProcessInfo.RedirectStandardError = $true
-    $ProcessInfo.RedirectStandardOutput = $true
-    $ProcessInfo.UseShellExecute = $false
-    $ProcessInfo.WorkingDirectory = $pwd.Path
-    $ProcessInfo.Arguments = "-t $SonicWallUserName@$SonicWallIPAddress 'show access-rules custom'"
-    $Process = New-Object System.Diagnostics.Process
-    $Process.StartInfo = $ProcessInfo
-    $Process.Start() | Out-Null
-    $Process.WaitForExit()
-    $stdout = $Process.StandardOutput.ReadToEnd()
-    $stderr = $Process.StandardError.ReadToEnd()
-    $AllOutput = $stdout + $stderr
-    $AllOutput
-
-    if ($AllOutput -like "*no matching key exchange method found*") {
-        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $ProcessInfo.FileName = "ssh.exe"
-        $ProcessInfo.RedirectStandardError = $true
-        $ProcessInfo.RedirectStandardOutput = $true
-        $ProcessInfo.UseShellExecute = $false
-        $ProcessInfo.WorkingDirectory = $pwd.Path
-        $ProcessInfo.Arguments = "-oKexAlgorithms=+diffie-hellman-group1-sha1 -t $SonicWallUserName@$SonicWallIPAddress 'show access-rules custom'"
-        $Process = New-Object System.Diagnostics.Process
-        $Process.StartInfo = $ProcessInfo
-        $Process.Start() | Out-Null
-        $Process.WaitForExit()
-        $stdout = $Process.StandardOutput.ReadToEnd()
-        $stderr = $Process.StandardError.ReadToEnd()
-        $AllOutput = $stdout + $stderr
-        $AllOutput
+    # Need PowerShell Await Module (Windows version of Linux Expect) for ssh-keygen with null password
+    if ($(Get-Module -ListAvailable).Name -notcontains "Await") {
+        # Install-Module "Await" -Scope CurrentUser
+        # Clone PoshAwait repo to .zip
+        Invoke-WebRequest -Uri "https://github.com/pldmgg/PoshAwait/archive/master.zip" -OutFile "$HOME\Downloads\PoshAwait.zip"
+        $tempDirectory = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())
+        [IO.Directory]::CreateDirectory($tempDirectory) | Out-Null
+        Unzip-File -PathToZip "$HOME\Downloads\PoshAwait.zip" -TargetDir "$tempDirectory"
+        if (!$(Test-Path "$HOME\Documents\WindowsPowerShell\Modules\Await")) {
+            New-Item -Type Directory "$HOME\Documents\WindowsPowerShell\Modules\Await" | Out-Null
+        }
+        Copy-Item -Recurse -Path "$tempDirectory\PoshAwait-master\*" -Destination "$HOME\Documents\WindowsPowerShell\Modules\Await"
+        Remove-Item -Recurse -Path $tempDirectory -Force
     }
+
+    # Make private key password $null
+    Import-Module Await
+    if (!$?) {
+        Write-Verbose "Unable to load the Await Module! Halting!"
+        Write-Error "Unable to load the Await Module! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    Start-AwaitSession
+    Start-Sleep -Seconds 1
+    Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
+    $PSAwaitProcess = $($(Get-Process | ? {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
+    Start-Sleep -Seconds 1
+    Send-AwaitCommand "`$env:Path = '$env:Path'"
+    Start-Sleep -Seconds 1
+    Send-AwaitCommand "Push-Location $OpenSSHWin64Path"
+    Start-Sleep -Seconds 1
+    Send-AwaitCommand ".\ssh -oStrictHostKeyChecking=no -t $SonicWallUserName@$SonicWallIPAddress 'show access-rules custom'"
+    Start-Sleep -Seconds 2
+    $SSHCmdConsoleOutput = Receive-AwaitResponse
+    if ($SSHCmdConsoleOutput -like "*no matching key exchange method found*") {
+        Send-AwaitCommand ".\ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 -oStrictHostKeyChecking=no -t $SonicWallUserName@$SonicWallIPAddress 'show access-rules custom'"
+        Start-Sleep -Seconds 2
+    }
+    Send-AwaitCommand "$SonicWallPassword"
+    Start-Sleep -Seconds 1
+    $SSHCmdConsoleOutput = Receive-AwaitResponse
+    Write-hOst ""
+    Write-Host "##### BEGIN Sonic Wall 'show access-rules custom' Console Output #####"
+    Write-Host "$SSHCmdConsoleOutput"
+    Write-Host "##### END Sonic Wall 'show access-rules custom' Console Output #####"
+    Write-Host ""
+    # If Stop-AwaitSession errors for any reason, it doesn't return control, so we need to handle in try/catch block
+    try {
+        Stop-AwaitSession
+    }
+    catch {
+        if ($PSAwaitProcess.Id -eq $PID) {
+            Write-Verbose "The PSAwaitSession never spawned! Halting!"
+            Write-Error "The PSAwaitSession never spawned! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        else {
+            Stop-Process -Id $PSAwaitProcess.Id
+        }
+    }
+}
 
     ##### END Main Body #####
 
@@ -115,12 +153,11 @@ function Get-SonicWallRules {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXBiWvsbsGofXFhnSE7C9WRQf
-# Jl6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8stY163JektQgdE6BGKKm7Il
+# vdGgggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -175,11 +212,11 @@ function Get-SonicWallRules {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQMOXzIgxlM
-# 0gdAS7/hlWszFzyCJDANBgkqhkiG9w0BAQEFAASCAQB4tRFNxPoH5YbeQuc1cW6U
-# ILhzBKhFZdeAH0nF9KycY7MowWurBa+9bT/hajQr5/B9P0wP4o8OWOuCd0+P0A/8
-# J3glSiPzmUUYYKjE0eGMjpUwbiTw4cW4wzVAcvdOth7p7lU82cMGJpkVeQBPkXH4
-# 240JZ8AyBYs5VY9AA67HmRcbCBCDgg461YBtUo8ohH8glMggoibNPzdEb0FYi/av
-# pfpCWSndGNjUD3fHF2jDYzA3usR4A/F/5YPk5G9t4JwLg/O2+jc+UgVxYb/iag3g
-# eQExUg3OUqnZ+bEnP6df5QXqb9jTsMPJMmovZtvfe5ekBtDgvLjgWBsDI7HZMW+Y
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBQXLRPcRh0N
+# 4Mgf2XSAV7cXUR7wxjANBgkqhkiG9w0BAQEFAASCAQAJlZ851ULiHNSHLxAtB8vg
+# zXnjEnmNWr6fzMCPMsRZI41tKt2Il2ow7/J4+kICjmmaKisPmHoRotOEgQSr721H
+# zJH439tebMUGWZmh0se0I+/LglU5k9MagsGOMw8di8SEBCCE23x3jJcueyaL8g4W
+# rS/3XIUjdN2gCaw1KVRfCjshfLqUJ/3yPg7uHxMxAcceB70sEWHBPnMkIV4cob9K
+# 0y+uq895U/Y/g7byXtmzRHbPsc+oMHFoOPmtYh/kPDlXNWJh2Ye+fPJE4j6C47CT
+# VzR6Tp2vJFPDeyb2yTGGbYdxdp/uKrdy1ZxkOVkEy8/33ScLHFWsw2XBDU0hF2sk
 # SIG # End signature block
