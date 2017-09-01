@@ -125,9 +125,9 @@ function Get-SonicWallRules {
     Start-Sleep -Seconds 1
     $SSHCmdConsoleOutput = Receive-AwaitResponse
     Write-hOst ""
-    Write-Host "##### BEGIN Sonic Wall 'show access-rules custom' Console Output #####"
+    Write-Host "##### BEGIN Sonic Wall '$SonicWallCommand' Console Output #####"
     Write-Host "$SSHCmdConsoleOutput"
-    Write-Host "##### END Sonic Wall 'show access-rules custom' Console Output #####"
+    Write-Host "##### END Sonic Wall '$SonicWallCommand' Console Output #####"
     Write-Host ""
     # If Stop-AwaitSession errors for any reason, it doesn't return control, so we need to handle in try/catch block
     try {
