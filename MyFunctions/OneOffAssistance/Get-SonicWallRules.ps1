@@ -141,7 +141,6 @@ function Get-SonicWallRules {
             Stop-Process -Id $PSAwaitProcess.Id
         }
     }
-}
 
     ##### END Main Body #####
 
