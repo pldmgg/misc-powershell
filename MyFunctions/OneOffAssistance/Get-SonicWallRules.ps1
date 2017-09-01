@@ -31,7 +31,7 @@ function Get-SonicWallRules {
         [string]$SonicWallUserName
      )
 
-    ## ###BEGIN Native Helper Functions #####
+    ##### BEGIN Native Helper Functions #####
 
     function Test-IsValidIPAddress([string]$IPAddress) {
         [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
@@ -119,12 +119,11 @@ function Get-SonicWallRules {
 
 
 
-
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/PQVOy7Dvo/91eXxtKQQTxwJ
-# zSigggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0dGGyxZXi5/JsqET/x/+1lpX
+# 7+igggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -179,11 +178,11 @@ function Get-SonicWallRules {
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBT10C0Rr+lq
-# f1grlyHuX0p4kMzccjANBgkqhkiG9w0BAQEFAASCAQCb6GrRoTGJ7ThBvlD5BL7N
-# E0sdmdAkoprTfllLabECBrPRrnyLTPjcNdfI58HLHHwc+nhgjsuOP98ozPSl/uV9
-# nnwi+a+wABwA2pSWwrpSV/SnpZIn3vz0vq4TRm2WF6U35JCM1iX5rVlrJeY4ypBv
-# 8U/C0zXciHOCJ9kbkZZkMzgd+uZFFeWfovWDau0dAzbtLCuxqn3koPtFSlH0qacr
-# 0kRfDYItUxPh5Hi9LIlcQ3XFSnhu8LtYDjIbIIQa4hlScJ3DuQon9qYQfM5FGuNm
-# FsBgBhbGGyJ+Vidk3zzKrbfb0oAUPzZcQukR7yhQMhtUXjmEq+WRbF1B156QoQlr
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR1mvx3CtE1
+# lGCj0l5xYgqkVLON2TANBgkqhkiG9w0BAQEFAASCAQAW4q5gcbvt0Pn1oJjfAPqF
+# 2ePpmbMa81MsP+7l0/8xPPoIN6rR5N4tAogCENTFnpPqDuIxqWa47YYyENdPdpww
+# oYHIkdIxwRIVpRH2I6RsAkxyga7kuAct7JGm2rOU9SFeP+AkHvmMdvJt1aCT1Tv1
+# ynN2c/eBfH4U/6hpWqbjwSuH6Hwk54RuCjU0emGCJPS0nY5tsODLP2uvn3UWrqPH
+# oRqNOXW57fQQa7bnf9clGztkBh8hr9pk5iv+7M+wHs1iCEi0uRjkznbABWxYL2k/
+# M9vcKEkFSnnAPX5Eb4TyUDtDXRi74IkOn+YCmSmOPFfy5S70cvJyizL4hxhP+hyA
 # SIG # End signature block
