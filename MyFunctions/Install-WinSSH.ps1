@@ -44,6 +44,9 @@ function Install-WinSSH {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
+        [switch]$ConfigureSSHDOnLocalHost,
+
+        [Parameter(Mandatory=$False)]
         [switch]$RemoveHostPrivateKeys,
 
         [Parameter(Mandatory=$False)]
@@ -104,7 +107,31 @@ function Install-WinSSH {
             $HostNetworkInfoArray = @()
             if (! $(Test-IsValidIPAddress -IPAddress $HostName)) {
                 try {
-                    $HostIP = $(Resolve-DNSName $HostName).IPAddress
+                    $HostIP = $(Resolve-DNSName $HostName).IP4Address
+                    if ($HostIP.Count -gt 1) {
+                        if ($HostName -eq $env:COMPUTERNAME) {
+                            $PrimaryLocalIPv4AddressPrep = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notmatch "^127"}
+                            if ($PrimaryLocalIPv4AddressPrep.Count -gt 1) {
+                                $HostIP = $($PrimaryLocalIPv4AddressPrep | Where-Object {$_.PrefixOrigin -eq "Dhcp"})[0].IPAddress
+                            }
+                            else {
+                                $HostIP = $PrimaryLocalIPv4AddressPrep.IPAddress
+                            }
+                        }
+                        else {
+                            Write-Warning "Potential IPv4 addresses for $HostName are as follows"
+                            Write-Host $($HostIP -join "; ")
+                            $HostIPChoice = Read-Host -Prompt "Please enter the primary IPv4 address for $HostName"
+                            if ($HostIP -notcontains $HostIPChoice) {
+                                Write-Error "The specified IPv4 selection does nto match one of the available options! Halting!"
+                                $global:FunctionResult = "1"
+                                return
+                            }
+                            else {
+                                $HostIP = $HostIPChoice
+                            }
+                        }
+                    }
                 }
                 catch {
                     Write-Verbose "Unable to resolve $HostName!"
@@ -413,6 +440,7 @@ function Install-WinSSH {
                 throw
             }
             #>
+            Write-Host "Downloading OpenSSH-Win64 from https://github.com/PowerShell/Win32-OpenSSH/releases/latest/..."
             $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
             $request = [System.Net.WebRequest]::Create($url)
             $request.AllowAutoRedirect = $false
@@ -425,6 +453,8 @@ function Install-WinSSH {
             Move-Item "$HOME\Downloads\OpenSSH-Win64" "$env:ProgramFiles\OpenSSH-Win64"
             Enable-NTFSAccessInheritance -Path "$env:ProgramFiles\OpenSSH-Win64" -RemoveExplicitAccessRules
             $OpenSSHWin64Path = "$env:ProgramFiles\OpenSSH-Win64"
+            Write-Host "Installing OpenSSH-Win64 to $OpenSSHWin64Path"
+            ##### Update :Path that is specific to the current PowerShell Session #####
             $env:Path = "$OpenSSHWin64Path;$env:Path"
         }
         catch {
@@ -438,130 +468,135 @@ function Install-WinSSH {
     # NOTE: Installing OpenSSH in the above manner should add all of the ssh utilities to environment PATH
     # ssh Utilities could come from Git or From previously installed Windows OpenSSH. We want to make sure we use Windows OpenSSH
     $PotentialSSHUtilitiesSource = $(Get-Command ssh -All).Source
-    $FinalSSHUtilitySourceDir = foreach ($FilePath in $PotentialSSHUtilitiesSource) {
-        if ([Environment]::Is64BitProcess) {
-            if ($FilePath -like "*OpenSSH-Win64*") {
-                $FilePath | Split-Path -Parent
-            }
-        }
-        else {
-            if ($FilePath -like "*OpenSSH-Win32*") {
-                $FilePath | Split-Path -Parent
-            }
-        }
-    }
-    if ([Environment]::Is64BitProcess) {
-        $Potential64ArchLocationRegex = $FinalSSHUtilitySourceDir -replace "\\","\\"
-        $CheckPath = $env:Path -match $Potential64ArchLocationRegex
-        if ($CheckPath) {
-            $env:Path = $FinalSSHUtilitySourceDir + ";" + $($env:Path -replace "$Potential64ArchLocationRegex","")
-        }
-        else {
-            $env:Path = $FinalSSHUtilitySourceDir + ";" + $env:Path
-        }
-    }
-    else {
-        $Potential32ArchLocationRegex = $($($FinalSSHUtilitySourceDir -replace "\\","\\") -replace "\(","(") -replace "\)",")"
-        $CheckPath = $env:Path -match $Potential32ArchLocationRegex
-        if ($CheckPath) {
-            $env:Path = $FinalSSHUtilitySourceDir + ";" + $($env:Path -replace "$Potential32ArchLocationRegex","")
-        }
-        else {
-            $env:Path = $FinalSSHUtilitySourceDir + ";" + $env:Path
-        }
-    }
-
-    $sshdConfigPath = "$FinalSSHUtilitySourceDir\sshd_config"
-
-    # Add a line for PowerShell under Subsystems in sshd_config
-    $sshdContent = Get-Content $sshdConfigPath
-    $LineToReplace = $sshdContent | Where-Object {$_ -like "*sftp-server.exe*"}
-    $UpdatedsshdContent = $sshdContent -replace "$LineToReplace","$LineToReplace`nSubsystem   powershell C:/Program Files/PowerShell/6.0.0-beta.3/powershell.exe $PowerShell6Path -sshs -NoLogo -NoProfile"
-    Set-Content -Value $UpdatedsshdContent -Path $sshdConfigPath
-
-    if (Test-Path "$FinalSSHUtilitySourceDir\install-sshd.ps1") {
-        & "$FinalSSHUtilitySourceDir\install-sshd.ps1"
-    }
-    else {
-        Write-Warning "The SSHD Service still needs to be configured!"
-    }
-
-    # Make sure port 22 is open
-    if (!$(Test-Port -Port 22).Open) {
-        # See if there's an existing rule regarding locahost TCP port 22
-        $Existing22RuleCheck = Get-NetFirewallPortFilter -Protocol TCP | Where-Object {$_.LocalPort -eq 22}
-        if ($Existing22RuleCheck -ne $null) {
-            $Existing22Rule =  Get-NetFirewallRule -AssociatedNetFirewallPortFilter $Existing22RuleCheck | Where-Object {$_.Direction -eq "Inbound"}
-            if ($Existing22Rule -ne $null) {
-                Set-NetFirewallRule -InputObject $Existing22Rule -Enabled True -Action Allow
+    if ($PotentialSSHUtilitiesSource.Count -gt 1 -or $PotentialSSHUtilitiesSource -notlike "*OpenSSH-Win*") {
+        $FinalSSHUtilitySourceDir = foreach ($FilePath in $PotentialSSHUtilitiesSource) {
+            if ([Environment]::Is64BitProcess) {
+                if ($FilePath -like "*OpenSSH-Win64*") {
+                    $FilePath | Split-Path -Parent
+                }
             }
             else {
-                $ExistingRuleFound = $False
+                if ($FilePath -like "*OpenSSH-Win32*") {
+                    $FilePath | Split-Path -Parent
+                }
             }
         }
-        if ($Existing22RuleCheck -eq $null -or $ExistingRuleFound -eq $False) {
-            New-NetFirewallRule -Action Allow -Direction Inbound -Name ssh -DisplayName ssh -Enabled True -LocalPort 22 -Protocol TCP
+        if ([Environment]::Is64BitProcess) {
+            $Potential64ArchLocationRegex = $FinalSSHUtilitySourceDir -replace "\\","\\"
+            $CheckPath = $env:Path -match $($Potential64ArchLocationRegex + ";")
+            if ($CheckPath) {
+                $env:Path = $FinalSSHUtilitySourceDir + ";" + $($env:Path -replace "$Potential64ArchLocationRegex","")
+            }
+            else {
+                $env:Path = $FinalSSHUtilitySourceDir + ";" + $env:Path
+            }
+        }
+        else {
+            $Potential32ArchLocationRegex = $($($FinalSSHUtilitySourceDir -replace "\\","\\") -replace "\(","(") -replace "\)",")"
+            $CheckPath = $env:Path -match $($Potential32ArchLocationRegex + ";")
+            if ($CheckPath) {
+                $env:Path = $FinalSSHUtilitySourceDir + ";" + $($env:Path -replace "$Potential32ArchLocationRegex","")
+            }
+            else {
+                $env:Path = $FinalSSHUtilitySourceDir + ";" + $env:Path
+            }
         }
     }
 
-    # Setup Host Keys
-    Push-Location $FinalSSHUtilitySourceDir
+    if ($ConfigureSSHDOnLocalHost) {
+        $sshdConfigPath = "$FinalSSHUtilitySourceDir\sshd_config"
 
-    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $ProcessInfo.FileName = "ssh-keygen.exe"
-    $ProcessInfo.RedirectStandardError = $true
-    $ProcessInfo.RedirectStandardOutput = $true
-    $ProcessInfo.UseShellExecute = $false
-    $ProcessInfo.WorkingDirectory = $pwd.Path
-    $ProcessInfo.Arguments = "-A"
-    $Process = New-Object System.Diagnostics.Process
-    $Process.StartInfo = $ProcessInfo
-    $Process.Start() | Out-Null
-    $Process.WaitForExit()
-    $stdout = $Process.StandardOutput.ReadToEnd()
-    $stderr = $Process.StandardError.ReadToEnd()
-    $AllOutput = $stdout + $stderr
-    
-    $PubPrivKeyPairFiles = Get-ChildItem -Path "$FinalSSHUtilitySourceDir" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -like "*ssh_host*"}
-    $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
-    $PrivKeys = $PubPrivKeyPairFiles | foreach {if ($PubKeys -notcontains $_) {$_}}
-    
-    Start-Service ssh-agent
+        # Add a line for PowerShell under Subsystems in sshd_config
+        $sshdContent = Get-Content $sshdConfigPath
+        $LineToReplace = $sshdContent | Where-Object {$_ -like "*sftp-server.exe*"}
+        $UpdatedsshdContent = $sshdContent -replace "$LineToReplace","$LineToReplace`nSubsystem   powershell C:/Program Files/PowerShell/6.0.0-beta.3/powershell.exe $PowerShell6Path -sshs -NoLogo -NoProfile"
+        Set-Content -Value $UpdatedsshdContent -Path $sshdConfigPath
 
-    Start-Sleep -Seconds 5
-
-    if ($(Get-Service "ssh-agent").Status -ne "Running") {
-        Write-Verbose "The ssh-agent service did not start succesfully! Halting!"
-        Write-Error "The ssh-agent service did not start succesfully! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    foreach ($PrivKey in $PrivKeys) {
-        ssh-add.exe $PrivKey.FullName
-
-        if ($RemoveHostPrivateKeys) {
-            Remove-Item $PrivKey
+        if (Test-Path "$FinalSSHUtilitySourceDir\install-sshd.ps1") {
+            & "$FinalSSHUtilitySourceDir\install-sshd.ps1"
         }
-    }
+        else {
+            Write-Warning "The SSHD Service still needs to be configured!"
+        }
 
-    Pop-Location
+        # Make sure port 22 is open
+        if (!$(Test-Port -Port 22).Open) {
+            # See if there's an existing rule regarding locahost TCP port 22
+            $Existing22RuleCheck = Get-NetFirewallPortFilter -Protocol TCP | Where-Object {$_.LocalPort -eq 22}
+            if ($Existing22RuleCheck -ne $null) {
+                $Existing22Rule =  Get-NetFirewallRule -AssociatedNetFirewallPortFilter $Existing22RuleCheck | Where-Object {$_.Direction -eq "Inbound"}
+                if ($Existing22Rule -ne $null) {
+                    Set-NetFirewallRule -InputObject $Existing22Rule -Enabled True -Action Allow
+                }
+                else {
+                    $ExistingRuleFound = $False
+                }
+            }
+            if ($Existing22RuleCheck -eq $null -or $ExistingRuleFound -eq $False) {
+                New-NetFirewallRule -Action Allow -Direction Inbound -Name ssh -DisplayName ssh -Enabled True -LocalPort 22 -Protocol TCP
+            }
+        }
 
-    Set-Service sshd -StartupType Automatic
-    Set-Service ssh-agent -StartupType Automatic
+        # Setup Host Keys
+        Push-Location $FinalSSHUtilitySourceDir
 
-    # IMPORTANT: It is important that File Permissions are "Fixed" at the end, otherwise previous steps break
-    & "$FinalSSHUtilitySourceDir\FixHostFilePermissions.ps1" -Confirm:$false
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $ProcessInfo.FileName = "ssh-keygen.exe"
+        $ProcessInfo.RedirectStandardError = $true
+        $ProcessInfo.RedirectStandardOutput = $true
+        $ProcessInfo.UseShellExecute = $false
+        $ProcessInfo.WorkingDirectory = $pwd.Path
+        $ProcessInfo.Arguments = "-A"
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $ProcessInfo
+        $Process.Start() | Out-Null
+        $Process.WaitForExit()
+        $stdout = $Process.StandardOutput.ReadToEnd()
+        $stderr = $Process.StandardError.ReadToEnd()
+        $AllOutput = $stdout + $stderr
+        
+        $PubPrivKeyPairFiles = Get-ChildItem -Path "$FinalSSHUtilitySourceDir" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -like "*ssh_host*"}
+        $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
+        $PrivKeys = $PubPrivKeyPairFiles | foreach {if ($PubKeys -notcontains $_) {$_}}
+        
+        Start-Service ssh-agent
 
-    Start-Service sshd
+        Start-Sleep -Seconds 5
 
-    Start-Sleep -Seconds 5
+        if ($(Get-Service "ssh-agent").Status -ne "Running") {
+            Write-Verbose "The ssh-agent service did not start succesfully! Halting!"
+            Write-Error "The ssh-agent service did not start succesfully! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        
+        foreach ($PrivKey in $PrivKeys) {
+            ssh-add.exe $PrivKey.FullName
 
-    if ($(Get-Service sshd).Status -ne "Running") {
-        Write-Verbose "The sshd service did not start succesfully! Please check your sshd_config configuration. Halting!"
-        Write-Error "The sshd service did not start succesfully! Please check your sshd_config configuration. Halting!"
-        $global:FunctionResult = "1"
-        return
+            if ($RemoveHostPrivateKeys) {
+                Remove-Item $PrivKey
+            }
+        }
+
+        Pop-Location
+
+        Set-Service ssh-agent -StartupType Automatic
+
+        Set-Service sshd -StartupType Automatic
+
+        # IMPORTANT: It is important that File Permissions are "Fixed" at the end, otherwise previous steps break
+        & "$FinalSSHUtilitySourceDir\FixHostFilePermissions.ps1" -Confirm:$false
+
+        Start-Service sshd
+
+        Start-Sleep -Seconds 5
+
+        if ($(Get-Service sshd).Status -ne "Running") {
+            Write-Verbose "The sshd service did not start succesfully! Please check your sshd_config configuration. Halting!"
+            Write-Error "The sshd service did not start succesfully! Please check your sshd_config configuration. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
 
     if ($NewSSHKeyName) {
