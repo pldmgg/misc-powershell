@@ -784,7 +784,7 @@ $GUIPSInstance.AddScript({
                         if ($DirectoryXLSXContents) {
                             foreach ($SubItem in $DirectoryXLSXContents) {
                                 New-Variable -Name "$($($SubItem.Name).Split("\.")[0])" -Value $(
-                                    New-Object PSObject -Property @{
+                                    [pscustomobject][ordered]@{
                                         FullPath          = $SubItem.FullName
                                         FileName          = $SubItem.Name
                                         FileSizeInBytes   = $SubItem.Length
@@ -803,7 +803,7 @@ $GUIPSInstance.AddScript({
                         if ($(Get-ChildItem $UpdatedItemPath).Extension -eq ".xlsx") {
                             $GCIObject = Get-ChildItem $UpdatedItemPath
                             New-Variable -Name "$($($GCIObject.Name).Split("\.")[0])" -Value $(
-                                New-Object PSObject -Property @{
+                                [pscustomobject][ordered]@{
                                     FullPath          = $GCIObject.FullName
                                     FileName          = $GCIObject.Name
                                     FileSizeInBytes   = $GCIObject.Length
@@ -1077,7 +1077,7 @@ $GUIPSInstance.AddScript({
                         }
 
                         New-Variable -Name "CallsFor$MonthName" -Value $(
-                            New-Object PSObject -Property @{
+                            [pscustomobject][ordered]@{
                                 Month       = $MonthName
                                 DataSet     = $DataSet
                             }
@@ -1178,7 +1178,7 @@ $GUIPSInstance.AddScript({
                         $GroupedByFromPhoneNumber = $GroupedByFromPhoneNumberPrep2 | Select-Object UpdatedName,Count
 
                         New-Variable -Name "UpdatedCallsFor$MonthName" -Value $(
-                            New-Object PSObject -Property @{
+                            [pscustomobject][ordered]@{
                                 Month                       = $MonthName
                                 UpdatedDataSet              = $UpdatedXLSXObjectSet
                                 GroupedByCallType           = $GroupedByCallType
@@ -1368,7 +1368,7 @@ $GUIPSInstance.AddScript({
 
             try {
                 New-Variable -Name "GetCallMetricsParamsPSObject" -Value $(
-                    New-Object PSObject -Property @{
+                    [pscustomobject][ordered]@{
                         ExcelSpreadSheetPaths   = $tmpFilePaths
                         ReportDirectory         = $objTextBoxReportDirRS
                         ReportType              = $comboBoxReportTypeRS

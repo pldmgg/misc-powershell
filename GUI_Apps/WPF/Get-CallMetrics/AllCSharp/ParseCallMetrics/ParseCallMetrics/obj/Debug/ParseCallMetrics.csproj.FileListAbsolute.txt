@@ -1,0 +1,14 @@
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics.csprojResolveAssemblyReference.cache
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\MainWindow.g.cs
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\App.g.cs
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics_MarkupCompile.cache
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics_MarkupCompile.lref
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\bin\Debug\ParseCallMetrics.exe.config
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\bin\Debug\ParseCallMetrics.exe
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\bin\Debug\ParseCallMetrics.pdb
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\MainWindow.baml
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics.g.resources
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics.Properties.Resources.resources
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics.csproj.GenerateResource.Cache
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics.exe
+C:\Scripts\powershell\WPF\ParseCallMetrics\ParseCallMetrics\obj\Debug\ParseCallMetrics.pdb

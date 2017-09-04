@@ -1,0 +1,72 @@
+﻿<Window x:Name="xamlForm" x:Class="ParseCallMetrics.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ParseCallMetrics"
+        mc:Ignorable="d"
+        Title="Parse Call Metrics" Height="725" Width="1000" MinWidth="950" MinHeight="725" Background="#FFADEDF4" FontFamily="Microsoft Sans Serif" FontSize="14" WindowStyle="ThreeDBorderWindow" WindowStartupLocation="CenterScreen">
+    <Grid x:Name="xamlGrid">
+        <TextBox x:Name="xamlReportDirectoryTextBox" HorizontalAlignment="Left" Height="23" Margin="15,40,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="373" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlHourTextBox" HorizontalAlignment="Left" Height="23" Margin="540,90,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlCalendarDayTextBox" HorizontalAlignment="Left" Height="23" Margin="15,90,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlTimeSpanEndHourTextBox" HorizontalAlignment="Left" Height="23" Margin="540,140,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlTimeSpanStartHourTextBox" HorizontalAlignment="Left" Height="23" Margin="15,140,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlFromWildCardTextBox" HorizontalAlignment="Left" Height="23" Margin="540,240,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlToWildCardTextBox" HorizontalAlignment="Left" Height="23" Margin="15,240,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlFromNameTextBox" HorizontalAlignment="Left" Height="23" Margin="540,290,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlToNameTextBox" HorizontalAlignment="Left" Height="23" Margin="15,290,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlFromPhoneNumberTextBox" HorizontalAlignment="Left" Height="23" Margin="540,340,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlToPhoneNumberTextBox" HorizontalAlignment="Left" Height="23" Margin="15,340,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlFromExtTextBox" HorizontalAlignment="Left" Height="23" Margin="540,390,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <TextBox x:Name="xamlToExtTextBox" HorizontalAlignment="Left" Height="23" Margin="15,390,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14"/>
+        <ComboBox x:Name="xamlDayOfWeekComboBox" HorizontalAlignment="Left" Margin="540,191,0,0" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14" IsEditable="True">
+            <ComboBoxItem Cursor="None" Content="Sunday"/>
+            <ComboBoxItem Cursor="None" Content="Monday"/>
+            <ComboBoxItem Cursor="None" Content="Tuesday"/>
+            <ComboBoxItem Cursor="None" Content="Wednesday"/>
+            <ComboBoxItem Cursor="None" Content="Thursday"/>
+            <ComboBoxItem Cursor="None" Content="Friday"/>
+            <ComboBoxItem Cursor="None" Content="Saturday"/>
+        </ComboBox>
+        <ComboBox x:Name="xamlCallTypeComboBox" HorizontalAlignment="Left" Margin="15,191,0,0" VerticalAlignment="Top" Width="150" IsEditable="True">
+            <ComboBoxItem Cursor="None" Content="Incoming" FontSize="14" FontFamily="Microsoft Sans Serif"/>
+            <ComboBoxItem Cursor="None" Content="Outgoing" FontSize="14" FontFamily="Microsoft Sans Serif"/>
+            <ComboBoxItem Cursor="None" Content="Internal" FontSize="14" FontFamily="Microsoft Sans Serif"/>
+        </ComboBox>
+        <ProgressBar x:Name="xamlProgressBar1" HorizontalAlignment="Left" Height="30" Margin="200,442,0,0" VerticalAlignment="Top" Width="600"/>
+        <Label x:Name="xamlPBarLabel" Content="Progress Bar" HorizontalAlignment="Left" Margin="440,418,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlPBarStatusLabel" Content="Status:" HorizontalAlignment="Left" Margin="358,477,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlCalendarDayLabel" Content="(OPTIONAL) Filter By Calendar Day (1-31)" HorizontalAlignment="Left" Margin="10,65,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlReportDirectoryLabel" Content="(MANDATORY) Please Enter the Directory Path Where Reports Will Be Saved:" HorizontalAlignment="Left" Margin="10,15,0,0" VerticalAlignment="Top" FontWeight="Bold"/>
+        <Label x:Name="xamlReportTypeLabel" Content="(MANDATORY) Please Select/Enter the Type of Report" HorizontalAlignment="Left" Margin="535,15,0,0" VerticalAlignment="Top" FontWeight="Bold"/>
+        <Label x:Name="xamlHourLabel" Content="(OPTIONAL) Filter By Time of Day (Hour 1-24)" HorizontalAlignment="Left" Margin="535,65,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlTimeSpanStartHourLabel" Content="(OPTIONAL) Filter By Starting Hour (Hour 1-24)" HorizontalAlignment="Left" Margin="10,115,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlTimeSpanEndHourLabel" Content="(OPTIONAL) Filter by Ending Hour (Hour 1-24)" HorizontalAlignment="Left" Margin="535,115,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlCallTypeLabel" Content="(OPTIONAL) Filter By Call Type" HorizontalAlignment="Left" Margin="10,165,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlDayOfWeekLabel" Content="(OPTIONAL) Filter By Day Of the Week (Sunday-Saturday)" HorizontalAlignment="Left" Margin="535,165,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlToWildCardLabel" Content="(OPTIONAL) **Filter By Any Text That Could Be in the &quot;To&quot; Field" HorizontalAlignment="Left" Margin="10,215,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlFromWildCardLabel" Content="(OPTIONAL) **Filter By Any Text That Could Be in the &quot;From&quot; Field" HorizontalAlignment="Left" Margin="535,215,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlToNameLabel" Content="(OPTIONAL) **Filter By the Name of the Party That Was Called" HorizontalAlignment="Left" Margin="10,265,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlFromNameLabel" Content="(OPTIONAL) **Filter By the Name of the Party That Made the Call" HorizontalAlignment="Left" Margin="534,265,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlToPhoneNumberLabel" Content="(OPTIONAL) Filter By Phone # of the Party That Was Called" HorizontalAlignment="Left" Margin="10,315,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlFromPhoneNumberLabel" Content="(OPTIONAL) Filter By Phone # of the Party That Made the Call" HorizontalAlignment="Left" Margin="535,315,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlToExtLabel" Content="(OPTIONAL) Filter By Phone Ext # of the Party That Was Called" HorizontalAlignment="Left" Margin="10,365,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="xamlFromExtLabel" Content="(OPTIONAL) Filter By Phone Ext # of the Party That Made the Call" HorizontalAlignment="Left" Margin="534,365,0,0" VerticalAlignment="Top"/>
+        <Button x:Name="xamlBrowseButton" Content="Browse" HorizontalAlignment="Left" Margin="393,41,0,0" VerticalAlignment="Top" Width="75" Click="xamlBrowseButton_Click"/>
+        <ListBox x:Name="xamlExcelSpreadSheetPathsListBox" HorizontalAlignment="Left" Height="80" Margin="10,545,0,0" VerticalAlignment="Top" Width="960" AllowDrop="True"/>
+        <Label x:Name="xamlExcelSpreadSheetPathsListboxLabel" Content="(MANDATORY) Please Drag One Or More Excel Spreadsheet Files Here:" HorizontalAlignment="Left" Margin="10,515,0,0" VerticalAlignment="Top" FontWeight="Bold"/>
+        <Button x:Name="xamlOKButton" Content="OK" HorizontalAlignment="Left" Margin="775,645,0,0" VerticalAlignment="Top" Width="75" Height="25" Click="xamlOKButton_Click"/>
+        <ComboBox x:Name="xamlReportTypeComboBox" HorizontalAlignment="Left" Margin="540,40,0,0" VerticalAlignment="Top" Width="150" FontFamily="Microsoft Sans Serif" FontSize="14" IsEditable="True">
+            <ComboBoxItem Cursor="None" Content="Call Count"/>
+            <ComboBoxItem Cursor="None" Content="Call Count By Call Type"/>
+            <ComboBoxItem Cursor="None" Content="Call Count By ToPhoneNumber"/>
+            <ComboBoxItem Cursor="None" Content="Call Count By FromPhoneNumber"/>
+        </ComboBox>
+        <Button x:Name="xamlCancelButton" Content="Cancel" HorizontalAlignment="Left" Margin="855,645,0,0" VerticalAlignment="Top" Width="75" Height="25" Click="xamlCancelButton_Click"/>
+        <CheckBox x:Name="xamlFixSpreadSheetCheckBox" Content="Fix SpreadSheet Data and Export New SpreadSheet To Report Directory&#x0a;WARNING: This adds a few minutes to total processing time depending on SpreadSheet Size!" HorizontalAlignment="Left" Margin="10,638,0,0" VerticalAlignment="Top" Width="600" Height="30"/>
+        <Label Content="** Indicates Wildcard Field" HorizontalAlignment="Left" Margin="10,418,0,0" VerticalAlignment="Top" FontWeight="Bold"/>
+        <Label x:Name="xamlListBoxControls" Content="NOTE: To *remove* an item from the listbox below, double-click it." HorizontalAlignment="Left" Margin="547,521,0,0" VerticalAlignment="Top" FontSize="12" FontWeight="Bold"/>
+
+    </Grid>
+</Window>

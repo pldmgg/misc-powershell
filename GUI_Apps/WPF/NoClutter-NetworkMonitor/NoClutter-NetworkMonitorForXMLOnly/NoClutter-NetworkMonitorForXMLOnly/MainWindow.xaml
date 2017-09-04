@@ -1,0 +1,47 @@
+﻿<Window x:Name="XamlMainWindow" x:Class="NoClutter_NetworkMonitorForXMLOnly.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:NoClutter_NetworkMonitorForXMLOnly"
+        mc:Ignorable="d"
+        Title="NoClutter-NetworkMonitor" Height="525" Width="525" WindowStartupLocation="CenterScreen" SizeToContent="Height" MinHeight="600" MinWidth="625" MaxHeight="800">
+    <Grid x:Name="XAMLGrid">
+        <Label x:Name="SubnetsLabel" Content="Enter one or more IPs, and/or one or more Subnets separated by semicolons" HorizontalAlignment="Left" Margin="10,5,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="SubnetsLabelExample" Content="Example #1: 192.168.2.55; 10.0.2.3; 172.16.2.5" HorizontalAlignment="Left" Margin="10,26,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="SubnetsLabelExample2" Content="Example #2: 192.68.2.0/24; 10.0.1.0/30" HorizontalAlignment="Left" Margin="274,26,0,0" VerticalAlignment="Top"/>
+        <TextBox x:Name="SubnetsTextBox" Margin="10,55,10,0" VerticalAlignment="Top"/>
+        <Label x:Name="SubnetsLabelValidation" Content="ERROR: One or more subnets listed above are not in the correct format!" HorizontalAlignment="Left" Margin="10,73,0,0" VerticalAlignment="Top" FontSize="10" FontWeight="Bold" Visibility="Hidden"/>
+        <CheckBox x:Name="FilterUnresolvableCheckBox" Content="Filter Out Unresolved FQDN" HorizontalAlignment="Right" Margin="0,79,27,0" VerticalAlignment="Top" HorizontalContentAlignment="Right" IsChecked="False"/>
+        <Label x:Name="InfoLabel" Content="Info:" HorizontalAlignment="Left" Margin="10,99,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="InfoScanStatusLabel" Content="Currently Running Continuous Scan (45 second intervals)..." HorizontalAlignment="Left" Margin="135,101,0,0" VerticalAlignment="Top" FontSize="12" FontWeight="Bold" Visibility="Hidden"/>
+        <Label x:Name="InfoPleaseWaitLabel" Content="Populating..." HorizontalAlignment="Left" Margin="481,99,0,0" VerticalAlignment="Top" FontSize="12" FontWeight="Bold" Visibility="Hidden"/>
+        <DataGrid x:Name="InfoDataGrid" Margin="11,127,10,0" VerticalAlignment="Top" AlternationCount="1" HorizontalContentAlignment="Center" Padding="10,0" MinHeight="215" MaxHeight="300">
+            <DataGrid.Columns>
+                <DataGridTextColumn x:Name="StatusDataGridTextColumn" Header="Status" Binding="{Binding Status}" Width="*">
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="{x:Type DataGridCell}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Status, UpdateSourceTrigger=PropertyChanged, IsAsync=True}" Value="Red">
+                                    <Setter Property="Background" Value="Red"></Setter>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status, UpdateSourceTrigger=PropertyChanged, IsAsync=True}" Value="Green">
+                                    <Setter Property="Background" Value="Green"></Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn x:Name="HostNameDataGridTextColumn" Header="HostName / IP" Binding="{Binding HostName}" Width="*"></DataGridTextColumn>
+                <DataGridTextColumn x:Name="FQDNDataGridTextColumn" Header="FQDN" Binding="{Binding FQDN}" Width="*"></DataGridTextColumn>
+                <DataGridTextColumn x:Name="LastCheckedDataGridTextColumn" Header="Last Checked" Binding="{Binding LastChecked}" Width="*"></DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <Button x:Name="ScanButton" Content="Single Scan" Margin="0,0,390,74.95" VerticalAlignment="Bottom" Padding="1" UseLayoutRounding="False" MinWidth="31" MinHeight="20" Width="150"/>
+        <Button x:Name="ContinuousScanButton" Content="Continuous Scan" Margin="218,0,224,75" VerticalAlignment="Bottom" Padding="1" UseLayoutRounding="False" MinWidth="31" MinHeight="20" Width="150"/>
+        <Button x:Name="ExportToCSVButton" Content="Export To CSV" Margin="218,0,224,36.95" VerticalAlignment="Bottom" Padding="1" UseLayoutRounding="False" MinWidth="31" MinHeight="20" Width="150"/>
+        <Button x:Name="StopButton" Content="Stop" Margin="415,0,27,74.95" VerticalAlignment="Bottom" Padding="1" UseLayoutRounding="False" MinWidth="31" MinHeight="20" Width="150"/>
+        <Label x:Name="StopButtonMsg" Content="Finishing items currently in pipeline..." HorizontalAlignment="Right" Margin="0,0,27,52" VerticalAlignment="Bottom" FontSize="10" Visibility="Hidden"/>
+        <Label x:Name="ContinuousScanError" Content="Continuous Scan can only be used with less than 21 targets!" HorizontalAlignment="Right" Margin="0,0,164,95" VerticalAlignment="Bottom" FontSize="10" Visibility="Hidden" FontWeight="Bold"/>
+    </Grid>
+</Window>
