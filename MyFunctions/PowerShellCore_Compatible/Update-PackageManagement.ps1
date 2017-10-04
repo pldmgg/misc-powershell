@@ -313,7 +313,7 @@ exit"
     }
     # TODO: Figure out how to identify default proxy on PowerShell Core...
 
-    if (!$(Check-Elevation) -and !$Credentials) {
+    if (!$(Check-Elevation) -and !$Credentials -and $PSVersionTable.PSEdition -ne "Core") {
         $UserName = $($([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\"))[1]
         $Psswd = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
         $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Psswd
@@ -332,8 +332,8 @@ exit"
 
     # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
     if (!$(Check-Elevation)) {
-        if ($PSVersionTable.Platform -eq "Unix") {
-            Write-Error "The Update-PackageManagement function must be run with elevated privileged. Please run PowerShell using 'sudo' and try the function again. Halting!"
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            Write-Error "The Update-PackageManagement function must be run with elevated privileges. Please run PowerShell using 'sudo' and try the function again. Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -429,7 +429,14 @@ exit"
                 }
                 else {
                     if ($ElevatedPSSession) {
-                        Invoke-Command -Session $ElevatedPSSession -Scriptblock {New-Item -Path C:\Chocolatey\bin\NuGet.exe -ItemType SymbolicLink -Value $using:RealNuGetPath}
+                        if ($PSVersionTable.PSEdition -ne "Core") {
+                            Invoke-Command -Session $ElevatedPSSession -Scriptblock {New-Item -Path C:\Chocolatey\bin\NuGet.exe -ItemType SymbolicLink -Value $using:RealNuGetPath}
+                        }
+                        else {
+                            Write-Error "Please run PowerShell Core with elevated privileges and try the Update-PackageManagement function again. Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
                     }
                 }
             }
@@ -459,7 +466,14 @@ exit"
             }
             else {
                 if ($ElevatedPSSession) {
-                    Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PackageManagement" -RequiredVersion $using:PackageManagementLatestVersion -Force}
+                    if ($PSVersionTable.Edition -ne "Core") {
+                        Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PackageManagement" -RequiredVersion $using:PackageManagementLatestVersion -Force}
+                    }
+                    else {
+                        Write-Error "Please run PowerShell Core with elevated privileges and try the Update-PackageManagement function again. Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
                 }
             }
             
@@ -476,19 +490,23 @@ exit"
         }
         else {
             if ($ElevatedPSSession) {
-                Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PowerShellGet" -RequiredVersion $using:PowerShellGetLatestVersion -Force}
+                if ($PSVersionTable.PSEdition -ne "Core") {
+                    Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PowerShellGet" -RequiredVersion $using:PowerShellGetLatestVersion -Force}
+                }
+                else {
+                    Write-Error "Please run PowerShell Core with elevated privileges and try the Update-PackageManagement function again. Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
             }
         }
     }
 
     # Reset the LatestLocallyAvailableVersion variables to reflect latest available, and then load them into the current session
-    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
-
-    $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
-    $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
+    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+    Write-Host "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
+    Write-Host "Latest locally available PowerShellGet version is $PowerShellGetLatestLocallyAvailableVersion"
 
     if ($CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestLocallyAvailableVersion) {
         # Need to remove PowerShellGet first since it depends on PackageManagement
@@ -520,8 +538,6 @@ exit"
     # Reset CurrentlyLoaded Variables
     $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
     $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
     
     if ($CurrentlyLoadedPowerShellGetVersion -lt $PowerShellGetLatestLocallyAvailableVersion) {
         Write-Host "Removing Module PowerShellGet $CurrentlyLoadedPowerShellGetVersion ..."
@@ -558,9 +574,18 @@ exit"
         }
     }
 
+    # Reset CurrentlyLoaded Variables
+    $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
+    $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
+    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+
     $ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
     $CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
-    if ($CheckForError -eq "Assembly with same name is already loaded") {
+    if ($CheckForError -eq "Assembly with same name is already loaded" -or 
+        $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
+        $(Get-Module PackageManagement).ExportedCommands -eq $null
+    ) {
         Write-Warning $(
             "The latest version of the PackageManagement Module does not check for certain assemblies that could already be loaded" +
             " (which is almost certainly the case if you are using PowerShell Core). Please close this PowerShell Session," +
@@ -583,11 +608,18 @@ exit"
 
 
 
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpPgrCTXFidzQDI9t9zNRCT9K
-# EIigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+kY8+46xrr1CW7ZeRtl8Rh73
+# ag+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -644,11 +676,11 @@ exit"
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFL53ejB73k0igu9s
-# +J4mi+NBq9OwMA0GCSqGSIb3DQEBAQUABIIBAH0ZaA11y9z/Zv1elZ6fhmCrJVZB
-# 8QlQJycpeo8PHDvsY/hmJ0XoY0rwZjqrAVLxMEw26jkMx2kpR4gnvaaoVBE+89mW
-# zjgt1mPU9MbwUejFtZAxv5BzCJ72UVHN+dRf3E1seNjj+nKAsxVDk2qFF+ptu0ao
-# URhbfU8AfPyBnCv7JYekf1W5UC2/PCRMDqdI5NOiwZkKxAG+oIvjfZ0xs4dk3gYs
-# ezPnHRcfXU7+9FAk2g7ClGnURy+nC6Ocv2ZO16/5ThPXfhmPx6QmhUmgpqdqQfxM
-# FMvJ81P9KUNNjoXrNqaQhRNHZ7JhWu9QImubNbpOjysC/TL5WanvMfeSp2k=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAUH4TyNtf32Xc2G
+# BohcZe/eeEwgMA0GCSqGSIb3DQEBAQUABIIBAIwbHJvlBzE+0BN2zi3XO9s4Xmts
+# qwSlDdeX7myPttFXpkHUmPFgRSq+KAML13Ze1xTd72VKaWrOcPZBcG9Ou5QtU+lQ
+# 1osq+N7jOJzrWCVGZQQoMyYCrB1hog459rNE00oZaQSJ848joKZ5NVfooqTeNqeI
+# ptlEl5RMSCZL/U5XjUuzZBk1gMo673w6OOPJoKcVdhmktsgFy8chWp1mPb0s3Jky
+# hMf0mizrug/eNQS3qbGPq3aYnoz5u/i3lICZkB/NEd5sRpC/EDkokTc/NBZdQ6K9
+# 41vsyBkPhqggP45C+0YVgDj/YWhh82ToJckHVXt2RRbKKDXxEw+tiV222nc=
 # SIG # End signature block
