@@ -87,6 +87,31 @@ function Update-PackageManagement {
         }
     }
 
+    function Get-NativePath {
+        [CmdletBinding()]
+        Param( 
+            [Parameter(Mandatory=$True)]
+            [string[]]$PathAsStringArray
+        )
+    
+        $PathAsStringArray = foreach ($pathPart in $PathAsStringArray) {
+            $SplitAttempt = $pathPart -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)
+            
+            if ($SplitAttempt.Count -gt 1) {
+                foreach ($obj in $SplitAttempt) {
+                    $obj
+                }
+            }
+            else {
+                $pathPart
+            }
+        }
+        $PathAsStringArray = $PathAsStringArray -join [IO.Path]::DirectorySeparatorChar
+    
+        $PathAsStringArray
+    
+    }
+
     ##### END Helper Functions #####
 
 
@@ -122,7 +147,7 @@ function Update-PackageManagement {
     if ($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSEdition -eq "Desktop") {
         if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
             Write-Host "Downlaoding PackageManagement .msi installer..."
-            $OutFilePath = "$HOME\Downloads\PackageManagement_x64.msi"
+            $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "PackageManagement_x64.msi")
             Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile $OutFilePath
             
             $DateStamp = Get-Date -Format yyyyMMddTHHmmss
@@ -349,12 +374,11 @@ function Update-PackageManagement {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU2ZRT0aTgHMUoJtSeMPkxqTO
-# W4Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv98+gCmDutSarJURxvg0lvdS
+# FwSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -411,11 +435,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFG5SrpE4+0QB3DDQ
-# m7vifUG/hlTeMA0GCSqGSIb3DQEBAQUABIIBALiiwJ6IYAbzT8V1mcp9G/+iXSsn
-# 7sNnq4jvn4nYh0+MPbVMDbY5sBMa6Uic1Q9OZwNlIZ6d42AEZj0HvMNpM4G2N4d+
-# rZK8NtMOCXM/qIFFH50Ev+26HPWYsI7+uvNfVHDC35pQuO5vt9SapYwo65YerSN5
-# 84P8lhHk2YEah6taI463h2IEqUlKMi1nV4LMPausuRr6zjJzv+lxIoZt7NFNx03p
-# bfY8N5qtWD4MY/JCrVkTNnVqodE5W9MJWK+xP1v+JbnR0t+wX2Mk2SPQfDNgjFaO
-# XdN1TwCDBrPQCiL5f6ZUzwIWgMbAwydYVBPeMAQLuqunZyBRPRAX3/k0p2c=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKSVt/NjYpdwkT3S
+# pGmJ7vTllEMOMA0GCSqGSIb3DQEBAQUABIIBAAXnTHJ25uNE+DFN3+1eKURwCrVT
+# NKZgTlhqr1/Ro/Vmqp8aLBUqhH94WLKvypoA0LdYoHDd30aqbY2V9cpW9CmouU/r
+# JmdyfVKpIolF+t2vs5P6q7fEdfAqvvcabX0O7gDF8VCn0nzgy2IFNLoX9Q2SKWUd
+# Mknvs0SwwIN77X/L784Avo5asgKmigZa4DB1KT0Q3uYVKrPZ2eQa17Vct8X8Zntm
+# oi1orVatbNcWTVxLWcp/yRqGsTWjcElg7PTyHMF7Mehq7hOsRvyn89Lnhu/oOFRz
+# 9303mTdm/Z1imLi8W7keKxGnvWSRhc2rBR3oSpfy/Tf6XL8L5N2/MQ/nsTU=
 # SIG # End signature block
