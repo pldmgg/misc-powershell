@@ -48,7 +48,7 @@
     you want to use when you import the module(s) using Import-Module -RequiredVersion
 
 .EXAMPLE
-    Update-PackageManagement
+    Update-PackageManagement -UseChocolatey
 
 #>
 
@@ -56,10 +56,11 @@ function Update-PackageManagement {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
-        $Credentials
+        [switch]$UseChocolatey
     )
 
     ##### BEGIN Helper Functions #####
+
     function Check-Elevation {
         if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
             [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
@@ -86,221 +87,23 @@ function Update-PackageManagement {
         }
     }
 
-    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
-        function New-SudoSession {
-            [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
-            Param(
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
-
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                $Password,
-
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply Credentials'
-                )]
-                [System.Management.Automation.PSCredential]$Credentials
-
-            )
-
-            ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-            if ($UserName -and !$Password -and !$Credentials) {
-                $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-            }
-
-            if ($UserName -and $Password) {
-                if ($Password.GetType().FullName -eq "System.String") {
-                    $Password = ConvertTo-SecureString $Password -AsPlainText -Force
-                }
-                $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
-            }
-
-            $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
-            $LocalHostFQDN = "$env:ComputerName.$Domain"
-
-            ##### END Variable/Parameter Transforms and PreRunPrep #####
-
-            ##### BEGIN Main Body #####
-
-            $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
-            $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
-            $AllowFreshValue = "WSMAN/$LocalHostFQDN"
-            $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
-            $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
-            $tmpFileXml = $UpdatedtmpFileXmlName
-            $TranscriptPath = "$HOME\Open-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
-
-            $WSManGPOTempConfig = @"
--noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
-try {`$CurrentAllowFreshCredsProperties = Get-ChildItem -Path $CredDelRegLocation | ? {`$_.PSChildName -eq 'AllowFreshCredentials'}} catch {}
-try {`$CurrentAllowFreshCredsValues = foreach (`$propNum in `$CurrentAllowFreshCredsProperties) {`$(Get-ItemProperty -Path '$CredDelRegLocation\AllowFreshCredentials').`$propNum}} catch {}
-
-if (!`$(Test-WSMan)) {`$WinRMConfigured = 'false'; winrm quickconfig /force; Start-Sleep -Seconds 5} else {`$WinRMConfigured = 'true'}
-try {`$CredSSPServiceSetting = `$(Get-ChildItem WSMan:\localhost\Service\Auth\CredSSP).Value} catch {}
-try {`$CredSSPClientSetting = `$(Get-ChildItem WSMan:\localhost\Client\Auth\CredSSP).Value} catch {}
-if (`$CredSSPServiceSetting -eq 'false') {Enable-WSManCredSSP -Role Server -Force}
-if (`$CredSSPClientSetting -eq 'false') {Enable-WSManCredSSP -DelegateComputer localhost -Role Client -Force}
-
-if (!`$(Test-Path $CredDelRegLocation)) {`$Status = 'CredDelKey DNE'}
-if (`$(Test-Path $CredDelRegLocation) -and !`$(Test-Path $CredDelRegLocation\AllowFreshCredentials)) {`$Status = 'AllowFreshCreds DNE'}
-if (`$(Test-Path $CredDelRegLocation) -and `$(Test-Path $CredDelRegLocation\AllowFreshCredentials)) {`$Status = 'AllowFreshCreds AlreadyExists'}
-
-if (!`$(Test-Path $CredDelRegLocation)) {New-Item -Path $CredDelRegLocation}
-if (`$(Test-Path $CredDelRegLocation) -and !`$(Test-Path $CredDelRegLocation\AllowFreshCredentials)) {New-Item -Path $CredDelRegLocation\AllowFreshCredentials}
-
-if (`$CurrentAllowFreshCredsValues -notcontains '$AllowFreshValue') {Set-ItemProperty -Path $CredDelRegLocation -Name ConcatenateDefaults_AllowFresh -Value `$(`$CurrentAllowFreshCredsProperties.Count+1) -Type DWord; Start-Sleep -Seconds 2; Set-ItemProperty -Path $CredDelRegLocation\AllowFreshCredentials -Name `$(`$CurrentAllowFreshCredsProperties.Count+1) -Value '$AllowFreshValue' -Type String}
-New-Variable -Name 'OrigAllowFreshCredsState' -Value `$([pscustomobject][ordered]@{OrigAllowFreshCredsProperties = `$CurrentAllowFreshCredsProperties; OrigAllowFreshCredsValues = `$CurrentAllowFreshCredsValues; Status = `$Status; OrigWSMANConfigStatus = `$WinRMConfigured; OrigWSMANServiceCredSSPSetting = `$CredSSPServiceSetting; OrigWSMANClientCredSSPSetting = `$CredSSPClientSetting; PropertyToRemove = `$(`$CurrentAllowFreshCredsProperties.Count+1)})
-`$(Get-Variable -Name 'OrigAllowFreshCredsState' -ValueOnly) | Export-CliXml -Path $tmpFileXml
-exit"
-"@
-            $WSManGPOTempConfigFinal = $WSManGPOTempConfig -replace "`n","; "
-
-            # IMPORTANT NOTE: You CANNOT use the RunAs Verb if UseShellExecute is $false, and you CANNOT use
-            # RedirectStandardError or RedirectStandardOutput if UseShellExecute is $true, so we have to write
-            # output to a file temporarily
-            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-            $ProcessInfo.FileName = "powershell.exe"
-            $ProcessInfo.RedirectStandardError = $false
-            $ProcessInfo.RedirectStandardOutput = $false
-            $ProcessInfo.UseShellExecute = $true
-            $ProcessInfo.Arguments = $WSManGPOTempConfigFinal
-            $ProcessInfo.Verb = "RunAs"
-            $Process = New-Object System.Diagnostics.Process
-            $Process.StartInfo = $ProcessInfo
-            $Process.Start() | Out-Null
-            $Process.WaitForExit()
-            $WSManAndRegStatus = Import-CliXML $tmpFileXml
-
-            $ElevatedPSSession = New-PSSession -Name "ElevatedSessionFor$UserName" -Authentication CredSSP -Credential $Credentials
-
-            New-Variable -Name "NewSessionAndOriginalStatus" -Scope Global -Value $(
-                [pscustomobject][ordered]@{
-                    ElevatedPSSession   = $ElevatedPSSession
-                    OriginalWSManAndRegistryStatus   = $WSManAndRegStatus
-                }
-            ) -Force
-            
-            $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly)
-
-            # Cleanup 
-            Remove-Item $tmpFileXml
-
-            ##### END Main Body #####
-
-        }
-
-        function Remove-SudoSession {
-            [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
-            Param(
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
-
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply UserName and Password'
-                )]
-                $Password,
-
-                [Parameter(
-                    Mandatory=$False,
-                    ParameterSetName='Supply Credentials'
-                )]
-                [System.Management.Automation.PSCredential]$Credentials,
-
-                [Parameter(Mandatory=$True)]
-                $OriginalConfigInfo = $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly).OriginalWSManAndRegistryStatus,
-
-                [Parameter(
-                    Mandatory=$True,
-                    ValueFromPipeline=$true,
-                    Position=0
-                )]
-                [System.Management.Automation.Runspaces.PSSession]$SessionToRemove
-
-            )
-
-            ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-            if ($OriginalConfigInfo -eq $null) {
-                Write-Warning "Unable to determine the original configuration of WinRM/WSMan and AllowFreshCredentials Registry prior to using New-SudoSession. No configuration changes will be made/reverted."
-                Write-Warning "The only action will be removing the Elevated PSSession specified by the -SessionToRemove parameter."
-            }
-
-            if ($UserName -and !$Password -and !$Credentials -and $OriginalConfigInfo -ne $null) {
-                $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-            }
-
-            if ($UserName -and $Password) {
-                if ($Password.GetType().FullName -eq "System.String") {
-                    $Password = ConvertTo-SecureString $Password -AsPlainText -Force
-                }
-                $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
-            }
-
-            $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
-            $LocalHostFQDN = "$env:ComputerName.$Domain"
-
-            ##### END Variable/Parameter Transforms and PreRunPrep #####
-
-            ##### BEGIN Main Body #####
-
-            if ($OriginalConfigInfo -ne $null) {
-                $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
-                $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
-                $AllowFreshValue = "WSMAN/$LocalHostFQDN"
-                $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
-                $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
-                $tmpFileXml = $UpdatedtmpFileXmlName
-                $TranscriptPath = "$HOME\Remove-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
-
-                $WSManGPORevertConfig = @"
--noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
-if ('$($OriginalConfigInfo.Status)' -eq 'CredDelKey DNE') {Remove-Item -Recurse $CredDelRegLocation -Force}
-if ('$($OriginalConfigInfo.Status)' -eq 'AllowFreshCreds DNE') {Remove-Item -Recurse $CredDelRegLocation\AllowFreshCredentials -Force}
-if ('$($OriginalConfigInfo.Status)' -eq 'AllowFreshCreds AlreadyExists') {Remove-ItemProperty $CredDelRegLocation\AllowFreshCredentials\AllowFreshCredentials -Name $($WSManAndRegStatus.PropertyToRemove) -Force}
-if ('$($OriginalConfigInfo.OrigWSMANConfigStatus)' -eq 'false') {Stop-Service -Name WinRm; Set-Service WinRM -StartupType "Manual"}
-if ('$($OriginalConfigInfo.OrigWSMANServiceCredSSPSetting)' -eq 'false') {Set-Item -Path WSMan:\localhost\Service\Auth\CredSSP -Value `$false}
-if ('$($OriginalConfigInfo.OrigWSMANClientCredSSPSetting)' -eq 'false') {Set-Item -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
-exit"
-"@
-                $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
-
-                $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-                $ProcessInfo.FileName = "powershell.exe"
-                $ProcessInfo.RedirectStandardError = $false
-                $ProcessInfo.RedirectStandardOutput = $false
-                $ProcessInfo.UseShellExecute = $true
-                $ProcessInfo.Arguments = $WSManGPORevertConfigFinal
-                $ProcessInfo.Verb = "RunAs"
-                $Process = New-Object System.Diagnostics.Process
-                $Process.StartInfo = $ProcessInfo
-                $Process.Start() | Out-Null
-                $Process.WaitForExit()
-
-            }
-
-            Remove-PSSession $SessionToRemove
-
-            ##### END Main Body #####
-
-        }
-    }
-
     ##### END Helper Functions #####
 
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
+    if (!$(Check-Elevation)) {
+        Write-Error "The Update-PackageManagement function must be run with elevated privileges. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -ne "Win32NT" -and $UseChocolatey) {
+        Write-Error "The Chocolatey Repo should only be added on a Windows OS! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
 
     if ($PSVersionTable.PSEdition -eq "Desktop") {
         # Check to see if we're behind a proxy
@@ -313,57 +116,31 @@ exit"
     }
     # TODO: Figure out how to identify default proxy on PowerShell Core...
 
-    if (!$(Check-Elevation) -and !$Credentials -and $PSVersionTable.PSEdition -ne "Core") {
-        $UserName = $($([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\"))[1]
-        $Psswd = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-        $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Psswd
-    }
-    if ($Credentials) {
-        $UserName = $Credentials.UserName
-        $Psswd = $Credentials.Password
-    }
-    $Domain = $env:USERDNSDOMAIN
-    $DomainPre = $env:USERDOMAIN
-    $UpdatedUserName = "$DomainPre\$UserName"
-    if ($Psswd) {
-        $UpdatedCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UpdatedUserName, $Psswd
-    }
-    $LocalHostFQDN = "$env:ComputerName.$Domain"
-
-    # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
-    if (!$(Check-Elevation)) {
-        if ($PSVersionTable.PSEdition -eq "Core") {
-            Write-Error "The Update-PackageManagement function must be run with elevated privileges. Please run PowerShell using 'sudo' and try the function again. Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        else {
-            if (!$global:ElevatedPSSession) {
-                try {
-                    $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
-                    if (!$ElevatedPSSession) {
-                        throw
-                    }
-                    $CredSSPAlreadyConfigured = $true
-                }
-                catch {
-                    $SudoSession = New-SudoSession -Credentials $Credentials
-                    $global:ElevatedPSSession = $SudoSession.ElevatedPSSession
-                    $NeedToRevertAdminChangesIfAny = $true
-                }
-            }
-        }
-    }
-
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
     if ($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSEdition -eq "Desktop") {
         if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
             Write-Host "Downlaoding PackageManagement .msi installer..."
-            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile "$HOME\Downloads\PackageManagement_x64.msi"
-            msiexec /i "$HOME\Downloads\PackageManagement_x64.msi" /quiet /norestart ACCEPTEULA=1
-            Start-Sleep -Seconds 3
+            $OutFilePath = "$HOME\Downloads\PackageManagement_x64.msi"
+            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile $OutFilePath
+            
+            $DateStamp = Get-Date -Format yyyyMMddTHHmmss
+            $MSIFullPath = $OutFilePath
+            $MSIParentDir = $MSIFullPath | Split-Path -Parent
+            $MSIFileName = $MSIFullPath | Split-Path -Leaf
+            $MSIFileNameOnly = $MSIFileName -replace "\.msi",""
+            $logFile = Get-NativePath -PathAsStringArray @($MSIParentDir, "$MSIFileNameOnly$DateStamp.log")
+            $MSIArguments = @(
+                "/i"
+                $MSIFullPath
+                "/qn"
+                "/norestart"
+                "/L*v"
+                $logFile
+            )
+            # Install PowerShell Core
+            Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
         }
         while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
             Write-Host "Waiting for PackageManagement and PowerShellGet Modules to become available"
@@ -372,6 +149,7 @@ exit"
         Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
     }
 
+    # Set LatestLocallyAvailable variables...
     $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
     $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
 
@@ -388,7 +166,7 @@ exit"
         Install-PackageProvider "NuGet" -Scope CurrentUser -Force
         Register-PackageSource -Name 'nuget.org' -Location 'https://api.nuget.org/v3/index.json' -ProviderName NuGet -Trusted -Force -ForceBootstrap
 
-        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+        if ($($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") -and $UseChocolatey) {
             # Instead, we'll install the NuGet CLI from the Chocolatey repo...
             Install-PackageProvider "Chocolatey" -Scope CurrentUser -Force
             # The above Install-PackageProvider "Chocolatey" -Force DOES register a PackageSource Repository, so we need to trust it:
@@ -424,21 +202,7 @@ exit"
             $RealNuGetPath = $(Resolve-Path "C:\Chocolatey\lib\*\*\NuGet.exe").Path
             $TestRealNuGetPath = Test-Path $RealNuGetPath
             if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
-                if (Check-Elevation) {
-                    New-Item -Path C:\Chocolatey\bin\NuGet.exe -ItemType SymbolicLink -Value $RealNuGetPath
-                }
-                else {
-                    if ($ElevatedPSSession) {
-                        if ($PSVersionTable.PSEdition -ne "Core") {
-                            Invoke-Command -Session $ElevatedPSSession -Scriptblock {New-Item -Path C:\Chocolatey\bin\NuGet.exe -ItemType SymbolicLink -Value $using:RealNuGetPath}
-                        }
-                        else {
-                            Write-Error "Please run PowerShell Core with elevated privileges and try the Update-PackageManagement function again. Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                    }
-                }
+                New-Item -Path "C:\Chocolatey\bin\NuGet.exe" -ItemType SymbolicLink -Value $RealNuGetPath
             }
         }
     }
@@ -459,50 +223,22 @@ exit"
             Write-Host "`nUnable to update the PackageManagement Module beyond $($MinimumVer.ToString()) on PowerShell versions lower than 5."
         }
         if ($PSVersionTable.PSVersion.Major -ge 5) {
+            #Install-Module -Name "PackageManagement" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
             #Install-Module -Name "PackageManagement" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PackageManagementLatestVersion -Force
             Write-Host "Installing latest version of PackageManagement..."
-            if (Check-Elevation) {
-                Install-Module -Name "PackageManagement" -Force
-            }
-            else {
-                if ($ElevatedPSSession) {
-                    if ($PSVersionTable.Edition -ne "Core") {
-                        Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PackageManagement" -RequiredVersion $using:PackageManagementLatestVersion -Force}
-                    }
-                    else {
-                        Write-Error "Please run PowerShell Core with elevated privileges and try the Update-PackageManagement function again. Halting!"
-                        $global:FunctionResult = "1"
-                        return
-                    }
-                }
-            }
-            
+            Install-Module -Name "PackageManagement" -Force
         }
     }
     if ($PowerShellGetLatestVersion -gt $PowerShellGetLatestLocallyAvailableVersion -and $PowerShellGetLatestVersion -gt $MinimumVer) {
         # Unless the force parameter is used, Install-Module will halt with a warning saying the 1.0.0.1 is already installed
         # and it will not update it.
-        #Install-Module -Name "PowerShellGet" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
         Write-Host "Installing latest version of PowerShellGet..."
-        if (Check-Elevation) {
-            #Install-Module -Name "PowerShellGet" -RequiredVersion $PowerShellGetLatestVersion -Force
-            Install-Module -Name "PowerShellGet" -Force
-        }
-        else {
-            if ($ElevatedPSSession) {
-                if ($PSVersionTable.PSEdition -ne "Core") {
-                    Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PowerShellGet" -RequiredVersion $using:PowerShellGetLatestVersion -Force}
-                }
-                else {
-                    Write-Error "Please run PowerShell Core with elevated privileges and try the Update-PackageManagement function again. Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-        }
+        #Install-Module -Name "PowerShellGet" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
+        #Install-Module -Name "PowerShellGet" -RequiredVersion $PowerShellGetLatestVersion -Force
+        Install-Module -Name "PowerShellGet" -Force
     }
 
-    # Reset the LatestLocallyAvailableVersion variables to reflect latest available, and then load them into the current session
+    # Reset the LatestLocallyAvailable variables, and then load them into the current session
     $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
     $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
     Write-Host "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
@@ -519,6 +255,7 @@ exit"
             Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
             
             # Need to Import PackageManagement first since it's a dependency for PowerShellGet
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
             Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion ..."
             Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
             Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
@@ -528,6 +265,7 @@ exit"
             Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
     
             # Need to Import PackageManagement first since it's a dependency for PowerShellGet
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
             Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PackMan' - Example: Get-PackManPackage"
             Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -Prefix PackMan
             Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
@@ -546,22 +284,24 @@ exit"
         if ($(Get-Host).Name -ne "Package Manager Host") {
             Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
             
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
             Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
             Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion     
         }
         if ($(Get-Host).Name -eq "Package Manager Host") {
             Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
     
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
             Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
             Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet
         }
     }
 
     # Make sure all Repos Are Trusted
-    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+    if ($UseChocolatey) {
         $BaselineRepoNames = @("Chocolatey","nuget.org","PSGallery")
     }
-    if ($PSVersionTable.Platform -eq "Unix") {
+    else {
         $BaselineRepoNames = @("nuget.org","PSGallery")
     }
     if ($(Get-Module -Name PackageManagement).ExportedCommands -ne $null) {
@@ -577,8 +317,8 @@ exit"
     # Reset CurrentlyLoaded Variables
     $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
     $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+    Write-Host "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Host "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
 
     $ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
     $CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
@@ -592,12 +332,7 @@ exit"
             " start a new one, and rerun the Update-PackageManagement function in order to move past this race condition."
         )
     }
-
-    if ($NeedToRevertAdminChangesIfAny) {
-        Remove-SudoSession -Credentials $Credentials -OriginalConfigInfo $SudoSession.OriginalWSManAndRegistryStatus -SessionToRemove $SudoSession.ElevatedPSSession
-    }
 }
-
 
 
 
@@ -618,8 +353,8 @@ exit"
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+kY8+46xrr1CW7ZeRtl8Rh73
-# ag+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU2ZRT0aTgHMUoJtSeMPkxqTO
+# W4Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -676,11 +411,11 @@ exit"
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAUH4TyNtf32Xc2G
-# BohcZe/eeEwgMA0GCSqGSIb3DQEBAQUABIIBAIwbHJvlBzE+0BN2zi3XO9s4Xmts
-# qwSlDdeX7myPttFXpkHUmPFgRSq+KAML13Ze1xTd72VKaWrOcPZBcG9Ou5QtU+lQ
-# 1osq+N7jOJzrWCVGZQQoMyYCrB1hog459rNE00oZaQSJ848joKZ5NVfooqTeNqeI
-# ptlEl5RMSCZL/U5XjUuzZBk1gMo673w6OOPJoKcVdhmktsgFy8chWp1mPb0s3Jky
-# hMf0mizrug/eNQS3qbGPq3aYnoz5u/i3lICZkB/NEd5sRpC/EDkokTc/NBZdQ6K9
-# 41vsyBkPhqggP45C+0YVgDj/YWhh82ToJckHVXt2RRbKKDXxEw+tiV222nc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFG5SrpE4+0QB3DDQ
+# m7vifUG/hlTeMA0GCSqGSIb3DQEBAQUABIIBALiiwJ6IYAbzT8V1mcp9G/+iXSsn
+# 7sNnq4jvn4nYh0+MPbVMDbY5sBMa6Uic1Q9OZwNlIZ6d42AEZj0HvMNpM4G2N4d+
+# rZK8NtMOCXM/qIFFH50Ev+26HPWYsI7+uvNfVHDC35pQuO5vt9SapYwo65YerSN5
+# 84P8lhHk2YEah6taI463h2IEqUlKMi1nV4LMPausuRr6zjJzv+lxIoZt7NFNx03p
+# bfY8N5qtWD4MY/JCrVkTNnVqodE5W9MJWK+xP1v+JbnR0t+wX2Mk2SPQfDNgjFaO
+# XdN1TwCDBrPQCiL5f6ZUzwIWgMbAwydYVBPeMAQLuqunZyBRPRAX3/k0p2c=
 # SIG # End signature block
