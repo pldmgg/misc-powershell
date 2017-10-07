@@ -18,12 +18,14 @@ foreach ($netstandardString in $NetStandardStringsArray) {
     $NetStandardStrings.Add($netstandardString)
 }
 
+# To define $Combos, either do this...
 $Combos = [System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]]$NetCoreStrings.CrossWith(
     [System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]]$NetFrameworkStrings.CrossWith(
         [System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]]$NetStandardStrings
         )
     )
 
+# ...or do this
 $Combos = Invoke-Expression "[$TypeNameToUpdate]`$NetCoreStrings.CrossWith([$TypeNameToUpdate]`$NetFrameworkStrings.CrossWith([$TypeNameToUpdate]`$NetStandardStrings))"
 
 # NOTE: $Combos.Count should equal ~714
