@@ -2,50 +2,31 @@
 <#
 **** EXAMPLE 1 ****
 
-PS C:\Users\testadmin> $ht1 = @{a = "one"; b = "two"; c = "three"}
-PS C:\Users\testadmin> $ht2 = @{d = "four"; e = "five"; f = "six"}
-PS C:\Users\testadmin> $ht3 = @{g = "seven"; h = "eight"; i = "nine"}
-PS C:\Users\testadmin> $htarray = $($ht1,$ht2,$ht3)
-PS C:\Users\testadmin> $htarray2 = [MyCore.Utils.ObjectManip]::DeepCopy($htarray)
+$NetCoreStringsArray = @(".Net Core, Version=1.0", ".Net Core, Version=1.1", ".Net Core, Version=2.0", ".Net Core + Platform Extensions, Version=1.0")
+$NetCoreStrings = New-GenericObject System.Collections.Generic.List System.String
+foreach ($netcoreString in $NetCoreStringsArray) {
+    $NetCoreStrings.Add($netcoreString)
+}
+$NetFrameworkStringsArray = @(".Net Framework, Version=1.1", ".Net Framework, Version=2.0", ".Net Framework, Version=3.0", ".Net Framework, Version=3.5", ".Net Framework, Version=4.0", ".Net Framework, Version=4.5", ".Net Framework, Version=4.5.1", ".Net Framework, Version=4.5.2", ".Net Framework, Version=4.6", ".Net Framework, Version=4.6.1", ".Net Framework, Version=4.6.2", ".Net Framework, Version=4.7")
+$NetFrameworkStrings = New-GenericObject System.Collections.Generic.List System.String
+foreach ($netframeworkString in $NetFrameworkStringsArray) {
+    $NetFrameworkStrings.Add($netframeworkString)
+}
+$NetStandardStringsArray = @(".Net Standard, Version=1.0", ".Net Standard, Version=1.1", ".Net Standard, Version=1.2", ".Net Standard, Version=1.3", ".Net Standard, Version=1.4", ".Net Standard, Version=1.5", ".Net Standard, Version=1.6", ".Net Standard, Version=2.0", ".Net Standard + Platform Extensions, Version=1.6", ".Net Standard + Platform Extensions, Version=2.0")
+$NetStandardStrings = New-GenericObject System.Collections.Generic.List System.String
+foreach ($netstandardString in $NetStandardStringsArray) {
+    $NetStandardStrings.Add($netstandardString)
+}
 
-PS C:\Users\testadmin> $htarray.GetHashCode()
-47337841
-PS C:\Users\testadmin> $htarray2.GetHashCode()
-7381545
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($htarray,$htarray2)
-False
+$Combos = [System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]]$NetCoreStrings.CrossWith(
+    [System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]]$NetFrameworkStrings.CrossWith(
+        [System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]]$NetStandardStrings
+        )
+    )
 
-**** EXAMPLE 2 ****
+$Combos = Invoke-Expression "[$TypeNameToUpdate]`$NetCoreStrings.CrossWith([$TypeNameToUpdate]`$NetFrameworkStrings.CrossWith([$TypeNameToUpdate]`$NetStandardStrings))"
 
-PS C:\Users\testadmin> $psobj1 = [pscustomobject][ordered]@{a = "one"; b = "two"; c = "three"}
-PS C:\Users\testadmin> $psobj2 = [pscustomobject][ordered]@{d = "four"; e = "five"; f = "six"}
-PS C:\Users\testadmin> $psobj3 = [pscustomobject][ordered]@{g = "seven"; h = "eight"; i = "nine"}
-PS C:\Users\testadmin> $psobjarray = @($psobj1,$psobj2,$psobj3)
-PS C:\Users\testadmin> $psobjarray2 = [MyCore.Utils.ObjectManip]::DeepCopy($psobjarray)
-
-PS C:\Users\testadmin> $psobjarray.GetHashCode()
-541656
-PS C:\Users\testadmin> $psobjarray2.GetHashCode()
-58439199
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($psobjarray,$psobjarray2)
-False
-
-**** EXAMPLE 3 ****
-
-PS C:\Users\testadmin> $test = "hi"
-# IMPORTANT NOTE: The below is the same as doing: $test2 = [System.String]::new($test)
-PS C:\Users\testadmin> $test2 = [MyCore.Utils.ObjectManip]::DeepCopy([System.String]::new($test))
-# IMPORTANT NOTE: When it comes to plain strings, the HashCodes will be the same, but the References will not be equal
-PS C:\Users\testadmin> $test.GetHashCode()
-334115657
-PS C:\Users\testadmin> $test2.GetHashCode()
-334115657
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($test,$test2)
-False
-PS C:\Users\testadmin> $test3 = $test
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($test,$test3)
-True
-
+# NOTE: $Combos.Count should equal ~714
 
 #>
 
@@ -269,6 +250,7 @@ function Get-Assemblies {
     ##### END Main Body #####
 }
 
+
 function Get-AssemblyUsingStatement {
     [CmdletBinding()]
     Param(
@@ -352,12 +334,100 @@ function Get-AssemblyUsingStatement {
     ##### END Main Body #####
 }
 
+
+function New-GenericObject {
+    <#
+    .SYNOPSIS
+        Creates an object of a generic type. Originally from:
+
+        https://web.archive.org/web/20090926122811/http://www.leeholmes.com/blog/CreatingGenericTypesInPowerShell.aspx
+
+    .DESCRIPTION
+        Using Generics in PowerShell can get really ugly. For example, the following in CSharp...
+
+            var listofstrings = new List<string>();
+
+        ...must be written as follows in PowerShell...
+
+            $listofstrings = New-Object -TypeName 'System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]'
+
+        This function makes it so that you can do something like this...
+
+            $listofstrings = New-GenericObject System.Collections.Generic.List System.String
+
+    .PARAMETER typeName
+        MANDATORY
+
+        The generic object typeName.
+
+    .PARAMETER typeParameters
+        MANDATORY
+
+        Type parameters.
+
+    .PARAMETER constructorParameters
+        OPTIONAL
+
+        Constructor parameters.
+
+    .EXAMPLE
+        # Simple generic collection 
+        $list = New-GenericObject System.Collections.ObjectModel.Collection System.Int32
+
+    .EXAMPLE
+        # Generic dictionary with two types
+        New-GenericObject System.Collections.Generic.Dictionary System.String,System.Int32    
+
+    .EXAMPLE
+        # Generic list as the second type to a generic dictionary 
+        $secondType = New-GenericObject System.Collections.Generic.List Int32 
+        New-GenericObject System.Collections.Generic.Dictionary System.String,$secondType.GetType()
+
+    .EXAMPLE
+        # Generic type with a non-default constructor 
+        New-GenericObject System.Collections.Generic.LinkedListNode System.Int32 10
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [string]$typeName = $(Read-Host -Prompt "Please specify a generic type name"),
+
+        [Parameter(Mandatory=$False)]
+        [string[]]$typeParameters = $(Read-Host -Prompt "Please specify the type parameters"),
+
+        [Parameter(Mandatory=$False)]
+        [object[]]$constructorParameters
+    )
+
+    ## Create the generic type name 
+    $genericTypeName = $typeName + '`' + $typeParameters.Count 
+    $genericType = [Type] $genericTypeName 
+
+    if(-not $genericType) 
+    { 
+        throw "Could not find generic type $genericTypeName" 
+    } 
+
+    ## Bind the type arguments to it 
+    [type[]] $typedParameters = $typeParameters 
+    $closedType = $genericType.MakeGenericType($typedParameters) 
+    if(-not $closedType) 
+    { 
+        throw "Could not make closed type $genericType" 
+    } 
+
+    ## Create the closed version of the generic type 
+    ,[Activator]::CreateInstance($closedType, $constructorParameters)
+}
+
+
 $DefaultAssembliesToLoad = @("Microsoft.CSharp","System","System.Core","System.Linq","System.IO","System.IO.FileSystem"
 "System.Console","System.Collections","System.Collections.Generic","System.Runtime","System.Runtime.Extensions")
 
-[System.Collections.ArrayList]$AdditionalAssembliesToCheckFor = @("System.Runtime.Serialization.Formatters.Binary")
+#[System.Collections.ArrayList]$AdditionalAssembliesToCheckFor = @("System.Runtime.Serialization.Formatters.Binary")
 
-$AssembliesToCheckFor = $DefaultAssembliesToLoad + $AdditionalAssembliesToCheckFor
+#$AssembliesToCheckFor = $DefaultAssembliesToLoad + $AdditionalAssembliesToCheckFor
+$AssembliesToCheckFor = $DefaultAssembliesToLoad
 
 [System.Collections.ArrayList]$FoundAssemblies = @()
 [System.Collections.ArrayList]$FinalUsingStatements = @()
@@ -393,22 +463,50 @@ $usingStatementsAsString = $($FinalUsingStatements | Sort-Object | Get-Unique) -
 
 $ReferencedAssemblies = $FoundAssemblies.FullName | Sort-Object | Get-Unique
 
+# Using Type Extensions in PowerShell see: https://powershell.org/forums/topic/how-do-i-use-extension-methods-in-zipfileextensionsclass/
+
 $TypeDefinition = @"
 $usingStatementsAsString
 
-namespace MyCore.Utils
-{
-    public static class ObjectManip
+namespace PaulD.Extensions
+{ 
+    public static class IEnumerableCombinatorics
     {
-        public static T DeepCopy<T>(T other)
+        // IEnumerable Extension Methods from: 
+        // https://stackoverflow.com/questions/12473575/combinations-of-multiple-list/12473845#12473845
+        // This method takes two sequences of T, and returns
+        //  - each element of the first sequence,
+        //        wrapped in its own one-element sequence
+        //  - each element of the second sequence,
+        //        wrapped in its own one-element sequence
+        //  - each pair of elements (one from each sequence),
+        //        as a two-element sequence.
+        // e.g. { 1 }.CrossWith({ 2 }) returns { { 1 }, { 2 }, { 1, 2 } }
+        public static IEnumerable<IEnumerable<T>> CrossWith<T>(this IEnumerable<T> source1, IEnumerable<T> source2)
         {
-            using (MemoryStream ms = new MemoryStream())
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Serialize(ms, other);
-                ms.Position = 0;
-                return (T)formatter.Deserialize(ms);
-            }
+            foreach (T s1 in source1) yield return new[] { s1 };
+            foreach (T s2 in source2) yield return new[] { s2 };
+            foreach (T s1 in source1)
+                foreach (T s2 in source2)
+                    yield return new[] { s1, s2 };
+        }
+
+        // This method takes a sequence of sequences of T and a sequence of T,
+        //     and returns
+        //  - each sequence from the first sequence
+        //  - each element of the second sequence,
+        //        wrapped in its own one-element sequence
+        //  - each pair, with the element from the second sequence appended to the
+        //        sequence from the first sequence.
+        // e.g. { { 1, 2 } }.CrossWith({ 3 }) returns
+        //      { { 1, 2 }, { 3 }, { 1, 2, 3 } }
+        public static IEnumerable<IEnumerable<T>> CrossWith<T>(this IEnumerable<IEnumerable<T>> source1, IEnumerable<T> source2)
+        {
+            foreach (IEnumerable<T> s1 in source1) yield return s1;
+            foreach (T s2 in source2) yield return new[] { s2 };
+            foreach (IEnumerable<T> s1 in source1)
+                foreach (T s2 in source2)
+                    yield return s1.Concat(new[] { s2 }).ToArray();
         }
     }
 }
@@ -416,12 +514,18 @@ namespace MyCore.Utils
 
 Add-Type -ReferencedAssemblies $ReferencedAssemblies -TypeDefinition $TypeDefinition
 
+$TypeNameToUpdatePrep = New-GenericObject System.Collections.Generic.List System.String
+$TypeNameToUpdate = $TypeNameToUpdatePrep.GetType().FullName
+# NOTE: The output of $TypeNameToUpdate is:
+# System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]
 
-
-
-
-
-
+Update-TypeData -TypeName $TypeNameToUpdate -MemberType ScriptMethod -MemberName CrossWith -Value {
+    switch ($args.Count)
+    {
+        1 { [PaulD.Extensions.IEnumerableCombinatorics]::CrossWith($this, $args[0]) }
+        default { throw "No overload for [PaulD.Extensions.IEnumerableCombinatorics]::CrossWith takes the specified number of parameters. It can take 1 and only 1 parameters." }
+    }  
+}
 
 
 
@@ -444,8 +548,8 @@ Add-Type -ReferencedAssemblies $ReferencedAssemblies -TypeDefinition $TypeDefini
 # SIG # Begin signature block
 # MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTNHRUKNyUWOCu1nRFp5hCBK7
-# wH2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUllQAPOGTfBbQDC0bH/fA4Snt
+# qRagggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -500,11 +604,11 @@ Add-Type -ReferencedAssemblies $ReferencedAssemblies -TypeDefinition $TypeDefini
 # k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
 # U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTL/48HxmpO
-# R4KYbwrhPvd+gKs3VDANBgkqhkiG9w0BAQEFAASCAQBMslMj3os6MaGO8VvLbHfo
-# 56EGZ0QuJuXEbYIS+Wl694xY4bj12WSipvuuD8NG4M8I4FEDCmyyN+lGM0oA/FIl
-# m9sojv8g0pC8sSHHnVCK2LmOYtt7wQarcZdVknot6T0ZB5Y1wBDTBJi+wpyn1Faw
-# UXgg78ywyknO2Q6+yys+ATD/M5qhBlAIKXKTw8t6fgXLE8aSInpCUQheghLudADK
-# RAGJpv5uakPwNfFzcf3jDibCFRDgxvCp6PpagZx4I4P/5taFo7TVImTr6lMbSNs5
-# QIw4NkGguJYyVQecj0u1PFwpGsHgOQz+oaoJuFWPPzgX3KE9GsqgNy6v8BiLEux/
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRyKYPY8aP6
+# 8Kzbl5w4MuTfJKepAjANBgkqhkiG9w0BAQEFAASCAQAEYzvU4j6W/xkunqjPjj4E
+# kYbzHXcFzKz4a75T8QNABqQKtiGgViMMBrUL8nPf6veG5MnzGicP1sGHbOaJIRRA
+# 9A3BwF5w4tvrhNJHjKheqyWjK1qRv0Omqumb6dr+YOCv20AXdf/7CrUP8evWqLYE
+# DAqTj9tLrsvhuYN+CPz2T/ayP4bs7vpuzKStt42ZyqIJfpzWf5xYMjogw9FVri46
+# 8CHt09YuOMzSiuWveLJWLWZWzHpC9nTyyHGuk9nppplhe5G4yIcRgMnMS6EhhJUA
+# RfiW619tynCG8oBs7BuPfSlH7B4rT05+Q4Rhnv4CByNkVdh9o2BS1BspME/Ehybr
 # SIG # End signature block

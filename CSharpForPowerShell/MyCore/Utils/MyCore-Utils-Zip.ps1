@@ -313,7 +313,7 @@ function Get-AssemblyUsingStatement {
     ##### END Main Body #####
 }
 
-$DefaultAssembliesToLoad = @("Microsoft.CSharp","System","System.Core","System.Linq","System.IO",
+$DefaultAssembliesToLoad = @("Microsoft.CSharp","System","System.Core","System.Linq","System.IO","System.IO.FileSystem"
 "System.Console","System.Collections","System.Collections.Generic","System.Runtime","System.Runtime.Extensions")
 
 [System.Collections.ArrayList]$AdditionalAssembliesToCheckFor = @("System.IO.Compression",
@@ -327,6 +327,12 @@ foreach ($assem in $AssembliesToCheckFor) {
     $global:FunctionResult = 0
     
     $GetAssembliesResult = Get-Assemblies -AssemblyName $assem
+    
+    if ($global:FunctionResult -eq 1) {
+        Write-Error "The Get-Assemblies function failed for $assem!"
+        $global:FunctionResult = "1"
+        continue
+    }
 
     $null = $FoundAssemblies.Add($GetAssembliesResult)
 

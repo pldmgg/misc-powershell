@@ -2,50 +2,20 @@
 <#
 **** EXAMPLE 1 ****
 
-PS C:\Users\testadmin> $ht1 = @{a = "one"; b = "two"; c = "three"}
-PS C:\Users\testadmin> $ht2 = @{d = "four"; e = "five"; f = "six"}
-PS C:\Users\testadmin> $ht3 = @{g = "seven"; h = "eight"; i = "nine"}
-PS C:\Users\testadmin> $htarray = $($ht1,$ht2,$ht3)
-PS C:\Users\testadmin> $htarray2 = [MyCore.Utils.ObjectManip]::DeepCopy($htarray)
+PS C:\Users\testadmin> ([MyCore.Utils.Download]::new()).FileDownload("https://www.nuget.org/api/v2/package/HTMLAgilityPack","C:\Users\testadmin\Downloads\HTMLAgilityPack.zip")
 
-PS C:\Users\testadmin> $htarray.GetHashCode()
-47337841
-PS C:\Users\testadmin> $htarray2.GetHashCode()
-7381545
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($htarray,$htarray2)
-False
-
-**** EXAMPLE 2 ****
-
-PS C:\Users\testadmin> $psobj1 = [pscustomobject][ordered]@{a = "one"; b = "two"; c = "three"}
-PS C:\Users\testadmin> $psobj2 = [pscustomobject][ordered]@{d = "four"; e = "five"; f = "six"}
-PS C:\Users\testadmin> $psobj3 = [pscustomobject][ordered]@{g = "seven"; h = "eight"; i = "nine"}
-PS C:\Users\testadmin> $psobjarray = @($psobj1,$psobj2,$psobj3)
-PS C:\Users\testadmin> $psobjarray2 = [MyCore.Utils.ObjectManip]::DeepCopy($psobjarray)
-
-PS C:\Users\testadmin> $psobjarray.GetHashCode()
-541656
-PS C:\Users\testadmin> $psobjarray2.GetHashCode()
-58439199
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($psobjarray,$psobjarray2)
-False
-
-**** EXAMPLE 3 ****
-
-PS C:\Users\testadmin> $test = "hi"
-# IMPORTANT NOTE: The below is the same as doing: $test2 = [System.String]::new($test)
-PS C:\Users\testadmin> $test2 = [MyCore.Utils.ObjectManip]::DeepCopy([System.String]::new($test))
-# IMPORTANT NOTE: When it comes to plain strings, the HashCodes will be the same, but the References will not be equal
-PS C:\Users\testadmin> $test.GetHashCode()
-334115657
-PS C:\Users\testadmin> $test2.GetHashCode()
-334115657
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($test,$test2)
-False
-PS C:\Users\testadmin> $test3 = $test
-PS C:\Users\testadmin> [System.Object]::ReferenceEquals($test,$test3)
-True
-
+Result                  : True
+Id                      : 1
+Exception               :
+Status                  : RanToCompletion
+IsCanceled              : False
+IsCompleted             : True
+IsCompletedSuccessfully : True
+CreationOptions         : None
+AsyncState              :
+IsFaulted               : False
+AsyncWaitHandle         : System.Threading.ManualResetEvent
+CompletedSynchronously  : False
 
 #>
 
@@ -269,6 +239,7 @@ function Get-Assemblies {
     ##### END Main Body #####
 }
 
+
 function Get-AssemblyUsingStatement {
     [CmdletBinding()]
     Param(
@@ -352,10 +323,11 @@ function Get-AssemblyUsingStatement {
     ##### END Main Body #####
 }
 
+
 $DefaultAssembliesToLoad = @("Microsoft.CSharp","System","System.Core","System.Linq","System.IO","System.IO.FileSystem"
 "System.Console","System.Collections","System.Collections.Generic","System.Runtime","System.Runtime.Extensions")
 
-[System.Collections.ArrayList]$AdditionalAssembliesToCheckFor = @("System.Runtime.Serialization.Formatters.Binary")
+[System.Collections.ArrayList]$AdditionalAssembliesToCheckFor = @("System.Net.Http","System.Threading.Tasks")
 
 $AssembliesToCheckFor = $DefaultAssembliesToLoad + $AdditionalAssembliesToCheckFor
 
@@ -393,21 +365,91 @@ $usingStatementsAsString = $($FinalUsingStatements | Sort-Object | Get-Unique) -
 
 $ReferencedAssemblies = $FoundAssemblies.FullName | Sort-Object | Get-Unique
 
+# Using Type Extensions in PowerShell see: https://powershell.org/forums/topic/how-do-i-use-extension-methods-in-zipfileextensionsclass/
+
 $TypeDefinition = @"
 $usingStatementsAsString
 
 namespace MyCore.Utils
-{
-    public static class ObjectManip
+{ 
+    public class Download
     {
-        public static T DeepCopy<T>(T other)
+        public static bool ValidateUrl(string p_strValue)
         {
-            using (MemoryStream ms = new MemoryStream())
+            if (Uri.IsWellFormedUriString(p_strValue, UriKind.RelativeOrAbsolute))
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Serialize(ms, other);
-                ms.Position = 0;
-                return (T)formatter.Deserialize(ms);
+                Uri l_strUri = new Uri(p_strValue);
+                return (l_strUri.Scheme == Uri.UriSchemeHttp || l_strUri.Scheme == Uri.UriSchemeHttps);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public async Task<bool> FileDownload(string url, string outputPath)
+        {
+            // Declare some variables before the try/catch block
+            string exception = null;
+            bool isValidUrl = ValidateUrl(url);
+            string outputPathParentDir = System.IO.Directory.GetParent(outputPath).ToString();
+
+            try
+            {
+                if (!isValidUrl)
+                {
+                    exception = "The Url" + url + "is not in the correct format! Halting!";
+                    throw new InvalidOperationException(exception);
+                }
+                if (!System.IO.Directory.Exists(outputPathParentDir))
+                {
+                    exception = "The directory" + outputPathParentDir + "does not exist! Halting!";
+                    throw new InvalidOperationException(exception);
+                }
+
+                
+                var client = new HttpClient();
+                using (HttpResponseMessage response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).Result)
+                {
+                    response.EnsureSuccessStatusCode();
+        
+                    using (Stream contentStream = await response.Content.ReadAsStreamAsync(), fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                    {
+                        var totalRead = 0L;
+                        var totalReads = 0L;
+                        var buffer = new byte[8192];
+                        var isMoreToRead = true;
+        
+                        do
+                        {
+                            var read = await contentStream.ReadAsync(buffer, 0, buffer.Length);
+                            if (read == 0)
+                            {
+                                isMoreToRead = false;
+                            }
+                            else
+                            {
+                                await fileStream.WriteAsync(buffer, 0, read);
+        
+                                totalRead += read;
+                                totalReads += 1;
+        
+                                if (totalReads % 2000 == 0)
+                                {
+                                    Console.WriteLine(string.Format("total bytes downloaded so far: {0:n0}", totalRead));
+                                }
+                            }
+                        }
+                        while (isMoreToRead);
+                    }
+                }
+                
+                return true;
+            }
+            catch
+            {
+                Console.WriteLine(exception);
+                return false;
             }
         }
     }
@@ -426,85 +468,72 @@ Add-Type -ReferencedAssemblies $ReferencedAssemblies -TypeDefinition $TypeDefini
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # SIG # Begin signature block
-# MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTNHRUKNyUWOCu1nRFp5hCBK7
-# wH2gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpjqz4N5Hy5rJ3dijuHa9oSX+
+# Kp2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
-# CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
+# CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
-# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCmRIzy6nwK
-# uqvhoz297kYdDXs2Wom5QCxzN9KiqAW0VaVTo1eW1ZbwZo13Qxe+6qsIJV2uUuu/
-# 3jNG1YRGrZSHuwheau17K9C/RZsuzKu93O02d7zv2mfBfGMJaJx8EM4EQ8rfn9E+
-# yzLsh65bWmLlbH5OVA0943qNAAJKwrgY9cpfDhOWiYLirAnMgzhQd3+DGl7X79aJ
-# h7GdVJQ/qEZ6j0/9bTc7ubvLMcJhJCnBZaFyXmoGfoOO6HW1GcuEUwIq67hT1rI3
-# oPx6GtFfhCqyevYtFJ0Typ40Ng7U73F2hQfsW+VPnbRJI4wSgigCHFaaw38bG4MH
-# Nr0yJDM0G8XhAgMBAAGjggECMIH/MBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQW
-# BBQ4uUFq5iV2t7PneWtOJALUX3gTcTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMA
-# QTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBR2
-# lbqmEvZFA0XsBkGBBXi2Cvs4TTAxBgNVHR8EKjAoMCagJKAihiBodHRwOi8vcGtp
-# L2NlcnRkYXRhL1plcm9EQzAxLmNybDA8BggrBgEFBQcBAQQwMC4wLAYIKwYBBQUH
-# MAKGIGh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb0RDMDEuY3J0MA0GCSqGSIb3DQEB
-# CwUAA4IBAQAUFYmOmjvbp3goa3y95eKMDVxA6xdwhf6GrIZoAg0LM+9f8zQOhEK9
-# I7n1WbUocOVAoP7OnZZKB+Cx6y6Ek5Q8PeezoWm5oPg9XUniy5bFPyl0CqSaNWUZ
-# /zC1BE4HBFF55YM0724nBtNYUMJ93oW/UxsWL701c3ZuyxBhrxtlk9TYIttyuGJI
-# JtbuFlco7veXEPfHibzE+JYc1MoGF/whz6l7bC8XbgyDprU1JS538gbgPBir4RPw
-# dFydubWuhaVzRlU3wedYMsZ4iejV2xsf8MHF/EHyc/Ft0UnvcxBqD0sQQVkOS82X
-# +IByWP0uDQ2zOA1L032uFHHA65Bt32w8MIIFmzCCBIOgAwIBAgITWAAAADw2o858
-# ZSLnRQAAAAAAPDANBgkqhkiG9w0BAQsFADA9MRMwEQYKCZImiZPyLGQBGRYDTEFC
-# MRQwEgYKCZImiZPyLGQBGRYEWkVSTzEQMA4GA1UEAxMHWmVyb1NDQTAeFw0xNTEw
-# MjcxMzM1MDFaFw0xNzA5MDkxMDAwMjRaMD4xCzAJBgNVBAYTAlVTMQswCQYDVQQI
-# EwJWQTEPMA0GA1UEBxMGTWNMZWFuMREwDwYDVQQDEwhaZXJvQ29kZTCCASIwDQYJ
-# KoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ8LM3f3308MLwBHi99dvOQqGsLeC11p
-# usrqMgmEgv9FHsYv+IIrW/2/QyBXVbAaQAt96Tod/CtHsz77L3F0SLuQjIFNb522
-# sSPAfDoDpsrUnZYVB/PTGNDsAs1SZhI1kTKIjf5xShrWxo0EbDG5+pnu5QHu+EY6
-# irn6C1FHhOilCcwInmNt78Wbm3UcXtoxjeUl+HlrAOxG130MmZYWNvJ71jfsb6lS
-# FFE6VXqJ6/V78LIoEg5lWkuNc+XpbYk47Zog+pYvJf7zOric5VpnKMK8EdJj6Dze
-# 4tJ51tDoo7pYDEUJMfFMwNOO1Ij4nL7WAz6bO59suqf5cxQGd5KDJ1ECAwEAAaOC
-# ApEwggKNMA4GA1UdDwEB/wQEAwIHgDA9BgkrBgEEAYI3FQcEMDAuBiYrBgEEAYI3
-# FQiDuPQ/hJvyeYPxjziDsLcyhtHNeIEnofPMH4/ZVQIBZAIBBTAdBgNVHQ4EFgQU
-# a5b4DOy+EUyy2ILzpUFMmuyew40wHwYDVR0jBBgwFoAUOLlBauYldrez53lrTiQC
-# 1F94E3EwgeMGA1UdHwSB2zCB2DCB1aCB0qCBz4aBq2xkYXA6Ly8vQ049WmVyb1ND
-# QSxDTj1aZXJvU0NBLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxD
-# Tj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NlcnRp
-# ZmljYXRlUmV2b2NhdGlvbkxpc3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmli
-# dXRpb25Qb2ludIYfaHR0cDovL3BraS9jZXJ0ZGF0YS9aZXJvU0NBLmNybDCB4wYI
-# KwYBBQUHAQEEgdYwgdMwgaMGCCsGAQUFBzAChoGWbGRhcDovLy9DTj1aZXJvU0NB
-# LENOPUFJQSxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxD
-# Tj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NBQ2VydGlmaWNhdGU/YmFz
-# ZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9yaXR5MCsGCCsGAQUFBzAC
-# hh9odHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EuY3J0MBMGA1UdJQQMMAoGCCsG
-# AQUFBwMDMBsGCSsGAQQBgjcVCgQOMAwwCgYIKwYBBQUHAwMwDQYJKoZIhvcNAQEL
-# BQADggEBACbc1NDl3NTMuqFwTFd8NHHCsSudkVhuroySobzUaFJN2XHbdDkzquFF
-# 6f7KFWjqR3VN7RAi8arW8zESCKovPolltpp3Qu58v59qZLhbXnQmgelpA620bP75
-# zv8xVxB9/xmmpOHNkM6qsye4IJur/JwhoHLGqCRwU2hxP1pu62NUK2vd/Ibm8c6w
-# PZoB0BcC7SETNB8x2uKzJ2MyAIuyN0Uy/mGDeLyz9cSboKoG6aQibnjCnGAVOVn6
-# J7bvYWJsGu7HukMoTAIqC6oMGerNakhOCgrhU7m+cERPkTcADVH/PWhy+FJWd2px
-# ViKcyzWQSyX93PcOj2SsHvi7vEAfCGcxggH1MIIB8QIBATBUMD0xEzARBgoJkiaJ
-# k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
-# U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
-# AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTL/48HxmpO
-# R4KYbwrhPvd+gKs3VDANBgkqhkiG9w0BAQEFAASCAQBMslMj3os6MaGO8VvLbHfo
-# 56EGZ0QuJuXEbYIS+Wl694xY4bj12WSipvuuD8NG4M8I4FEDCmyyN+lGM0oA/FIl
-# m9sojv8g0pC8sSHHnVCK2LmOYtt7wQarcZdVknot6T0ZB5Y1wBDTBJi+wpyn1Faw
-# UXgg78ywyknO2Q6+yys+ATD/M5qhBlAIKXKTw8t6fgXLE8aSInpCUQheghLudADK
-# RAGJpv5uakPwNfFzcf3jDibCFRDgxvCp6PpagZx4I4P/5taFo7TVImTr6lMbSNs5
-# QIw4NkGguJYyVQecj0u1PFwpGsHgOQz+oaoJuFWPPzgX3KE9GsqgNy6v8BiLEux/
+# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDCwqv+ROc1
+# bpJmKx+8rPUUfT3kPSUYeDxY8GXU2RrWcL5TSZ6AVJsvNpj+7d94OEmPZate7h4d
+# gJnhCSyh2/3v0BHBdgPzLcveLpxPiSWpTnqSWlLUW2NMFRRojZRscdA+e+9QotOB
+# aZmnLDrlePQe5W7S1CxbVu+W0H5/ukte5h6gsKa0ktNJ6X9nOPiGBMn1LcZV/Ksl
+# lUyuTc7KKYydYjbSSv2rQ4qmZCQHqxyNWVub1IiEP7ClqCYqeCdsTtfw4Y3WKxDI
+# JaPmWzlHNs0nkEjvnAJhsRdLFbvY5C2KJIenxR0gA79U8Xd6+cZanrBUNbUC8GCN
+# wYkYp4A4Jx+9AgMBAAGjggEqMIIBJjASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsG
+# AQQBgjcVAgQWBBQ/0jsn2LS8aZiDw0omqt9+KWpj3DAdBgNVHQ4EFgQUicLX4r2C
+# Kn0Zf5NYut8n7bkyhf4wGQYJKwYBBAGCNxQCBAweCgBTAHUAYgBDAEEwDgYDVR0P
+# AQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wHwYDVR0jBBgwFoAUdpW6phL2RQNF
+# 7AZBgQV4tgr7OE0wMQYDVR0fBCowKDAmoCSgIoYgaHR0cDovL3BraS9jZXJ0ZGF0
+# YS9aZXJvREMwMS5jcmwwPAYIKwYBBQUHAQEEMDAuMCwGCCsGAQUFBzAChiBodHRw
+# Oi8vcGtpL2NlcnRkYXRhL1plcm9EQzAxLmNydDANBgkqhkiG9w0BAQsFAAOCAQEA
+# tyX7aHk8vUM2WTQKINtrHKJJi29HaxhPaHrNZ0c32H70YZoFFaryM0GMowEaDbj0
+# a3ShBuQWfW7bD7Z4DmNc5Q6cp7JeDKSZHwe5JWFGrl7DlSFSab/+a0GQgtG05dXW
+# YVQsrwgfTDRXkmpLQxvSxAbxKiGrnuS+kaYmzRVDYWSZHwHFNgxeZ/La9/8FdCir
+# MXdJEAGzG+9TwO9JvJSyoGTzu7n93IQp6QteRlaYVemd5/fYqBhtskk1zDiv9edk
+# mHHpRWf9Xo94ZPEy7BqmDuixm4LdmmzIcFWqGGMo51hvzz0EaE8K5HuNvNaUB/hq
+# MTOIB5145K8bFOoKHO4LkTCCBc8wggS3oAMCAQICE1gAAAH5oOvjAv3166MAAQAA
+# AfkwDQYJKoZIhvcNAQELBQAwPTETMBEGCgmSJomT8ixkARkWA0xBQjEUMBIGCgmS
+# JomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EwHhcNMTcwOTIwMjE0MTIy
+# WhcNMTkwOTIwMjExMzU4WjBpMQswCQYDVQQGEwJVUzELMAkGA1UECBMCUEExFTAT
+# BgNVBAcTDFBoaWxhZGVscGhpYTEVMBMGA1UEChMMRGlNYWdnaW8gSW5jMQswCQYD
+# VQQLEwJJVDESMBAGA1UEAxMJWmVyb0NvZGUyMIIBIjANBgkqhkiG9w0BAQEFAAOC
+# AQ8AMIIBCgKCAQEAxX0+4yas6xfiaNVVVZJB2aRK+gS3iEMLx8wMF3kLJYLJyR+l
+# rcGF/x3gMxcvkKJQouLuChjh2+i7Ra1aO37ch3X3KDMZIoWrSzbbvqdBlwax7Gsm
+# BdLH9HZimSMCVgux0IfkClvnOlrc7Wpv1jqgvseRku5YKnNm1JD+91JDp/hBWRxR
+# 3Qg2OR667FJd1Q/5FWwAdrzoQbFUuvAyeVl7TNW0n1XUHRgq9+ZYawb+fxl1ruTj
+# 3MoktaLVzFKWqeHPKvgUTTnXvEbLh9RzX1eApZfTJmnUjBcl1tCQbSzLYkfJlJO6
+# eRUHZwojUK+TkidfklU2SpgvyJm2DhCtssFWiQIDAQABo4ICmjCCApYwDgYDVR0P
+# AQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMB0GA1UdDgQWBBS5d2bhatXq
+# eUDFo9KltQWHthbPKzAfBgNVHSMEGDAWgBSJwtfivYIqfRl/k1i63yftuTKF/jCB
+# 6QYDVR0fBIHhMIHeMIHboIHYoIHVhoGubGRhcDovLy9DTj1aZXJvU0NBKDEpLENO
+# PVplcm9TQ0EsQ049Q0RQLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNl
+# cnZpY2VzLENOPUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y2VydGlmaWNh
+# dGVSZXZvY2F0aW9uTGlzdD9iYXNlP29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlv
+# blBvaW50hiJodHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EoMSkuY3JsMIHmBggr
+# BgEFBQcBAQSB2TCB1jCBowYIKwYBBQUHMAKGgZZsZGFwOi8vL0NOPVplcm9TQ0Es
+# Q049QUlBLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNlcnZpY2VzLENO
+# PUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y0FDZXJ0aWZpY2F0ZT9iYXNl
+# P29iamVjdENsYXNzPWNlcnRpZmljYXRpb25BdXRob3JpdHkwLgYIKwYBBQUHMAKG
+# Imh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb1NDQSgxKS5jcnQwPQYJKwYBBAGCNxUH
+# BDAwLgYmKwYBBAGCNxUIg7j0P4Sb8nmD8Y84g7C3MobRzXiBJ6HzzB+P2VUCAWQC
+# AQUwGwYJKwYBBAGCNxUKBA4wDDAKBggrBgEFBQcDAzANBgkqhkiG9w0BAQsFAAOC
+# AQEAszRRF+YTPhd9UbkJZy/pZQIqTjpXLpbhxWzs1ECTwtIbJPiI4dhAVAjrzkGj
+# DyXYWmpnNsyk19qE82AX75G9FLESfHbtesUXnrhbnsov4/D/qmXk/1KD9CE0lQHF
+# Lu2DvOsdf2mp2pjdeBgKMRuy4cZ0VCc/myO7uy7dq0CvVdXRsQC6Fqtr7yob9NbE
+# OdUYDBAGrt5ZAkw5YeL8H9E3JLGXtE7ir3ksT6Ki1mont2epJfHkO5JkmOI6XVtg
+# anuOGbo62885BOiXLu5+H2Fg+8ueTP40zFhfLh3e3Kj6Lm/NdovqqTBAsk04tFW9
+# Hp4gWfVc0gTDwok3rHOrfIY35TGCAfUwggHxAgEBMFQwPTETMBEGCgmSJomT8ixk
+# ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
+# E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
+# CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJNbeRQOzypPfLIP
+# xuspoUmgbUirMA0GCSqGSIb3DQEBAQUABIIBAIYWUXQuKtoNUY0BHWJjSLkZwMkt
+# AcEU7viIxveSLEYeemkk9czC4yFsl55lM3AQZQjmaBzrKv4eAbLRoHkXnsUpd9bE
+# Kd+9Kfvs5/HHAYdj9/MSK5G7Wdyp7KLDGLbhGkdG72dmNjmPwnzCslIloMZoD6UJ
+# w18GshaOOvvCLWbSaFX9aErns+KSGrR4fA1ugVaVeGURp1xSuBByKeZtgc0YcCke
+# 5T1seY9pX8pH+vdJyF8977+ljLiIzKLD3A76L7NJuOBcWJHlIAZBY7+W22tMSkd3
+# aGLi+DPeVKewVPILwce3y/Uaqe5hi/gAkf8e6SNY59hAUsolO3ZNXTtAUK4=
 # SIG # End signature block
