@@ -625,6 +625,20 @@ function Update-PowerShellCore
         return
     }
 
+    if (!$DownloadDirectory -and $UsePackageManagement) {
+        if ($UsePackageManagement -notmatch "Yes|yes|Y|y|true|No|no|N|n|false") {
+            Write-Error "Valid values for the -UsePackageManagement parameter are Yes|yes|Y|y|true|No|no|N|n|false . Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($UsePackageManagement -match "Yes|yes|Y|y|true") {
+            $UsePackageManagement = $true
+        }
+        if ($UsePackageManagement -match "No|no|N|n|false") {
+            $UsePackageManagement = $false
+        }
+    }
+
     if (!$DownloadDirectory -and !$UsePackageManagement) {
         $UsePackageManagement = Read-Host -Prompt "Would you like to install PowerShell Core via the appropriate Package Management system for this Operating System? [Yes\No]"
         if ($UsePackageManagement -notmatch "Yes|Y|yes|y|No|N|no|n") {
@@ -1455,8 +1469,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQ9i36lmNL9UQPM7J8GzsjT7x
-# zHagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGzp/89KT5lbqmuj+h34oCxR1
+# 82mgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1513,11 +1527,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMjLHZhmKLhOZ8IV
-# Ypsl+k0CpKE/MA0GCSqGSIb3DQEBAQUABIIBAH3K9FnkupRTLgCrW5GUC5gkSQTY
-# UYgoXfUbydsLcx/yTzEU1c/EKJDeKq5PRqA5ADGrqxlmzp2/5ws3cMPFjrKaG7aX
-# OH23B6cHRKjsjpYr04bpO63KghWTt6vXmwrUEzqqpFQFeQK0d47OSaNxGcCag2qz
-# PV+befAfSEyIwypuRqjOf6e0o6ltILPkTBurQK9b8XxRpmOKBrSEOiuV3xS1N33r
-# ZRVrkb20WBPIxB3tC3lQqZSdVPk79PBWGl7pd+3xKFx1ukK5s/qKo6IVqs9a1Bvh
-# z+FApjUeBbjPMzOTiUVAtgKtSIG3eHM/WvAW9XFoEH7iMhxUbgyKnmyy2Ts=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBZeImkM0dBGfujP
+# AoUnUaaJwbm6MA0GCSqGSIb3DQEBAQUABIIBABA5n5zdGeOhmsC7VhkqUzYMwAgq
+# 6DPkTtq43WNIMqhne3UxRePOu29bxfTiCxy40KRkvL3FYAr+Zm1Ub38FAFGm7nG5
+# 4ubnDlkSkjN+IkyexOQfJ1QrCWdlm6Exnf8URmdPFqNXeluMywE+1xYf7G8YFMed
+# LOLgSrMcW1WlTh0NDUJIiI67wUzuawh8hLM8MqtEietcHsYufuWJ++HuBceCJXvT
+# NN7Oqpomz5taPABgSgs0efYyImET/ALzxoE+llZIkJT2jP+z2NzNlYNbVgDvcxNt
+# w9DvK1JS8kRfcu+azo+oAKG/fUp+De3PYztQkU0dm6BLY+d0b4sHC2p2I8A=
 # SIG # End signature block
