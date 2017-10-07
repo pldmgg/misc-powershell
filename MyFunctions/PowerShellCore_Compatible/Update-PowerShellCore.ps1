@@ -13,7 +13,7 @@
     This parameter takes a string that represents a full directory path that the PowerShell Core installation package
     will be downloaded to.
     
-    *NOTE: This parameter becomes MANDATORY if you do NOT use the -UsePackageManagement switch.
+    *NOTE: This parameter becomes MANDATORY if you do NOT use the -UsePackageManagement parameter.
 
 .PARAMETER UsePackageManagement
     OPTIONAL*
@@ -76,7 +76,10 @@
     Update-PowerShellCore
 
 .EXAMPLE
-    Another example of how to use this cmdlet
+    Update-PowerShellCore -UsePackageManagement "Yes"
+
+.EXAMPLE
+    Update-PowerShellCore -DownloadDirectory "$HOME\Downloads"
 
 #>
 function Update-PowerShellCore
@@ -1469,8 +1472,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGzp/89KT5lbqmuj+h34oCxR1
-# 82mgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUPwXwK1DTDr5nsJFmRVbySRX
+# WTCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1527,11 +1530,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBZeImkM0dBGfujP
-# AoUnUaaJwbm6MA0GCSqGSIb3DQEBAQUABIIBABA5n5zdGeOhmsC7VhkqUzYMwAgq
-# 6DPkTtq43WNIMqhne3UxRePOu29bxfTiCxy40KRkvL3FYAr+Zm1Ub38FAFGm7nG5
-# 4ubnDlkSkjN+IkyexOQfJ1QrCWdlm6Exnf8URmdPFqNXeluMywE+1xYf7G8YFMed
-# LOLgSrMcW1WlTh0NDUJIiI67wUzuawh8hLM8MqtEietcHsYufuWJ++HuBceCJXvT
-# NN7Oqpomz5taPABgSgs0efYyImET/ALzxoE+llZIkJT2jP+z2NzNlYNbVgDvcxNt
-# w9DvK1JS8kRfcu+azo+oAKG/fUp+De3PYztQkU0dm6BLY+d0b4sHC2p2I8A=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAdY/K/zWJ+lYt7B
+# JLKt7FDBymFKMA0GCSqGSIb3DQEBAQUABIIBAEeXPxv1H9pfyYoyycHe6vE4FdTI
+# aN2mOu3YbzdX/ttvivfdc05iAt348XWxRZB9k3pp9CAswxtDI9xsMj8LzbXAVpLO
+# fhiu3Uy4T1Y0IlbjhZYmiFdS11yvygp7NTmhrhwKGIbk/esTemba1wva16ftUE4Z
+# FYbfjNBPFtbqkCl+tRnM4obfe4Ean6eqLBp/LMePxJwpQUIPZNwY4rD32m46etIg
+# e+0/uS64fPq4FP5xS4/6Ef3EB9VbJ4G0531gRMwGS48eeDVxdDxp7zdK7KfOKl3y
+# /nP0o27T6hDkT0wk9TXEpuRAGFBQ8IvFC9kI9AHbulsntcM3C/uTGjjooig=
 # SIG # End signature block
