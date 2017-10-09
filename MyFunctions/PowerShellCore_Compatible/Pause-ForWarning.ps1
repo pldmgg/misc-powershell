@@ -9,8 +9,8 @@ function Pause-ForWarning {
     )
 
     Write-Warning $Message
-    Write-Host "To install the Chocolatey CmdLine, press 'y' on your keyboard."
-    Write-Host "To continue without installing the Chocolatey CmdLine, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
+    Write-Host "To answer in the affirmative, press 'y' on your keyboard."
+    Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
 
     $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
     $stopwatch = [diagnostics.stopwatch]::StartNew()
