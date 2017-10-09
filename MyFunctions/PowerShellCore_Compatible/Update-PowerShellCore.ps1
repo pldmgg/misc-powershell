@@ -184,8 +184,8 @@ function Update-PowerShellCore
         )
     
         Write-Warning $Message
-        Write-Host "To install the Chocolatey CmdLine, press 'y' on your keyboard."
-        Write-Host "To continue without installing the Chocolatey CmdLine, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
+        Write-Host "To answer in the affirmative, press 'y' on your keyboard."
+        Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
     
         $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
         $stopwatch = [diagnostics.stopwatch]::StartNew()
@@ -206,7 +206,7 @@ function Update-PowerShellCore
             # Check once every 1 second to see if the above "if" condition is satisfied
             Start-Sleep 1
         }
-
+    
         if (!$Result) {
             $Result = $false
         }
@@ -312,8 +312,108 @@ function Update-PowerShellCore
         [CmdletBinding()]
         Param( 
             [Parameter(Mandatory=$False)]
-            [switch]$UseChocolatey
+            [switch]$UseChocolatey,
+    
+            [Parameter(Mandatory=$False)]
+            [switch]$InstallNuGetCmdLine
         )
+    
+        ##### BEGIN Helper Functions #####
+    
+        function Check-Elevation {
+            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+                [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                    [System.Security.Principal.WindowsIdentity]::GetCurrent()
+                )
+        
+                [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+        
+                if($currentPrincipal.IsInRole($administratorsRole)) {
+                    return $true
+                }
+                else {
+                    return $false
+                }
+            }
+            
+            if ($PSVersionTable.Platform -eq "Unix") {
+                if ($(whoami) -eq "root") {
+                    return $true
+                }
+                else {
+                    return $false
+                }
+            }
+        }
+    
+        function Get-NativePath {
+            [CmdletBinding()]
+            Param( 
+                [Parameter(Mandatory=$True)]
+                [string[]]$PathAsStringArray
+            )
+        
+            $PathAsStringArray = foreach ($pathPart in $PathAsStringArray) {
+                $SplitAttempt = $pathPart -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)
+                
+                if ($SplitAttempt.Count -gt 1) {
+                    foreach ($obj in $SplitAttempt) {
+                        $obj
+                    }
+                }
+                else {
+                    $pathPart
+                }
+            }
+            $PathAsStringArray = $PathAsStringArray -join [IO.Path]::DirectorySeparatorChar
+        
+            $PathAsStringArray
+        
+        }
+    
+        function Pause-ForWarning {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$True)]
+                [int]$PauseTimeInSeconds,
+        
+                [Parameter(Mandatory=$True)]
+                $Message
+            )
+        
+            Write-Warning $Message
+            Write-Host "To answer in the affirmative, press 'y' on your keyboard."
+            Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
+        
+            $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
+            $stopwatch = [diagnostics.stopwatch]::StartNew()
+            while ($stopwatch.elapsed -lt $timeout){
+                if ([Console]::KeyAvailable) {
+                    $keypressed = [Console]::ReadKey("NoEcho").Key
+                    Write-Host "You pressed the `"$keypressed`" key"
+                    if ($keypressed -eq "y") {
+                        $Result = $true
+                        break
+                    }
+                    if ($keypressed -ne "y") {
+                        $Result = $false
+                        break
+                    }
+                }
+        
+                # Check once every 1 second to see if the above "if" condition is satisfied
+                Start-Sleep 1
+            }
+        
+            if (!$Result) {
+                $Result = $false
+            }
+            
+            $Result
+        }
+    
+        ##### END Helper Functions #####
+    
     
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     
@@ -328,6 +428,35 @@ function Update-PowerShellCore
             Write-Error "The Chocolatey Repo should only be added on a Windows OS! Halting!"
             $global:FunctionResult = "1"
             return
+        }
+    
+        if ($InstallNuGetCmdLine -and !$UseChocolatey) {
+            if (!$(Get-Command choco -ErrorAction SilentlyContinue) -and $(Get-PackageProvider).Name -notcontains "Chocolatey") {
+                if ($PSVersionTable.PSEdition -eq "Desktop") {                
+                    $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
+                    $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                    if ($WarningResponse) {
+                        $UseChocolatey = $true
+                    }
+                }
+                elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
+                    $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
+                    $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                    if ($WarningResponse) {
+                        $UseChocolatey = $true
+                    }
+                }
+                elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
+                    $WarningMessage = "The NuGet Command Line Tools binary nuget.exe can be downloaded, but will not be able to be run without Mono. Do you want to download the latest stable nuget.exe?"
+                    $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                    if ($WarningResponse) {
+                        Write-Host "Downloading latest stable nuget.exe..."
+                        $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
+                        Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $OutFilePath
+                    }
+                    $UseChocolatey = $false
+                }
+            }
         }
     
         if ($PSVersionTable.PSEdition -eq "Desktop") {
@@ -348,7 +477,7 @@ function Update-PowerShellCore
             if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
                 Write-Host "Downloading PackageManagement .msi installer..."
                 $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "PackageManagement_x64.msi")
-                Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile $OutFilePath
+                Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi" -OutFile $OutFilePath
                 
                 $DateStamp = Get-Date -Format yyyyMMddTHHmmss
                 $MSIFullPath = $OutFilePath
@@ -420,38 +549,92 @@ function Update-PowerShellCore
                     # The above Install-PackageProvider "Chocolatey" -Force DOES register a PackageSource Repository, so we need to trust it:
                     Set-PackageSource -Name Chocolatey -Trusted
     
-                    # Next, install the NuGet CLI using the Chocolatey Repo
-                    try {
-                        Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
-                        while (!$(Find-Package Nuget.CommandLine)) {
-                            Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
-                            Start-Sleep -Seconds 2
+                    # Make sure packages installed via Chocolatey PackageProvider are part of $env:Path
+                    [System.Collections.ArrayList]$ChocolateyPathsPrep = @()
+                    [System.Collections.ArrayList]$ChocolateyPathsFinal = @()
+                    $env:ChocolateyPSProviderPath = "C:\Chocolatey"
+    
+                    if (Test-Path $env:ChocolateyPSProviderPath) {
+                        if (Test-Path "$env:ChocolateyPSProviderPath\lib") {
+                            $OtherChocolateyPathsToAdd = $(Get-ChildItem "$env:ChocolateyPSProviderPath\lib" -Directory | foreach {
+                                Get-ChildItem $_.FullName -Recurse -File
+                            } | foreach {
+                                if ($_.Extension -eq ".exe") {
+                                    $_.Directory.FullName
+                                }
+                            }) | foreach {
+                                $null = $ChocolateyPathsPrep.Add($_)
+                            }
                         }
-                        
-                        Get-Package NuGet.CommandLine -ErrorAction SilentlyContinue
-                        if (!$?) {
-                            throw
+                        if (Test-Path "$env:ChocolateyPSProviderPath\bin") {
+                            $OtherChocolateyPathsToAdd = $(Get-ChildItem "$env:ChocolateyPSProviderPath\bin" -Directory | foreach {
+                                Get-ChildItem $_.FullName -Recurse -File
+                            } | foreach {
+                                if ($_.Extension -eq ".exe") {
+                                    $_.Directory.FullName
+                                }
+                            }) | foreach {
+                                $null = $ChocolateyPathsPrep.Add($_)
+                            }
                         }
-                    } 
-                    catch {
-                        Install-Package Nuget.CommandLine -Source chocolatey
                     }
                     
-                    # Ensure $env:Path includes C:\Chocolatey\bin
-                    if ($($env:Path -split ";") -notcontains "C:\Chocolatey\bin") {
-                        if ($env:Path[-1] -eq ";") {
-                            $env:Path = "$env:Path`C:\Chocolatey\bin"
-                        }
-                        else {
-                            $env:Path = "$env:Path;C:\Chocolatey\bin"
+                    if ($ChocolateyPathsPrep) {
+                        foreach ($ChocoPath in $ChocolateyPathsPrep) {
+                            if ($(Test-Path $ChocoPath) -and $OriginalEnvPathArray -notcontains $ChocoPath) {
+                                $null = $ChocolateyPathsFinal.Add($ChocoPath)
+                            }
                         }
                     }
-                    # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
-                    $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
-                    $RealNuGetPath = $(Resolve-Path "C:\Chocolatey\lib\*\*\NuGet.exe").Path
-                    $TestRealNuGetPath = Test-Path $RealNuGetPath
-                    if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
-                        New-Item -Path "C:\Chocolatey\bin\NuGet.exe" -ItemType SymbolicLink -Value $RealNuGetPath
+                
+                    try {
+                        $ChocolateyPathsFinal = $ChocolateyPathsFinal | Sort-Object | Get-Unique
+                    }
+                    catch {
+                        [System.Collections.ArrayList]$ChocolateyPathsFinal = @($ChocolateyPathsFinal)
+                    }
+                    if ($ChocolateyPathsFinal.Count -ne 0) {
+                        $ChocolateyPathsAsString = $ChocolateyPathsFinal -join ";"
+                    }
+    
+                    foreach ($ChocPath in $ChocolateyPathsFinal) {
+                        if ($($env:Path -split ";") -notcontains $ChocPath) {
+                            if ($env:Path[-1] -eq ";") {
+                                $env:Path = "$env:Path$ChocPath"
+                            }
+                            else {
+                                $env:Path = "$env:Path;$ChocPath"
+                            }
+                        }
+                    }
+    
+                    Write-Host "Updated `$env:Path is:`n$env:Path"
+    
+                    if ($InstallNuGetCmdLine) {
+                        # Next, install the NuGet CLI using the Chocolatey Repo
+                        try {
+                            Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
+                            while (!$(Find-Package Nuget.CommandLine)) {
+                                Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
+                                Start-Sleep -Seconds 2
+                            }
+                            
+                            Get-Package NuGet.CommandLine -ErrorAction SilentlyContinue
+                            if (!$?) {
+                                throw
+                            }
+                        } 
+                        catch {
+                            Install-Package Nuget.CommandLine -Source chocolatey -Force
+                        }
+                        
+                        # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
+                        $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
+                        $RealNuGetPath = $(Resolve-Path "C:\Chocolatey\lib\*\*\NuGet.exe").Path
+                        $TestRealNuGetPath = Test-Path $RealNuGetPath
+                        if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
+                            New-Item -Path "C:\Chocolatey\bin\NuGet.exe" -ItemType SymbolicLink -Value $RealNuGetPath
+                        }
                     }
                 }
             }
@@ -465,6 +648,21 @@ function Update-PowerShellCore
                     $DateStamp = Get-Date -Format yyyyMMddTHHmmss
                     $ChocolateyInstallLogFile = Get-NativePath -PathAsStringArray @($(Get-Location).Path, "ChocolateyInstallLog_$DateStamp.txt")
                     $ChocolateyInstallProblems | Out-File $ChocolateyInstallLogFile
+                }
+    
+                if ($InstallNuGetCmdLine) {
+                    if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                        Write-Error "Unable to find chocolatey.exe, however, it should be installed. Please check your System PATH and `$env:Path and try again. Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                    else {
+                        # 'choco update' aka 'cup' will update if already installed or install if not installed 
+                        Start-Process "cup" -ArgumentList "nuget.commandline -y" -Wait -NoNewWindow
+                    }
+                    # NOTE: The chocolatey install should take care of setting $env:Path and System PATH so that
+                    # choco binaries and packages installed via chocolatey can be found here:
+                    # C:\ProgramData\chocolatey\bin
                 }
             }
         }
@@ -642,7 +840,7 @@ function Update-PowerShellCore
         }
     }
 
-    if (!$DownloadDirectory -and !$UsePackageManagement) {
+    if (!$DownloadDirectory -and $UsePackageManagement -eq $null) {
         $UsePackageManagement = Read-Host -Prompt "Would you like to install PowerShell Core via the appropriate Package Management system for this Operating System? [Yes\No]"
         if ($UsePackageManagement -notmatch "Yes|Y|yes|y|No|N|no|n") {
             Write-Warning "Valid responses are 'Yes' or 'No'"
@@ -663,7 +861,7 @@ function Update-PowerShellCore
         }
     }
 
-    if (!$UsePackageManagement) {
+    if ($PSBoundParameters.Keys -contains "UsePackageManagement" -and $UsePackageManagement -eq $false -and !$DownloadDirectory) {
         $DownloadDirectory = Read-Host -Prompt "Please enter the full path to the directory where the PowerShell Core installation package will be downloaded"
     }
 
@@ -764,7 +962,9 @@ function Update-PowerShellCore
         $Iteration = $null
     }
 
-    if ($PSBoundParameters.Keys.Count -eq 1 -and $PSBoundParameters.Keys -contains "DownloadDirectory") {
+    if ($PSBoundParameters.Keys.Count -eq 0 -or
+    $($PSBoundParameters.Keys.Count -eq 1 -and $PSBoundParameters.Keys -contains "DownloadDirectory") -or
+    $($PSBoundParameters.Keys.Count -eq 1 -and $PSBoundParameters.Keys -contains "UsePackageManagement")) {
         $Latest = $true
     }
 
@@ -937,7 +1137,7 @@ function Update-PowerShellCore
     {
         'win' {
             if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
-                [System.Collections.ArrayList]$CurrentInstalledPSVersions = [array]$(Get-ChildItem "C:\Program Files\PowerShell" -ErrorAction SilentlyContinue).Name
+                [System.Collections.ArrayList]$CurrentInstalledPSVersions = [array]$(Get-Item "C:\Program Files\PowerShell\*\powershell.exe").Directory.Name
                 
                 if (!$($CurrentInstalledPSVersions -contains $PSFullVersion)) {
                     if (!$UsePackageManagement) {
@@ -970,7 +1170,7 @@ function Update-PowerShellCore
                         Write-Host "Downloading PowerShell Core for $OS version $PSFullVersion to $DownloadPath ..."
                         
                         if (!$(Test-Path $DownloadDirectory)) {
-                            New-Item -ItemType Directory -Path $DownloadDirectory
+                            $null = New-Item -ItemType Directory -Path $DownloadDirectory
                         }
                         
                         try {
@@ -1034,6 +1234,7 @@ function Update-PowerShellCore
                             $CheckForPSCoreAvail = Find-Package powershell-core -AllVersions -AllowPrereleaseVersions -ErrorAction SilentlyContinue
                             if (!$ChocoPackProvCheck -or !$CheckForPSCoreAvail) {
                                 $UpdateResults = Update-PackageManagement -UseChocolatey 2>&1 3>&1 6>&1
+                                $UpdateResults
                             }
                             $PackageManagementSuccess = $true
                         }
@@ -1075,15 +1276,30 @@ function Update-PowerShellCore
 
                         if ($PSVersionTable.PSEdition -eq "Desktop") {
                             try {
-                                $LatestViaChocoProvider = $(Find-Package "powershell-core" -AllVersions -AllowPrereleaseVersions)[-1]
-                                if (!$?) {throw}
+                                if ($Latest) {
+                                    $ChocoProviderPackage = $(Find-Package "powershell-core" -AllVersions -AllowPrereleaseVersions)[-1]
+                                    if (!$?) {throw}
+                                }
+                                if (!$Latest) {
+                                    $ChocoVersionEquivalent = $PSFullVersion.Remove($($PSFullVersion.LastIndexOf(".")),1)
+                                    $ChocoProviderPackage = Find-Package "powershell-core" -AllVersions -AllowPrereleaseVersions | Where-Object {$_.Version -eq $ChocoVersionEquivalent}
+                                }
 
                                 # Update PowerShell Core
-                                if ($LatestViaChocoProvider) {
-                                    $PSCoreChocoVersionPrep = $LatestViaChocoProvider.Version
+                                if ($ChocoProviderPackage) {
+                                    $PSCoreChocoVersionPrep = $ChocoProviderPackage.Version
                                     $chars = $($PSCoreChocoVersionPrep | Select-String -Pattern "[a-z][0-9]").Matches.Value
                                     $position = $PSCoreChocoVersionPrep.IndexOf($chars)+1
                                     $PSCoreChocoVersion = $PSCoreChocoVersionPrep.Insert($position,".")
+
+                                    # If old version of PowerShell Core was uninstalled via Control Panel GUI, then
+                                    # PackageManagement may still show that it is installed, eventhough it isn't.
+                                    # Make sure PackageManagement is on the same page
+                                    $InstalledPSCoreAccordingToPM = Get-Package powershell-core -AllVersions -ErrorAction SilentlyContinue | Where-Object {$_.Version -eq $PSCoreChocoVersionPrep}
+                                    if ($InstalledPSCoreAccordingToPM -and !$(Test-Path "C:\Program Files\PowerShell\$PSCoreChocoVersion\powershell.exe")) {
+                                        # It's actually not installed, so update PackageManagement
+                                        $InstalledPSCoreAccordingToPM | Uninstall-Package
+                                    }
                                     
                                     # The latest PS Core available via Chocolatey might not be the latest available via direct download on GitHub
                                     if ($CurrentInstalledPSVersions -contains $PSCoreChocoVersion) {
@@ -1091,18 +1307,33 @@ function Update-PowerShellCore
                                     }
                                     elseif ($PSCoreChocoVersion.Split(".")[-1] -le $PSFullVersion.Split(".")[-1] -and $Latest) {
                                         Write-Warning "The version of PowerShell Core available via Chocolatey (i.e. $PSCoreChocoVersion) is older than the latest version available on GitHub via Direct Download!"
-                                        Write-Host "Re-running Update-PowerShellCore function without the -UsePackageManagement switch ..."
-                                        $null = $PSBoundParameters.Remove("UsePackageManagement")
-                                        $global:FunctionResult = "0"
-                                        Update-PowerShellCore @PSBoundParameters
-                                        if ($global:FunctionResult -eq "1") {
-                                            Write-Error "Update-PowerShellCore function without -UsePackageManagement switch failed! Halting!"
-                                            $global:FunctionResult = "1"
+                                        $PauseForWarningMessage = "Would you like to install the latest version available on GitHub via Direct Download?"
+                                        $DirectDownloadChoice = Pause-ForWarning -PauseTimeInSeconds 15 -Message $PauseForWarningMessage
+                                        
+                                        if ($DirectDownloadChoice) {
+                                            # Re-Run the function using Direct Download
+                                            Write-Host "Re-running Update-PowerShellCore to install/update PowerShell Core via direct download ..."
+                                            if ($PSBoundParameters.Keys -contains "UsePackageManagement") {
+                                                $null = $PSBoundParameters.Remove("UsePackageManagement")
+                                            }
+                                            if (!$($PSBoundParameters.Keys -contains "DownloadDirectory") -or !$DownloadDirectory) {
+                                                $NewDownloadDirectory = Read-Host -Prompt "Please enter the full path to the directory where the PowerShell Core installation package will be downloaded"
+                                                $null = $PSBoundParameters.Add("DownloadDirectory", $NewDownloadDirectory)
+                                            }
+                                            $global:FunctionResult = "0"
+                                            Update-PowerShellCore @PSBoundParameters
+                                            if ($global:FunctionResult -eq "1") {
+                                                Write-Error "Update-PowerShellCore function without -UsePackageManagement switch failed! Halting!"
+                                                $global:FunctionResult = "1"
+                                            }
+                                            return
                                         }
-                                        return
+                                        else {
+                                            Install-Package -InputObject $ChocoProviderPackage -Force
+                                        }
                                     }
                                     else {
-                                        Install-Package -InputObject $LatestViaChocoProvider
+                                        Install-Package -InputObject $ChocoProviderPackage -Force
                                     }
                                 }
                             }
@@ -1119,13 +1350,13 @@ function Update-PowerShellCore
                                     throw
                                 }
 
-                                $PSCoreFoundCheck = $(clist powershell-core --pre) | Where-Object {$_ -match "powershell"}
+                                $ChocoVersionEquivalent = $PSFullVersion.Remove($($PSFullVersion.LastIndexOf(".")),1)
+                                $PSCoreFoundCheck = $(clist powershell-core --pre --all) | Where-Object {$_ -match $ChocoVersionEquivalent}
                                 if ($PSCoreFoundCheck -eq $null) {
                                     throw
                                 }
-
-                                $PSCoreChocoVersionPrep = $($PSCoreFoundCheck -split " ")[1].Trim() 
-                                $PSCoreChocoVersion = $PSCoreChocoVersionPrep.Insert($($PSCoreChocoVersionPrep.Length-1),".")
+                                
+                                $PSCoreChocoVersion = $PSFullVersion
                                 
                                 # The latest PS Core available via Chocolatey might not be the latest available via direct download on GitHub
                                 if ($CurrentInstalledPSVersions -contains $PSCoreChocoVersion) {
@@ -1133,15 +1364,30 @@ function Update-PowerShellCore
                                 }
                                 elseif ($PSCoreChocoVersion.Split(".")[-1] -le $PSFullVersion.Split(".")[-1] -and $Latest) {
                                     Write-Warning "The version of PowerShell Core available via Chocolatey (i.e. $PSCoreChocoVersion) is older than the latest version available on GitHub via Direct Download!"
-                                    Write-Host "Re-running Update-PowerShellCore function without the -UsePackageManagement switch ..."
-                                    $null = $PSBoundParameters.Remove("UsePackageManagement")
-                                    $global:FunctionResult = "0"
-                                    Update-PowerShellCore @PSBoundParameters
-                                    if ($global:FunctionResult -eq "1") {
-                                        Write-Error "Update-PowerShellCore function without -UsePackageManagement switch failed! Halting!"
-                                        $global:FunctionResult = "1"
+                                    $PauseForWarningMessage = "Would you like to install the latest version available on GitHub via Direct Download?"
+                                    $DirectDownloadChoice = Pause-ForWarning -PauseTimeInSeconds 15 -Message $PauseForWarningMessage
+                                    
+                                    if ($DirectDownloadChoice) {
+                                        # Re-Run the function using Direct Download
+                                        Write-Host "Re-running Update-PowerShellCore to install/update PowerShell Core via direct download ..."
+                                        if ($PSBoundParameters.Keys -contains "UsePackageManagement") {
+                                            $null = $PSBoundParameters.Remove("UsePackageManagement")
+                                        }
+                                        if (!$($PSBoundParameters.Keys -contains "DownloadDirectory") -or !$DownloadDirectory) {
+                                            $NewDownloadDirectory = Read-Host -Prompt "Please enter the full path to the directory where the PowerShell Core installation package will be downloaded"
+                                            $null = $PSBoundParameters.Add("DownloadDirectory", $NewDownloadDirectory)
+                                        }
+                                        $global:FunctionResult = "0"
+                                        Update-PowerShellCore @PSBoundParameters
+                                        if ($global:FunctionResult -eq "1") {
+                                            Write-Error "Update-PowerShellCore function without -UsePackageManagement switch failed! Halting!"
+                                            $global:FunctionResult = "1"
+                                        }
+                                        return
                                     }
-                                    return
+                                    else {
+                                        choco install powershell-core --pre
+                                    }
                                 }
                                 else {
                                     choco install powershell-core --pre
@@ -1208,7 +1454,7 @@ function Update-PowerShellCore
                 Write-Host "Downloading PowerShell Core AppImage for $OS $PSFullVersion to $DownloadPath ..."
                 
                 if (!$(Test-Path $DownloadDirectory)) {
-                    New-Item -ItemType Directory -Path $DownloadDirectory
+                    $null = New-Item -ItemType Directory -Path $DownloadDirectory
                 }
             
                 try {
@@ -1302,7 +1548,7 @@ function Update-PowerShellCore
                         Write-Host "Downloading PowerShell Core for $OS $PSFullVersion to $DownloadPath ..."
 
                         if (!$(Test-Path $DownloadDirectory)) {
-                            New-Item -ItemType Directory -Path $DownloadDirectory
+                            $null = New-Item -ItemType Directory -Path $DownloadDirectory
                         }
                     
                         try {
@@ -1369,7 +1615,7 @@ function Update-PowerShellCore
                             Write-Host "Downloading PowerShell Core for $OS $PSFullVersion to $DownloadPath ..."
                             
                             if (!$(Test-Path $DownloadDirectory)) {
-                                New-Item -ItemType Directory -Path $DownloadDirectory
+                                $null = New-Item -ItemType Directory -Path $DownloadDirectory
                             }
                         
                             try {
@@ -1407,7 +1653,7 @@ function Update-PowerShellCore
                         Write-Host "Downloading PowerShell Core for $OS $PSFullVersion to $DownloadPath ..."
                         
                         if (!$(Test-Path $DownloadDirectory)) {
-                            New-Item -ItemType Directory -Path $DownloadDirectory
+                            $null = New-Item -ItemType Directory -Path $DownloadDirectory
                         }
                     
                         try {
@@ -1472,8 +1718,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUPwXwK1DTDr5nsJFmRVbySRX
-# WTCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVxsNGzhxUV5hnW62OtwkDewq
+# ZZqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1530,11 +1776,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAdY/K/zWJ+lYt7B
-# JLKt7FDBymFKMA0GCSqGSIb3DQEBAQUABIIBAEeXPxv1H9pfyYoyycHe6vE4FdTI
-# aN2mOu3YbzdX/ttvivfdc05iAt348XWxRZB9k3pp9CAswxtDI9xsMj8LzbXAVpLO
-# fhiu3Uy4T1Y0IlbjhZYmiFdS11yvygp7NTmhrhwKGIbk/esTemba1wva16ftUE4Z
-# FYbfjNBPFtbqkCl+tRnM4obfe4Ean6eqLBp/LMePxJwpQUIPZNwY4rD32m46etIg
-# e+0/uS64fPq4FP5xS4/6Ef3EB9VbJ4G0531gRMwGS48eeDVxdDxp7zdK7KfOKl3y
-# /nP0o27T6hDkT0wk9TXEpuRAGFBQ8IvFC9kI9AHbulsntcM3C/uTGjjooig=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBDX5Re3nOV6Krqt
+# oCv23BINGNo3MA0GCSqGSIb3DQEBAQUABIIBAHGSLGWUATdONXQW/aA7GT46thmt
+# l50ak2ubM244CIN/G+nZ7H+UyEF8LW2cR7JdbOVcDNDmKgWC3Vtv7FTcnBvNXuyf
+# NJ1S8I6DeZpqWdLYzhu+nyKcnYtb2A3LZbreIWjb0ulugllDkMD8bLqeOn8g90Cp
+# XDc8SQVQkZumNxg6udw1df+3yzNDc3T2V2iGOxpPijdA3Gm84vlwvZBWT1z/UF6c
+# j2LvdVb/VW+c+A5R/dz0riny117uBibEVgdoSH7OY7b4Vw4fftBlbnlU9BnDPUW1
+# XR8zA1rHTGtC+kjBPId0NrCQlCyUi136uC5WsR5GLrBncfXB31W9w/Q0U6s=
 # SIG # End signature block

@@ -56,7 +56,10 @@ function Update-PackageManagement {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
-        [switch]$UseChocolatey
+        [switch]$UseChocolatey,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$InstallNuGetCmdLine
     )
 
     ##### BEGIN Helper Functions #####
@@ -112,6 +115,47 @@ function Update-PackageManagement {
     
     }
 
+    function Pause-ForWarning {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$True)]
+            [int]$PauseTimeInSeconds,
+    
+            [Parameter(Mandatory=$True)]
+            $Message
+        )
+    
+        Write-Warning $Message
+        Write-Host "To answer in the affirmative, press 'y' on your keyboard."
+        Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
+    
+        $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
+        $stopwatch = [diagnostics.stopwatch]::StartNew()
+        while ($stopwatch.elapsed -lt $timeout){
+            if ([Console]::KeyAvailable) {
+                $keypressed = [Console]::ReadKey("NoEcho").Key
+                Write-Host "You pressed the `"$keypressed`" key"
+                if ($keypressed -eq "y") {
+                    $Result = $true
+                    break
+                }
+                if ($keypressed -ne "y") {
+                    $Result = $false
+                    break
+                }
+            }
+    
+            # Check once every 1 second to see if the above "if" condition is satisfied
+            Start-Sleep 1
+        }
+    
+        if (!$Result) {
+            $Result = $false
+        }
+        
+        $Result
+    }
+
     ##### END Helper Functions #####
 
 
@@ -128,6 +172,35 @@ function Update-PackageManagement {
         Write-Error "The Chocolatey Repo should only be added on a Windows OS! Halting!"
         $global:FunctionResult = "1"
         return
+    }
+
+    if ($InstallNuGetCmdLine -and !$UseChocolatey) {
+        if (!$(Get-Command choco -ErrorAction SilentlyContinue) -and $(Get-PackageProvider).Name -notcontains "Chocolatey") {
+            if ($PSVersionTable.PSEdition -eq "Desktop") {                
+                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
+                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                if ($WarningResponse) {
+                    $UseChocolatey = $true
+                }
+            }
+            elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
+                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
+                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                if ($WarningResponse) {
+                    $UseChocolatey = $true
+                }
+            }
+            elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
+                $WarningMessage = "The NuGet Command Line Tools binary nuget.exe can be downloaded, but will not be able to be run without Mono. Do you want to download the latest stable nuget.exe?"
+                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                if ($WarningResponse) {
+                    Write-Host "Downloading latest stable nuget.exe..."
+                    $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
+                    Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $OutFilePath
+                }
+                $UseChocolatey = $false
+            }
+        }
     }
 
     if ($PSVersionTable.PSEdition -eq "Desktop") {
@@ -148,7 +221,7 @@ function Update-PackageManagement {
         if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
             Write-Host "Downloading PackageManagement .msi installer..."
             $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "PackageManagement_x64.msi")
-            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile $OutFilePath
+            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi" -OutFile $OutFilePath
             
             $DateStamp = Get-Date -Format yyyyMMddTHHmmss
             $MSIFullPath = $OutFilePath
@@ -220,38 +293,92 @@ function Update-PackageManagement {
                 # The above Install-PackageProvider "Chocolatey" -Force DOES register a PackageSource Repository, so we need to trust it:
                 Set-PackageSource -Name Chocolatey -Trusted
 
-                # Next, install the NuGet CLI using the Chocolatey Repo
-                try {
-                    Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
-                    while (!$(Find-Package Nuget.CommandLine)) {
-                        Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
-                        Start-Sleep -Seconds 2
+                # Make sure packages installed via Chocolatey PackageProvider are part of $env:Path
+                [System.Collections.ArrayList]$ChocolateyPathsPrep = @()
+                [System.Collections.ArrayList]$ChocolateyPathsFinal = @()
+                $env:ChocolateyPSProviderPath = "C:\Chocolatey"
+
+                if (Test-Path $env:ChocolateyPSProviderPath) {
+                    if (Test-Path "$env:ChocolateyPSProviderPath\lib") {
+                        $OtherChocolateyPathsToAdd = $(Get-ChildItem "$env:ChocolateyPSProviderPath\lib" -Directory | foreach {
+                            Get-ChildItem $_.FullName -Recurse -File
+                        } | foreach {
+                            if ($_.Extension -eq ".exe") {
+                                $_.Directory.FullName
+                            }
+                        }) | foreach {
+                            $null = $ChocolateyPathsPrep.Add($_)
+                        }
                     }
-                    
-                    Get-Package NuGet.CommandLine -ErrorAction SilentlyContinue
-                    if (!$?) {
-                        throw
+                    if (Test-Path "$env:ChocolateyPSProviderPath\bin") {
+                        $OtherChocolateyPathsToAdd = $(Get-ChildItem "$env:ChocolateyPSProviderPath\bin" -Directory | foreach {
+                            Get-ChildItem $_.FullName -Recurse -File
+                        } | foreach {
+                            if ($_.Extension -eq ".exe") {
+                                $_.Directory.FullName
+                            }
+                        }) | foreach {
+                            $null = $ChocolateyPathsPrep.Add($_)
+                        }
                     }
-                } 
-                catch {
-                    Install-Package Nuget.CommandLine -Source chocolatey
                 }
                 
-                # Ensure $env:Path includes C:\Chocolatey\bin
-                if ($($env:Path -split ";") -notcontains "C:\Chocolatey\bin") {
-                    if ($env:Path[-1] -eq ";") {
-                        $env:Path = "$env:Path`C:\Chocolatey\bin"
-                    }
-                    else {
-                        $env:Path = "$env:Path;C:\Chocolatey\bin"
+                if ($ChocolateyPathsPrep) {
+                    foreach ($ChocoPath in $ChocolateyPathsPrep) {
+                        if ($(Test-Path $ChocoPath) -and $OriginalEnvPathArray -notcontains $ChocoPath) {
+                            $null = $ChocolateyPathsFinal.Add($ChocoPath)
+                        }
                     }
                 }
-                # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
-                $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
-                $RealNuGetPath = $(Resolve-Path "C:\Chocolatey\lib\*\*\NuGet.exe").Path
-                $TestRealNuGetPath = Test-Path $RealNuGetPath
-                if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
-                    New-Item -Path "C:\Chocolatey\bin\NuGet.exe" -ItemType SymbolicLink -Value $RealNuGetPath
+            
+                try {
+                    $ChocolateyPathsFinal = $ChocolateyPathsFinal | Sort-Object | Get-Unique
+                }
+                catch {
+                    [System.Collections.ArrayList]$ChocolateyPathsFinal = @($ChocolateyPathsFinal)
+                }
+                if ($ChocolateyPathsFinal.Count -ne 0) {
+                    $ChocolateyPathsAsString = $ChocolateyPathsFinal -join ";"
+                }
+
+                foreach ($ChocPath in $ChocolateyPathsFinal) {
+                    if ($($env:Path -split ";") -notcontains $ChocPath) {
+                        if ($env:Path[-1] -eq ";") {
+                            $env:Path = "$env:Path$ChocPath"
+                        }
+                        else {
+                            $env:Path = "$env:Path;$ChocPath"
+                        }
+                    }
+                }
+
+                Write-Host "Updated `$env:Path is:`n$env:Path"
+
+                if ($InstallNuGetCmdLine) {
+                    # Next, install the NuGet CLI using the Chocolatey Repo
+                    try {
+                        Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
+                        while (!$(Find-Package Nuget.CommandLine)) {
+                            Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
+                            Start-Sleep -Seconds 2
+                        }
+                        
+                        Get-Package NuGet.CommandLine -ErrorAction SilentlyContinue
+                        if (!$?) {
+                            throw
+                        }
+                    } 
+                    catch {
+                        Install-Package Nuget.CommandLine -Source chocolatey -Force
+                    }
+                    
+                    # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
+                    $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
+                    $RealNuGetPath = $(Resolve-Path "C:\Chocolatey\lib\*\*\NuGet.exe").Path
+                    $TestRealNuGetPath = Test-Path $RealNuGetPath
+                    if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
+                        New-Item -Path "C:\Chocolatey\bin\NuGet.exe" -ItemType SymbolicLink -Value $RealNuGetPath
+                    }
                 }
             }
         }
@@ -265,6 +392,21 @@ function Update-PackageManagement {
                 $DateStamp = Get-Date -Format yyyyMMddTHHmmss
                 $ChocolateyInstallLogFile = Get-NativePath -PathAsStringArray @($(Get-Location).Path, "ChocolateyInstallLog_$DateStamp.txt")
                 $ChocolateyInstallProblems | Out-File $ChocolateyInstallLogFile
+            }
+
+            if ($InstallNuGetCmdLine) {
+                if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                    Write-Error "Unable to find chocolatey.exe, however, it should be installed. Please check your System PATH and `$env:Path and try again. Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                else {
+                    # 'choco update' aka 'cup' will update if already installed or install if not installed 
+                    Start-Process "cup" -ArgumentList "nuget.commandline -y" -Wait -NoNewWindow
+                }
+                # NOTE: The chocolatey install should take care of setting $env:Path and System PATH so that
+                # choco binaries and packages installed via chocolatey can be found here:
+                # C:\ProgramData\chocolatey\bin
             }
         }
     }
@@ -433,12 +575,11 @@ function Update-PackageManagement {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBmZgr3JoCma6qKzqPXS0j7OP
-# Xdagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW4JnzVLitQQveMabPDORepb1
+# dJegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -495,11 +636,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKB9XJBiKnDs/XR1
-# kqsSodxM6tf0MA0GCSqGSIb3DQEBAQUABIIBADCThcFPpYkHNnxOGW5z0nlMsfcU
-# 8eM0vo0CfKfCvQz3GbxMqkUJ9gW5KusagEDKZ6YBa5LajTTMeS2gQdoRudvUKc1R
-# LuhN9fwX+Ocu2cs0Bniyl1wbBXxl4SidgvkvgZmt8/iPg/sAz2gpNH/WOVn/bCEG
-# XGNmvkFc4FJlH+wVvqSApG4oy8XQv8eZTBO9SGBUMtJYPNI35LFnEOeJ1z4qSUpb
-# kpENTLLoTI+wFzs/cz+ZNIMPrvct2YFn46w2wFtmNMdEtfvWB/krgolQNydwZU6h
-# atY/nXWUegmd8GNZrUt0Pqw1OpajcYrXnudikTA2GG78CWckXjJ9c84CLqg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHFIqG/LifCfS4VR
+# Nz9YYIMpW/bOMA0GCSqGSIb3DQEBAQUABIIBADmbakLRUVsZJuGWqBsT2rAHlDxM
+# KPwrgT2WuI1R5Zkth0rLUhzr/SrpOsy4Yw9MqVsU0ZLqOPWgkyltwpiKiZjhwXdQ
+# NH6vT0aJxwlXXXtYs1PVZ+rvA0L0yqowEc5ra6kBbqqUFfXSj/wJVzTJTFTdweD2
+# 620iSQVgeDne+uhN26gbOQkUj3rKg1acOUsjtIHEw6IqlETvrNm8+fwidDDKanVm
+# p95/X2wHtwX8y587l9P54D3U3vt2wiyu5qyjvJf9TMn6pDLbklS9SeGHMTP92imd
+# kObz9jXDdSDYx/f8lIl6OI4EJntYLByzw8cagxkSVA8qW3XhYCYFz5ychSI=
 # SIG # End signature block
