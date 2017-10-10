@@ -123,7 +123,7 @@ function Update-PowerShellCore
     ##### BEGIN Native Helper Functions #####
 
     function Check-Elevation {
-        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
             [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
                 [System.Security.Principal.WindowsIdentity]::GetCurrent()
             )
@@ -317,103 +317,6 @@ function Update-PowerShellCore
             [Parameter(Mandatory=$False)]
             [switch]$InstallNuGetCmdLine
         )
-    
-        ##### BEGIN Helper Functions #####
-    
-        function Check-Elevation {
-            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
-                [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
-                    [System.Security.Principal.WindowsIdentity]::GetCurrent()
-                )
-        
-                [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
-        
-                if($currentPrincipal.IsInRole($administratorsRole)) {
-                    return $true
-                }
-                else {
-                    return $false
-                }
-            }
-            
-            if ($PSVersionTable.Platform -eq "Unix") {
-                if ($(whoami) -eq "root") {
-                    return $true
-                }
-                else {
-                    return $false
-                }
-            }
-        }
-    
-        function Get-NativePath {
-            [CmdletBinding()]
-            Param( 
-                [Parameter(Mandatory=$True)]
-                [string[]]$PathAsStringArray
-            )
-        
-            $PathAsStringArray = foreach ($pathPart in $PathAsStringArray) {
-                $SplitAttempt = $pathPart -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)
-                
-                if ($SplitAttempt.Count -gt 1) {
-                    foreach ($obj in $SplitAttempt) {
-                        $obj
-                    }
-                }
-                else {
-                    $pathPart
-                }
-            }
-            $PathAsStringArray = $PathAsStringArray -join [IO.Path]::DirectorySeparatorChar
-        
-            $PathAsStringArray
-        
-        }
-    
-        function Pause-ForWarning {
-            [CmdletBinding()]
-            Param(
-                [Parameter(Mandatory=$True)]
-                [int]$PauseTimeInSeconds,
-        
-                [Parameter(Mandatory=$True)]
-                $Message
-            )
-        
-            Write-Warning $Message
-            Write-Host "To answer in the affirmative, press 'y' on your keyboard."
-            Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
-        
-            $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
-            $stopwatch = [diagnostics.stopwatch]::StartNew()
-            while ($stopwatch.elapsed -lt $timeout){
-                if ([Console]::KeyAvailable) {
-                    $keypressed = [Console]::ReadKey("NoEcho").Key
-                    Write-Host "You pressed the `"$keypressed`" key"
-                    if ($keypressed -eq "y") {
-                        $Result = $true
-                        break
-                    }
-                    if ($keypressed -ne "y") {
-                        $Result = $false
-                        break
-                    }
-                }
-        
-                # Check once every 1 second to see if the above "if" condition is satisfied
-                Start-Sleep 1
-            }
-        
-            if (!$Result) {
-                $Result = $false
-            }
-            
-            $Result
-        }
-    
-        ##### END Helper Functions #####
-    
     
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     
@@ -1718,8 +1621,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVxsNGzhxUV5hnW62OtwkDewq
-# ZZqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWa+6V7Vwn0nbypekJFdpFAnu
+# 4Sugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1776,11 +1679,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBDX5Re3nOV6Krqt
-# oCv23BINGNo3MA0GCSqGSIb3DQEBAQUABIIBAHGSLGWUATdONXQW/aA7GT46thmt
-# l50ak2ubM244CIN/G+nZ7H+UyEF8LW2cR7JdbOVcDNDmKgWC3Vtv7FTcnBvNXuyf
-# NJ1S8I6DeZpqWdLYzhu+nyKcnYtb2A3LZbreIWjb0ulugllDkMD8bLqeOn8g90Cp
-# XDc8SQVQkZumNxg6udw1df+3yzNDc3T2V2iGOxpPijdA3Gm84vlwvZBWT1z/UF6c
-# j2LvdVb/VW+c+A5R/dz0riny117uBibEVgdoSH7OY7b4Vw4fftBlbnlU9BnDPUW1
-# XR8zA1rHTGtC+kjBPId0NrCQlCyUi136uC5WsR5GLrBncfXB31W9w/Q0U6s=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJmoqIyH3Qi4JJWw
+# DTsLCjIkOeLtMA0GCSqGSIb3DQEBAQUABIIBABeWJL7AXdehnF5e78bZlhUd6wdQ
+# iM9Lyv8WOzhm6PBapFr4rQ27gvNV/HPpmQ9aopa0yqWOClzHKal27hz+Q9gU2lHU
+# eMsUnwNdrTJq8978xpYJ7mOWpOyXrX/gP6665O4ECA7UKKrei1PAe/aApNqcW2dO
+# A+lOlBlvc/h5ShmUiLMJ/8Q3VPZeWGQ1B/aUzKnWtoU43WoVeUmqO5YOZlwtKHnr
+# bOQCQ3ChXD29YFi+2BMKVO26lIKc1MBOvlCJb13NI4xft4pCymtV1aOeB7+SHZFx
+# vJjfHHT8ZhQ8aSpScsGqBLIEIXd4Iemp9awJnvkdmATEwplkMAQm5vIgvM4=
 # SIG # End signature block
