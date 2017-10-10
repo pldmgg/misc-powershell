@@ -1349,7 +1349,7 @@ function Update-PowerShellCore
                     brew cask reinstall powershell
 
                     Write-Host "Exiting current PowerShell Core Session. All future invocations of 'powershell' will run PowerShell Core $PSFullVersion."
-                    #exit
+                    exit
                 }
                 else {
                     Write-Warning "The PowerShell Core version $PSFullVersion is already installed. No action taken."
