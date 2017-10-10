@@ -706,7 +706,7 @@ function Update-PowerShellCore
             $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
             $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
         ) {
-            Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
+            Write-Warning "The PackageManagement Module has been updated and requires a brand new PowerShell Session. Please close this session, start a new one, and run the function again."
             $NewPSSessionRequired = $true
         }
     
@@ -1189,7 +1189,7 @@ function Update-PowerShellCore
                         }
 
                         if ($UpdateResults.NewPSSessionRequired) {
-                            Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
+                            Write-Warning "The PackageManagement Module has been updated and requires a brand new PowerShell Session. Please close this session, start a new one, and run the function again."
                             return
                         }
 
