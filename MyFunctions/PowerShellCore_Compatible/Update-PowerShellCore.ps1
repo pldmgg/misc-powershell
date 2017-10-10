@@ -317,12 +317,18 @@ function Update-PowerShellCore
             [Parameter(Mandatory=$False)]
             [switch]$InstallNuGetCmdLine
         )
-    
+        
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     
         # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
         if (!$(Check-Elevation)) {
             Write-Error "The Update-PackageManagement function must be run with elevated privileges. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    
+        if (!$([Environment]::Is64BitProcess)) {
+            Write-Error "You are currently running the 32-bit version of PowerShell. Please run the 64-bit version found under C:\Windows\SysWOW64\WindowsPowerShell\v1.0 and try again. Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -376,7 +382,7 @@ function Update-PowerShellCore
         ##### END Variable/Parameter Transforms and PreRun Prep #####
     
     
-        if ($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSEdition -eq "Desktop") {
+        if ($PSVersionTable.PSVersion.Major -lt 5) {
             if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
                 Write-Host "Downloading PackageManagement .msi installer..."
                 $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "PackageManagement_x64.msi")
@@ -700,12 +706,7 @@ function Update-PowerShellCore
             $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
             $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
         ) {
-            Write-Warning $(
-                "The latest version of the PackageManagement Module does not check for certain assemblies that could already be loaded" +
-                " (which is almost certainly the case if you are using PowerShell Core). Please close this PowerShell Session," +
-                " start a new one, and rerun the Update-PackageManagement function in order to move past this race condition."
-            )
-    
+            Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
             $NewPSSessionRequired = $true
         }
     
@@ -725,6 +726,12 @@ function Update-PowerShellCore
 
     if (!$(Check-Elevation)) {
         Write-Error "Please run PowerShell with elevated privileges and try again. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if (!$([Environment]::Is64BitProcess)) {
+        Write-Error "You are currently running the 32-bit version of PowerShell. Please run the 64-bit version found under C:\Windows\SysWOW64\WindowsPowerShell\v1.0 and try again. Halting!"
         $global:FunctionResult = "1"
         return
     }
@@ -1047,7 +1054,7 @@ function Update-PowerShellCore
     {
         'win' {
             if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
-                [System.Collections.ArrayList]$CurrentInstalledPSVersions = [array]$(Get-Item "C:\Program Files\PowerShell\*\powershell.exe").Directory.Name
+                [System.Collections.ArrayList]$CurrentInstalledPSVersions = [array]$(Get-Item "C:\Program Files\PowerShell\*\powershell.exe" -ErrorAction SilentlyContinue).Directory.Name
                 
                 if (!$($CurrentInstalledPSVersions -contains $PSFullVersion)) {
                     if (!$UsePackageManagement) {
@@ -1139,10 +1146,12 @@ function Update-PowerShellCore
                             }
                         }
                         if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
-                            # Check for Chocolotey Package Provider
-                            $ChocoPackProvCheck = Get-PackageProvider -ListAvailable -ErrorAction SilentlyContinue | Where-Object {$_.Name -eq "Chocolatey"}
-                            $CheckForPSCoreAvail = Find-Package powershell-core -AllVersions -AllowPrereleaseVersions -ErrorAction SilentlyContinue
-                            if (!$ChocoPackProvCheck -or !$CheckForPSCoreAvail) {
+                            try {
+                                # Check for Chocolotey Package Provider
+                                $ChocoPackProvCheck = Get-PackageProvider -ListAvailable | Where-Object {$_.Name -eq "Chocolatey"}
+                                $CheckForPSCoreAvail = Find-Package powershell-core -AllVersions -AllowPrereleaseVersions
+                            }
+                            catch {
                                 $UpdateResults = Update-PackageManagement -UseChocolatey 2>&1 3>&1 6>&1
                                 $UpdateResults
                             }
@@ -1180,7 +1189,7 @@ function Update-PowerShellCore
                         }
 
                         if ($UpdateResults.NewPSSessionRequired) {
-                            Write-Warning "The PackageManagement Module has been updated. Please run the Update-PowerShellCore function again in a new PowerShell Session in order to update PowerShell Core."
+                            Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
                             return
                         }
 
@@ -1628,8 +1637,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUANdgtLQjHRni7F0o2gaDbUMh
-# xQ+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZD4ar2hnL2xFEYc0GeiRqY/M
+# WZGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1686,11 +1695,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDgxCwyo/SPVwp8g
-# SvEySkE3wMaOMA0GCSqGSIb3DQEBAQUABIIBADBZuNg9T4M1h8j5YeXzgxCDdwd/
-# MqWU/9IfnPIWJ1IvDUnlVaw90j1X2UhHHAhxHHj2q5dBCPMHCyK6H1DLmiQKN+LE
-# 3nXe9IkB0SH7xFxzPwTUlXs2boBnK8Df9BcmV50725Iql5IMQpLt/UKfgjzb6Nha
-# oUeedc+Scgbt8qvVNJbqlGoiN7ZZDEWoh71W47/HE888Fk6FeNm9Ai0yVP6izVhP
-# 3bhWXOvnRMmsbEiaq3gmSmX723KpU4QaaZ9seuLjZly7aKOBlWTKYvwKe7i4Pwmf
-# wYEAVS88yQ1OghWzennmU9FqNdnz5510Co8hP1YZuQwKRAiF45euJjmA79w=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDFharUzbq2sc/fm
+# 2ofJwmwT9W5LMA0GCSqGSIb3DQEBAQUABIIBADQvNne7wqQujRPHn+6Yz6bx7wDf
+# csbOAkkZbxq6YiIHmqfZVNIa0qmz1uFJsu3U0+RJnE8xE75gmXA56rsuKwiVRqh9
+# NMQPrstKP+M5X5YX+L6jU84ft7ApF/2FRjYvPotN9cWaxEnCgcnG+Mzkzc8OCcnJ
+# CDx1KZ58S5tUtMOcoGcwiMweUckJeulD2qHRBRZcoi08GGrclvYT0/dqyZSgFct7
+# uwa8RCql54tRz2IPbLcCNjQZlv89mkxpkk1zJ0HNf75nhDpnhrYT4Y7EVE2x1r8R
+# 5FKtbi+gHua1C7sDREA7KplX0iUIhuVVgmlrKNhTxclwf3vhtfaB7GWRJBc=
 # SIG # End signature block

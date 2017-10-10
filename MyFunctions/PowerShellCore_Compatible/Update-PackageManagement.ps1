@@ -168,6 +168,12 @@ function Update-PackageManagement {
         return
     }
 
+    if (!$([Environment]::Is64BitProcess)) {
+        Write-Error "You are currently running the 32-bit version of PowerShell. Please run the 64-bit version found under C:\Windows\SysWOW64\WindowsPowerShell\v1.0 and try again. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
     if ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -ne "Win32NT" -and $UseChocolatey) {
         Write-Error "The Chocolatey Repo should only be added on a Windows OS! Halting!"
         $global:FunctionResult = "1"
@@ -217,7 +223,7 @@ function Update-PackageManagement {
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
-    if ($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSEdition -eq "Desktop") {
+    if ($PSVersionTable.PSVersion.Major -lt 5) {
         if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
             Write-Host "Downloading PackageManagement .msi installer..."
             $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "PackageManagement_x64.msi")
@@ -541,12 +547,7 @@ function Update-PackageManagement {
         $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
         $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
     ) {
-        Write-Warning $(
-            "The latest version of the PackageManagement Module does not check for certain assemblies that could already be loaded" +
-            " (which is almost certainly the case if you are using PowerShell Core). Please close this PowerShell Session," +
-            " start a new one, and rerun the Update-PackageManagement function in order to move past this race condition."
-        )
-
+        Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
         $NewPSSessionRequired = $true
     }
 
@@ -572,13 +573,11 @@ function Update-PackageManagement {
 
 
 
-
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU28WxKgdaXazCf4hddgDI/2B/
-# ZC+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9sxspHS6z8o7L2+ajw9XA7E2
+# YKGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -635,11 +634,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMweaKbWEZpvLzU+
-# 04a93t/rPW6xMA0GCSqGSIb3DQEBAQUABIIBAIR0zOtKddvlZBm4ufTgPo7izHwQ
-# WBvaRSxnWON2EFkogTkbpMTi1dKMlgYt4xCZgJZ89KCw8M3/k/BihJL+/Vl8VZ6O
-# rRutua99+GmAhX/xaP5098eJulIxzp7IAL701B5g+WXqLYJ7z881MX4M5ggGnuu7
-# jxP6/F8DKZFobfaG5S+IgQEhPGta7oanQOv/EABmBkQ2IMe6keU9MQkNz8DP5YKh
-# Wz8zk3jZO2P8Yh72XXJGvSwW97Hs2HcLlm4VEk8wiN6gLL13zQDroqKZKPitHmcP
-# zwD3rvVc154Y7gAiFz6IrfSnh+8EKu2WqjsnHTX4RctZqUhrUpb8ni2d6Qg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHTm+T9K9fgErtIR
+# cy3ijIKW4VAVMA0GCSqGSIb3DQEBAQUABIIBAI+OaBJCOf4RPKh335dbD8jEbDG3
+# rap00qpzMWH0douW2/hKs5A1tWhXY2SzC/pjLTEPD+aoDuzt3ylc0baIBKW/aJNZ
+# tEgjLwp7LW5ipwWjE06szIGArUtUvasmQz1858HXhbGsLjSI4oDUuWbuHU7+9SDA
+# oBSV+K8yArYt/0IPHIw9/Nhostm8CRT+6I6JVSCHdNbMWKP49nBUmGa2MgQ8n4y9
+# LnQ2AHMZMtrD5i37vKEuvmBkDp/IzFzut5nR+tGgeHqyNFisMuJGaP4WtroIsoDx
+# 5Z4vBq1V5/Ml3+qFxmnsUPa68oFOK0XEmMWlwGt2fQtfB1P94/KTu76U0W0=
 # SIG # End signature block
