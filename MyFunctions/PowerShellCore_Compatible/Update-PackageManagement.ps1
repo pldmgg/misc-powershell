@@ -65,7 +65,7 @@ function Update-PackageManagement {
     ##### BEGIN Helper Functions #####
 
     function Check-Elevation {
-        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
             [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
                 [System.Security.Principal.WindowsIdentity]::GetCurrent()
             )
@@ -176,7 +176,7 @@ function Update-PackageManagement {
 
     if ($InstallNuGetCmdLine -and !$UseChocolatey) {
         if (!$(Get-Command choco -ErrorAction SilentlyContinue) -and $(Get-PackageProvider).Name -notcontains "Chocolatey") {
-            if ($PSVersionTable.PSEdition -eq "Desktop") {                
+            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
                 $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
                 $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                 if ($WarningResponse) {
@@ -203,7 +203,7 @@ function Update-PackageManagement {
         }
     }
 
-    if ($PSVersionTable.PSEdition -eq "Desktop") {
+    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
         # Check to see if we're behind a proxy
         if ([System.Net.WebProxy]::GetDefaultProxy().Address -ne $null) {
             $ProxyAddress = [System.Net.WebProxy]::GetDefaultProxy().Address
@@ -286,7 +286,7 @@ function Update-PackageManagement {
     }
 
     if ($UseChocolatey) {
-        if ($PSVersionTable.PSEdition -eq "Desktop") {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
             # Install the Chocolatey Package Provider to be used with PowerShellGet
             if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
                 Install-PackageProvider "Chocolatey" -Scope CurrentUser -Force
@@ -513,7 +513,7 @@ function Update-PackageManagement {
     }
 
     # Make sure all Repos Are Trusted
-    if ($UseChocolatey -and $PSVersionTable.PSEdition -eq "Desktop") {
+    if ($UseChocolatey -and $($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5)) {
         $BaselineRepoNames = @("Chocolatey","nuget.org","PSGallery")
     }
     else {
@@ -574,12 +574,11 @@ function Update-PackageManagement {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW4JnzVLitQQveMabPDORepb1
-# dJegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU28WxKgdaXazCf4hddgDI/2B/
+# ZC+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -636,11 +635,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHFIqG/LifCfS4VR
-# Nz9YYIMpW/bOMA0GCSqGSIb3DQEBAQUABIIBADmbakLRUVsZJuGWqBsT2rAHlDxM
-# KPwrgT2WuI1R5Zkth0rLUhzr/SrpOsy4Yw9MqVsU0ZLqOPWgkyltwpiKiZjhwXdQ
-# NH6vT0aJxwlXXXtYs1PVZ+rvA0L0yqowEc5ra6kBbqqUFfXSj/wJVzTJTFTdweD2
-# 620iSQVgeDne+uhN26gbOQkUj3rKg1acOUsjtIHEw6IqlETvrNm8+fwidDDKanVm
-# p95/X2wHtwX8y587l9P54D3U3vt2wiyu5qyjvJf9TMn6pDLbklS9SeGHMTP92imd
-# kObz9jXDdSDYx/f8lIl6OI4EJntYLByzw8cagxkSVA8qW3XhYCYFz5ychSI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMweaKbWEZpvLzU+
+# 04a93t/rPW6xMA0GCSqGSIb3DQEBAQUABIIBAIR0zOtKddvlZBm4ufTgPo7izHwQ
+# WBvaRSxnWON2EFkogTkbpMTi1dKMlgYt4xCZgJZ89KCw8M3/k/BihJL+/Vl8VZ6O
+# rRutua99+GmAhX/xaP5098eJulIxzp7IAL701B5g+WXqLYJ7z881MX4M5ggGnuu7
+# jxP6/F8DKZFobfaG5S+IgQEhPGta7oanQOv/EABmBkQ2IMe6keU9MQkNz8DP5YKh
+# Wz8zk3jZO2P8Yh72XXJGvSwW97Hs2HcLlm4VEk8wiN6gLL13zQDroqKZKPitHmcP
+# zwD3rvVc154Y7gAiFz6IrfSnh+8EKu2WqjsnHTX4RctZqUhrUpb8ni2d6Qg=
 # SIG # End signature block

@@ -335,7 +335,7 @@ function Update-PowerShellCore
     
         if ($InstallNuGetCmdLine -and !$UseChocolatey) {
             if (!$(Get-Command choco -ErrorAction SilentlyContinue) -and $(Get-PackageProvider).Name -notcontains "Chocolatey") {
-                if ($PSVersionTable.PSEdition -eq "Desktop") {                
+                if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
                     $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
                     $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                     if ($WarningResponse) {
@@ -362,7 +362,7 @@ function Update-PowerShellCore
             }
         }
     
-        if ($PSVersionTable.PSEdition -eq "Desktop") {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
             # Check to see if we're behind a proxy
             if ([System.Net.WebProxy]::GetDefaultProxy().Address -ne $null) {
                 $ProxyAddress = [System.Net.WebProxy]::GetDefaultProxy().Address
@@ -445,7 +445,7 @@ function Update-PowerShellCore
         }
     
         if ($UseChocolatey) {
-            if ($PSVersionTable.PSEdition -eq "Desktop") {
+            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
                 # Install the Chocolatey Package Provider to be used with PowerShellGet
                 if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
                     Install-PackageProvider "Chocolatey" -Scope CurrentUser -Force
@@ -672,7 +672,7 @@ function Update-PowerShellCore
         }
     
         # Make sure all Repos Are Trusted
-        if ($UseChocolatey -and $PSVersionTable.PSEdition -eq "Desktop") {
+        if ($UseChocolatey -and $($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5)) {
             $BaselineRepoNames = @("Chocolatey","nuget.org","PSGallery")
         }
         else {
@@ -786,7 +786,7 @@ function Update-PowerShellCore
         }
     }
     if (!$OS) {
-        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.OS -match "Windows") {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.OS -match "Windows" -or $PSVersionTable.PSVersion.Major -le 5) {
             $OS = "win"
         }
         if ($PSVersionTable.OS -match "Darwin") {
@@ -1023,23 +1023,30 @@ function Update-PowerShellCore
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
     ##### BEGIN Main Body #####
-    $PowerShellCoreVersionhref = $($PowerShellCoreVersionPrep.Links | Where-Object {$_.href -like $hrefMatch})[0].href
-    $PowerShellCoreVersionURL = "https://github.com/" + $PowerShellCoreVersionhref
-    $DownloadFileName = $PowerShellCoreVersionURL | Split-Path -Leaf
-    $DownloadFileNameSansExt = [System.IO.Path]::GetFileNameWithoutExtension($DownloadFileName)
-    if ($DownloadDirectory) {
-        $DownloadDirectory = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileNameSansExt)
-        $DownloadPath = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileName)
+    try {
+        $PowerShellCoreVersionhref = $($PowerShellCoreVersionPrep.Links | Where-Object {$_.href -like $hrefMatch})[0].href
+        $PowerShellCoreVersionURL = "https://github.com/" + $PowerShellCoreVersionhref
+        $DownloadFileName = $PowerShellCoreVersionURL | Split-Path -Leaf
+        $DownloadFileNameSansExt = [System.IO.Path]::GetFileNameWithoutExtension($DownloadFileName)
+        if ($DownloadDirectory) {
+            $DownloadDirectory = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileNameSansExt)
+            $DownloadPath = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileName)
+        }
+        $PSFullVersion = $($DownloadFileNameSansExt | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-beta\.[0-9]").Matches.Value
+        $PSRelease = $PSFullVersion.Split("-")[0]
+        $PSChannel = $PSFullVersion.Split("-")[-1].Split(".")[0]
+        $PSIteration = $PSFullVersion.Split(".")[-1]
     }
-    $PSFullVersion = $($DownloadFileNameSansExt | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-beta\.[0-9]").Matches.Value
-    $PSRelease = $PSFullVersion.Split("-")[0]
-    $PSChannel = $PSFullVersion.Split("-")[-1].Split(".")[0]
-    $PSIteration = $PSFullVersion.Split(".")[-1]
+    catch {
+        Write-Error "Unable to find matching PowerShell Core version on https://github.com/powershell/powershell/releases"
+        $global:FunctionResult = "1"
+        return
+    }
 
     switch ($OS)
     {
         'win' {
-            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
                 [System.Collections.ArrayList]$CurrentInstalledPSVersions = [array]$(Get-Item "C:\Program Files\PowerShell\*\powershell.exe").Directory.Name
                 
                 if (!$($CurrentInstalledPSVersions -contains $PSFullVersion)) {
@@ -1131,7 +1138,7 @@ function Update-PowerShellCore
                                 $PackageManagementSuccess = $true
                             }
                         }
-                        if ($PSVersionTable.PSEdition -eq "Desktop") {
+                        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
                             # Check for Chocolotey Package Provider
                             $ChocoPackProvCheck = Get-PackageProvider -ListAvailable -ErrorAction SilentlyContinue | Where-Object {$_.Name -eq "Chocolatey"}
                             $CheckForPSCoreAvail = Find-Package powershell-core -AllVersions -AllowPrereleaseVersions -ErrorAction SilentlyContinue
@@ -1177,7 +1184,7 @@ function Update-PowerShellCore
                             return
                         }
 
-                        if ($PSVersionTable.PSEdition -eq "Desktop") {
+                        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
                             try {
                                 if ($Latest) {
                                     $ChocoProviderPackage = $(Find-Package "powershell-core" -AllVersions -AllowPrereleaseVersions)[-1]
@@ -1621,8 +1628,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWa+6V7Vwn0nbypekJFdpFAnu
-# 4Sugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUANdgtLQjHRni7F0o2gaDbUMh
+# xQ+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1679,11 +1686,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJmoqIyH3Qi4JJWw
-# DTsLCjIkOeLtMA0GCSqGSIb3DQEBAQUABIIBABeWJL7AXdehnF5e78bZlhUd6wdQ
-# iM9Lyv8WOzhm6PBapFr4rQ27gvNV/HPpmQ9aopa0yqWOClzHKal27hz+Q9gU2lHU
-# eMsUnwNdrTJq8978xpYJ7mOWpOyXrX/gP6665O4ECA7UKKrei1PAe/aApNqcW2dO
-# A+lOlBlvc/h5ShmUiLMJ/8Q3VPZeWGQ1B/aUzKnWtoU43WoVeUmqO5YOZlwtKHnr
-# bOQCQ3ChXD29YFi+2BMKVO26lIKc1MBOvlCJb13NI4xft4pCymtV1aOeB7+SHZFx
-# vJjfHHT8ZhQ8aSpScsGqBLIEIXd4Iemp9awJnvkdmATEwplkMAQm5vIgvM4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDgxCwyo/SPVwp8g
+# SvEySkE3wMaOMA0GCSqGSIb3DQEBAQUABIIBADBZuNg9T4M1h8j5YeXzgxCDdwd/
+# MqWU/9IfnPIWJ1IvDUnlVaw90j1X2UhHHAhxHHj2q5dBCPMHCyK6H1DLmiQKN+LE
+# 3nXe9IkB0SH7xFxzPwTUlXs2boBnK8Df9BcmV50725Iql5IMQpLt/UKfgjzb6Nha
+# oUeedc+Scgbt8qvVNJbqlGoiN7ZZDEWoh71W47/HE888Fk6FeNm9Ai0yVP6izVhP
+# 3bhWXOvnRMmsbEiaq3gmSmX723KpU4QaaZ9seuLjZly7aKOBlWTKYvwKe7i4Pwmf
+# wYEAVS88yQ1OghWzennmU9FqNdnz5510Co8hP1YZuQwKRAiF45euJjmA79w=
 # SIG # End signature block
