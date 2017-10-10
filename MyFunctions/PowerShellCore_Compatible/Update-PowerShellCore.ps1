@@ -102,7 +102,7 @@ function Update-PowerShellCore
             Mandatory=$False,
             ParameterSetName='DirectDownload'
         )]
-        [ValidateSet("win", "osx", "linux", "ubuntu", "debian", "centos", "redhat")]
+        [ValidateSet("win", "macos", "linux", "ubuntu", "debian", "centos", "redhat")]
         $OS,
 
         [Parameter(Mandatory=$False)]
@@ -797,7 +797,7 @@ function Update-PowerShellCore
             $OS = "win"
         }
         if ($PSVersionTable.OS -match "Darwin") {
-            $OS = "osx"
+            $OS = "macos"
         }
         if ($PSVersionTable.Platform -eq "Unix" -and $PSVersionTable.OS -notmatch "Darwin") {
             switch ($CheckOS)
@@ -976,7 +976,7 @@ function Update-PowerShellCore
             }
         }
     
-        'osx' {
+        'macos' {
             if ($Latest){
                 $hrefMatch = "*$OS*x64.pkg"
             }
@@ -1331,14 +1331,14 @@ function Update-PowerShellCore
             }
         }
     
-        'osx' {
+        'macos' {
             if ($PSVersionTable.Platform -eq "Unix" -and $PSVersionTable.OS -match "Darwin") {
                 [System.Collections.ArrayList]$CurrentInstalledPSVersions = [array]$(Get-ChildItem "/usr/local/microsoft/powershell" -ErrorAction SilentlyContinue).Name
 
                 if (!$($CurrentInstalledPSVersions -contains $PSFullVersion)) {
-                    # For MacOSX there's some weirdness with OpenSSL that is NOT handled properly unless
+                    # For macOS there's some weirdness with OpenSSL that is NOT handled properly unless
                     # you install PowerShell Core via HomeBrew package management. So, using package management
-                    # for OSX is mandatory.
+                    # for macOS is mandatory.
 
                     # Check if brew is installed
                     $CheckBrewInstall = which brew
@@ -1363,7 +1363,7 @@ function Update-PowerShellCore
                 }
             }
             else {
-                Write-Warning "The PowerShell Core Mac OSX Installer has been downloaded to $DownloadPath, but it cannot be installed on $($PSVersionTable.OS) ."
+                Write-Warning "The PowerShell Core Mac OS Installer has been downloaded to $DownloadPath, but it cannot be installed on $($PSVersionTable.OS) ."
                 return
             }
         }
