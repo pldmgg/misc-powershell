@@ -181,31 +181,29 @@ function Update-PackageManagement {
     }
 
     if ($InstallNuGetCmdLine -and !$UseChocolatey) {
-        if (!$(Get-Command choco -ErrorAction SilentlyContinue) -and $(Get-PackageProvider).Name -notcontains "Chocolatey") {
-            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
-                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
-                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
-                if ($WarningResponse) {
-                    $UseChocolatey = $true
-                }
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
+            $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
+            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+            if ($WarningResponse) {
+                $UseChocolatey = $true
             }
-            elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
-                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
-                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
-                if ($WarningResponse) {
-                    $UseChocolatey = $true
-                }
+        }
+        elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
+            $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
+            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+            if ($WarningResponse) {
+                $UseChocolatey = $true
             }
-            elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
-                $WarningMessage = "The NuGet Command Line Tools binary nuget.exe can be downloaded, but will not be able to be run without Mono. Do you want to download the latest stable nuget.exe?"
-                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
-                if ($WarningResponse) {
-                    Write-Host "Downloading latest stable nuget.exe..."
-                    $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
-                    Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $OutFilePath
-                }
-                $UseChocolatey = $false
+        }
+        elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
+            $WarningMessage = "The NuGet Command Line Tools binary nuget.exe can be downloaded, but will not be able to be run without Mono. Do you want to download the latest stable nuget.exe?"
+            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+            if ($WarningResponse) {
+                Write-Host "Downloading latest stable nuget.exe..."
+                $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
+                Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $OutFilePath
             }
+            $UseChocolatey = $false
         }
     }
 
@@ -267,11 +265,7 @@ function Update-PackageManagement {
     if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0 -or
         $(Get-Module -Name PowerShellGet).ExportedCommands.Count -eq 0
     ) {
-        Write-Warning $(
-            "Either PowerShellGet or PackagementManagement Modules were not able to be loaded Imported successfully." +
-            " This is most likely because of a recent update to one or both Modules. Please close this PowerShell Session," +
-            " start a new one, and rerun the Update-PackageManagement function in order to move past this race condition."
-        )
+        Write-Warning "Either PowerShellGet or PackagementManagement Modules were not able to be loaded Imported successfully due to an update initiated within the current session. Please close this PowerShell Session, open a new one, and run this function again."
 
         $Result = [pscustomobject][ordered]@{
             PackageManagementUpdated  = $false
