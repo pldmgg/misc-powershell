@@ -58,28 +58,39 @@ function Install-WinSSH {
         [Parameter(Mandatory=$False)]
         [string]$NewSSHKeyPurpose,
 
+        # For situations where there may be more than one ssh.exe available on the system that are already part of $env:Path
+        # or System PATH - for example, the ssh.exe that comes with Git
         [Parameter(Mandatory=$False)]
-        [switch]$SetupPowerShell6,
+        [bool]$GiveWinSSHBinariesPathPriority = $True,
 
         [Parameter(Mandatory=$False)]
-        [ValidateSet("alpha", "beta", "stable")]
-        [string]$PowerShell6Channel = "beta"
+        [switch]$UsePackageManagement
      )
 
     ## BEGIN Native Helper Functions ##
     function Check-Elevation {
-        [System.Security.Principal.WindowsPrincipal]$currentPrincipal = `
-            New-Object System.Security.Principal.WindowsPrincipal(
-            [System.Security.Principal.WindowsIdentity]::GetCurrent());
-
-        [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = `
-            [System.Security.Principal.WindowsBuiltInRole]::Administrator;
-
-        if($currentPrincipal.IsInRole($administratorsRole)){
-            return $true;
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+            [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            )
+    
+            [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    
+            if($currentPrincipal.IsInRole($administratorsRole)) {
+                return $true
+            }
+            else {
+                return $false
+            }
         }
-        else {
-            return $false;
+        
+        if ($PSVersionTable.Platform -eq "Unix") {
+            if ($(whoami) -eq "root") {
+                return $true
+            }
+            else {
+                return $false
+            }
         }
     }
 
@@ -374,54 +385,12 @@ function Install-WinSSH {
         return
     }
 
-    # Load and Run Update-PackageManagement function
-    <#
-    $UpdatePMString = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions/Update-PackageManagement.ps1"
-    $UpdatePMScriptBlock = [scriptblock]::Create($UpdatePMString.Content)
-    . $UpdatePMScriptBlock
-    Update-PackageManagement
-    #>
-
-    if ($SetupPowerShell6) {
-        $PowerShell6Path = $(Resolve-Path "$env:ProgramFiles\PowerShell\6*\powershell.exe").Path
-        $WindowsOSVersion = [version]$(Get-CimInstance -ClassName Win32_OperatingSystem).Version
-        if ($WindowsOSVersion.Major -ge 10) {
-            $WinVer = "win10"
-        }
-        if ($WindowsOSVersion.Major -eq 6 -and $WindowsOSVersion.Minor -eq 3) {
-            $WinVer = "win81"
-        }
-        if (!$WinVer) {
-            Write-Verbose "Unable to find installer for Windows Version $($WindowsOSVersion.ToString())! Halting!"
-            Write-Error "Unable to find installer for Windows Version $($WindowsOSVersion.ToString())! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        if (!$(Test-Path $PowerShell6Path)) {
-            $LatestPowerShellCoreVersionPrep = Invoke-WebRequest -Uri "https://github.com/powershell/powershell/releases"
-            $LatestPowerShellCoreVersionhref = $($LatestPowerShellCoreVersionPrep.Links | Where-Object {$_.href -like "*$PowerShell6Channel*$WinVer*x64.msi"})[0].href
-            $LatestPowerShellCoreVersionURL = "https://github.com/powershell/powershell/releases" + $LatestPowerShellCoreVersionhref
-            $DownloadPath = "$HOME\Downloads\$($LatestPowerShellCoreVersionURL | Split-Path -Leaf)"
-
-            Invoke-WebRequest -Uri $LatestPowerShellCoreVersionURL -OutFile $DownloadPath
-
-            $DataStamp = Get-Date -Format yyyyMMddTHHmmss
-            $MSIFullPath = $DownloadPath
-            $MSIParentDir = $MSIFullPath | Split-Path -Parent
-            $MSIFileName = $MSIFullPath | Split-Path -Leaf
-            $MSIFileNameOnly = $MSIFileName -replace "\.msi",""
-            $logFile = "$MSIParentDir\$MSIFileNameOnly$DataStamp.log"
-            $MSIArguments = @(
-                "/i"
-                $MSIFullPath
-                "/qn"
-                "/norestart"
-                "/L*v"
-                $logFile
-            )
-            # Install PowerShell Core 6
-            Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
-        }
+    if ($UsePackageManagement) {
+        # Load and Run Update-PackageManagement function
+        $UpdatePMString = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions/PowerShellCore_Compatible/Update-PackageManagement.ps1"
+        $UpdatePMScriptBlock = [scriptblock]::Create($UpdatePMString.Content)
+        . $UpdatePMScriptBlock
+        Update-PackageManagement -UseChocolatey
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -429,33 +398,22 @@ function Install-WinSSH {
 
     ##### BEGIN Main Body #####
 
-    # There's something wrong with the 0.0.16.0 OpenSSH-Win64 Chocolatey Package...
-    #if (!$(Get-Package -Name OpenSSH -ErrorAction SilentlyContinue)) {
-    if (!$(Test-Path "$env:ProgramFiles\OpenSSH-Win64")) {
+    if ($UsePackageManagement) {
         try {
-            # There's something wrong with the 0.0.16.0 OpenSSH-Win64 Chocolatey Package...
-            <#
-            Install-Package -Name OpenSSH
+            $LatestOpenSSHWin = Find-Package -Name OpenSSH -AllowPrereleaseVersions
+            $LatestOpenSSHWin | Install-Package
             if (!$?) {
                 throw
             }
-            #>
-            Write-Host "Downloading OpenSSH-Win64 from https://github.com/PowerShell/Win32-OpenSSH/releases/latest/..."
-            $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
-            $request = [System.Net.WebRequest]::Create($url)
-            $request.AllowAutoRedirect = $false
-            $response = $request.GetResponse()
-            $Win64OpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + '/OpenSSH-Win64.zip'
-            Invoke-WebRequest -Uri $Win64OpenSSHDLLink -OutFile "$HOME\Downloads\OpenSSH-Win64.zip"
 
-            # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
-            Unzip-File -PathToZip "$HOME\Downloads\OpenSSH-Win64.zip" -TargetDir "$HOME\Downloads"
-            Move-Item "$HOME\Downloads\OpenSSH-Win64" "$env:ProgramFiles\OpenSSH-Win64"
-            Enable-NTFSAccessInheritance -Path "$env:ProgramFiles\OpenSSH-Win64" -RemoveExplicitAccessRules
-            $OpenSSHWin64Path = "$env:ProgramFiles\OpenSSH-Win64"
-            Write-Host "Installing OpenSSH-Win64 to $OpenSSHWin64Path"
-            ##### Update :Path that is specific to the current PowerShell Session #####
-            $env:Path = "$OpenSSHWin64Path;$env:Path"
+            if ($ConfigureSSHDOnLocalHost) {
+                & "C:\Chocolatey\lib\openssh.$($LatestOpenSSHWin.Version)\tools\chocolateyinstall.ps1" -SSHServerFeature -SSHAgentFeature
+            }
+            else {
+                "C:\Chocolatey\lib\openssh.$($LatestOpenSSHWin.Version)\tools\chocolateyinstall.ps1"
+            }
+
+            $OpenSSHWinPath = $(Get-ChildItem $env:ProgramFiles -Filter *OpenSSH* | Sort-Object -Property LastWriteTime)[-1].FullName
         }
         catch {
             Write-Error $Error[0]
@@ -464,56 +422,67 @@ function Install-WinSSH {
             return
         }
     }
+    else {
+        $WinSSHFileNameSansExt = "OpenSSH-Win64"
+        if ([version]$(Get-Item "$env:ProgramFiles\$WinSSHFileNameSansExt\ssh.exe").VersionInfo.ProductVersion -lt [version]$LatestOpenSSHWin.Version) {
+            try {
+                Write-Host "Downloading OpenSSH-Win64 from https://github.com/PowerShell/Win32-OpenSSH/releases/latest/..."
+                $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
+                $request = [System.Net.WebRequest]::Create($url)
+                $request.AllowAutoRedirect = $false
+                $response = $request.GetResponse()
 
-    # NOTE: Installing OpenSSH in the above manner should add all of the ssh utilities to environment PATH
-    # ssh Utilities could come from Git or From previously installed Windows OpenSSH. We want to make sure we use Windows OpenSSH
-    $PotentialSSHUtilitiesSource = $(Get-Command ssh -All).Source
-    if ($PotentialSSHUtilitiesSource.Count -gt 1 -or $PotentialSSHUtilitiesSource -notlike "*OpenSSH-Win*") {
-        $FinalSSHUtilitySourceDir = foreach ($FilePath in $PotentialSSHUtilitiesSource) {
-            if ([Environment]::Is64BitProcess) {
-                if ($FilePath -like "*OpenSSH-Win64*") {
-                    $FilePath | Split-Path -Parent
-                }
+                $WinOpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + "/$WinSSHFileNameSansExt.zip"
+                Invoke-WebRequest -Uri $WinOpenSSHDLLink -OutFile "$HOME\Downloads\$WinSSHFileNameSansExt.zip"
+                # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
+                Unzip-File -PathToZip "$HOME\Downloads\$WinSSHFileNameSansExt.zip" -TargetDir "$HOME\Downloads"
+                Move-Item "$HOME\Downloads\$WinSSHFileNameSansExt" "$env:ProgramFiles\$WinSSHFileNameSansExt"
+                Enable-NTFSAccessInheritance -Path "$env:ProgramFiles\$WinSSHFileNameSansExt" -RemoveExplicitAccessRules
+
+                $OpenSSHWinPath = "$env:ProgramFiles\$WinSSHFileNameSansExt"
             }
-            else {
-                if ($FilePath -like "*OpenSSH-Win32*") {
-                    $FilePath | Split-Path -Parent
-                }
-            }
-        }
-        if ([Environment]::Is64BitProcess) {
-            $Potential64ArchLocationRegex = $FinalSSHUtilitySourceDir -replace "\\","\\"
-            $CheckPath = $env:Path -match $($Potential64ArchLocationRegex + ";")
-            if ($CheckPath) {
-                $env:Path = $FinalSSHUtilitySourceDir + ";" + $($env:Path -replace "$Potential64ArchLocationRegex","")
-            }
-            else {
-                $env:Path = $FinalSSHUtilitySourceDir + ";" + $env:Path
+            catch {
+                Write-Error $Error[0]
+                Write-Error "Installation of OpenSSH failed! Halting!"
+                $global:FunctionResult = "1"
+                return
             }
         }
         else {
-            $Potential32ArchLocationRegex = $($($FinalSSHUtilitySourceDir -replace "\\","\\") -replace "\(","(") -replace "\)",")"
-            $CheckPath = $env:Path -match $($Potential32ArchLocationRegex + ";")
-            if ($CheckPath) {
-                $env:Path = $FinalSSHUtilitySourceDir + ";" + $($env:Path -replace "$Potential32ArchLocationRegex","")
-            }
-            else {
-                $env:Path = $FinalSSHUtilitySourceDir + ";" + $env:Path
-            }
+            Write-Error "It appears that a newer version of $WinSSHFileNameSansExt is already installed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    Write-Host "Installing $WinSSHFileNameSansExt to $OpenSSHWinPath"
+    
+    ##### Update :Path that is specific to the current PowerShell Session #####
+    if ($GiveWinSSHBinariesPathPriority) {
+        $env:Path = "$OpenSSHWinPath;$env:Path"
+    }
+    else {
+        if ($env:Path[-1] -eq ";") {
+            $env:Path = "$env:Path$OpenSSHWinPath"
+        }
+        else {
+            $env:Path = "$env:Path;$OpenSSHWinPath"
         }
     }
 
     if ($ConfigureSSHDOnLocalHost) {
-        $sshdConfigPath = "$FinalSSHUtilitySourceDir\sshd_config"
+        $sshdConfigPath = "$OpenSSHWinPath\sshd_config"
 
-        # Add a line for PowerShell under Subsystems in sshd_config
+        # Below comment block is only needed if we want the default shell on $env:ComputerName (i.e. the sshd server) to be PowerShell Core when another host remotes to it
+        <#
         $sshdContent = Get-Content $sshdConfigPath
         $LineToReplace = $sshdContent | Where-Object {$_ -like "*sftp-server.exe*"}
         $UpdatedsshdContent = $sshdContent -replace "$LineToReplace","$LineToReplace`nSubsystem   powershell C:/Program Files/PowerShell/6.0.0-beta.3/powershell.exe $PowerShell6Path -sshs -NoLogo -NoProfile"
         Set-Content -Value $UpdatedsshdContent -Path $sshdConfigPath
+        #>
 
-        if (Test-Path "$FinalSSHUtilitySourceDir\install-sshd.ps1") {
-            & "$FinalSSHUtilitySourceDir\install-sshd.ps1"
+        if (Test-Path "$OpenSSHWinPath\install-sshd.ps1") {
+            & "$OpenSSHWinPath\install-sshd.ps1"
         }
         else {
             Write-Warning "The SSHD Service still needs to be configured!"
@@ -538,7 +507,7 @@ function Install-WinSSH {
         }
 
         # Setup Host Keys
-        Push-Location $FinalSSHUtilitySourceDir
+        Push-Location $OpenSSHWinPath
 
         $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
         $ProcessInfo.FileName = "ssh-keygen.exe"
@@ -555,7 +524,7 @@ function Install-WinSSH {
         $stderr = $Process.StandardError.ReadToEnd()
         $AllOutput = $stdout + $stderr
         
-        $PubPrivKeyPairFiles = Get-ChildItem -Path "$FinalSSHUtilitySourceDir" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -like "*ssh_host*"}
+        $PubPrivKeyPairFiles = Get-ChildItem -Path "$OpenSSHWinPath" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -like "*ssh_host*"}
         $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
         $PrivKeys = $PubPrivKeyPairFiles | foreach {if ($PubKeys -notcontains $_) {$_}}
         
@@ -585,7 +554,7 @@ function Install-WinSSH {
         Set-Service sshd -StartupType Automatic
 
         # IMPORTANT: It is important that File Permissions are "Fixed" at the end, otherwise previous steps break
-        & "$FinalSSHUtilitySourceDir\FixHostFilePermissions.ps1" -Confirm:$false
+        & "$OpenSSHWinPath\FixHostFilePermissions.ps1" -Confirm:$false
 
         Start-Service sshd
 
@@ -694,70 +663,76 @@ function Install-WinSSH {
 
 
 
+
+
+
+
 # SIG # Begin signature block
-# MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUg6IU8ku2nMAT5dwKhTY9AGAs
-# M/+gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUp3A3KEcSolBW7/6e4+Nqapen
+# dUmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
-# CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
+# CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
-# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCmRIzy6nwK
-# uqvhoz297kYdDXs2Wom5QCxzN9KiqAW0VaVTo1eW1ZbwZo13Qxe+6qsIJV2uUuu/
-# 3jNG1YRGrZSHuwheau17K9C/RZsuzKu93O02d7zv2mfBfGMJaJx8EM4EQ8rfn9E+
-# yzLsh65bWmLlbH5OVA0943qNAAJKwrgY9cpfDhOWiYLirAnMgzhQd3+DGl7X79aJ
-# h7GdVJQ/qEZ6j0/9bTc7ubvLMcJhJCnBZaFyXmoGfoOO6HW1GcuEUwIq67hT1rI3
-# oPx6GtFfhCqyevYtFJ0Typ40Ng7U73F2hQfsW+VPnbRJI4wSgigCHFaaw38bG4MH
-# Nr0yJDM0G8XhAgMBAAGjggECMIH/MBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQW
-# BBQ4uUFq5iV2t7PneWtOJALUX3gTcTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMA
-# QTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBR2
-# lbqmEvZFA0XsBkGBBXi2Cvs4TTAxBgNVHR8EKjAoMCagJKAihiBodHRwOi8vcGtp
-# L2NlcnRkYXRhL1plcm9EQzAxLmNybDA8BggrBgEFBQcBAQQwMC4wLAYIKwYBBQUH
-# MAKGIGh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb0RDMDEuY3J0MA0GCSqGSIb3DQEB
-# CwUAA4IBAQAUFYmOmjvbp3goa3y95eKMDVxA6xdwhf6GrIZoAg0LM+9f8zQOhEK9
-# I7n1WbUocOVAoP7OnZZKB+Cx6y6Ek5Q8PeezoWm5oPg9XUniy5bFPyl0CqSaNWUZ
-# /zC1BE4HBFF55YM0724nBtNYUMJ93oW/UxsWL701c3ZuyxBhrxtlk9TYIttyuGJI
-# JtbuFlco7veXEPfHibzE+JYc1MoGF/whz6l7bC8XbgyDprU1JS538gbgPBir4RPw
-# dFydubWuhaVzRlU3wedYMsZ4iejV2xsf8MHF/EHyc/Ft0UnvcxBqD0sQQVkOS82X
-# +IByWP0uDQ2zOA1L032uFHHA65Bt32w8MIIFmzCCBIOgAwIBAgITWAAAADw2o858
-# ZSLnRQAAAAAAPDANBgkqhkiG9w0BAQsFADA9MRMwEQYKCZImiZPyLGQBGRYDTEFC
-# MRQwEgYKCZImiZPyLGQBGRYEWkVSTzEQMA4GA1UEAxMHWmVyb1NDQTAeFw0xNTEw
-# MjcxMzM1MDFaFw0xNzA5MDkxMDAwMjRaMD4xCzAJBgNVBAYTAlVTMQswCQYDVQQI
-# EwJWQTEPMA0GA1UEBxMGTWNMZWFuMREwDwYDVQQDEwhaZXJvQ29kZTCCASIwDQYJ
-# KoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ8LM3f3308MLwBHi99dvOQqGsLeC11p
-# usrqMgmEgv9FHsYv+IIrW/2/QyBXVbAaQAt96Tod/CtHsz77L3F0SLuQjIFNb522
-# sSPAfDoDpsrUnZYVB/PTGNDsAs1SZhI1kTKIjf5xShrWxo0EbDG5+pnu5QHu+EY6
-# irn6C1FHhOilCcwInmNt78Wbm3UcXtoxjeUl+HlrAOxG130MmZYWNvJ71jfsb6lS
-# FFE6VXqJ6/V78LIoEg5lWkuNc+XpbYk47Zog+pYvJf7zOric5VpnKMK8EdJj6Dze
-# 4tJ51tDoo7pYDEUJMfFMwNOO1Ij4nL7WAz6bO59suqf5cxQGd5KDJ1ECAwEAAaOC
-# ApEwggKNMA4GA1UdDwEB/wQEAwIHgDA9BgkrBgEEAYI3FQcEMDAuBiYrBgEEAYI3
-# FQiDuPQ/hJvyeYPxjziDsLcyhtHNeIEnofPMH4/ZVQIBZAIBBTAdBgNVHQ4EFgQU
-# a5b4DOy+EUyy2ILzpUFMmuyew40wHwYDVR0jBBgwFoAUOLlBauYldrez53lrTiQC
-# 1F94E3EwgeMGA1UdHwSB2zCB2DCB1aCB0qCBz4aBq2xkYXA6Ly8vQ049WmVyb1ND
-# QSxDTj1aZXJvU0NBLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxD
-# Tj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NlcnRp
-# ZmljYXRlUmV2b2NhdGlvbkxpc3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmli
-# dXRpb25Qb2ludIYfaHR0cDovL3BraS9jZXJ0ZGF0YS9aZXJvU0NBLmNybDCB4wYI
-# KwYBBQUHAQEEgdYwgdMwgaMGCCsGAQUFBzAChoGWbGRhcDovLy9DTj1aZXJvU0NB
-# LENOPUFJQSxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxD
-# Tj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NBQ2VydGlmaWNhdGU/YmFz
-# ZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9yaXR5MCsGCCsGAQUFBzAC
-# hh9odHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EuY3J0MBMGA1UdJQQMMAoGCCsG
-# AQUFBwMDMBsGCSsGAQQBgjcVCgQOMAwwCgYIKwYBBQUHAwMwDQYJKoZIhvcNAQEL
-# BQADggEBACbc1NDl3NTMuqFwTFd8NHHCsSudkVhuroySobzUaFJN2XHbdDkzquFF
-# 6f7KFWjqR3VN7RAi8arW8zESCKovPolltpp3Qu58v59qZLhbXnQmgelpA620bP75
-# zv8xVxB9/xmmpOHNkM6qsye4IJur/JwhoHLGqCRwU2hxP1pu62NUK2vd/Ibm8c6w
-# PZoB0BcC7SETNB8x2uKzJ2MyAIuyN0Uy/mGDeLyz9cSboKoG6aQibnjCnGAVOVn6
-# J7bvYWJsGu7HukMoTAIqC6oMGerNakhOCgrhU7m+cERPkTcADVH/PWhy+FJWd2px
-# ViKcyzWQSyX93PcOj2SsHvi7vEAfCGcxggH1MIIB8QIBATBUMD0xEzARBgoJkiaJ
-# k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
-# U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
-# AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRAM7st+j7A
-# MkbmVcANpqK3ZEdBfjANBgkqhkiG9w0BAQEFAASCAQB7okClU2zH4s0Y3NpB2RsH
-# QOXF1OBxskO+wYVmT/ohLUEnlcNVmbqhWEXzEw80wa41gbOH5ODzNNhWS14KN3YJ
-# yt3bIGS5NF3mPYCaPKM7DHYe43QtAnYVUpDbBiRGfHMbiwaUhIVCkq+GXW9UaSdb
-# qhFoalvuhpHioC/ZxE1tGQzNhRlaC1OcfSLL3uQGozS80RckfDVDurKlNnYvlvme
-# JoCJraN6Wt5nMil+Sh3hsAVPEd+Ms7501+l7lstBkL/DxHjGDCo1YgrHWrcd0LEd
-# 0FqXKuA4t0CgfWNh5vG3iRwi+pnvq/L6ULbuqUWGAG/43J0TIm2EA8Ic+4SeNj9A
+# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDCwqv+ROc1
+# bpJmKx+8rPUUfT3kPSUYeDxY8GXU2RrWcL5TSZ6AVJsvNpj+7d94OEmPZate7h4d
+# gJnhCSyh2/3v0BHBdgPzLcveLpxPiSWpTnqSWlLUW2NMFRRojZRscdA+e+9QotOB
+# aZmnLDrlePQe5W7S1CxbVu+W0H5/ukte5h6gsKa0ktNJ6X9nOPiGBMn1LcZV/Ksl
+# lUyuTc7KKYydYjbSSv2rQ4qmZCQHqxyNWVub1IiEP7ClqCYqeCdsTtfw4Y3WKxDI
+# JaPmWzlHNs0nkEjvnAJhsRdLFbvY5C2KJIenxR0gA79U8Xd6+cZanrBUNbUC8GCN
+# wYkYp4A4Jx+9AgMBAAGjggEqMIIBJjASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsG
+# AQQBgjcVAgQWBBQ/0jsn2LS8aZiDw0omqt9+KWpj3DAdBgNVHQ4EFgQUicLX4r2C
+# Kn0Zf5NYut8n7bkyhf4wGQYJKwYBBAGCNxQCBAweCgBTAHUAYgBDAEEwDgYDVR0P
+# AQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wHwYDVR0jBBgwFoAUdpW6phL2RQNF
+# 7AZBgQV4tgr7OE0wMQYDVR0fBCowKDAmoCSgIoYgaHR0cDovL3BraS9jZXJ0ZGF0
+# YS9aZXJvREMwMS5jcmwwPAYIKwYBBQUHAQEEMDAuMCwGCCsGAQUFBzAChiBodHRw
+# Oi8vcGtpL2NlcnRkYXRhL1plcm9EQzAxLmNydDANBgkqhkiG9w0BAQsFAAOCAQEA
+# tyX7aHk8vUM2WTQKINtrHKJJi29HaxhPaHrNZ0c32H70YZoFFaryM0GMowEaDbj0
+# a3ShBuQWfW7bD7Z4DmNc5Q6cp7JeDKSZHwe5JWFGrl7DlSFSab/+a0GQgtG05dXW
+# YVQsrwgfTDRXkmpLQxvSxAbxKiGrnuS+kaYmzRVDYWSZHwHFNgxeZ/La9/8FdCir
+# MXdJEAGzG+9TwO9JvJSyoGTzu7n93IQp6QteRlaYVemd5/fYqBhtskk1zDiv9edk
+# mHHpRWf9Xo94ZPEy7BqmDuixm4LdmmzIcFWqGGMo51hvzz0EaE8K5HuNvNaUB/hq
+# MTOIB5145K8bFOoKHO4LkTCCBc8wggS3oAMCAQICE1gAAAH5oOvjAv3166MAAQAA
+# AfkwDQYJKoZIhvcNAQELBQAwPTETMBEGCgmSJomT8ixkARkWA0xBQjEUMBIGCgmS
+# JomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EwHhcNMTcwOTIwMjE0MTIy
+# WhcNMTkwOTIwMjExMzU4WjBpMQswCQYDVQQGEwJVUzELMAkGA1UECBMCUEExFTAT
+# BgNVBAcTDFBoaWxhZGVscGhpYTEVMBMGA1UEChMMRGlNYWdnaW8gSW5jMQswCQYD
+# VQQLEwJJVDESMBAGA1UEAxMJWmVyb0NvZGUyMIIBIjANBgkqhkiG9w0BAQEFAAOC
+# AQ8AMIIBCgKCAQEAxX0+4yas6xfiaNVVVZJB2aRK+gS3iEMLx8wMF3kLJYLJyR+l
+# rcGF/x3gMxcvkKJQouLuChjh2+i7Ra1aO37ch3X3KDMZIoWrSzbbvqdBlwax7Gsm
+# BdLH9HZimSMCVgux0IfkClvnOlrc7Wpv1jqgvseRku5YKnNm1JD+91JDp/hBWRxR
+# 3Qg2OR667FJd1Q/5FWwAdrzoQbFUuvAyeVl7TNW0n1XUHRgq9+ZYawb+fxl1ruTj
+# 3MoktaLVzFKWqeHPKvgUTTnXvEbLh9RzX1eApZfTJmnUjBcl1tCQbSzLYkfJlJO6
+# eRUHZwojUK+TkidfklU2SpgvyJm2DhCtssFWiQIDAQABo4ICmjCCApYwDgYDVR0P
+# AQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMB0GA1UdDgQWBBS5d2bhatXq
+# eUDFo9KltQWHthbPKzAfBgNVHSMEGDAWgBSJwtfivYIqfRl/k1i63yftuTKF/jCB
+# 6QYDVR0fBIHhMIHeMIHboIHYoIHVhoGubGRhcDovLy9DTj1aZXJvU0NBKDEpLENO
+# PVplcm9TQ0EsQ049Q0RQLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNl
+# cnZpY2VzLENOPUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y2VydGlmaWNh
+# dGVSZXZvY2F0aW9uTGlzdD9iYXNlP29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlv
+# blBvaW50hiJodHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EoMSkuY3JsMIHmBggr
+# BgEFBQcBAQSB2TCB1jCBowYIKwYBBQUHMAKGgZZsZGFwOi8vL0NOPVplcm9TQ0Es
+# Q049QUlBLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNlcnZpY2VzLENO
+# PUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y0FDZXJ0aWZpY2F0ZT9iYXNl
+# P29iamVjdENsYXNzPWNlcnRpZmljYXRpb25BdXRob3JpdHkwLgYIKwYBBQUHMAKG
+# Imh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb1NDQSgxKS5jcnQwPQYJKwYBBAGCNxUH
+# BDAwLgYmKwYBBAGCNxUIg7j0P4Sb8nmD8Y84g7C3MobRzXiBJ6HzzB+P2VUCAWQC
+# AQUwGwYJKwYBBAGCNxUKBA4wDDAKBggrBgEFBQcDAzANBgkqhkiG9w0BAQsFAAOC
+# AQEAszRRF+YTPhd9UbkJZy/pZQIqTjpXLpbhxWzs1ECTwtIbJPiI4dhAVAjrzkGj
+# DyXYWmpnNsyk19qE82AX75G9FLESfHbtesUXnrhbnsov4/D/qmXk/1KD9CE0lQHF
+# Lu2DvOsdf2mp2pjdeBgKMRuy4cZ0VCc/myO7uy7dq0CvVdXRsQC6Fqtr7yob9NbE
+# OdUYDBAGrt5ZAkw5YeL8H9E3JLGXtE7ir3ksT6Ki1mont2epJfHkO5JkmOI6XVtg
+# anuOGbo62885BOiXLu5+H2Fg+8ueTP40zFhfLh3e3Kj6Lm/NdovqqTBAsk04tFW9
+# Hp4gWfVc0gTDwok3rHOrfIY35TGCAfUwggHxAgEBMFQwPTETMBEGCgmSJomT8ixk
+# ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
+# E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
+# CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDDaBnz3/4lb1adX
+# c9p1oemIDEvWMA0GCSqGSIb3DQEBAQUABIIBAHMvw8c/nFq4280lsdyYh/giZfZt
+# wdQ5F5P/08vl2rxGcRyWckw61Zp29pr09fqdhQTxJVejogh36b6oe5EVRAtaB5di
+# F2Ly4miWGovv/XWelw1qX0AKEeD/2geHe4A4k4aYo2jdQQheJPZhKLWPEGFLD5i3
+# //oux69mGfOw1QjGJcjaTSPIHavmFynhFz6Qb2gYz0BhUKDWPfpVLfR5gaMXAUZA
+# CE2Trqxqj1OqmNvqE6Q9fNTsQKXQH9cxvEi4OgCMNK78oxD08Rfz4l4W9MljAVuF
+# 5zeDo+DtV5dLsOGpniXvT9dpPEzN7bF4zGAqpyr8VcgzBRgLjMnHVNMPx/c=
 # SIG # End signature block

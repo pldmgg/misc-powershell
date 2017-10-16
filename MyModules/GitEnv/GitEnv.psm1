@@ -1,19 +1,93 @@
 function Check-Elevation {
-   [System.Security.Principal.WindowsPrincipal]$currentPrincipal = `
-      New-Object System.Security.Principal.WindowsPrincipal(
-         [System.Security.Principal.WindowsIdentity]::GetCurrent());
+    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+        [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+            [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        )
 
-   [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = `
-      [System.Security.Principal.WindowsBuiltInRole]::Administrator;
+        [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
 
-   if($currentPrincipal.IsInRole($administratorsRole))
-   {
-      return $true;
-   }
-   else
-   {
-      return $false;
-   }
+        if($currentPrincipal.IsInRole($administratorsRole)) {
+            return $true
+        }
+        else {
+            return $false
+        }
+    }
+    
+    if ($PSVersionTable.Platform -eq "Unix") {
+        if ($(whoami) -eq "root") {
+            return $true
+        }
+        else {
+            return $false
+        }
+    }
+}
+
+function Get-NativePath {
+    [CmdletBinding()]
+    Param( 
+        [Parameter(Mandatory=$True)]
+        [string[]]$PathAsStringArray
+    )
+
+    $PathAsStringArray = foreach ($pathPart in $PathAsStringArray) {
+        $SplitAttempt = $pathPart -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)
+        
+        if ($SplitAttempt.Count -gt 1) {
+            foreach ($obj in $SplitAttempt) {
+                $obj
+            }
+        }
+        else {
+            $pathPart
+        }
+    }
+    $PathAsStringArray = $PathAsStringArray -join [IO.Path]::DirectorySeparatorChar
+
+    $PathAsStringArray
+
+}
+
+function Pause-ForWarning {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [int]$PauseTimeInSeconds,
+
+        [Parameter(Mandatory=$True)]
+        $Message
+    )
+
+    Write-Warning $Message
+    Write-Host "To answer in the affirmative, press 'y' on your keyboard."
+    Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
+
+    $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
+    $stopwatch = [diagnostics.stopwatch]::StartNew()
+    while ($stopwatch.elapsed -lt $timeout){
+        if ([Console]::KeyAvailable) {
+            $keypressed = [Console]::ReadKey("NoEcho").Key
+            Write-Host "You pressed the `"$keypressed`" key"
+            if ($keypressed -eq "y") {
+                $Result = $true
+                break
+            }
+            if ($keypressed -ne "y") {
+                $Result = $false
+                break
+            }
+        }
+
+        # Check once every 1 second to see if the above "if" condition is satisfied
+        Start-Sleep 1
+    }
+
+    if (!$Result) {
+        $Result = $false
+    }
+    
+    $Result
 }
 
 function Unzip-File {
@@ -358,62 +432,97 @@ function Update-PackageManagement {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
-        $Credentials
+        [switch]$UseChocolatey,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$InstallNuGetCmdLine
     )
+
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    # Check to see if we're behind a proxy
-    if ([System.Net.WebProxy]::GetDefaultProxy().Address -ne $null) {
-        $ProxyAddress = [System.Net.WebProxy]::GetDefaultProxy().Address
-        [system.net.webrequest]::defaultwebproxy = New-Object system.net.webproxy($ProxyAddress)
-        [system.net.webrequest]::defaultwebproxy.credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-        [system.net.webrequest]::defaultwebproxy.BypassProxyOnLocal = $true
-    }
-
-    if (!$(Check-Elevation) -and !$Credentials) {
-        $UserName = $($([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\"))[1]
-        $Psswd = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-        $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Psswd
-    }
-    if ($Credentials) {
-        $UserName = $Credentials.UserName
-        $Psswd = $Credentials.Password
-    }
-    $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
-    $DomainPre = $($Domain -split "\.")[0]
-    $UpdatedUserName = "$DomainPre\$UserName"
-    if ($Psswd) {
-        $UpdatedCreds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UpdatedUserName, $Psswd
-    }
-    $LocalHostFQDN = "$env:ComputerName.$Domain"
-
     # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
     if (!$(Check-Elevation)) {
-        if (!$global:ElevatedPSSession) {
-            try {
-                $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
-                if (!$ElevatedPSSession) {
-                    throw
-                }
-                $CredSSPAlreadyConfigured = $true
+        Write-Error "The Update-PackageManagement function must be run with elevated privileges. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if (!$([Environment]::Is64BitProcess)) {
+        Write-Error "You are currently running the 32-bit version of PowerShell. Please run the 64-bit version found under C:\Windows\SysWOW64\WindowsPowerShell\v1.0 and try again. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -ne "Win32NT" -and $UseChocolatey) {
+        Write-Error "The Chocolatey Repo should only be added on a Windows OS! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if ($InstallNuGetCmdLine -and !$UseChocolatey) {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
+            $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
+            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+            if ($WarningResponse) {
+                $UseChocolatey = $true
             }
-            catch {
-                $SudoSession = New-SudoSession -Credentials $Credentials
-                $global:ElevatedPSSession = $SudoSession.ElevatedPSSession
-                $NeedToRevertAdminChangesIfAny = $true
+        }
+        elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
+            $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
+            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+            if ($WarningResponse) {
+                $UseChocolatey = $true
             }
+        }
+        elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
+            $WarningMessage = "The NuGet Command Line Tools binary nuget.exe can be downloaded, but will not be able to be run without Mono. Do you want to download the latest stable nuget.exe?"
+            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+            if ($WarningResponse) {
+                Write-Host "Downloading latest stable nuget.exe..."
+                $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
+                Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $OutFilePath
+            }
+            $UseChocolatey = $false
         }
     }
 
+    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
+        # Check to see if we're behind a proxy
+        if ([System.Net.WebProxy]::GetDefaultProxy().Address -ne $null) {
+            $ProxyAddress = [System.Net.WebProxy]::GetDefaultProxy().Address
+            [system.net.webrequest]::defaultwebproxy = New-Object system.net.webproxy($ProxyAddress)
+            [system.net.webrequest]::defaultwebproxy.credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+            [system.net.webrequest]::defaultwebproxy.BypassProxyOnLocal = $true
+        }
+    }
+    # TODO: Figure out how to identify default proxy on PowerShell Core...
+
     ##### END Variable/Parameter Transforms and PreRun Prep #####
+
 
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         if ($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") {
-            Write-Host "Downlaoding PackageManagement .msi installer..."
-            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi"` -OutFile "$HOME\Downloads\PackageManagement_x64.msi"
-            msiexec /i "$HOME\Downloads\PackageManagement_x64.msi" /quiet /norestart ACCEPTEULA=1
-            Start-Sleep -Seconds 3
+            Write-Host "Downloading PackageManagement .msi installer..."
+            $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "PackageManagement_x64.msi")
+            Invoke-WebRequest -Uri "https://download.microsoft.com/download/C/4/1/C41378D4-7F41-4BBE-9D0D-0E4F98585C61/PackageManagement_x64.msi" -OutFile $OutFilePath
+            
+            $DateStamp = Get-Date -Format yyyyMMddTHHmmss
+            $MSIFullPath = $OutFilePath
+            $MSIParentDir = $MSIFullPath | Split-Path -Parent
+            $MSIFileName = $MSIFullPath | Split-Path -Leaf
+            $MSIFileNameOnly = $MSIFileName -replace "\.msi",""
+            $logFile = Get-NativePath -PathAsStringArray @($MSIParentDir, "$MSIFileNameOnly$DateStamp.log")
+            $MSIArguments = @(
+                "/i"
+                $MSIFullPath
+                "/qn"
+                "/norestart"
+                "/L*v"
+                $logFile
+            )
+            # Install PowerShell Core
+            Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
         }
         while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
             Write-Host "Waiting for PackageManagement and PowerShellGet Modules to become available"
@@ -422,6 +531,7 @@ function Update-PackageManagement {
         Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
     }
 
+    # Set LatestLocallyAvailable variables...
     $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
     $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
 
@@ -431,55 +541,152 @@ function Update-PackageManagement {
     if ($(Get-Module).Name -notcontains "PowerShellGet") {
         Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
     }
+
+    if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0 -or
+        $(Get-Module -Name PowerShellGet).ExportedCommands.Count -eq 0
+    ) {
+        Write-Warning "Either PowerShellGet or PackagementManagement Modules were not able to be loaded Imported successfully due to an update initiated within the current session. Please close this PowerShell Session, open a new one, and run this function again."
+
+        $Result = [pscustomobject][ordered]@{
+            PackageManagementUpdated  = $false
+            PowerShellGetUpdated      = $false
+            NewPSSessionRequired      = $true
+        }
+
+        $Result
+        return
+    }
+
     # Determine if the NuGet Package Provider is available. If not, install it, because it needs it for some reason
     # that is currently not clear to me. Point is, if it's not installed it will prompt you to install it, so just
     # do it beforehand.
     if ($(Get-PackageProvider).Name -notcontains "NuGet") {
         Install-PackageProvider "NuGet" -Scope CurrentUser -Force
         Register-PackageSource -Name 'nuget.org' -Location 'https://api.nuget.org/v3/index.json' -ProviderName NuGet -Trusted -Force -ForceBootstrap
+    }
 
-        # Instead, we'll install the NuGet CLI from the Chocolatey repo...
-        Install-PackageProvider "Chocolatey" -Scope CurrentUser -Force
-        # The above Install-PackageProvider "Chocolatey" -Force DOES register a PackageSource Repository, so we need to trust it:
-        Set-PackageSource -Name Chocolatey -Trusted
+    if ($UseChocolatey) {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
+            # Install the Chocolatey Package Provider to be used with PowerShellGet
+            if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
+                Install-PackageProvider "Chocolatey" -Scope CurrentUser -Force
+                # The above Install-PackageProvider "Chocolatey" -Force DOES register a PackageSource Repository, so we need to trust it:
+                Set-PackageSource -Name Chocolatey -Trusted
 
-        Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
-        while (!$(Find-Package Nuget.CommandLine)) {
-            Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
-            Start-Sleep -Seconds 2
-        }
+                # Make sure packages installed via Chocolatey PackageProvider are part of $env:Path
+                [System.Collections.ArrayList]$ChocolateyPathsPrep = @()
+                [System.Collections.ArrayList]$ChocolateyPathsFinal = @()
+                $env:ChocolateyPSProviderPath = "C:\Chocolatey"
 
-        # Next, install the NuGet CLI using the Chocolatey Repo
-        if (Check-Elevation) {
-            Install-Package Nuget.CommandLine -Source chocolatey
-        }
-        else {
-            if ($ElevatedPSSession) {
-                Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Package Nuget.CommandLine -Source chocolatey}
-            }
-        }
-        
-        # Ensure $env:Path includes C:\Chocolatey\bin
-        if ($($env:Path -split ";") -notcontains "C:\Chocolatey\bin") {
-            if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path`C:\Chocolatey\bin"
-            }
-            else {
-                $env:Path = "$env:Path;C:\Chocolatey\bin"
-            }
-        }
-        # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
-        $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
-        $RealNuGetPath = $(Resolve-Path "C:\Chocolatey\lib\*\*\NuGet.exe").Path
-        $TestRealNuGetPath = Test-Path $RealNuGetPath
-        if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
-            if (Check-Elevation) {
-                New-Item -Path C:\Chocolatey\bin\NuGet.exe -ItemType SymbolicLink -Value $RealNuGetPath
-            }
-            else {
-                if ($ElevatedPSSession) {
-                    Invoke-Command -Session $ElevatedPSSession -Scriptblock {New-Item -Path C:\Chocolatey\bin\NuGet.exe -ItemType SymbolicLink -Value $using:RealNuGetPath}
+                if (Test-Path $env:ChocolateyPSProviderPath) {
+                    if (Test-Path "$env:ChocolateyPSProviderPath\lib") {
+                        $OtherChocolateyPathsToAdd = $(Get-ChildItem "$env:ChocolateyPSProviderPath\lib" -Directory | foreach {
+                            Get-ChildItem $_.FullName -Recurse -File
+                        } | foreach {
+                            if ($_.Extension -eq ".exe") {
+                                $_.Directory.FullName
+                            }
+                        }) | foreach {
+                            $null = $ChocolateyPathsPrep.Add($_)
+                        }
+                    }
+                    if (Test-Path "$env:ChocolateyPSProviderPath\bin") {
+                        $OtherChocolateyPathsToAdd = $(Get-ChildItem "$env:ChocolateyPSProviderPath\bin" -Directory | foreach {
+                            Get-ChildItem $_.FullName -Recurse -File
+                        } | foreach {
+                            if ($_.Extension -eq ".exe") {
+                                $_.Directory.FullName
+                            }
+                        }) | foreach {
+                            $null = $ChocolateyPathsPrep.Add($_)
+                        }
+                    }
                 }
+                
+                if ($ChocolateyPathsPrep) {
+                    foreach ($ChocoPath in $ChocolateyPathsPrep) {
+                        if ($(Test-Path $ChocoPath) -and $OriginalEnvPathArray -notcontains $ChocoPath) {
+                            $null = $ChocolateyPathsFinal.Add($ChocoPath)
+                        }
+                    }
+                }
+            
+                try {
+                    $ChocolateyPathsFinal = $ChocolateyPathsFinal | Sort-Object | Get-Unique
+                }
+                catch {
+                    [System.Collections.ArrayList]$ChocolateyPathsFinal = @($ChocolateyPathsFinal)
+                }
+                if ($ChocolateyPathsFinal.Count -ne 0) {
+                    $ChocolateyPathsAsString = $ChocolateyPathsFinal -join ";"
+                }
+
+                foreach ($ChocPath in $ChocolateyPathsFinal) {
+                    if ($($env:Path -split ";") -notcontains $ChocPath) {
+                        if ($env:Path[-1] -eq ";") {
+                            $env:Path = "$env:Path$ChocPath"
+                        }
+                        else {
+                            $env:Path = "$env:Path;$ChocPath"
+                        }
+                    }
+                }
+
+                Write-Host "Updated `$env:Path is:`n$env:Path"
+
+                if ($InstallNuGetCmdLine) {
+                    # Next, install the NuGet CLI using the Chocolatey Repo
+                    try {
+                        Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
+                        while (!$(Find-Package Nuget.CommandLine)) {
+                            Write-Host "Trying to find Chocolatey Package Nuget.CommandLine..."
+                            Start-Sleep -Seconds 2
+                        }
+                        
+                        Get-Package NuGet.CommandLine -ErrorAction SilentlyContinue
+                        if (!$?) {
+                            throw
+                        }
+                    } 
+                    catch {
+                        Install-Package Nuget.CommandLine -Source chocolatey -Force
+                    }
+                    
+                    # Ensure there's a symlink from C:\Chocolatey\bin to the real NuGet.exe under C:\Chocolatey\lib
+                    $NuGetSymlinkTest = Get-ChildItem "C:\Chocolatey\bin" | Where-Object {$_.Name -eq "NuGet.exe" -and $_.LinkType -eq "SymbolicLink"}
+                    $RealNuGetPath = $(Resolve-Path "C:\Chocolatey\lib\*\*\NuGet.exe").Path
+                    $TestRealNuGetPath = Test-Path $RealNuGetPath
+                    if (!$NuGetSymlinkTest -and $TestRealNuGetPath) {
+                        New-Item -Path "C:\Chocolatey\bin\NuGet.exe" -ItemType SymbolicLink -Value $RealNuGetPath
+                    }
+                }
+            }
+        }
+        if ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
+            # Install the Chocolatey Command line
+            if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                # Suppressing all errors for Chocolatey cmdline install. They will only be a problem if
+                # there is a Web Proxy between you and the Internet
+                $env:chocolateyUseWindowsCompression = 'true'
+                $null = Invoke-Expression $([System.Net.WebClient]::new()).DownloadString("https://chocolatey.org/install.ps1") -ErrorVariable ChocolateyInstallProblems 2>&1 6>&1
+                $DateStamp = Get-Date -Format yyyyMMddTHHmmss
+                $ChocolateyInstallLogFile = Get-NativePath -PathAsStringArray @($(Get-Location).Path, "ChocolateyInstallLog_$DateStamp.txt")
+                $ChocolateyInstallProblems | Out-File $ChocolateyInstallLogFile
+            }
+
+            if ($InstallNuGetCmdLine) {
+                if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                    Write-Error "Unable to find chocolatey.exe, however, it should be installed. Please check your System PATH and `$env:Path and try again. Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                else {
+                    # 'choco update' aka 'cup' will update if already installed or install if not installed 
+                    Start-Process "cup" -ArgumentList "nuget.commandline -y" -Wait -NoNewWindow
+                }
+                # NOTE: The chocolatey install should take care of setting $env:Path and System PATH so that
+                # choco binaries and packages installed via chocolatey can be found here:
+                # C:\ProgramData\chocolatey\bin
             }
         }
     }
@@ -495,97 +702,136 @@ function Update-PackageManagement {
     Write-Host "PackageManagement Latest Version is: $PackageManagementLatestVersion"
     Write-Host "PowerShellGetLatestVersion Latest Version is: $PowerShellGetLatestVersion"
 
-    # Take care of updating PowerShellGet before PackageManagement since PackageManagement won't be able to update with PowerShellGet
-    # still loaded in the current PowerShell Session
     if ($PackageManagementLatestVersion -gt $PackageManagementLatestLocallyAvailableVersion -and $PackageManagementLatestVersion -gt $MinimumVer) {
         if ($PSVersionTable.PSVersion.Major -lt 5) {
             Write-Host "`nUnable to update the PackageManagement Module beyond $($MinimumVer.ToString()) on PowerShell versions lower than 5."
         }
         if ($PSVersionTable.PSVersion.Major -ge 5) {
+            #Install-Module -Name "PackageManagement" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
             #Install-Module -Name "PackageManagement" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PackageManagementLatestVersion -Force
             Write-Host "Installing latest version of PackageManagement..."
-            if (Check-Elevation) {
-                Install-Module -Name "PackageManagement" -Force
-            }
-            else {
-                if ($ElevatedPSSession) {
-                    Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PackageManagement" -RequiredVersion $using:PackageManagementLatestVersion -Force}
-                }
-            }
-            
+            Install-Module -Name "PackageManagement" -Force
+            $PackageManagementUpdated = $True
         }
     }
     if ($PowerShellGetLatestVersion -gt $PowerShellGetLatestLocallyAvailableVersion -and $PowerShellGetLatestVersion -gt $MinimumVer) {
-        if ($PSVersionTable.PSVersion.Major -lt 5) {
-            # Before Updating the PowerShellGet Module, we must unload it from the current PowerShell Session
-            # Remove-Module -Name "PowerShellGet"
-            # Unless the force parameter is used, Install-Module will halt with a warning saying the 1.0.0.1 is already installed
-            # and it will not update it.
-            #Install-Module -Name "PowerShellGet" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
-            Write-Host "Installing latest version of PowerShellGet..."
-            if (Check-Elevation) {
-                Install-Module -Name "PowerShellGet" -RequiredVersion $PowerShellGetLatestVersion -Force
-            }
-            else {
-                if ($ElevatedPSSession) {
-                    Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PowerShellGet" -RequiredVersion $using:PowerShellGetLatestVersion -Force}
-                }
-            }
+        # Unless the force parameter is used, Install-Module will halt with a warning saying the 1.0.0.1 is already installed
+        # and it will not update it.
+        Write-Host "Installing latest version of PowerShellGet..."
+        #Install-Module -Name "PowerShellGet" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
+        #Install-Module -Name "PowerShellGet" -RequiredVersion $PowerShellGetLatestVersion -Force
+        Install-Module -Name "PowerShellGet" -Force
+        $PowerShellGetUpdated = $True
+    }
+
+    # Reset the LatestLocallyAvailable variables, and then load them into the current session
+    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
+    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+    Write-Host "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
+    Write-Host "Latest locally available PowerShellGet version is $PowerShellGetLatestLocallyAvailableVersion"
+
+    $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
+    $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
+    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+
+    if ($CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestLocallyAvailableVersion) {
+        # Need to remove PowerShellGet first since it depends on PackageManagement
+        Write-Host "Removing Module PowerShellGet $CurrentlyLoadedPowerShellGetVersion ..."
+        Remove-Module -Name "PowerShellGet"
+        Write-Host "Removing Module PackageManagement $CurrentlyLoadedPackageManagementVersion ..."
+        Remove-Module -Name "PackageManagement"
+    
+        if ($(Get-Host).Name -ne "Package Manager Host") {
+            Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
             
+            # Need to Import PackageManagement first since it's a dependency for PowerShellGet
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+            Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion ..."
+            $null = Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -ErrorVariable ImportPackManProblems 2>&1 6>&1
+            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
+            $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -ErrorVariable ImportPSGetProblems 2>&1 6>&1
         }
-        if ($PSVersionTable.PSVersion.Major -ge 5) {
-            #Install-Module -Name "PowerShellGet" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force
-            Write-Host "Installing latest version of PowerShellGet..."
-            if (Check-Elevation) {
-                Install-Module -Name "PowerShellGet" -RequiredVersion $PowerShellGetLatestVersion -Force
-            }
-            else {
-                if ($ElevatedPSSession) {
-                    Invoke-Command -Session $ElevatedPSSession -Scriptblock {Install-Module -Name "PowerShellGet" -RequiredVersion $using:PowerShellGetLatestVersion -Force}
-                }
-            }
+        if ($(Get-Host).Name -eq "Package Manager Host") {
+            Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
+    
+            # Need to Import PackageManagement first since it's a dependency for PowerShellGet
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+            Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PackMan' - Example: Get-PackManPackage"
+            $null = Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -Prefix PackMan -ErrorVariable ImportPackManProblems 2>&1 6>&1
+            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
+            $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet -ErrorVariable ImportPSGetProblems 2>&1 6>&1
+        }
+    }
+    
+    # Reset CurrentlyLoaded Variables
+    $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
+    $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
+    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+    
+    if ($CurrentlyLoadedPowerShellGetVersion -lt $PowerShellGetLatestLocallyAvailableVersion) {
+        if (!$ImportPSGetProblems) {
+            Write-Host "Removing Module PowerShellGet $CurrentlyLoadedPowerShellGetVersion ..."
+        }
+        Remove-Module -Name "PowerShellGet"
+    
+        if ($(Get-Host).Name -ne "Package Manager Host") {
+            Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
+            
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
+            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+        }
+        if ($(Get-Host).Name -eq "Package Manager Host") {
+            Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
+    
+            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
+            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet
         }
     }
 
-    # Reset the LatestLocallyAvailableVersion variables to reflect latest available, and then load them into the current session
-    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq"PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
-
-    Remove-Module -Name "PowerShellGet"
-    Remove-Module -Name "PackageManagement"
-
-    if ($(Get-Host).Name -ne "Package Manager Host") {
-        Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
-        Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
-        Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
-
-        # Make sure all Repos Are Trusted
+    # Make sure all Repos Are Trusted
+    if ($UseChocolatey -and $($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5)) {
         $BaselineRepoNames = @("Chocolatey","nuget.org","PSGallery")
+    }
+    else {
+        $BaselineRepoNames = @("nuget.org","PSGallery")
+    }
+    if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -gt 0) {
         $RepoObjectsForTrustCheck = Get-PackageSource | Where-Object {$_.Name -match "$($BaselineRepoNames -join "|")"}
+    
         foreach ($RepoObject in $RepoObjectsForTrustCheck) {
             if ($RepoObject.IsTrusted -ne $true) {
                 Set-PackageSource -Name $RepoObject.Name -Trusted
             }
         }
     }
-    if ($(Get-Host).Name -eq "Package Manager Host") {
-        Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
-        Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -Prefix PackMan
-        Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet
 
-        # Make sure all Repos Are Trusted
-        $BaselineRepoNames = @("Chocolatey","nuget.org","PSGallery")
-        $RepoObjectsForTrustCheck = Get-PackManPackageSource | Where-Object {$_.Name -match "$($BaselineRepoNames -join "|")"}
-        foreach ($RepoObject in $RepoObjectsForTrustCheck) {
-            if ($RepoObject.IsTrusted -ne $true) {
-                Set-PackManPackageSource -Name $RepoObject.Name -Trusted
-            }
-        }
+    # Reset CurrentlyLoaded Variables
+    $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
+    $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
+    Write-Host "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Host "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+
+    #$ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
+    #$CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
+    if ($($ImportPackManProblems | Out-String) -match "Assembly with same name is already loaded" -or 
+        $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
+        $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
+    ) {
+        Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
+        $NewPSSessionRequired = $true
     }
 
-    if ($NeedToRevertAdminChangesIfAny) {
-        Remove-SudoSession -Credentials $Credentials -OriginalConfigInfo $SudoSession.OriginalWSManAndRegistryStatus -SessionToRemove $SudoSession.ElevatedPSSession
+    $Result = [pscustomobject][ordered]@{
+        PackageManagementUpdated  = if ($PackageManagementUpdated) {$true} else {$false}
+        PowerShellGetUpdated      = if ($PowerShellGetUpdated) {$true} else {$false}
+        NewPSSessionRequired      = if ($NewPSSessionRequired) {$true} else {$false}
     }
+
+    $Result
 }
 
 Function Check-InstalledPrograms {
@@ -2729,17 +2975,21 @@ function Install-GitDesktop {
         }
         & "$HOME\Downloads\GitHubSetup.exe"
 
+        # Setup Potential GUI menus we may/may not have to step through
         $AppInstallSecWarnWindow = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*Install - Security Warning*"}).MainWindowTitle
-        while (!$AppInstallSecWarnWindow) {
+        $OpenFileWarning = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*File - Security Warning*"}).MainWindowTitle
+        $GitHubDesktop = Get-Process | Where-Object {$_.MainWindowTitle -eq "GitHub" -and $_.ProcessName -eq "GitHub"}
+
+        while (!$AppInstallSecWarnWindow -and !$OpenFileWarning) {
             Write-Host "Waiting For Download to finish..."
             Start-Sleep -Seconds 2
             $AppInstallSecWarnWindow = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*Install - Security Warning*"}).MainWindowTitle
+            $OpenFileWarning = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*File - Security Warning*"}).MainWindowTitle
         }
-        if ($AppInstallSecWarnWindow) {
+        if ($AppInstallSecWarnWindow -or $OpenFileWarning) {
             Write-Host "Download finished. Installing..."
         }
 
-        $AppInstallSecWarnWindow = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*Install - Security Warning*"}).MainWindowTitle
         if ($AppInstallSecWarnWindow) {
             $wshell = New-Object -ComObject wscript.shell
             $wshell.AppActivate("$AppInstallSecWarnWindow") | Out-Null
@@ -2747,32 +2997,13 @@ function Install-GitDesktop {
             $wshell.SendKeys('{i}')
         }
 
-        $OpenFileWarning = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*File - Security Warning*"}).MainWindowTitle
-        $GitHubDesktop = Get-Process | Where-Object {$_.MainWindowTitle -eq "GitHub" -and $_.ProcessName -eq "GitHub"}
-        while (!$OpenFileWarning) {
-            Write-Host "Waiting For Install to finish..."
-            $GitHubDesktop = Get-Process | Where-Object {$_.MainWindowTitle -eq "GitHub" -and $_.ProcessName -eq "GitHub"}
-            if ($GitDesktop) {
-                break
-            }
-            $OpenFileWarning = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*File - Security Warning*"}).MainWindowTitle
-            Start-Sleep -Seconds 2
+        if ($OpenFileWarning) {
+            $wshell = New-Object -ComObject wscript.shell
+            $wshell.AppActivate("$OpenFileWarning") | Out-Null
+            #1..4 | foreach {$wshell.SendKeys('{TAB}')}
+            $wshell.SendKeys('{r}')
         }
-        if ($OpenFileWarning -or $GitDesktop) {
-            Write-Host "Install finished."
-        }
-
-        if (!$GitDesktop) {
-            $OpenFileWarning = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*File - Security Warning*"}).MainWindowTitle
-            if ($OpenFileWarning) {
-                $wshell = New-Object -ComObject wscript.shell
-                $wshell.AppActivate("$OpenFileWarning") | Out-Null
-                #1..4 | foreach {$wshell.SendKeys('{TAB}')}
-                $wshell.SendKeys('{r}')
-            }
-        }
-
-        $GitHubDesktop = Get-Process | Where-Object {$_.MainWindowTitle -eq "GitHub" -and $_.ProcessName -eq "GitHub"}
+        
         while (!$GitHubDesktop) {
             Write-Host "Waiting For GitDesktop to launch..."
             Start-Sleep -Seconds 2
@@ -3564,73 +3795,72 @@ function Publish-MyGitRepo {
 
 
 
-
-
-
 # SIG # Begin signature block
-# MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvSMWnH7v9Xe5xXsEr1UpnhmF
-# QlygggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkmvBZEkuyvaiQ8wrqLbmjngT
+# hAGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
-# CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
+# CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
-# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCmRIzy6nwK
-# uqvhoz297kYdDXs2Wom5QCxzN9KiqAW0VaVTo1eW1ZbwZo13Qxe+6qsIJV2uUuu/
-# 3jNG1YRGrZSHuwheau17K9C/RZsuzKu93O02d7zv2mfBfGMJaJx8EM4EQ8rfn9E+
-# yzLsh65bWmLlbH5OVA0943qNAAJKwrgY9cpfDhOWiYLirAnMgzhQd3+DGl7X79aJ
-# h7GdVJQ/qEZ6j0/9bTc7ubvLMcJhJCnBZaFyXmoGfoOO6HW1GcuEUwIq67hT1rI3
-# oPx6GtFfhCqyevYtFJ0Typ40Ng7U73F2hQfsW+VPnbRJI4wSgigCHFaaw38bG4MH
-# Nr0yJDM0G8XhAgMBAAGjggECMIH/MBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQW
-# BBQ4uUFq5iV2t7PneWtOJALUX3gTcTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMA
-# QTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBR2
-# lbqmEvZFA0XsBkGBBXi2Cvs4TTAxBgNVHR8EKjAoMCagJKAihiBodHRwOi8vcGtp
-# L2NlcnRkYXRhL1plcm9EQzAxLmNybDA8BggrBgEFBQcBAQQwMC4wLAYIKwYBBQUH
-# MAKGIGh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb0RDMDEuY3J0MA0GCSqGSIb3DQEB
-# CwUAA4IBAQAUFYmOmjvbp3goa3y95eKMDVxA6xdwhf6GrIZoAg0LM+9f8zQOhEK9
-# I7n1WbUocOVAoP7OnZZKB+Cx6y6Ek5Q8PeezoWm5oPg9XUniy5bFPyl0CqSaNWUZ
-# /zC1BE4HBFF55YM0724nBtNYUMJ93oW/UxsWL701c3ZuyxBhrxtlk9TYIttyuGJI
-# JtbuFlco7veXEPfHibzE+JYc1MoGF/whz6l7bC8XbgyDprU1JS538gbgPBir4RPw
-# dFydubWuhaVzRlU3wedYMsZ4iejV2xsf8MHF/EHyc/Ft0UnvcxBqD0sQQVkOS82X
-# +IByWP0uDQ2zOA1L032uFHHA65Bt32w8MIIFmzCCBIOgAwIBAgITWAAAADw2o858
-# ZSLnRQAAAAAAPDANBgkqhkiG9w0BAQsFADA9MRMwEQYKCZImiZPyLGQBGRYDTEFC
-# MRQwEgYKCZImiZPyLGQBGRYEWkVSTzEQMA4GA1UEAxMHWmVyb1NDQTAeFw0xNTEw
-# MjcxMzM1MDFaFw0xNzA5MDkxMDAwMjRaMD4xCzAJBgNVBAYTAlVTMQswCQYDVQQI
-# EwJWQTEPMA0GA1UEBxMGTWNMZWFuMREwDwYDVQQDEwhaZXJvQ29kZTCCASIwDQYJ
-# KoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ8LM3f3308MLwBHi99dvOQqGsLeC11p
-# usrqMgmEgv9FHsYv+IIrW/2/QyBXVbAaQAt96Tod/CtHsz77L3F0SLuQjIFNb522
-# sSPAfDoDpsrUnZYVB/PTGNDsAs1SZhI1kTKIjf5xShrWxo0EbDG5+pnu5QHu+EY6
-# irn6C1FHhOilCcwInmNt78Wbm3UcXtoxjeUl+HlrAOxG130MmZYWNvJ71jfsb6lS
-# FFE6VXqJ6/V78LIoEg5lWkuNc+XpbYk47Zog+pYvJf7zOric5VpnKMK8EdJj6Dze
-# 4tJ51tDoo7pYDEUJMfFMwNOO1Ij4nL7WAz6bO59suqf5cxQGd5KDJ1ECAwEAAaOC
-# ApEwggKNMA4GA1UdDwEB/wQEAwIHgDA9BgkrBgEEAYI3FQcEMDAuBiYrBgEEAYI3
-# FQiDuPQ/hJvyeYPxjziDsLcyhtHNeIEnofPMH4/ZVQIBZAIBBTAdBgNVHQ4EFgQU
-# a5b4DOy+EUyy2ILzpUFMmuyew40wHwYDVR0jBBgwFoAUOLlBauYldrez53lrTiQC
-# 1F94E3EwgeMGA1UdHwSB2zCB2DCB1aCB0qCBz4aBq2xkYXA6Ly8vQ049WmVyb1ND
-# QSxDTj1aZXJvU0NBLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxD
-# Tj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NlcnRp
-# ZmljYXRlUmV2b2NhdGlvbkxpc3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmli
-# dXRpb25Qb2ludIYfaHR0cDovL3BraS9jZXJ0ZGF0YS9aZXJvU0NBLmNybDCB4wYI
-# KwYBBQUHAQEEgdYwgdMwgaMGCCsGAQUFBzAChoGWbGRhcDovLy9DTj1aZXJvU0NB
-# LENOPUFJQSxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxD
-# Tj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NBQ2VydGlmaWNhdGU/YmFz
-# ZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9yaXR5MCsGCCsGAQUFBzAC
-# hh9odHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EuY3J0MBMGA1UdJQQMMAoGCCsG
-# AQUFBwMDMBsGCSsGAQQBgjcVCgQOMAwwCgYIKwYBBQUHAwMwDQYJKoZIhvcNAQEL
-# BQADggEBACbc1NDl3NTMuqFwTFd8NHHCsSudkVhuroySobzUaFJN2XHbdDkzquFF
-# 6f7KFWjqR3VN7RAi8arW8zESCKovPolltpp3Qu58v59qZLhbXnQmgelpA620bP75
-# zv8xVxB9/xmmpOHNkM6qsye4IJur/JwhoHLGqCRwU2hxP1pu62NUK2vd/Ibm8c6w
-# PZoB0BcC7SETNB8x2uKzJ2MyAIuyN0Uy/mGDeLyz9cSboKoG6aQibnjCnGAVOVn6
-# J7bvYWJsGu7HukMoTAIqC6oMGerNakhOCgrhU7m+cERPkTcADVH/PWhy+FJWd2px
-# ViKcyzWQSyX93PcOj2SsHvi7vEAfCGcxggH1MIIB8QIBATBUMD0xEzARBgoJkiaJ
-# k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
-# U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
-# AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRpqakiD+E1
-# iciUYPSWyhQr7nv0jTANBgkqhkiG9w0BAQEFAASCAQAkR5NlwEfnwEKwJfWwWnrk
-# WnLb+uDZmG0G+VBtfx74ZpGi+ygf1sIU0uxFALdpNLm6s49A4PH3jzzYOoWCrVqU
-# R9tU/4jMBqSD/NUg6YzF+MjEU1OZSm6KrJImxslZkaUQ/a8PRptZvIzq/H0G/gtu
-# onA+94cFElUQGoFx29eqycWA5+DKG+QBStpNsBA0oVKd3EvQeoc0to58EZvueyHK
-# Nu/RblTWR5z/qir15h1qYvrOSxpohL0fLxR/4FQ/eevy8SNiqnOAiP0o6phVDIoL
-# I/eWmxJZnJfu8G06w/9R3TsnFOe6J2VvAi25QFBwQ4B1E8knetuHBQgBlY09k1wY
+# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDCwqv+ROc1
+# bpJmKx+8rPUUfT3kPSUYeDxY8GXU2RrWcL5TSZ6AVJsvNpj+7d94OEmPZate7h4d
+# gJnhCSyh2/3v0BHBdgPzLcveLpxPiSWpTnqSWlLUW2NMFRRojZRscdA+e+9QotOB
+# aZmnLDrlePQe5W7S1CxbVu+W0H5/ukte5h6gsKa0ktNJ6X9nOPiGBMn1LcZV/Ksl
+# lUyuTc7KKYydYjbSSv2rQ4qmZCQHqxyNWVub1IiEP7ClqCYqeCdsTtfw4Y3WKxDI
+# JaPmWzlHNs0nkEjvnAJhsRdLFbvY5C2KJIenxR0gA79U8Xd6+cZanrBUNbUC8GCN
+# wYkYp4A4Jx+9AgMBAAGjggEqMIIBJjASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsG
+# AQQBgjcVAgQWBBQ/0jsn2LS8aZiDw0omqt9+KWpj3DAdBgNVHQ4EFgQUicLX4r2C
+# Kn0Zf5NYut8n7bkyhf4wGQYJKwYBBAGCNxQCBAweCgBTAHUAYgBDAEEwDgYDVR0P
+# AQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wHwYDVR0jBBgwFoAUdpW6phL2RQNF
+# 7AZBgQV4tgr7OE0wMQYDVR0fBCowKDAmoCSgIoYgaHR0cDovL3BraS9jZXJ0ZGF0
+# YS9aZXJvREMwMS5jcmwwPAYIKwYBBQUHAQEEMDAuMCwGCCsGAQUFBzAChiBodHRw
+# Oi8vcGtpL2NlcnRkYXRhL1plcm9EQzAxLmNydDANBgkqhkiG9w0BAQsFAAOCAQEA
+# tyX7aHk8vUM2WTQKINtrHKJJi29HaxhPaHrNZ0c32H70YZoFFaryM0GMowEaDbj0
+# a3ShBuQWfW7bD7Z4DmNc5Q6cp7JeDKSZHwe5JWFGrl7DlSFSab/+a0GQgtG05dXW
+# YVQsrwgfTDRXkmpLQxvSxAbxKiGrnuS+kaYmzRVDYWSZHwHFNgxeZ/La9/8FdCir
+# MXdJEAGzG+9TwO9JvJSyoGTzu7n93IQp6QteRlaYVemd5/fYqBhtskk1zDiv9edk
+# mHHpRWf9Xo94ZPEy7BqmDuixm4LdmmzIcFWqGGMo51hvzz0EaE8K5HuNvNaUB/hq
+# MTOIB5145K8bFOoKHO4LkTCCBc8wggS3oAMCAQICE1gAAAH5oOvjAv3166MAAQAA
+# AfkwDQYJKoZIhvcNAQELBQAwPTETMBEGCgmSJomT8ixkARkWA0xBQjEUMBIGCgmS
+# JomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EwHhcNMTcwOTIwMjE0MTIy
+# WhcNMTkwOTIwMjExMzU4WjBpMQswCQYDVQQGEwJVUzELMAkGA1UECBMCUEExFTAT
+# BgNVBAcTDFBoaWxhZGVscGhpYTEVMBMGA1UEChMMRGlNYWdnaW8gSW5jMQswCQYD
+# VQQLEwJJVDESMBAGA1UEAxMJWmVyb0NvZGUyMIIBIjANBgkqhkiG9w0BAQEFAAOC
+# AQ8AMIIBCgKCAQEAxX0+4yas6xfiaNVVVZJB2aRK+gS3iEMLx8wMF3kLJYLJyR+l
+# rcGF/x3gMxcvkKJQouLuChjh2+i7Ra1aO37ch3X3KDMZIoWrSzbbvqdBlwax7Gsm
+# BdLH9HZimSMCVgux0IfkClvnOlrc7Wpv1jqgvseRku5YKnNm1JD+91JDp/hBWRxR
+# 3Qg2OR667FJd1Q/5FWwAdrzoQbFUuvAyeVl7TNW0n1XUHRgq9+ZYawb+fxl1ruTj
+# 3MoktaLVzFKWqeHPKvgUTTnXvEbLh9RzX1eApZfTJmnUjBcl1tCQbSzLYkfJlJO6
+# eRUHZwojUK+TkidfklU2SpgvyJm2DhCtssFWiQIDAQABo4ICmjCCApYwDgYDVR0P
+# AQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMB0GA1UdDgQWBBS5d2bhatXq
+# eUDFo9KltQWHthbPKzAfBgNVHSMEGDAWgBSJwtfivYIqfRl/k1i63yftuTKF/jCB
+# 6QYDVR0fBIHhMIHeMIHboIHYoIHVhoGubGRhcDovLy9DTj1aZXJvU0NBKDEpLENO
+# PVplcm9TQ0EsQ049Q0RQLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNl
+# cnZpY2VzLENOPUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y2VydGlmaWNh
+# dGVSZXZvY2F0aW9uTGlzdD9iYXNlP29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlv
+# blBvaW50hiJodHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EoMSkuY3JsMIHmBggr
+# BgEFBQcBAQSB2TCB1jCBowYIKwYBBQUHMAKGgZZsZGFwOi8vL0NOPVplcm9TQ0Es
+# Q049QUlBLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNlcnZpY2VzLENO
+# PUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y0FDZXJ0aWZpY2F0ZT9iYXNl
+# P29iamVjdENsYXNzPWNlcnRpZmljYXRpb25BdXRob3JpdHkwLgYIKwYBBQUHMAKG
+# Imh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb1NDQSgxKS5jcnQwPQYJKwYBBAGCNxUH
+# BDAwLgYmKwYBBAGCNxUIg7j0P4Sb8nmD8Y84g7C3MobRzXiBJ6HzzB+P2VUCAWQC
+# AQUwGwYJKwYBBAGCNxUKBA4wDDAKBggrBgEFBQcDAzANBgkqhkiG9w0BAQsFAAOC
+# AQEAszRRF+YTPhd9UbkJZy/pZQIqTjpXLpbhxWzs1ECTwtIbJPiI4dhAVAjrzkGj
+# DyXYWmpnNsyk19qE82AX75G9FLESfHbtesUXnrhbnsov4/D/qmXk/1KD9CE0lQHF
+# Lu2DvOsdf2mp2pjdeBgKMRuy4cZ0VCc/myO7uy7dq0CvVdXRsQC6Fqtr7yob9NbE
+# OdUYDBAGrt5ZAkw5YeL8H9E3JLGXtE7ir3ksT6Ki1mont2epJfHkO5JkmOI6XVtg
+# anuOGbo62885BOiXLu5+H2Fg+8ueTP40zFhfLh3e3Kj6Lm/NdovqqTBAsk04tFW9
+# Hp4gWfVc0gTDwok3rHOrfIY35TGCAfUwggHxAgEBMFQwPTETMBEGCgmSJomT8ixk
+# ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
+# E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
+# CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHp8aJMcdXsQrWNQ
+# gIPgiY5BgWQkMA0GCSqGSIb3DQEBAQUABIIBAFNAZ27w1pJ/hlTH3EygJxtoujKH
+# 5POzaIpg18WpD5V2zWhH5oyC62SumnafAYVdORyrfrGUPQ+kKitMpFggisRP0Jrt
+# zROsnWz7GMZ7EbSrNP4ncpzJ2i23rrEgbRS0tJRwOc/xfxhEoOWpPzkuM9hh3NcE
+# UszL4t3UsrkWANMML88isNm7Bl3H+7KjrvaGW90UJb+sFHoDtXHBAbJkzhtHS9zR
+# f0WRZkjFmu4eOB8lFYmr8nXmkEoSrIxZQKKMRhGN8rHtU3BAO+KaE0U1FExUw5e8
+# 3EwYAccY87ezddOGxgFzXRw0K8VauCoCOSPWOFv2J6/Rpj179wGcwd9TfBs=
 # SIG # End signature block
