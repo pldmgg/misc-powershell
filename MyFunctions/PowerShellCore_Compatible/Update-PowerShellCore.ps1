@@ -765,7 +765,8 @@ function Update-PowerShellCore
         }
     }
 
-    if ($PSBoundParameters.Keys -contains "UsePackageManagement" -and $UsePackageManagement -eq $false -and !$DownloadDirectory) {
+    if ($($PSBoundParameters.Keys -contains "UsePackageManagement" -and $UsePackageManagement -eq $false -and !$DownloadDirectory) -or
+    $(!$DownloadDirectory -and $UsePackageManagement -eq $false)) {
         $DownloadDirectory = Read-Host -Prompt "Please enter the full path to the directory where the PowerShell Core installation package will be downloaded"
     }
 
@@ -1631,8 +1632,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZD4ar2hnL2xFEYc0GeiRqY/M
-# WZGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUppUdJGfiTdqf5e6A6wNsJbVF
+# xnCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1689,11 +1690,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDFharUzbq2sc/fm
-# 2ofJwmwT9W5LMA0GCSqGSIb3DQEBAQUABIIBADQvNne7wqQujRPHn+6Yz6bx7wDf
-# csbOAkkZbxq6YiIHmqfZVNIa0qmz1uFJsu3U0+RJnE8xE75gmXA56rsuKwiVRqh9
-# NMQPrstKP+M5X5YX+L6jU84ft7ApF/2FRjYvPotN9cWaxEnCgcnG+Mzkzc8OCcnJ
-# CDx1KZ58S5tUtMOcoGcwiMweUckJeulD2qHRBRZcoi08GGrclvYT0/dqyZSgFct7
-# uwa8RCql54tRz2IPbLcCNjQZlv89mkxpkk1zJ0HNf75nhDpnhrYT4Y7EVE2x1r8R
-# 5FKtbi+gHua1C7sDREA7KplX0iUIhuVVgmlrKNhTxclwf3vhtfaB7GWRJBc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCa9ZtSeWrtjERws
+# FJQfQ/pzjFiqMA0GCSqGSIb3DQEBAQUABIIBACdHTXyfUfW28MSLZvF4YGl+xoJ7
+# +1XNU8KoVh2+SnpU+k0Z6Tz42TnxiuM2fsJVxqvVDkLaT12EKeuw3UBVg5leBK5c
+# WdZCFRXyuPaBP1zNgjLIuNoAcVO9oBGqHzLeFt7K7NquJ3whE78/4zHa1bLuxqxb
+# D31aja88ET1PzlPjN4AwuttvIOQoHEkd/72QF5deOOxdzjc20yZvfAWQ0dchOvYO
+# 2MfSMlOiGdknEPmar7hJgWPvsB0ksS1ESG8WhKQhH6vyvgIV04u6311l6fRcYrCM
+# Uyel6vymIHI4DjZDTw1hcNbr86q94U2UK4fKb75DMMySiREI0cTVBdalvtk=
 # SIG # End signature block
