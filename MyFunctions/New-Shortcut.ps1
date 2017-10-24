@@ -20,18 +20,29 @@ function New-Shortcut {
     
     ##### BEGIN Native Helper Functions #####
 
-    function Get-Elevation {
-        [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
-            [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        )
+    function Check-Elevation {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+            [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            )
     
-        [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+            [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
     
-        if(currentPrincipal.IsInRole(administratorsRole)) {
-            return true;
+            if($currentPrincipal.IsInRole($administratorsRole)) {
+                return $true
+            }
+            else {
+                return $false
+            }
         }
-        else {
-            return false;
+        
+        if ($PSVersionTable.Platform -eq "Unix") {
+            if ($(whoami) -eq "root") {
+                return $true
+            }
+            else {
+                return $false
+            }
         }
     }
     
@@ -40,7 +51,7 @@ function New-Shortcut {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    if (!$(Get-Elevation)) {
+    if (!$(Check-Elevation)) {
         Write-Error "The New-Shortcut cmdlet must be run from an elevated shell (i.e. Run As Administrator)! Halting!"
         $global:FunctionResult = "1"
         return
@@ -102,8 +113,8 @@ function New-Shortcut {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAd0Kxekk9nRwErO+LHw+SY3m
-# OoOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUb7aeRQzw6I4n5A8kRe+qC3+X
+# bICgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -160,11 +171,11 @@ function New-Shortcut {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGqpbfPRZX9ms/UX
-# ZQtudFk8iZAZMA0GCSqGSIb3DQEBAQUABIIBAE+jcFA3873Ch/HtokSpDBi99sT+
-# qXmd9a/EXyzG8ExJd0eVSEPu5/gcGfgNKyYzjX7PpQdROPrsbnzG4oppgZh9OBPe
-# e1uIsITzeffjtBmrLlKIcXRiDImF6HXFpFNHpY/B1qIWCjmcAXUAnfPhPmSr/QOO
-# tiCI0XgktVNkGOa++aPMAz4CNoLVCVR1vpRDVJ8E62f3++Hc1AVyuPvpbW4Sdns1
-# /rnNtZ4C35MJScTEl8gqBUM9x7gtk01BvVUKcecleXd8e3QC5fz4UHZ8b1EEmS8z
-# iqfN0SZdMvTeBIGb+7TS/S061Afxn92gxTqYWB/QEUIVEfiPmiAHaAYYJQs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJ4nAuLHgtzdtwBu
+# OfVUGspDNd96MA0GCSqGSIb3DQEBAQUABIIBAI2qpv1zsba9Bq4PBEFvwxwqaepr
+# 3yrzDjZg4pVwlnaaUIEMvjGBxbHOFT3OXw6r6Z81NB9MPj67XPv+hWLyd/hHcXf6
+# d/B6cxeoofTAqeF5LfwCpkGhLRDk6u3V6Z9BEC22AnVmCYju5+357oDACffSRdXd
+# FDmQuS3+t+sSWcRYZFfu/SfoYGOlrqam0x1fP9gQgIS7C3cmpor3I7dw6gF7H2tu
+# fiZtbFIucq8rlntzhOOVhM89/SMF/AoC3yO2oLdOhRi1JOxCX6fF8J1crYJdZicw
+# LMNnzIjHZkEL+s1ukndr1gYsAOOrohhHd8dY7iyaxyv8NT+t2zQwDQwxjqA=
 # SIG # End signature block
