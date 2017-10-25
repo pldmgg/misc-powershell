@@ -342,21 +342,21 @@ function Update-PowerShellCore
         if ($InstallNuGetCmdLine -and !$UseChocolatey) {
             if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
                 $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
-                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                [bool]$WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                 if ($WarningResponse) {
                     $UseChocolatey = $true
                 }
             }
             elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
                 $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
-                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                [bool]$WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                 if ($WarningResponse) {
                     $UseChocolatey = $true
                 }
             }
             elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
                 $WarningMessage = "The NuGet Command Line Tools binary nuget.exe can be downloaded, but will not be able to be run without Mono. Do you want to download the latest stable nuget.exe?"
-                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                [bool]$WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                 if ($WarningResponse) {
                     Write-Host "Downloading latest stable nuget.exe..."
                     $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
@@ -1129,8 +1129,8 @@ function Update-PowerShellCore
                     else {
                         if ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
                             if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
-                                $ChocoCmdLineWarning = "The Chocolatey Package Provider Source cannot be installed/registered using PowerShell Core."
-                                $InstallChocolateyCmdLineChoice = Pause-ForWarning -PauseTimeInSeconds 20 -Message $ChocoCmdLineWarning
+                                $ChocoCmdLineWarning = "The Chocolatey Package Provider Source cannot be installed/registered using PowerShell Core. Would you like to install the Chocolatey Command Line?"
+                                [bool]$InstallChocolateyCmdLineChoice = Pause-ForWarning -PauseTimeInSeconds 20 -Message $ChocoCmdLineWarning
                                 
                                 if (!$InstallChocolateyCmdLineChoice) {
                                     $PackageManagementSuccess = $false
@@ -1222,7 +1222,7 @@ function Update-PowerShellCore
                                     elseif ($PSCoreChocoVersion.Split(".")[-1] -le $PSFullVersion.Split(".")[-1] -and $Latest) {
                                         Write-Warning "The version of PowerShell Core available via Chocolatey (i.e. $PSCoreChocoVersion) is older than the latest version available on GitHub via Direct Download!"
                                         $PauseForWarningMessage = "Would you like to install the latest version available on GitHub via Direct Download?"
-                                        $DirectDownloadChoice = Pause-ForWarning -PauseTimeInSeconds 15 -Message $PauseForWarningMessage
+                                        [bool]$DirectDownloadChoice = Pause-ForWarning -PauseTimeInSeconds 15 -Message $PauseForWarningMessage
                                         
                                         if ($DirectDownloadChoice) {
                                             # Re-Run the function using Direct Download
@@ -1261,16 +1261,13 @@ function Update-PowerShellCore
                             # Need to use Chocolatey CmdLine
                             try {
                                 if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                                    Write-Error "Unable to find choco command!"
                                     throw
                                 }
 
-                                $ChocoVersionEquivalent = $PSFullVersion.Remove($($PSFullVersion.LastIndexOf(".")),1)
-                                $PSCoreFoundCheck = $(clist powershell-core --pre --all) | Where-Object {$_ -match $ChocoVersionEquivalent}
-                                if ($PSCoreFoundCheck -eq $null) {
-                                    throw
-                                }
-                                
-                                $PSCoreChocoVersion = $PSFullVersion
+                                $LatestVersionChocoEquivalent = $PSFullVersion.Remove($($PSFullVersion.LastIndexOf(".")),1)
+                                $LatestAvailableViaChocolatey = $($(clist powershell-core --pre --all)[1] -split " ")[1].Trim()                                
+                                $PSCoreChocoVersion = $LatestAvailableViaChocolatey.Insert($($LatestAvailableViaChocolatey.Length-1),".")
                                 
                                 # The latest PS Core available via Chocolatey might not be the latest available via direct download on GitHub
                                 if ($CurrentInstalledPSVersions -contains $PSCoreChocoVersion) {
@@ -1279,8 +1276,8 @@ function Update-PowerShellCore
                                 elseif ($PSCoreChocoVersion.Split(".")[-1] -le $PSFullVersion.Split(".")[-1] -and $Latest) {
                                     Write-Warning "The version of PowerShell Core available via Chocolatey (i.e. $PSCoreChocoVersion) is older than the latest version available on GitHub via Direct Download!"
                                     $PauseForWarningMessage = "Would you like to install the latest version available on GitHub via Direct Download?"
-                                    $DirectDownloadChoice = Pause-ForWarning -PauseTimeInSeconds 15 -Message $PauseForWarningMessage
-                                    
+                                    [bool]$DirectDownloadChoice = Pause-ForWarning -PauseTimeInSeconds 15 -Message $PauseForWarningMessage
+
                                     if ($DirectDownloadChoice) {
                                         # Re-Run the function using Direct Download
                                         Write-Host "Re-running Update-PowerShellCore to install/update PowerShell Core via direct download ..."
@@ -1300,14 +1297,15 @@ function Update-PowerShellCore
                                         return
                                     }
                                     else {
-                                        choco install powershell-core --pre
+                                        choco install powershell-core --pre -y
                                     }
                                 }
                                 else {
-                                    choco install powershell-core --pre
+                                    choco install powershell-core --pre -y
                                 }
                             }
                             catch {
+                                Write-Error $Error[0]
                                 Write-Error "Unable to use Chocolatey CmdLine to install PowerShell Core! Try the Update-PowerShell function again using Direct Download (i.e. -DownloadDirectory parameter). Halting!"
                                 $global:FunctionResult = "1"
                                 return
@@ -1632,8 +1630,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUppUdJGfiTdqf5e6A6wNsJbVF
-# xnCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyUs6bw99y+kiIjhkKT4+lWEx
+# C22gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1690,11 +1688,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCa9ZtSeWrtjERws
-# FJQfQ/pzjFiqMA0GCSqGSIb3DQEBAQUABIIBACdHTXyfUfW28MSLZvF4YGl+xoJ7
-# +1XNU8KoVh2+SnpU+k0Z6Tz42TnxiuM2fsJVxqvVDkLaT12EKeuw3UBVg5leBK5c
-# WdZCFRXyuPaBP1zNgjLIuNoAcVO9oBGqHzLeFt7K7NquJ3whE78/4zHa1bLuxqxb
-# D31aja88ET1PzlPjN4AwuttvIOQoHEkd/72QF5deOOxdzjc20yZvfAWQ0dchOvYO
-# 2MfSMlOiGdknEPmar7hJgWPvsB0ksS1ESG8WhKQhH6vyvgIV04u6311l6fRcYrCM
-# Uyel6vymIHI4DjZDTw1hcNbr86q94U2UK4fKb75DMMySiREI0cTVBdalvtk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPZpWBm0FVYWy12i
+# /m0x0I7bOvCgMA0GCSqGSIb3DQEBAQUABIIBADO7MQIgbCLRGG42DLjZLIVvgJTd
+# 59PMFhv9zQV3XhvCuVtC+kYmSKGBrEhEbKUL5ZWxne72JC5MohsBFpulQAPiVvBa
+# Q9pVszNovXaAt7gWIZCiXKCzztOo39zkU7gIyEdrcEFgQDynUia9yP9f+405tE6j
+# +squNnOcK/XJve07C/h1jEZEtIaFrKLnYlL2qtnNMem/YR+JwLFMqtf+TT7euZJp
+# HCcOiANPC3V6926zEwOcpIr3XaZKaWcBoK0suApFczTe3nXFNK67IYuPrBd9Isxu
+# oof0cQbwsoIhLxLas5k/cMA9iXylcYCEmVa9XM9WFyhCIpUGHvkZ46hY5W8=
 # SIG # End signature block
