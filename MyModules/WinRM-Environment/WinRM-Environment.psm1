@@ -605,7 +605,7 @@ function Initialize-ModulesInRemoteSession {
                             ModuleName   = "$($Module.Name)"
                             Status       = "NotAvailable"
                         }
-                    ) -Force
+                    ) -Force -ErrorAction SilentlyContinue
 
                     $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
                 }
@@ -617,7 +617,7 @@ function Initialize-ModulesInRemoteSession {
                                 Status       = "NeedsUpdate"
                                 ModuleObject = Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}
                             }
-                        ) -Force
+                        ) -Force -ErrorAction SilentlyContinue
 
                         $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
                     }
@@ -641,7 +641,7 @@ function Initialize-ModulesInRemoteSession {
                         Status       = "ImportInRemoteSession"
                         ModuleObject = Get-Module | Where-Object {$_.Name -eq $Module.Name}
                     }
-                ) -Force
+                ) -Force -ErrorAction SilentlyContinue
 
                 $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
             }
@@ -3164,12 +3164,11 @@ function New-InteractivePSSession {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcrdjwj6E5Aud4b0iFoL8l16r
-# Roigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNrl3wWn1iCHfbOQHgE4LhuGQ
+# i9Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3226,11 +3225,11 @@ function New-InteractivePSSession {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJMdQsYHAqyV3PiQ
-# Yayub2ZfgBiTMA0GCSqGSIb3DQEBAQUABIIBALXlJqAsfehbtCXd2S5yvfhd8DhR
-# oabLtJjgdKCHzfm5wFSM+ijuaem9YCkRhaDue+gc843ptDSSCbTr3Wea+/Bg3FGO
-# 4E1fGDkqqEZdLCQ237b6Vlchol5agYPZsqWrVsiVLmB6IWf6tfT5BCzCIO3CcTX4
-# Pc3++M7AyqIOYEI0465JeJm4J/qhEY9/Vi18Y9kAEQZJ6+qGPwsPAKcJtXFRYaPA
-# 06Uu1McCNwrkmHcY2V/M7iQNRcbl855EFMU5xQuLDcqeiGrTZc9UCW2VdhEy4FNz
-# l0tlJvB4iwguiI1IKIPy8E1Zm4HrlrYg+UbfcS0otObSgoE5XGeo8POJI7c=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLxQjGC1U3efI4SC
+# EtiSWOTOd4tVMA0GCSqGSIb3DQEBAQUABIIBAHnavf4u4FTLfRQVQ5ZIcCdrh/VQ
+# BuUU6K0zisqYF0nXftlxTmMw3xreWg+3tz7P3VU342QHW5Py9druOJmX/HWBuWJY
+# uteS/wkMG+xCVF01dt3O/KCGPXX61VkectiVQvKaYcSbo4M1XdaPvS2enUwaKpMs
+# CXnY+DXvQr0NIVrwIprorH2TfNiOwNGIsoXvHVvGLP0v9cl0fHOHyw5mMMegb++w
+# 7/cOZplbm9bnWYSWHgj4clJybnTuqUYCrnYIkmCabeoXRsoql/WDQhqI5dHq/VnI
+# rP9qihNqeq//MkRYezd3PzDE1qmGvP9av7eeUW4ug+762VU00Ol0WhsaKtk=
 # SIG # End signature block
