@@ -600,50 +600,58 @@ function Initialize-ModulesInRemoteSession {
         foreach ($Module in $using:ModulesToLoadOnRemoteHost) {
             if ($(Get-Module | Where-Object {$_.Name -eq $Module.Name}) -eq $null) {
                 if ($(Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}) -eq $null) {
-                    New-Variable -Name "$($Module.Name)" -Value $(
-                        [pscustomobject][ordered]@{
-                            ModuleName   = "$($Module.Name)"
-                            Status       = "NotAvailable"
-                        }
-                    ) -Force -ErrorAction SilentlyContinue
-
-                    $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
-                }
-                else {
-                    if ($(Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}).Version -lt $Module.Version) {
+                    if ($Module.Name -ne $null) {
                         New-Variable -Name "$($Module.Name)" -Value $(
                             [pscustomobject][ordered]@{
                                 ModuleName   = "$($Module.Name)"
-                                Status       = "NeedsUpdate"
-                                ModuleObject = Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}
-                            }
-                        ) -Force -ErrorAction SilentlyContinue
-
-                        $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
-                    }
-                    else {
-                        New-Variable -Name "$($Module.Name)" -Value $(
-                            [pscustomobject][ordered]@{
-                                ModuleName   = "$($Module.Name)"
-                                Status       = "AlreadyLatest"
-                                ModuleObject = Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}
+                                Status       = "NotAvailable"
                             }
                         ) -Force
 
                         $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
                     }
                 }
+                else {
+                    if ($(Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}).Version -lt $Module.Version) {
+                        if ($Module.Name -ne $null) {
+                            New-Variable -Name "$($Module.Name)" -Value $(
+                                [pscustomobject][ordered]@{
+                                    ModuleName   = "$($Module.Name)"
+                                    Status       = "NeedsUpdate"
+                                    ModuleObject = Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}
+                                }
+                            ) -Force -ErrorAction SilentlyContinue
+
+                            $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
+                        }
+                    }
+                    else {
+                        if ($Module.Name -ne $null) {
+                            New-Variable -Name "$($Module.Name)" -Value $(
+                                [pscustomobject][ordered]@{
+                                    ModuleName   = "$($Module.Name)"
+                                    Status       = "AlreadyLatest"
+                                    ModuleObject = Get-Module -ListAvailable | Where-Object {$_.Name -eq $Module.Name}
+                                }
+                            ) -Force
+
+                            $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
+                        }
+                    }
+                }
             }
             else {
-                New-Variable -Name "$($Module.Name)" -Value $(
-                    [pscustomobject][ordered]@{
-                        ModuleName   = "$($Module.Name)"
-                        Status       = "ImportInRemoteSession"
-                        ModuleObject = Get-Module | Where-Object {$_.Name -eq $Module.Name}
-                    }
-                ) -Force -ErrorAction SilentlyContinue
+                if ($Module.Name -ne $null) {
+                    New-Variable -Name "$($Module.Name)" -Value $(
+                        [pscustomobject][ordered]@{
+                            ModuleName   = "$($Module.Name)"
+                            Status       = "ImportInRemoteSession"
+                            ModuleObject = Get-Module | Where-Object {$_.Name -eq $Module.Name}
+                        }
+                    ) -Force -ErrorAction SilentlyContinue
 
-                $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
+                    $ModuleStatusCollection +=, $(Get-Variable -Name "$($Module.Name)" -ValueOnly)
+                }
             }
         }
         $ModuleStatusCollection
@@ -3163,12 +3171,11 @@ function New-InteractivePSSession {
 }
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNrl3wWn1iCHfbOQHgE4LhuGQ
-# i9Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV5Ce/qXXX6kaoGZA4Jj4w2NR
+# HrKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3225,11 +3232,11 @@ function New-InteractivePSSession {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLxQjGC1U3efI4SC
-# EtiSWOTOd4tVMA0GCSqGSIb3DQEBAQUABIIBAHnavf4u4FTLfRQVQ5ZIcCdrh/VQ
-# BuUU6K0zisqYF0nXftlxTmMw3xreWg+3tz7P3VU342QHW5Py9druOJmX/HWBuWJY
-# uteS/wkMG+xCVF01dt3O/KCGPXX61VkectiVQvKaYcSbo4M1XdaPvS2enUwaKpMs
-# CXnY+DXvQr0NIVrwIprorH2TfNiOwNGIsoXvHVvGLP0v9cl0fHOHyw5mMMegb++w
-# 7/cOZplbm9bnWYSWHgj4clJybnTuqUYCrnYIkmCabeoXRsoql/WDQhqI5dHq/VnI
-# rP9qihNqeq//MkRYezd3PzDE1qmGvP9av7eeUW4ug+762VU00Ol0WhsaKtk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMON8DnWFeJWEPgu
+# y15fgLuYOU7JMA0GCSqGSIb3DQEBAQUABIIBAGwR0NalrEMwxRrI+IVtU1qP6ZIr
+# AoNO/nqj2fqWsji1N3A/zbitDzBhezf9CT3YuxOLszIvsWMurMFYBRQqetPK/a2C
+# Fs3dqg3hEi8IR723dYV9+/XbLxquDYiX0aE1FfY+37yzaCkilaOzDHWHpdI/LPeu
+# ZKbMyTyzZNtbcBZOYYW8xS4G13+6SedFlcvMzJxunYpFnQUJyLj17soZ2kdG1a65
+# VhZJDjuq+3R79Wd5yp3V1P1xHuTESPgLVN7RXutzoklHpTvywy9I7lSXxV14STPL
+# 6u5CJOF6G1CZzkkobFuPu/o7+pgfHFv43+/EXlHnGjHoJHewHOTFcLIJawA=
 # SIG # End signature block
