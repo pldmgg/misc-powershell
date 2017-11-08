@@ -1820,7 +1820,7 @@ function Receive-ItemFromRemoteHost {
         $RemoteHostUser = $PSSession.Runspace.ConnectionInfo.Credential.UserName
     }
     if (!$PSSession -and !$RemoteHost) {
-        $RemoteHost = Read-Host -Prompt "Please enter the name of the Remote Host that you would like to send items to"
+        $RemoteHost = Read-Host -Prompt "Please enter the name of the Remote Host that you would like to receive items from"
     }
     if (!$PSSession -and !$RemoteHostUser) {
         $RemoteHostUser = Read-Host -Prompt "Please enter a UserName with access to $RemoteHost"
@@ -1938,7 +1938,7 @@ function Receive-ItemFromRemoteHost {
                     $RemoteHostIP = $(Resolve-DNSName $RemoteHost).IPAddress
                 }
                 catch {
-                    Write-Verbose "Unable to resolve $gobal:RemoteHost!"
+                    Write-Verbose "Unable to resolve $RemoteHost!"
                 }
                 if ($RemoteHostIP) {
                     # Filter out any non IPV4 IP Addresses that are in $RemoteHostIP
@@ -3170,12 +3170,11 @@ function New-InteractivePSSession {
 
 }
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV5Ce/qXXX6kaoGZA4Jj4w2NR
-# HrKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVj1qo09Uyey+DnfVfD1xJfCu
+# qPegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3232,11 +3231,11 @@ function New-InteractivePSSession {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMON8DnWFeJWEPgu
-# y15fgLuYOU7JMA0GCSqGSIb3DQEBAQUABIIBAGwR0NalrEMwxRrI+IVtU1qP6ZIr
-# AoNO/nqj2fqWsji1N3A/zbitDzBhezf9CT3YuxOLszIvsWMurMFYBRQqetPK/a2C
-# Fs3dqg3hEi8IR723dYV9+/XbLxquDYiX0aE1FfY+37yzaCkilaOzDHWHpdI/LPeu
-# ZKbMyTyzZNtbcBZOYYW8xS4G13+6SedFlcvMzJxunYpFnQUJyLj17soZ2kdG1a65
-# VhZJDjuq+3R79Wd5yp3V1P1xHuTESPgLVN7RXutzoklHpTvywy9I7lSXxV14STPL
-# 6u5CJOF6G1CZzkkobFuPu/o7+pgfHFv43+/EXlHnGjHoJHewHOTFcLIJawA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEXYWmCDSjCQ5w7D
+# rQoPLGXDtgsUMA0GCSqGSIb3DQEBAQUABIIBAJV4rPA9mK3gZiLZ4QxAh+iYO85f
+# gm3dlWmjMWLlfOsZNPTqMC4jDEjJ+J14aTU8N6LPvAhTLtBpFpwNsDtaO1QNfvtn
+# tEuuQRY3c1gXsmDcM3tY9BQZVBjCYk5cHA7uWhQ28i3wowwsEIepC0bRXcs3abHB
+# 2+LyNDPbcRW5t0FF6+mGoU/1+23eX+fiMWZv4jgwey76uMhO5AQPkyBqIwcsRY4P
+# AnDyZX7givUaxzyQhDotMc8H4QVjXTqnLugDXlW7viirsCdY++Elbd1wm8Y1wU7F
+# enlUuGXqh1o/UeTMgy9FjKrxX/rhDWNqDEW5Lnd3hV/bLDUBueNk+Hk1S58=
 # SIG # End signature block
