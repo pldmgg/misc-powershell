@@ -13,21 +13,20 @@
 
 .EXAMPLE
     New-GoogleSearch -SearchString "Test Search"
-    $global:ArrayOfSearchResultCustomObjects | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks | Format-List
+
 .OUTPUTS
-    Outputs an array of custom PSObjects called $global:ArrayOfSearchResultCustomObjects
+    Outputs an array of custom PSObjects
 #>
 
 function New-GoogleSearch {
     [CmdletBinding(PositionalBinding=$true)]
     [Alias('google')]
     Param(
-        [Parameter(Mandatory=$False)]
-        [string]$SearchString = $(Read-Host -Prompt "Please enter your search terms."),
-
-        [Parameter(Mandatory=$False)]
-        [string]$JavaScriptUsed = "No"
+        [Parameter(Mandatory=$True)]
+        [string]$SearchString
     )
+
+    ##### REGION Helper Functions and Libraries #####
 
     ## BEGIN Native Helper Functions ##
     
@@ -53,6 +52,360 @@ function New-GoogleSearch {
         }
     }
 
+    function Convert-FromBase64 {
+        [CmdletBinding()]
+        Param( 
+            [Parameter(Mandatory=$True)]
+            [string]$InputString 
+        )
+
+        ##### BEGIN Main Body #####
+        try {
+            $Output = [System.Text.Encoding]::UNICODE.GetString([System.Convert]::FromBase64String($InputString))
+        }
+        catch {
+            Write-Verbose "`$InputString is NOT a valid base64 string!"
+        }
+        if (!$Output) {
+            Write-Error "`$InputString is NOT a valid base64 string! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($Output) {
+            return $Output
+        }
+        ##### END Main Body #####
+    
+    }
+
+    function Convert-ToBase64 {
+        [CmdletBinding()]
+        Param( 
+            [Parameter(Mandatory=$True)]
+            [string]$InputString
+        )
+
+        ##### BEGIN Parameter Validation #####
+        $RegexLocalOrUNCPath = '^(([a-zA-Z]:\\)|(\\\\))(((?![<>:"/\\|?*]).)+((?<![ .])\\)?)*$'
+        # If $InputString is a filepath...
+        if ([uri]$InputString.IsAbsoluteURI -and $([uri]$InputString.IsLoopBack -or [uri]$InputString.IsUnc)) {
+            if (Test-Path $InputString) {
+                try {
+                    $Output = [convert]::ToBase64String((get-content "$InputString" -encoding byte))
+                }
+                catch {
+                    Write-Verbose "`$InputString is not able to be converted to a base64 string!"
+                }
+                if (!$Output) {
+                    Write-Error "`$InputString is able to be converted to a base64 string! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                if ($Output) {
+                    return $Output
+                }
+            }
+            if (!$(Test-Path $InputString)) {
+                Write-Verbose "The path $InputString was not found! Halting!"
+                Write-Error "The path $InputString was not found! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        # Else, assume it is just a string of text
+        else {
+            try {
+                $Output = [System.Convert]::ToBase64String([System.Text.Encoding]::UNICODE.GetBytes($InputString))
+            }
+            catch {
+                Write-Verbose "`$InputString is not able to be converted to a base64 string!"
+            }
+            if (!$Output) {
+                Write-Error "`$InputString is able to be converted to a base64 string! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+            if ($Output) {
+                return $Output
+            }
+        }
+        
+        ##### END Main Body #####
+    
+    }
+
+    function ConvertTo-Scriptblock {
+        Param(
+            [Parameter(
+                Mandatory = $True,
+                ValueFromPipeline = $True
+            )]
+            [string]$string
+        )
+        $scriptBlock = [scriptblock]::Create($string)
+        return $scriptBlock
+    }
+
+    function Get-StdResultProperties {
+        [CmdletBinding(PositionalBinding=$true)]
+        Param(
+            [Parameter(Mandatory=$True)]
+            $HTMLBody,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("cntid")]
+            [string]$SearchResultsContainer,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("baseobjcl")]
+            [string]$BasicObjectClass,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("rhcl")]
+            [string]$ResultHeaderClass,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("urltg")]
+            [string]$URLTag,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("urlcttg")]
+            [string]$URLCitationTag,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("imgtg")]
+            [string]$ImageTag,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("descl")]
+            [string]$DescriptionClass,
+
+            [Parameter(Mandatory=$True)]
+            [Alias("olcl")]
+            [string]$OtherLinksClass
+        )
+
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+        $StandardResultsArrayPrep = $($($HTMLBody).getElementsByTagName('div') |`
+        Where-Object {$_.getAttributeNode('id').Value -eq "$SearchResultsContainer"}).children
+        [array]$StandardResultsArray = foreach ($obj1 in $StandardResultsArrayPrep) {
+            $($obj1).GetElementsByClassName("$BasicObjectClass")
+        }
+
+        [System.Collections.ArrayList]$StandardResults = @()
+        $ForLoopVariableNames = @("BasicResultObject","ResultHeaderObject","ResultHeader","URLTagCheck","DescriptionClassCheck",
+            "URLCitationTagCheck","OtherLinksClassCheck","CheckChildrenRecurse","URLCitationObject","URLCitation","URLPrep","URL",
+            "DescriptionObject","Description","OtherLinksObject","OtherLinks","NonStandardResultInfo","CachedPrep1","CachedPrep2",
+            "CachedPrep3","CachedPrep4","Cached","SimilarPrep1","SimilarPrep2","SimilarPrep3","Similar","ImageTagCheck",
+            "ImageObject","ImagePrep1","ImagePrep2","ImageBase64","ImageDisplay","tmpfile","bytes"
+        )
+        $null = [Reflection.Assembly]::LoadWithPartialName("System.Web")
+        # Below $RegexURL is from: http://daringfireball.net/2010/07/improved_regex_for_matching_urls
+        $RegexURL = "(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'`".,<>?«»“”‘’]))"
+        
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
+        
+        ##### BEGIN Main Body #####
+
+        # Since $StandardResultsArray is NOT actually an array (it's a __ComObject), need to use Length instead of Count...
+        for ($i=0; $i -lt $StandardResultsArray.Length; $i++) {
+            $BasicResultObject = $StandardResultsArray | Select-Object -Index $i
+            $ResultHeaderObject = $($BasicResultObject).GetElementsByClassName("$ResultHeaderClass")
+            $ResultHeader = $($ResultHeaderObject).innerText
+            if ($ResultHeader -eq $null) {
+                continue
+            }
+
+            $URLTagCheck = $($($ResultHeaderObject).GetElementsByTagName("$URLTag")).tagName
+            $URLCitationTagCheck = $($($BasicResultObject).GetElementsByTagName("$URLCitationTag")).tagName
+            $DescriptionClassCheck = $($($BasicResultObject).GetElementsByClassName("$DescriptionClass")).className
+            $ImageTagCheck = $($($BasicResultObject).GetElementsByTagName("$ImageTag")).tagName
+            $OtherLinksClassCheck = $($($BasicResultObject).GetElementsByClassName("$OtherLinksClass")).className
+            [array]$CheckChildrenRecurse = @("$URLTagCheck","$URLCitationTagCheck","$DescriptionClassCheck",
+                "$ImageTagCheck","$OtherLinksClassCheck"
+            )
+
+            if ($CheckChildrenRecurse -contains "$URLTag") {
+                $URLPrep = $($($ResultHeaderObject).GetElementsByTagName("$URLTag")).href
+                $URL = $URLPrep -replace 'about:/url\?q=',''
+            }
+            
+            if ($CheckChildrenRecurse -contains "$URLCitationTag") {
+                $URLCitationObject = $($BasicResultObject).GetElementsByTagName("$URLCitationTag")
+                $URLCitation = $($URLCitationObject).innerText
+            }
+
+            if ($CheckChildrenRecurse -contains "$DescriptionClass") {
+                $DescriptionObject = $($BasicResultObject).GetElementsByClassName("$DescriptionClass")
+                $Description = $($($DescriptionObject).innerText) -replace "`r`n",""
+            }
+
+            if ($CheckChildrenRecurse -contains "$ImageTagCheck") {
+                $ImageObject = $($BasicResultObject).getElementsByTagName("$ImageTag")
+                $ImagePrep1 = $($ImageObject).src
+                
+                if ($ImagePrep1 -match $RegexURL) {
+                    # Download the file to a temp location...
+                    $tmpFile = [IO.Path]::GetTempFileName()
+                    Invoke-WebRequest -URI $ImagePrep1 -OutFile $tmpFile
+                    $ImageBase64 = Convert-ToBase64 -InputString $tmpFile
+                }
+                if ($ImagePrep1 -notmatch $RegexURL -and $ImagePrep1 -ne $null) {
+                    $ImagePrep2 = $($ImagePrep1 -split 'base64,','')[1]
+
+                    # If validBase64 string, then set write the file out...
+                    if ($(Convert-FromBase64 -InputString "$ImagePrep2" -ErrorAction SilentlyContinue)) {
+                        $ImageBase64 = $ImagePrep2
+                        # Write the image to a file...
+                        $bytes = [Convert]::FromBase64String($ImageBase64)
+                        $tmpFile = [IO.Path]::GetTempFileName()
+                        [IO.File]::WriteAllBytes("$tmpfile", $bytes)
+                    }
+                }
+            }
+
+            if ($CheckChildrenRecurse -contains "$OtherLinksClass") {
+                $OtherLinksObject  = $($BasicResultObject).GetElementsByClassName("$OtherLinksClass")
+                $OtherLinks = $($OtherLinksObject).innerText
+            }
+
+            if ($(!$CheckChildrenRecurse -contains "$URLTag") -or $(!$CheckChildrenRecurse -contains "$DescriptionClass") -or $(!$CheckChildrenRecurse -contains "$OtherLinksClass")) {
+                [array]$NonStandardResultInfo = @(
+                    "$($($BasicResultObject).children)",
+                    "$($($($BasicResultObject).children).children)",
+                    "$($($($($BasicResultObject).children).children).children)"
+                )
+            }
+            else {
+                $NonStandardResultInfo = "Not Applicable - results are as expected"
+            }
+
+            try {
+                $CachedPrep1 = $($($($BasicResultObject).getElementsByTagName("li") | Where-Object {$_.innerText -eq "Cached"}).GetElementsByTagName("a")).outerHtml
+            }
+            catch {
+                Write-Verbose "Search Result does not contain Cached option..."
+            }
+            if ($CachedPrep1) {
+                $CachedPrep2 = $($($($CachedPrep1 -replace 'about:/','') -replace 'href="(.*?)(?=h)',';;;') -split ";;;")[1]
+                $CachedPrep3 = $($("https://google.com/url?q="+"$CachedPrep2") -split ";")[0]
+                $CachedPrep4 = $($CachedPrep3 -replace 'url\?q=url\?q=','url?q=') -replace 'https://google.com/url\?q=',''
+                $Cached = [System.Web.HttpUtility]::UrlDecode($CachedPrep4)
+            }
+
+            try {
+                $SimilarPrep1 = $($($($BasicResultObject).getElementsByTagName("li") | Where-Object {$_.innerText -eq "Similar"}).GetElementsByTagName("a")).outerHtml
+            }
+            catch {
+                Write-Verbose "Search Result does not contain Similar option..."
+            }
+            if ($SimilarPrep1) {
+                $SimilarPrep2 = $($($($SimilarPrep1 -replace 'about:/','') -replace 'search\?q=related:',';;;search?q=related:') -split ";;;")[1]
+                $SimilarPrep3 = $($("https://google.com/search?q=related:"+"$SimilarPrep2") -split ";")[0]
+                $Similar = $SimilarPrep3 -replace 'search\?q=related:search\?q=related:','search?q=related:'
+            }
+
+            New-Variable -Name "SearchEntry$i" -Scope Global -Value $(
+                [pscustomobject][ordered]@{
+                    BasicResultObject       = $BasicResultObject
+                    ResultHeaderObject      = $ResultHeaderObject
+                    ResultHeader            = $ResultHeader
+                    URLCitationObject       = $URLCitationObject
+                    URLCitation             = $URLCitation
+                    URL                     = $URL
+                    CachedObject            = $CachedPrep1
+                    Cached                  = $Cached
+                    SimilarObject           = $SimilarPrep1
+                    Similar                 = $Similar
+                    DescriptionObject       = $DescriptionObject
+                    Description             = $Description
+                    ImageObject             = $ImageObject
+                    ImageBase64             = $ImageBase64
+                    OtherLinksObject        = $OtherLinksObject
+                    OtherLinks              = $OtherLinks
+                    NonStdResultInfo        = $NonStandardResultInfo
+                }
+            ) -Force
+
+            if ($ImageBase64 -ne $null) {
+                # Add DisplayImage Method to $SearchEntry$i
+                $scriptblock = ConvertTo-Scriptblock -string "Start-Job -ScriptBlock {Show-Image -file `"$tmpfile`" | Out-Null}"
+                Add-Member -InputObject $(Get-Variable -Name "SearchEntry$i" -ValueOnly) -Name "DisplayImage" -MemberType ScriptMethod -Value $scriptblock -PassThru
+            }
+
+            # $global:StandardResults +=, $(Get-Variable -Name "SearchEntry$i" -ValueOnly)
+
+            $Output = $(Get-Variable -Name "SearchEntry$i" -ValueOnly)
+            $null = $StandardResults.Add($Output)
+
+            # Cleanup for next loop
+            foreach ($varname in $ForLoopVariableNames) {
+                Remove-Variable -Name "$varname" -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        $StandardResults
+
+        ##### END Main Body #####
+    }
+
+    function Show-Image {
+        [CmdletBinding(PositionalBinding=$true)]
+        Param(
+            [Parameter(Mandatory=$True)]
+            [string]$file = $(Read-Host -Prompt "Please enter the full path to the image file you would like to display.")
+        )
+    
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+        [void][Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+        [void][Reflection.Assembly]::LoadWithPartialName("System.Drawing")
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
+    
+        ##### BEGIN Main Body #####
+        [Windows.Forms.Screen]::AllScreens | foreach {
+            $maxHeight = ($_.Bounds).Height
+            $maxWidth = ($_.Bounds).Width
+        }
+    
+        if (Test-Path $file) {
+            # Loading Image
+            $pic = [Drawing.Image]::FromFile((Resolve-Path $file).Path)
+            $picsize = $pic.Size
+            [int]$FormControlTopBarHeight = 39
+    
+            # Create Form
+            $frmMain = New-Object Windows.Forms.Form
+            $picArea = New-Object Windows.Forms.PictureBox
+    
+            # Define Picbox Area
+            $picArea.Dock = "Fill"
+            $picArea.Image = New-Object Drawing.Bitmap((Resolve-Path $file).Path)
+            $picArea.SizeMode = "StretchImage"
+    
+            # Define Form
+            $frmMain.AutoScroll = $true
+            $frmMain.Controls.AddRange(@($picArea))
+            #$frmMain.FormBorderStyle = "None"
+            $frmMain.StartPosition = "CenterScreen"
+            $frmMain.Text = $file
+            $frmMain.Add_KeyDown( { if ($_.KeyCode -eq "Escape") {$frmMain.Close()} } )
+    
+            # Adjust Sizing as needed
+            if ($picsize.Height -ge $maxHeight -and $picsize.Width -ge $maxWidth) {
+                $frmMain.Size = New-Object Drawing.Size($maxWidth, $($maxHeight+$FormControlTopBarHeight))
+            }
+            else {
+                $frmMain.Size = New-Object Drawing.Size($picsize.Width, $($picsize.Height+$FormControlTopBarHeight))
+            }
+    
+            [void]$frmMain.ShowDialog()
+            # This can escape locking image file with host
+            $pic.Dispose()
+        }
+        ##### END Main Body #####
+    }
+
     ## END Native Helper Functions ##
 
 
@@ -61,123 +414,232 @@ function New-GoogleSearch {
     $TargetURL = New-GoogleURL -SearchArgs $SearchString
     Write-Verbose "The Google search URL is $TargetURL"
 
+    <#
+    if (Test-Path "$env:ProgramFiles\Internet Explorer\iexplore.exe") {
+        $IEVersion = $([version]$(Get-Item "$env:ProgramFiles\Internet Explorer\iexplore.exe").VersionInfo.ProductVersion).Major
+        $FoundIE = $true
+    }
+    elseif (Test-Path "${env:ProgramFiles(x86)}\Internet Explorer\iexplore.exe") {
+        $IEVersion = $([version]$(Get-Item "${env:ProgramFiles(x86)}\Internet Explorer\iexplore.exe").VersionInfo.ProductVersion).Major
+        $FoundIE = $true
+    }
+    else {
+        $FoundIE = $false
+    }
+
+    if ($LetJavaScriptLoad -and !$FoundIE) {
+        Write-Verbose "Unable to determine IE version..."
+    }
+    #>
+
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
     ##### BEGIN Main Body #####
 
-    if ($JavaScriptUsed -eq "Yes" -or $JavaScriptUsed -eq "y") {
+    <#
+    if ($LetJavaScriptLoad) {
         $ie = New-Object -com InternetExplorer.Application
         $ie.visible=$false
-        $ie.navigate("$TargetURL")
+        $ie.navigate($TargetURL)
         Start-Sleep -Seconds 3
         while($ie.ReadyState -ne 4) {start-sleep -m 1000}
         $RawHTML = $ie.Document.body.outerHTML
+
+        if ($RawHTML -ne $null) {
+            $GotRawHTML = $true
+        }
+        else {
+            $GotRawHTML = $false
+        }
     }
-    if ($JavaScriptUsed -eq "No" -or $JavaScriptUsed -eq "n") { 
+    else { 
         $RawHTML = Invoke-WebRequest -Uri "$TargetURL" -UseBasicParsing | Select-Object -ExpandProperty RawContent
     }
-
-    # Depending on the version of C:\Windows\System32\mshtml.dll, $($NewHTMLObject.GetType()).Name will either
-    # be "__ComObject" or "HTMLDocumentClass" (most likely as a result of Visual Studio or similar installation on the system)
-    #
-    # It is also possible that C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll exists
-    # on the system (most likely as a result of Visual Studio install). If you want to use Microsoft.mshtml.dll instead of
-    # mshtml.dll under System32, then Add-Type must be used as follows:
-    # Add-Type -Path "C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll"
-    #
-    # In any case, $($NewHTMLObject.GetType()).Name will always either be "__ComObject" or "HTMLDocumentClass"
-    #
-    # Explore further Using the following:
-    <#
-    # Get All Available Com Objects
-    $GetComClasses = gwmi -Class win32_classiccomclasssetting -ComputerName .
-    $GetComClasses | Where-Object {$_.progid -like "*html*"}
-
-    # Create New Com Object by referencing ProgID
-    $NewHTMLObject = New-Object -ComObject "htmlfile"
-
-    # Create New Com Object by referencing GUID
-    $clsid = New-Object Guid '25336920-03F9-11cf-8FD0-00AA00686F13'
-    $type = [Type]::GetTypeFromCLSID($clsid)
-    $NewHTMLObject = [Activator]::CreateInstance($type)
     #>
+
+    $RawHTML = Invoke-WebRequest -Uri "$TargetURL" -UseBasicParsing | Select-Object -ExpandProperty RawContent
+
+    # Notes Regarding mshtml.dll
+    <#
+        Microsoft.mshtml.dll is a wrapper for C:\Windows\System32\mshtml.dll that exposes more functionality.
+
+        If your system's Global Assembly Cache (GAC) contains the wrapper dll here:
+            C:\Windows\assembly\GAC\Microsoft.mshtml\<VERSION_NUMBER>\Microsoft.mshtml.dll
+        ... then $(New-Object -com "htmlfile").GetType()).Name will be "HTMLDocumentClass" as opposed to "__ComObject".
+        Microsoft.mshtml.dll will most likely be present in the GAC as a result of a Visual Studio or similar install.
+
+        Check the GAC by using the following:
+        Get-ChildItem -Recurse "C:\Windows\assembly" | Where-Object {
+            $_.Name -like "*mshtml*" -and 
+            !$_.PSIsContainer
+        } | Select-Object FullName,VersionInfo
+
+        It is also possible that C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll exists
+        on the system (also likely as a result of Visual Studio or similar install). If Microsoft.mshtml.dll is not available
+        in the GAC, you can use the one under Primary Interop Assemblies by running the following:
+        Add-Type -Path "C:\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll"
+        
+        In any case, the object resulting from:
+        $NewHTMLObject = New-Object -com "HTMLFILE" 
+        ...will either be a "__ComObject" or "HTMLDocumentClass"
+        
+        Explore further Using the following:
+        # Get All Available Com Objects
+        $GetComClasses = gwmi -Class win32_classiccomclasssetting -ComputerName .
+        $GetComClasses | Where-Object {$_.progid -eq "htmlfile"}) | Select-Object progId,.InprocServer32
+
+        # Create New Com Object by referencing ProgID
+        $NewHTMLObject = New-Object -ComObject "htmlfile"
+
+        # Create New Com Object by referencing GUID
+        $clsid = New-Object Guid '25336920-03F9-11cf-8FD0-00AA00686F13'
+        $type = [Type]::GetTypeFromCLSID($clsid)
+        $NewHTMLObject = [Activator]::CreateInstance($type)
+    #>
+
     $NewHTMLObject = New-Object -com "HTMLFILE"
     $NewHTMLObject.designMode = "on"
-    $RawHTML = [System.Text.Encoding]::Unicode.GetBytes($RawHTML)
     if ($($NewHTMLObject.GetType()).Name -eq "HTMLDocumentClass") {
         $NewHTMLObject.IHTMLDocument2_write($RawHTML)
     }
     if ($($NewHTMLObject.GetType()).Name -like "*ComObject") {
+        $RawHTML = [System.Text.Encoding]::Unicode.GetBytes($RawHTML)
         $NewHTMLObject.write($RawHTML)
     }
     $NewHTMLObject.Close()
     $NewHTMLObjectBody = $NewHTMLObject.body
 
-    # Get Search Results
-    $SearchResultTitleObjectsArray = $NewHTMLObjectBody.GetElementsByTagName("h3")
-    
-    $global:ArrayOfSearchResultCustomObjects = @()
-    # Since $SearchResultTitleObjectsArray is NOT actually an array (it's a __ComObject), need to use Length instead of Count...
-    for ($i=0; $i -lt $SearchResultTitleObjectsArray.Length; $i++) {
-        $ResultHeader = $($NewHTMLObjectBody).GetElementsByTagName("h3") | Select-Object -Index $i
-        $URLDropdown = $($ResultHeader.nextSibling).firstChild
-        $URL = $($URLDropdown.innerText).Split("`n")[0]
+     ## BEGIN Get Standard Google Results ##
 
-        try {
-            $CachedPrep = $($($($ResultHeader.nextSibling).getElementsByTagName("li") | Where-Object {$_.innerText -eq "Cached"}).GetElementsByTagName("a")).href
-        }
-        catch {
-            Write-Verbose "Search Result does not contain Cached option..."
-        }
-        if ($CachedPrep) {
-            $Cached = "https://google.com/"+"$($CachedPrep -replace 'about:/','')"
-        }
+    $StandardResults = Get-StdResultProperties -HTMLBody $NewHTMLObjectBody -cntid "ires" -baseobj "g" -rhcl "r" -urltg "a"-urlcttg "CITE" -imgtg "IMG" -descl "st" -olcl "osl"
 
-        try {
-            $SimilarPrep = $($($($ResultHeader.nextSibling).getElementsByTagName("li") | Where-Object {$_.innerText -eq "Similar"}).GetElementsByTagName("a")).href
-        }
-        catch {
-            Write-Verbose "Search Result does not contain Similar option..."
-        }
-        if ($SimilarPrep) {
-            $Similar = "https://google.com/"+"$($SimilarPrep -replace 'about:/','')"
-        }
+    ## END Get Standard Google Results ##
 
-        $Description = $URLDropdown.nextSibling
-        $OtherLinks  = $($Description.nextSibling).nextSibling
+    <#
 
-        New-Variable -Name "HeaderObject$i" -Scope Global -Value $(
-            New-Object PSObject -Property @{
-                HeaderObject = $($NewHTMLObjectBody).GetElementsByTagName("h3") | Select-Object -Index $i
-                ResultHeader = $ResultHeader.innerText
-                URL = $URL
-                Cached = $Cached
-                Similar = $Similar
-                Description = $Description.innerText
-                OtherLinks = $OtherLinks.innerText
-            }
-        ) -Force
+    ## BEGIN Image Search Result ##
 
-        $global:ArrayOfSearchResultCustomObjects +=, $(Get-Variable -Name "HeaderObject$i" -ValueOnly)
+    getElementsByClassName("_Icb _kk _wI")
 
-        Remove-Variable -Name "ResultHeader" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "URLDropdown" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "URL" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "CachedPrep" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "Cached" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "SimilarPrep" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "Similar" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "Description" -Force -ErrorAction SilentlyContinue
-        Remove-Variable -Name "OtherLinks" -Force -ErrorAction SilentlyContinue
+    ## END Image Search Result ##
+
+
+    ## BEGIN Get Google "Wikipedia Summary" White Card Result ##
+
+    $WikiSummaryCardArray = foreach ($obj1 in $StandardResultsArrayPrep) {
+        $($obj1).GetElementsByClassName("kp-blk")
     }
 
-    Write-Verbose "The object `$global:ArrayOfSearchResultCustomObjects is now available in the current scope"
-    $global:ArrayOfSearchResultCustomObjects | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks | Format-List
+    for ($i=0; $i -lt $global:StandardResultsArray.Length; $i++) {
+        $BasicWikiCardResultObject = $WikiSummaryCardArray | Select-Object -Index $i
+        $WikiResultHeaderObject = $($BasicWikiCardResultObject).GetElementsByClassName("_tN")
+        $WikiResultHeader = $($WikiResultHeaderObject).innerText
+        if ($WikiResultHeader -eq $null) {
+            continue
+        }
 
+        $WikiResultFocusHeader = $($BasicWikiCardResultObject).GetElementsByClassName("kp-header")
+
+        $WikiResultSummary = $($BasicWikiCardResultObject).GetElementsByClassName("_G1d")
+
+        $WikiAdditionalInfoHeader = $($BasicWikiCardResultObject).GetElementsByClassName("_W5e")
+
+        $WikiAdditionalInfoSubHeaders = $($BasicWikiCardResultObject).GetElementsByClassName("kno-fb-ctx")
+
+        $WikiPeopleAlsoSearchFor = $($BasicWikiCardResultObject).GetElementsByClassName("_W5e")
+
+        $WikiPeopleAlsoSearchForEntries = $($BasicWikiCardResultObject).GetElementsByClassName("_Cdb")
+    }
+
+    # Wikipedia Summary
+    getElementsByClassName("kp-blk _Z7 _Rqb _RJe").getElementsByClassName("_Tgc")
+    # Wikipedia Summary Link Header and URL
+    getElementsByClassName("kp-blk _Z7 _Rqb _RJe").getElementsByTagName("h3")
+    getElementsByClassName("kp-blk _Z7 _Rqb _RJe").getElementsByTagName("h3").getElementsByClassName("a").href
+    getElementsByClassName("kp-blk _Z7 _Rqb _RJe").getElementsByClassName("_Tgc")
+
+    ## END Get Google "Wikipedia Summary" White Card Result ##
+
+
+    ## BEGIN Get Google White Card Results (Top of Page) ##
+
+    ## END Get Google White Card Results (Top of Page) ##
+
+
+    ## BEGIN Get Google White Card Results (Bottom of Page) ##
+
+    ## END Get Google White Card Results (Bottom of Page) ##
+
+
+    ## BEGIN Get Google Weather Card Results ##
+
+    ## END Get Google Weather Card Results ##
+
+
+    ## BEGIN Get Google Top Stories Results ##
+
+    ## END Get Google Top Stories Results ##
+
+
+    ## BEGIN Get Google Movies AppBar Results ##
+
+    ## END Get Google Movies AppBar Results ##
+
+
+    ## BEGIN Get Google "In the news" Results ##
+
+    ## END Get Google "In the news" Results ##
+
+
+    ## BEGIN Get Google "People also ask" Result ##
+
+    ## END Get Google "People also ask" Result ##
+
+
+    ## BEGIN Get Google Right-Hand-Side Results ##
+
+    ## BEGIN Get Google Right-Hand-Side Results ##
+
+    #>
+
+    $StandardResults | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks,NonStdResultInfo
+    
     ##### END Main Body #####
 
 }
+
+# Archived Code
+<#
+#$DescriptionObjectTagName = $($DescriptionObject).tagName
+#$DescriptionTextTruncated = $($DescriptionObject).textContent
+# For more info on this regex, see: http://stackoverflow.com/questions/28436651/replacing-last-occurrence-of-substring-in-string
+#$DescriptionPatternToSearchFor = $($DescriptionTextTruncated -replace '(.*)\.\.\.(.*)','$1$2').Trim()
+#$Description = $($global:RawHTML | Select-String -Pattern "$($DescriptionPatternToSearchFor)(.*?)(?=</$DescriptionObjectTagName)").Matches.Value
+
+
+
+# Compare Results
+
+$Properties = $($YesJavaResults[0] | Get-Member | Where-Object {$_.MemberType -eq "NoteProperty"}).Name
+foreach ($property in $Properties) {
+    for ($i =0; $i -lt $Properties.Count; $i++) {
+        if ($YesJavaResults[$i].$property -eq $NoJavaResults[$i].$property) {
+            Write-Host "EQUAL YesJavaResults $i $property and NoJavaResults $i $property"
+        }
+        else {
+            Write-Host "NOT EQUAL YesJavaResults $i $property and NoJavaResults $i $property"
+        }
+    }
+}
+
+
+#>
+
+
+
+
+
 
 
 
@@ -185,69 +647,71 @@ function New-GoogleSearch {
 
 
 # SIG # Begin signature block
-# MIIMLAYJKoZIhvcNAQcCoIIMHTCCDBkCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2Bcg8ob/eONcgefLpjZngPLk
-# gB6gggmhMIID/jCCAuagAwIBAgITawAAAAQpgJFit9ZYVQAAAAAABDANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUp0UbHa9URFEL2pMkGBc+xv+d
+# W9Wgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
-# CFplcm9EQzAxMB4XDTE1MDkwOTA5NTAyNFoXDTE3MDkwOTEwMDAyNFowPTETMBEG
+# CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
-# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCmRIzy6nwK
-# uqvhoz297kYdDXs2Wom5QCxzN9KiqAW0VaVTo1eW1ZbwZo13Qxe+6qsIJV2uUuu/
-# 3jNG1YRGrZSHuwheau17K9C/RZsuzKu93O02d7zv2mfBfGMJaJx8EM4EQ8rfn9E+
-# yzLsh65bWmLlbH5OVA0943qNAAJKwrgY9cpfDhOWiYLirAnMgzhQd3+DGl7X79aJ
-# h7GdVJQ/qEZ6j0/9bTc7ubvLMcJhJCnBZaFyXmoGfoOO6HW1GcuEUwIq67hT1rI3
-# oPx6GtFfhCqyevYtFJ0Typ40Ng7U73F2hQfsW+VPnbRJI4wSgigCHFaaw38bG4MH
-# Nr0yJDM0G8XhAgMBAAGjggECMIH/MBAGCSsGAQQBgjcVAQQDAgEAMB0GA1UdDgQW
-# BBQ4uUFq5iV2t7PneWtOJALUX3gTcTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMA
-# QTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAfBgNVHSMEGDAWgBR2
-# lbqmEvZFA0XsBkGBBXi2Cvs4TTAxBgNVHR8EKjAoMCagJKAihiBodHRwOi8vcGtp
-# L2NlcnRkYXRhL1plcm9EQzAxLmNybDA8BggrBgEFBQcBAQQwMC4wLAYIKwYBBQUH
-# MAKGIGh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb0RDMDEuY3J0MA0GCSqGSIb3DQEB
-# CwUAA4IBAQAUFYmOmjvbp3goa3y95eKMDVxA6xdwhf6GrIZoAg0LM+9f8zQOhEK9
-# I7n1WbUocOVAoP7OnZZKB+Cx6y6Ek5Q8PeezoWm5oPg9XUniy5bFPyl0CqSaNWUZ
-# /zC1BE4HBFF55YM0724nBtNYUMJ93oW/UxsWL701c3ZuyxBhrxtlk9TYIttyuGJI
-# JtbuFlco7veXEPfHibzE+JYc1MoGF/whz6l7bC8XbgyDprU1JS538gbgPBir4RPw
-# dFydubWuhaVzRlU3wedYMsZ4iejV2xsf8MHF/EHyc/Ft0UnvcxBqD0sQQVkOS82X
-# +IByWP0uDQ2zOA1L032uFHHA65Bt32w8MIIFmzCCBIOgAwIBAgITWAAAADw2o858
-# ZSLnRQAAAAAAPDANBgkqhkiG9w0BAQsFADA9MRMwEQYKCZImiZPyLGQBGRYDTEFC
-# MRQwEgYKCZImiZPyLGQBGRYEWkVSTzEQMA4GA1UEAxMHWmVyb1NDQTAeFw0xNTEw
-# MjcxMzM1MDFaFw0xNzA5MDkxMDAwMjRaMD4xCzAJBgNVBAYTAlVTMQswCQYDVQQI
-# EwJWQTEPMA0GA1UEBxMGTWNMZWFuMREwDwYDVQQDEwhaZXJvQ29kZTCCASIwDQYJ
-# KoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ8LM3f3308MLwBHi99dvOQqGsLeC11p
-# usrqMgmEgv9FHsYv+IIrW/2/QyBXVbAaQAt96Tod/CtHsz77L3F0SLuQjIFNb522
-# sSPAfDoDpsrUnZYVB/PTGNDsAs1SZhI1kTKIjf5xShrWxo0EbDG5+pnu5QHu+EY6
-# irn6C1FHhOilCcwInmNt78Wbm3UcXtoxjeUl+HlrAOxG130MmZYWNvJ71jfsb6lS
-# FFE6VXqJ6/V78LIoEg5lWkuNc+XpbYk47Zog+pYvJf7zOric5VpnKMK8EdJj6Dze
-# 4tJ51tDoo7pYDEUJMfFMwNOO1Ij4nL7WAz6bO59suqf5cxQGd5KDJ1ECAwEAAaOC
-# ApEwggKNMA4GA1UdDwEB/wQEAwIHgDA9BgkrBgEEAYI3FQcEMDAuBiYrBgEEAYI3
-# FQiDuPQ/hJvyeYPxjziDsLcyhtHNeIEnofPMH4/ZVQIBZAIBBTAdBgNVHQ4EFgQU
-# a5b4DOy+EUyy2ILzpUFMmuyew40wHwYDVR0jBBgwFoAUOLlBauYldrez53lrTiQC
-# 1F94E3EwgeMGA1UdHwSB2zCB2DCB1aCB0qCBz4aBq2xkYXA6Ly8vQ049WmVyb1ND
-# QSxDTj1aZXJvU0NBLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxD
-# Tj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NlcnRp
-# ZmljYXRlUmV2b2NhdGlvbkxpc3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmli
-# dXRpb25Qb2ludIYfaHR0cDovL3BraS9jZXJ0ZGF0YS9aZXJvU0NBLmNybDCB4wYI
-# KwYBBQUHAQEEgdYwgdMwgaMGCCsGAQUFBzAChoGWbGRhcDovLy9DTj1aZXJvU0NB
-# LENOPUFJQSxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxD
-# Tj1Db25maWd1cmF0aW9uLERDPXplcm8sREM9bGFiP2NBQ2VydGlmaWNhdGU/YmFz
-# ZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9yaXR5MCsGCCsGAQUFBzAC
-# hh9odHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EuY3J0MBMGA1UdJQQMMAoGCCsG
-# AQUFBwMDMBsGCSsGAQQBgjcVCgQOMAwwCgYIKwYBBQUHAwMwDQYJKoZIhvcNAQEL
-# BQADggEBACbc1NDl3NTMuqFwTFd8NHHCsSudkVhuroySobzUaFJN2XHbdDkzquFF
-# 6f7KFWjqR3VN7RAi8arW8zESCKovPolltpp3Qu58v59qZLhbXnQmgelpA620bP75
-# zv8xVxB9/xmmpOHNkM6qsye4IJur/JwhoHLGqCRwU2hxP1pu62NUK2vd/Ibm8c6w
-# PZoB0BcC7SETNB8x2uKzJ2MyAIuyN0Uy/mGDeLyz9cSboKoG6aQibnjCnGAVOVn6
-# J7bvYWJsGu7HukMoTAIqC6oMGerNakhOCgrhU7m+cERPkTcADVH/PWhy+FJWd2px
-# ViKcyzWQSyX93PcOj2SsHvi7vEAfCGcxggH1MIIB8QIBATBUMD0xEzARBgoJkiaJ
-# k/IsZAEZFgNMQUIxFDASBgoJkiaJk/IsZAEZFgRaRVJPMRAwDgYDVQQDEwdaZXJv
-# U0NBAhNYAAAAPDajznxlIudFAAAAAAA8MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3
-# AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRQTcok1UuU
-# /aLZJY0/VTxIjAl32zANBgkqhkiG9w0BAQEFAASCAQBT0YacI0goJp0/v0ozQDXS
-# KEf2wEwdNVxojLug6/bXxBhz0W6zRKG/KdWmmaDb9ShDPJMV3F6RXXc10iCQtz0l
-# 5RkMmA+ZUgoE3ZXlEZJZkM2IbXFqk9AjgM/1VVyG4yHHcyfrAIAKEXcL3o4z3dPH
-# SWp3/N69AI15EuVLCZYnr0qRFR+7dgk36+evSGq9KtBIuv7LrIFUPdSJ0Dl7Mbq6
-# 9AATA5AwpJwiexC/8dDS+kN9NnsFIxLBOcCZ0xepKpgUZa0qRRKWTcQLNwVwIZzb
-# 3W6szItOoIFfXiEjMiMGrafscrmZ+Bgrhg8By1lMiPpYCVIuNrCRBQQHMaMAg6qt
+# B1plcm9TQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDCwqv+ROc1
+# bpJmKx+8rPUUfT3kPSUYeDxY8GXU2RrWcL5TSZ6AVJsvNpj+7d94OEmPZate7h4d
+# gJnhCSyh2/3v0BHBdgPzLcveLpxPiSWpTnqSWlLUW2NMFRRojZRscdA+e+9QotOB
+# aZmnLDrlePQe5W7S1CxbVu+W0H5/ukte5h6gsKa0ktNJ6X9nOPiGBMn1LcZV/Ksl
+# lUyuTc7KKYydYjbSSv2rQ4qmZCQHqxyNWVub1IiEP7ClqCYqeCdsTtfw4Y3WKxDI
+# JaPmWzlHNs0nkEjvnAJhsRdLFbvY5C2KJIenxR0gA79U8Xd6+cZanrBUNbUC8GCN
+# wYkYp4A4Jx+9AgMBAAGjggEqMIIBJjASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsG
+# AQQBgjcVAgQWBBQ/0jsn2LS8aZiDw0omqt9+KWpj3DAdBgNVHQ4EFgQUicLX4r2C
+# Kn0Zf5NYut8n7bkyhf4wGQYJKwYBBAGCNxQCBAweCgBTAHUAYgBDAEEwDgYDVR0P
+# AQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wHwYDVR0jBBgwFoAUdpW6phL2RQNF
+# 7AZBgQV4tgr7OE0wMQYDVR0fBCowKDAmoCSgIoYgaHR0cDovL3BraS9jZXJ0ZGF0
+# YS9aZXJvREMwMS5jcmwwPAYIKwYBBQUHAQEEMDAuMCwGCCsGAQUFBzAChiBodHRw
+# Oi8vcGtpL2NlcnRkYXRhL1plcm9EQzAxLmNydDANBgkqhkiG9w0BAQsFAAOCAQEA
+# tyX7aHk8vUM2WTQKINtrHKJJi29HaxhPaHrNZ0c32H70YZoFFaryM0GMowEaDbj0
+# a3ShBuQWfW7bD7Z4DmNc5Q6cp7JeDKSZHwe5JWFGrl7DlSFSab/+a0GQgtG05dXW
+# YVQsrwgfTDRXkmpLQxvSxAbxKiGrnuS+kaYmzRVDYWSZHwHFNgxeZ/La9/8FdCir
+# MXdJEAGzG+9TwO9JvJSyoGTzu7n93IQp6QteRlaYVemd5/fYqBhtskk1zDiv9edk
+# mHHpRWf9Xo94ZPEy7BqmDuixm4LdmmzIcFWqGGMo51hvzz0EaE8K5HuNvNaUB/hq
+# MTOIB5145K8bFOoKHO4LkTCCBc8wggS3oAMCAQICE1gAAAH5oOvjAv3166MAAQAA
+# AfkwDQYJKoZIhvcNAQELBQAwPTETMBEGCgmSJomT8ixkARkWA0xBQjEUMBIGCgmS
+# JomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EwHhcNMTcwOTIwMjE0MTIy
+# WhcNMTkwOTIwMjExMzU4WjBpMQswCQYDVQQGEwJVUzELMAkGA1UECBMCUEExFTAT
+# BgNVBAcTDFBoaWxhZGVscGhpYTEVMBMGA1UEChMMRGlNYWdnaW8gSW5jMQswCQYD
+# VQQLEwJJVDESMBAGA1UEAxMJWmVyb0NvZGUyMIIBIjANBgkqhkiG9w0BAQEFAAOC
+# AQ8AMIIBCgKCAQEAxX0+4yas6xfiaNVVVZJB2aRK+gS3iEMLx8wMF3kLJYLJyR+l
+# rcGF/x3gMxcvkKJQouLuChjh2+i7Ra1aO37ch3X3KDMZIoWrSzbbvqdBlwax7Gsm
+# BdLH9HZimSMCVgux0IfkClvnOlrc7Wpv1jqgvseRku5YKnNm1JD+91JDp/hBWRxR
+# 3Qg2OR667FJd1Q/5FWwAdrzoQbFUuvAyeVl7TNW0n1XUHRgq9+ZYawb+fxl1ruTj
+# 3MoktaLVzFKWqeHPKvgUTTnXvEbLh9RzX1eApZfTJmnUjBcl1tCQbSzLYkfJlJO6
+# eRUHZwojUK+TkidfklU2SpgvyJm2DhCtssFWiQIDAQABo4ICmjCCApYwDgYDVR0P
+# AQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMB0GA1UdDgQWBBS5d2bhatXq
+# eUDFo9KltQWHthbPKzAfBgNVHSMEGDAWgBSJwtfivYIqfRl/k1i63yftuTKF/jCB
+# 6QYDVR0fBIHhMIHeMIHboIHYoIHVhoGubGRhcDovLy9DTj1aZXJvU0NBKDEpLENO
+# PVplcm9TQ0EsQ049Q0RQLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNl
+# cnZpY2VzLENOPUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y2VydGlmaWNh
+# dGVSZXZvY2F0aW9uTGlzdD9iYXNlP29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlv
+# blBvaW50hiJodHRwOi8vcGtpL2NlcnRkYXRhL1plcm9TQ0EoMSkuY3JsMIHmBggr
+# BgEFBQcBAQSB2TCB1jCBowYIKwYBBQUHMAKGgZZsZGFwOi8vL0NOPVplcm9TQ0Es
+# Q049QUlBLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNlcnZpY2VzLENO
+# PUNvbmZpZ3VyYXRpb24sREM9emVybyxEQz1sYWI/Y0FDZXJ0aWZpY2F0ZT9iYXNl
+# P29iamVjdENsYXNzPWNlcnRpZmljYXRpb25BdXRob3JpdHkwLgYIKwYBBQUHMAKG
+# Imh0dHA6Ly9wa2kvY2VydGRhdGEvWmVyb1NDQSgxKS5jcnQwPQYJKwYBBAGCNxUH
+# BDAwLgYmKwYBBAGCNxUIg7j0P4Sb8nmD8Y84g7C3MobRzXiBJ6HzzB+P2VUCAWQC
+# AQUwGwYJKwYBBAGCNxUKBA4wDDAKBggrBgEFBQcDAzANBgkqhkiG9w0BAQsFAAOC
+# AQEAszRRF+YTPhd9UbkJZy/pZQIqTjpXLpbhxWzs1ECTwtIbJPiI4dhAVAjrzkGj
+# DyXYWmpnNsyk19qE82AX75G9FLESfHbtesUXnrhbnsov4/D/qmXk/1KD9CE0lQHF
+# Lu2DvOsdf2mp2pjdeBgKMRuy4cZ0VCc/myO7uy7dq0CvVdXRsQC6Fqtr7yob9NbE
+# OdUYDBAGrt5ZAkw5YeL8H9E3JLGXtE7ir3ksT6Ki1mont2epJfHkO5JkmOI6XVtg
+# anuOGbo62885BOiXLu5+H2Fg+8ueTP40zFhfLh3e3Kj6Lm/NdovqqTBAsk04tFW9
+# Hp4gWfVc0gTDwok3rHOrfIY35TGCAfUwggHxAgEBMFQwPTETMBEGCgmSJomT8ixk
+# ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
+# E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
+# CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEooDTQMqUr5KwF/
+# urMbpZYzzgT5MA0GCSqGSIb3DQEBAQUABIIBAC/2gSzR3JEvLgAzFDXtw2Hd/v6U
+# OzE5+694nRH1sG1rKer4tgpfUvb4psGHD2lvqEdvBWiVEz53mp3IvF9aUBkFv+/O
+# NJeOLFEiC+bIywWArQVLnXOf9kwmrXDccDkyPNQyXQk05jOYhRfXWGWnPgH8leq5
+# sk3Z0pQESg8VCk23Keb9sxHmpXBYK1duovDVOvL+NHiUKrgv5on4rq8j/f4LaKBt
+# mo1KYL6W4q/u8G/HbHOC0+suXynxb0dlncuNmgCt4Uh0++6ia8KeuSlu09do6AZn
+# fYtolZJhwoNkw88zJy/6w1v/do4RAFyzvNGMZEC260hRY/6AfmXwvKafogU=
 # SIG # End signature block
