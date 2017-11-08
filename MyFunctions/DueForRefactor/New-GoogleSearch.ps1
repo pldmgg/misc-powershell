@@ -198,7 +198,7 @@ function New-GoogleSearch {
             "URLCitationTagCheck","OtherLinksClassCheck","CheckChildrenRecurse","URLCitationObject","URLCitation","URLPrep","URL",
             "DescriptionObject","Description","OtherLinksObject","OtherLinks","NonStandardResultInfo","CachedPrep1","CachedPrep2",
             "CachedPrep3","CachedPrep4","Cached","SimilarPrep1","SimilarPrep2","SimilarPrep3","Similar","ImageTagCheck",
-            "ImageObject","ImagePrep1","ImagePrep2","ImageBase64","ImageDisplay","tmpfile","bytes"
+            "ImageObject","ImagePrep1","ImagePrep2","ImageBase64","ImageDisplay","tmpfile","bytes","DatePosted"
         )
         $null = [Reflection.Assembly]::LoadWithPartialName("System.Web")
         # Below $RegexURL is from: http://daringfireball.net/2010/07/improved_regex_for_matching_urls
@@ -239,6 +239,19 @@ function New-GoogleSearch {
             if ($CheckChildrenRecurse -contains "$DescriptionClass") {
                 $DescriptionObject = $($BasicResultObject).GetElementsByClassName("$DescriptionClass")
                 $Description = $($($DescriptionObject).innerText) -replace "`r`n",""
+
+                $DateSplitIndex = $($Description | Select-String -Pattern "[\d]{4}").Matches.Index + 4
+                try {
+                    if ($DateSplitIndex -gt 4) {
+                        [datetime]$DatePosted = $Description.Substring(0, $DateSplitIndex)
+                    }
+                    else {
+                        $DatePosted = $null
+                    }
+                }
+                catch {
+                    $DatePosted = $null
+                }
             }
 
             if ($CheckChildrenRecurse -contains "$ImageTagCheck") {
@@ -265,7 +278,7 @@ function New-GoogleSearch {
                 }
             }
 
-            if ($CheckChildrenRecurse -contains "$OtherLinksClass") {
+            if ($CheckChildrenRecurse -contains "$OtherLinksClassCheck") {
                 $OtherLinksObject  = $($BasicResultObject).GetElementsByClassName("$OtherLinksClass")
                 $OtherLinks = $($OtherLinksObject).innerText
             }
@@ -325,6 +338,7 @@ function New-GoogleSearch {
                     OtherLinksObject        = $OtherLinksObject
                     OtherLinks              = $OtherLinks
                     NonStdResultInfo        = $NonStandardResultInfo
+                    DatePosted              = $DatePosted
                 }
             ) -Force
 
@@ -603,7 +617,7 @@ function New-GoogleSearch {
 
     #>
 
-    $StandardResults | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks,NonStdResultInfo
+    $StandardResults | Select-Object ResultHeader,URL,Cached,Similar,Description,OtherLinks,NonStdResultInfo,DatePosted
     
     ##### END Main Body #####
 
@@ -649,8 +663,8 @@ foreach ($property in $Properties) {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUp0UbHa9URFEL2pMkGBc+xv+d
-# W9Wgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv+79wUTpt02UO6HgM3S6NZDO
+# kpSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -707,11 +721,11 @@ foreach ($property in $Properties) {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEooDTQMqUr5KwF/
-# urMbpZYzzgT5MA0GCSqGSIb3DQEBAQUABIIBAC/2gSzR3JEvLgAzFDXtw2Hd/v6U
-# OzE5+694nRH1sG1rKer4tgpfUvb4psGHD2lvqEdvBWiVEz53mp3IvF9aUBkFv+/O
-# NJeOLFEiC+bIywWArQVLnXOf9kwmrXDccDkyPNQyXQk05jOYhRfXWGWnPgH8leq5
-# sk3Z0pQESg8VCk23Keb9sxHmpXBYK1duovDVOvL+NHiUKrgv5on4rq8j/f4LaKBt
-# mo1KYL6W4q/u8G/HbHOC0+suXynxb0dlncuNmgCt4Uh0++6ia8KeuSlu09do6AZn
-# fYtolZJhwoNkw88zJy/6w1v/do4RAFyzvNGMZEC260hRY/6AfmXwvKafogU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA/T2WGZcgvR3uJW
+# GC/XgUBIH4cEMA0GCSqGSIb3DQEBAQUABIIBAHsBwQrbDe2h5wHEpi7HhE1K3I75
+# 753Du/4s8e6Mj3bU7BV4Sl4bNcN88SRlYi0fpgBXsJCDIAPfuDP/Vde8VXOGJZeq
+# spR13UVksMwcKu8y0sAKZb/NoisDYHHxjesA4kOIFF9oEImdp5uDvnKGJBZ3LoI+
+# 5ovPrpTiA2pC2s04Z/JG7RF7k/hB1HBh931umv+xG+OwMiQw4Xl8/xmvJERhheax
+# c8X9hX1D9CyYI1qA3t2vcBCGhcuEl348kbY0oGI47C5X3DhCH4ch7IsOJa/7nklN
+# D2d/9umt29ZKmY9DL80W8uam5g9VJA2sNmx3mDEFF7nQlni74XG88/ZK9Gg=
 # SIG # End signature block
