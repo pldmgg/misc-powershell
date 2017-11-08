@@ -3057,7 +3057,7 @@ function New-InteractivePSSession {
         catch {
             Write-Warning "$RemoteHost denied the WinRM connection. Please check your credentials and/or user authorization and/or list of Trusted Hosts in WinRM config! Halting!"
         }
-        if (!$global:FileSharingSession) {
+        if (!$FileSharingSession) {
             Write-Error "$RemoteHost denied the WinRM connection. Please check your credentials and/or user authorization and/or list of Trusted Hosts in WinRM config! Halting!"
             $global:FunctionResult = "1"
             return
@@ -3165,12 +3165,11 @@ function New-InteractivePSSession {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5p/7DuFgSqF1OE/Svn/EdYzj
-# VRKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcrdjwj6E5Aud4b0iFoL8l16r
+# Roigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3227,11 +3226,11 @@ function New-InteractivePSSession {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPvzEBTsvlTI7rPZ
-# 7hwfqCDVEDDiMA0GCSqGSIb3DQEBAQUABIIBACVVox5bu0zhUD/UYwwIRX0NkhIl
-# IDK1TCS0T+hyM/2ZxVbBSwJBCJaOYjDpJIKrsRSbCovC8ZTdUXkWgF4aLca4baRT
-# ijTfYDYm1OjVzl0Lo6UoGTwOOaMjkiwnoTZLMRpTCSwTttJT0u2T5JWdc9vQfvlV
-# 11sAIFmgda1YibF1wFR7hmbVkeaYwDV0B5QG7N5jhOiggHh/JAbQpH//nbpIAvry
-# IzJD8kjHFyGgWWJAqWAt3bMXx7WfBpJSe+RIfQED0BFN0mWMFAo1UcnhDdg+2t/2
-# to/Krpu6oqYnZmHdF49SMnhcYzzsSZxUa0bNbRzuVYWUcbAjPjMNgl5NZZ4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJMdQsYHAqyV3PiQ
+# Yayub2ZfgBiTMA0GCSqGSIb3DQEBAQUABIIBALXlJqAsfehbtCXd2S5yvfhd8DhR
+# oabLtJjgdKCHzfm5wFSM+ijuaem9YCkRhaDue+gc843ptDSSCbTr3Wea+/Bg3FGO
+# 4E1fGDkqqEZdLCQ237b6Vlchol5agYPZsqWrVsiVLmB6IWf6tfT5BCzCIO3CcTX4
+# Pc3++M7AyqIOYEI0465JeJm4J/qhEY9/Vi18Y9kAEQZJ6+qGPwsPAKcJtXFRYaPA
+# 06Uu1McCNwrkmHcY2V/M7iQNRcbl855EFMU5xQuLDcqeiGrTZc9UCW2VdhEy4FNz
+# l0tlJvB4iwguiI1IKIPy8E1Zm4HrlrYg+UbfcS0otObSgoE5XGeo8POJI7c=
 # SIG # End signature block
