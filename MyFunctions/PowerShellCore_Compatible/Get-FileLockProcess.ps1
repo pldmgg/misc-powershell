@@ -53,15 +53,15 @@ function Get-FileLockProcess {
         $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
     
         $AssembiesFullInfo = $CurrentlyLoadedAssemblies | Where-Object {
-            $_.GetName().Name -eq "Microsoft.CSharp"
-            $_.GetName().Name -eq "mscorlib"
-            $_.GetName().Name -eq "System"
-            $_.GetName().Name -eq "System.Collections"
-            $_.GetName().Name -eq "System.Core"
-            $_.GetName().Name -eq "System.IO"
-            $_.GetName().Name -eq "System.Linq"
-            $_.GetName().Name -eq "System.Runtime"
-            $_.GetName().Name -eq "System.Runtime.Extensions"
+            $_.GetName().Name -eq "Microsoft.CSharp" -or
+            $_.GetName().Name -eq "mscorlib" -or
+            $_.GetName().Name -eq "System" -or
+            $_.GetName().Name -eq "System.Collections" -or
+            $_.GetName().Name -eq "System.Core" -or
+            $_.GetName().Name -eq "System.IO" -or
+            $_.GetName().Name -eq "System.Linq" -or
+            $_.GetName().Name -eq "System.Runtime" -or
+            $_.GetName().Name -eq "System.Runtime.Extensions" -or
             $_.GetName().Name -eq "System.Runtime.InteropServices"
         }
         $AssembiesFullInfo = $AssembiesFullInfo | Where-Object {$_.IsDynamic -eq $False}
@@ -267,8 +267,8 @@ function Get-FileLockProcess {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvStqWvVNDAGhutRuQfDjfSER
-# gHugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUa9ZFMX+jZcPJG9N/JyvZny9y
+# ju2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -325,11 +325,11 @@ function Get-FileLockProcess {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDj8LO8Yj+WTRY60
-# O8h6gYaFkektMA0GCSqGSIb3DQEBAQUABIIBAGOffMxaXADRb4AbNRumu19/9+fG
-# SzTb8FyB8d/STrDZqhXVzK7p5Iw4Whw8eEmKEQ8iuLiKF5amF/4x7L0Gc7gQtKWJ
-# NAXJT/OfainI6kJ5UQIi23A5ogjs00TihVXNHTyVzZVMPX2SgIToDZZTxrx0KUiI
-# 5rhjsH2ZLKmDTtClziEIoEAAo21yjInRZyi3LZqxA+rDnvZUaoNn0RXnFBEWY+le
-# xyVIburFG0feRyzFD2cjS0QrDwVTB6sa2VESOpFh7OerSzF6onH8J823KEQUdLtv
-# gkXdXUkArsa9xX0lJEh69QOB9mOvRpw0oZmunhqcMzkgh3a/vxI+jpydKes=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKehfbureitJUy0d
+# LmK4AAW4b5SEMA0GCSqGSIb3DQEBAQUABIIBAKpe+pj2ph/m+1U57Sp2AVdG/GcR
+# uxW7lR5Bxnwg6R7iIBXoIFhmNscEbx+ImsiQ4PeTHh1SyLM+/DFKe/jyaCVItXVy
+# lOeg4NE4Idao2pwUbFUvTrLaDKQ3rNYB1qa4qty8jmmpu5oeXnj9EjGEqsc44HBr
+# CRtcuwL3zYbAfDxT7GOk/dbDX8eLPpyuuupgG1B+1Gv4ca5rZF0JN/ZPzQhQvbVM
+# LrJWZU6qRasTY4GLMPFvr0JfcsCjgLQZQLnRwYm0hG5SC7jlX8S22X/YkGjtlmZ9
+# N0LWvRU1sZ+tDhe8BMSdKAUYelzE0ADYRivWsCsklaRUbpc+lzYYZAkVc4I=
 # SIG # End signature block
