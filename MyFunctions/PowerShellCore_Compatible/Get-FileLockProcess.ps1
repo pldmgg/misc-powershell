@@ -60,7 +60,8 @@ function Get-FileLockProcess {
 
     ##### BEGIN Main Body #####
 
-    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or 
+    $($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
         $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
     
         $AssembiesFullInfo = $CurrentlyLoadedAssemblies | Where-Object {
@@ -296,8 +297,8 @@ function Get-FileLockProcess {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU18/XiB+4juhq7RiQskVG8l6v
-# aQSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9d2hBNRmx5buWOk3f/GCH0U6
+# kgSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -354,11 +355,11 @@ function Get-FileLockProcess {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFED6PJWt8Q0j5ui5
-# ONrAeiYPXgJMMA0GCSqGSIb3DQEBAQUABIIBAJlS3uW+XrlsrBTSbuqeKM+2Jba2
-# HU70QSOCG/yS3UumiLKdEKnX45nN41nYUT4Mk1zWT/js/qsIFTbCi/Ends/Ml7qj
-# l1YRPwIfWWdSpShvY4DHITGhMlQyaJD5w9tTkbtIwhVQ8M3lqi4LaT93Rx0LSBfT
-# sZ6fnsqud+ghCTuSHWC4clElfDx0gVgjFMY6MNRj3RGnUPKBtMtKCp/CftpYjqns
-# g+GQpKJ9w4gAjsjWJomTvJvZvuNBh3mlet0xWeZsjhl0eSvzXUntJ/gIfsJJXXNs
-# HhmFpkUWclwqmVzsH/PVlcV3P5eFVFJpeqJrOf9u/2TkHRVr1YcQpHYHIr8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFqzJxTfwPo/kLsP
+# 7aZkf5rgc1YnMA0GCSqGSIb3DQEBAQUABIIBAFI/R8NvZDFjNXwGv2rtiPGJEPkb
+# oeDrSf6YTap/2jUpidqfPmEmhNKd2o/XFcjJ9/t3Ll83kbhA5qH9fpZlyoIB4w30
+# 82b52IuKuTGyrxh/4VMhB0eeHtJfFuY2SIitv1q+GSfy07IIrzb1sFMF8qb8ozq/
+# S/caSSL2rXIDSqau6rxI5bkjXTRPqn5/P6FhOri4oexr7gENEFmN4tCcD6RBw0Qv
+# mmY7RjQb104QgGcnZpGtOLozabT8qXopg3G7nkRfYeM1UUNXcMr5mQZV2JeYhI6L
+# H9ghrysRKFRTLqsWekIunfZu5A1/k7puhBUAS5mP6tsY7oJq6ciHQZ5phi0=
 # SIG # End signature block
