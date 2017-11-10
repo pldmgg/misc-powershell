@@ -7,7 +7,7 @@
     objects (one or more processes could have a lock on a specific file, which is why a List is used).
 
 .NOTES
-    Solution credit to: https://stackoverflow.com/a/20623311
+    Windows solution credit to: https://stackoverflow.com/a/20623311
 
 .PARAMETER FilePath
     This parameter is MANDATORY.
@@ -15,11 +15,18 @@
     This parameter takes a string that represents a full path to a file.
     
 .EXAMPLE
+    # On Windows...
     PS C:\Users\testadmin> Get-FileLockProcess -FilePath "$HOME\Downloads\call_activity_2017_Nov.xlsx"
         
     Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName
     -------  ------    -----      -----     ------     --  -- -----------
     1074      51    50056      86984       5.86   2856   2 EXCEL
+
+.EXAMPLE
+    # On Linux/MacOS
+    PS /home/pdadmin/Downloads> Get-FileLockProcess -FilePath "/home/pdadmin/Downloads/test.txt"
+    COMMAND    PID    USER   FD   TYPE DEVICE SIZE/OFF      NODE NAME
+    bash    244585 pdadmin    3w   REG  253,2        0 100798534 /home/pdadmin/Downloads/test.txt
 #>
 
 function Get-FileLockProcess {
@@ -36,8 +43,6 @@ function Get-FileLockProcess {
         $global:FunctionResult = "1"
         return
     }
-
-
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -60,7 +65,9 @@ function Get-FileLockProcess {
             $_.GetName().Name -eq "System.Runtime.InteropServices"
         }
         $AssembiesFullInfo = $AssembiesFullInfo | Where-Object {$_.IsDynamic -eq $False}
-        
+  
+        $ReferencedAssemblies = $AssembiesFullInfo.FullName | Sort-Object | Get-Unique
+
         $usingStatementsAsString = @"
         using Microsoft.CSharp;
         using System.Collections.Generic;
@@ -72,10 +79,6 @@ function Get-FileLockProcess {
         using System;
         using System.Diagnostics;
 "@
-        
-        $ReferencedAssemblies = $AssembiesFullInfo.FullName | Sort-Object | Get-Unique
-        
-        # Using Type Extensions in PowerShell see: https://powershell.org/forums/topic/how-do-i-use-extension-methods-in-zipfileextensionsclass/
         
         $TypeDefinition = @"
         $usingStatementsAsString
@@ -264,8 +267,8 @@ function Get-FileLockProcess {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdlkcnLZnVTRAJuMlDZuebiXQ
-# Fzmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvStqWvVNDAGhutRuQfDjfSER
+# gHugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -322,11 +325,11 @@ function Get-FileLockProcess {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIuVRne3mrTZCalE
-# 4soF0g7OtGHTMA0GCSqGSIb3DQEBAQUABIIBAIOwys4xA4P90Q2zM7CQtnC4xHs0
-# 6YMUPEBIlX5ZCn5ysvlvgarj3wHU+YzdLDfvr5Od5YrrkqD9903KbNQBd58zOyw1
-# j0e+4vklbG6CD8hGP/vGed4QXngm2ZFBnLU4jUYdrqmjWRR8RxLGb+80Nowvs1QT
-# O3X3sgGLqGpqnLiOCyPs63KO7JrbVqwJTnF++T+Oh/XLNDxJJI4ihujV0hpcQOn3
-# 0+Ir4+JhD7090nmj7quuBDWjSS6BtaO4D2YQyq4hHkr4fFwfhSv4KtMZgWWEUP6p
-# uro2uipvx2k56Kxz6WXwDncg2HT05Wq7DtCShpd0/Y97O3/QiK939yZkW+k=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDj8LO8Yj+WTRY60
+# O8h6gYaFkektMA0GCSqGSIb3DQEBAQUABIIBAGOffMxaXADRb4AbNRumu19/9+fG
+# SzTb8FyB8d/STrDZqhXVzK7p5Iw4Whw8eEmKEQ8iuLiKF5amF/4x7L0Gc7gQtKWJ
+# NAXJT/OfainI6kJ5UQIi23A5ogjs00TihVXNHTyVzZVMPX2SgIToDZZTxrx0KUiI
+# 5rhjsH2ZLKmDTtClziEIoEAAo21yjInRZyi3LZqxA+rDnvZUaoNn0RXnFBEWY+le
+# xyVIburFG0feRyzFD2cjS0QrDwVTB6sa2VESOpFh7OerSzF6onH8J823KEQUdLtv
+# gkXdXUkArsa9xX0lJEh69QOB9mOvRpw0oZmunhqcMzkgh3a/vxI+jpydKes=
 # SIG # End signature block
