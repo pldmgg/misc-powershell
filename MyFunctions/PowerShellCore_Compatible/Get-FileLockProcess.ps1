@@ -3,8 +3,11 @@
     Check which process is locking a file
 
 .DESCRIPTION
-    Get-FileLock takes a path to a file and returns a System.Collections.Generic.List of System.Diagnostic.Process
-    objects (one or more processes could have a lock on a specific file, which is why a List is used).
+    On Windows, Get-FileLockProcess takes a path to a file and returns a System.Collections.Generic.List of
+    System.Diagnostic.Process objects (one or more processes could have a lock on a specific file, which is why
+    a List is used).
+
+    On Linux, this function returns a PSCustomObject with similar properties.
 
 .NOTES
     Windows solution credit to: https://stackoverflow.com/a/20623311
@@ -233,11 +236,29 @@ function Get-FileLockProcess {
             Write-Verbose "The Namespace MyCore.Utils Class FileLockUtil is already loaded and available!"
         }
 
-        [MyCore.Utils.FileLockUtil]::WhoIsLocking($FilePath)
+        $Result = [MyCore.Utils.FileLockUtil]::WhoIsLocking($FilePath)
     }
     if ($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") {
-        lsof $FilePath
+        $lsofOutput = lsof $FilePath
+
+        function Parse-lsofStrings ($lsofOutput, $Index) {
+            $($lsofOutput[$Index] -split " " | foreach {
+                if (![String]::IsNullOrWhiteSpace($_)) {
+                    $_
+                }
+            }).Trim()
+        }
+
+        $lsofOutputHeaders = Parse-lsofStrings -lsofOutput $lsofOutput -Index 0
+        $lsofOutputValues = Parse-lsofStrings -lsofOutput $lsofOutput -Index 1
+
+        $Result = [pscustomobject]@{}
+        for ($i=0; $i -lt $lsofOutputHeaders.Count; $i++) {
+            $Result | Add-Member -MemberType NoteProperty -Name $lsofOutputHeaders[$i] -Value $lsofOutputValues[$i]
+        }
     }
+
+    $Result
     
     ##### END Main Body #####
 
@@ -267,8 +288,8 @@ function Get-FileLockProcess {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUa9ZFMX+jZcPJG9N/JyvZny9y
-# ju2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsY/tn7+ztij8O2txRCgIJo7Q
+# Ne2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -325,11 +346,11 @@ function Get-FileLockProcess {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKehfbureitJUy0d
-# LmK4AAW4b5SEMA0GCSqGSIb3DQEBAQUABIIBAKpe+pj2ph/m+1U57Sp2AVdG/GcR
-# uxW7lR5Bxnwg6R7iIBXoIFhmNscEbx+ImsiQ4PeTHh1SyLM+/DFKe/jyaCVItXVy
-# lOeg4NE4Idao2pwUbFUvTrLaDKQ3rNYB1qa4qty8jmmpu5oeXnj9EjGEqsc44HBr
-# CRtcuwL3zYbAfDxT7GOk/dbDX8eLPpyuuupgG1B+1Gv4ca5rZF0JN/ZPzQhQvbVM
-# LrJWZU6qRasTY4GLMPFvr0JfcsCjgLQZQLnRwYm0hG5SC7jlX8S22X/YkGjtlmZ9
-# N0LWvRU1sZ+tDhe8BMSdKAUYelzE0ADYRivWsCsklaRUbpc+lzYYZAkVc4I=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIezpMVfww9JCdmi
+# nU0x2hK0oW+vMA0GCSqGSIb3DQEBAQUABIIBAAKXjEWYMoBh3R37AdjeiKKmMEBf
+# m7Cv0O8KUBBSC3FoI4WOQJdMEtcAtrSpFCj+GYU77LGAnQkDga+wdo8ruCJ4MuC+
+# KBteWf07HjIaIHkegUnqGi477ee9aZVS2yF80qOoPCad1gvNYl0GIk54BHQJRWoc
+# +pl8Lz0jMNBmh1DA5O7i0PDFX0XcfweBfcDHbEHb4g8KLmq2J5U0yhaqz0FA8QsN
+# ZReVfk+ZwwPdtneS5TqMVtSG/Uk5/GXZNLNdQI7FK1F8O9+3yQ3Qb1/hImvqvaTF
+# 0eSPzQANj6KVAUfYh40cRQRG3cD62GxY28Rt5i0u82ORheA7284QbNpwA+8=
 # SIG # End signature block
