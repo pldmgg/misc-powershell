@@ -237,8 +237,8 @@ function Get-FileLockProcess {
         }
 "@
 
-        $CheckMyCoreUtilsDownloadIdLoaded = $CurrentlyLoadedAssemblies | Where-Object {$_.ExportedTypes -like "MyCore.Utils.FileLockUtil*"}
-        if ($CheckMyCoreUtilsDownloadIdLoaded -eq $null) {
+        $CheckMyCoreUtilsFileLockUtilLoaded = $CurrentlyLoadedAssemblies | Where-Object {$_.ExportedTypes -like "MyCore.Utils.FileLockUtil*"}
+        if ($CheckMyCoreUtilsFileLockUtilLoaded -eq $null) {
             Add-Type -ReferencedAssemblies $ReferencedAssemblies -TypeDefinition $TypeDefinition
         }
         else {
@@ -297,8 +297,8 @@ function Get-FileLockProcess {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9d2hBNRmx5buWOk3f/GCH0U6
-# kgSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0KDzFoHEqHMfSGuky52g9s86
+# Swegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -355,11 +355,11 @@ function Get-FileLockProcess {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFqzJxTfwPo/kLsP
-# 7aZkf5rgc1YnMA0GCSqGSIb3DQEBAQUABIIBAFI/R8NvZDFjNXwGv2rtiPGJEPkb
-# oeDrSf6YTap/2jUpidqfPmEmhNKd2o/XFcjJ9/t3Ll83kbhA5qH9fpZlyoIB4w30
-# 82b52IuKuTGyrxh/4VMhB0eeHtJfFuY2SIitv1q+GSfy07IIrzb1sFMF8qb8ozq/
-# S/caSSL2rXIDSqau6rxI5bkjXTRPqn5/P6FhOri4oexr7gENEFmN4tCcD6RBw0Qv
-# mmY7RjQb104QgGcnZpGtOLozabT8qXopg3G7nkRfYeM1UUNXcMr5mQZV2JeYhI6L
-# H9ghrysRKFRTLqsWekIunfZu5A1/k7puhBUAS5mP6tsY7oJq6ciHQZ5phi0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFICekeHnyui4AfHL
+# 0f1/VrlENINIMA0GCSqGSIb3DQEBAQUABIIBAFp196cAmJYV9n2XBjTIgZP73QPC
+# SEc1LQKpgoM9qGLt5JTK1FZXfgd0VzwkDm1BEUY45u+tCajvpZDe5lS7lvMfkXR4
+# 0qJb3gvHvDIXcf9o8/wLgGEwnLJflXFFB2OvqetLLU7H1dswAJLKW+T5Bio+A0LS
+# OH4U4UUFtMCqC0kFPFGwVLL4FHLj6rNnO3KHGlnFiTt6m2Y6WRIjuGU35ykPgXeF
+# meoMfYXlgvBZByJfPU1bV3qQcgOhjdT+YYBPVd3brR1T8Bq9I7Ie9RJVjfxRTIim
+# cLa4CNAg/Caee1WjyQQYus2cUSvx0q6SgMrYzgMxRVEIvCNDWqgnUAhkbOs=
 # SIG # End signature block
