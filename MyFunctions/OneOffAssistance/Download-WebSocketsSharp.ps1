@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Downloads HTMLAgilityPack NuGet Package
+    Downloads appropriate WebSocket-Sharp NuGet Package that can run in your version of PowerShell
 
 .DESCRIPTION
-    See SYNOPSIS
+    See .SYNOPSIS
 
 .PARAMETER NuGetPkgDownloadPath
     This parameter is MANDATORY
@@ -14,7 +14,7 @@
     NOTE: If you use a full path to a file, any file extension other than .zip (like .nupkg) will be replaced with .zip
 
 .EXAMPLE
-    Download-WebSocketsSharp -NuGetPkgDownloadPath "$HOME\Downloads\HTMLAgilityPack\WebSocketsSharp.zip"
+    Download-WebSocketsSharp -NuGetPkgDownloadPath "$HOME\Downloads"
 
 #>
 
@@ -157,8 +157,8 @@ function Download-WebSocketsSharp {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUi0oUKBrEOFL2dpY0HvFKSnQT
-# 1Uqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2q1CwCEIDSkR9gcxmiQU168e
+# /m2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -215,11 +215,11 @@ function Download-WebSocketsSharp {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFC/TGfBQgZctGftl
-# hyce+5bzOaXlMA0GCSqGSIb3DQEBAQUABIIBAHQwutmleeMYk/OGMtdKZc/zxekY
-# nq8IRpGr82mw/oBe1pGgay5ErGIaKffIKOIzLA2sCzLSYGYgZzLyloxG7gCAApOE
-# rvtTlEADQETjZIUS8Sdgp9UkAPDOa/4pZlHEdqeDY6yPwcBWxu+VK2HFj4GwrycQ
-# Pf98KXfRqEm5m82sh3yaumQ9S43eqtm24EuICHpwKbrswYah+uMwDv1as5CSc6sY
-# J7Ek9ANzqOTicIkANy961hIXoc5g2E2viCt38hN8vimG0s11K+fkFYZa6nwId9PB
-# KRVlf3NSKUNzSNEdH9KsnRs9H29ZswKi/AJTXc9ia7/TsILUCEy2mTGbtsk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAbiXYsa94RHMcO8
+# xHkbuWCTeONGMA0GCSqGSIb3DQEBAQUABIIBAGj+b98svdZ0FPIlqAulzawdDHik
+# l2LszLnSQ91OHqd4focPTEl4qooVw5yt2H6mBum2uo21/nM5StD8qRsWQ5nG4v9C
+# J78gV+8sejNPo9x1cBTHR5vAHgWjHM3JHy0gUIgpUd6+tHtmdyuwcFUVWDXK4Stt
+# r1S6ex4ZdABsbyXI7MOlXPY1lDniz9z5gi+iFS1Y0/9IIV8KiBOZn2ELuEeHKCoW
+# bmhPvpfg9ufBVhjn9nKfLO53d65ocAND3nkKa62GhkSlw5h9sGbJ2VyK8y/yrBiM
+# SB+stxurs5T0vP/RODzxE4JvjrGEcmAqNjgLtXaxH5VZBN0vlUySGBpyRIQ=
 # SIG # End signature block
