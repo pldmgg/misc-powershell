@@ -22,7 +22,7 @@ function Install-HTMLAgilityPack {
 
     Param(
         [Parameter(Mandatory=$True)]
-        [string]$NuGetPkgDownloadPath = "$HOME\Downloads\HTMLAgilityPack\HTMLAgilityPack.zip"
+        [string]$NuGetPkgDownloadPath
     )
 
     ##### BEGIN Helper Functions #####
@@ -216,7 +216,14 @@ function Install-HTMLAgilityPack {
             }
 "@
     
-            Add-Type -ReferencedAssemblies $Assem -TypeDefinition $Source
+            $CurrentLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
+            $CheckMyCoreUtilsDownloadIsLoaded = $CurrentLoadedAssemblies | Where-Object {$_.ExportedTypes -like "MyCore.Utils.Zip*"}
+            if ($CheckMyCoreUtilsDownloadIsLoaded -eq $null) {
+                Add-Type -ReferencedAssemblies $Assem -TypeDefinition $Source
+            }
+            else {
+                Write-Warning "The Namespace MyCore.Utils Class Zip is already loaded!"
+            }
     
             if (!$SpecificItem) {
                 [MyCore.Utils.Zip]::ExtractAll($PathToZip, $TargetDir)
@@ -342,29 +349,199 @@ function Install-HTMLAgilityPack {
         }
     }
 
+    function Invoke-WebRequestMyCoreUtilsDL {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$True)]
+            [string]$Uri,
+    
+            [Parameter(Mandatory=$True)]
+            [string]$OutFile
+        )
+    
+        ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    
+        # Load MyCore.Utiles.Download
+        $DefaultAssembliesToLoad = @("Microsoft.CSharp","System","System.Core","System.Linq","System.IO","System.IO.FileSystem"
+        "System.Console","System.Collections","System.Collections.Generic","System.Runtime","System.Runtime.Extensions")
+        
+        [System.Collections.ArrayList]$AdditionalAssembliesToCheckFor = @("System.Net.Http","System.Threading.Tasks")
+        
+        $AssembliesToCheckFor = $DefaultAssembliesToLoad + $AdditionalAssembliesToCheckFor
+        
+        [System.Collections.ArrayList]$FoundAssemblies = @()
+        [System.Collections.ArrayList]$FinalUsingStatements = @()
+        foreach ($assem in $AssembliesToCheckFor) {
+            $global:FunctionResult = 0
+            
+            $GetAssembliesResult = Get-Assemblies -AssemblyName $assem -ErrorAction SilentlyContinue
+            
+            if ($global:FunctionResult -eq 1) {
+                Write-Verbose "The Get-Assemblies function failed for $assem!"
+                $global:FunctionResult = "1"
+                continue
+            }
+        
+            $null = $FoundAssemblies.Add($GetAssembliesResult)
+        
+            $FinalUsingStatement = Get-AssemblyUsingStatement -AssemblyName $assem -AssemblyFullInfo $GetAssembliesResult.FullName -Silent -ErrorAction SilentlyContinue
+            $null = $FinalUsingStatements.Add($FinalUsingStatement)
+        }
+        
+        if ($FoundAssemblies.Count -eq 0) {
+            Write-Error "Unable to find ANY Assmeblies! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($FinalUsingStatements.Count -eq 0) {
+            Write-Error "Unable to create ANY 'using' statements! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        
+        $usingStatementsAsString = $($FinalUsingStatements | Sort-Object | Get-Unique) -join "`n"
+        
+        $ReferencedAssemblies = $FoundAssemblies.FullName | Sort-Object | Get-Unique
+        
+        # Using Type Extensions in PowerShell see: https://powershell.org/forums/topic/how-do-i-use-extension-methods-in-zipfileextensionsclass/
+        
+        $TypeDefinition = @"
+        $usingStatementsAsString
+        
+        namespace MyCore.Utils
+        { 
+            public class Download
+            {
+                public static bool ValidateUrl(string p_strValue)
+                {
+                    if (Uri.IsWellFormedUriString(p_strValue, UriKind.RelativeOrAbsolute))
+                    {
+                        Uri l_strUri = new Uri(p_strValue);
+                        return (l_strUri.Scheme == Uri.UriSchemeHttp || l_strUri.Scheme == Uri.UriSchemeHttps);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+        
+                public async Task<bool> FileDownload(string url, string outputPath)
+                {
+                    // Declare some variables before the try/catch block
+                    string exception = null;
+                    bool isValidUrl = ValidateUrl(url);
+                    string outputPathParentDir = System.IO.Directory.GetParent(outputPath).ToString();
+        
+                    try
+                    {
+                        if (!isValidUrl)
+                        {
+                            exception = "The Url" + url + "is not in the correct format! Halting!";
+                            throw new InvalidOperationException(exception);
+                        }
+                        if (!System.IO.Directory.Exists(outputPathParentDir))
+                        {
+                            exception = "The directory" + outputPathParentDir + "does not exist! Halting!";
+                            throw new InvalidOperationException(exception);
+                        }
+        
+                        
+                        var client = new HttpClient();
+                        using (HttpResponseMessage response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).Result)
+                        {
+                            response.EnsureSuccessStatusCode();
+                
+                            using (Stream contentStream = await response.Content.ReadAsStreamAsync(), fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                            {
+                                var totalRead = 0L;
+                                var totalReads = 0L;
+                                var buffer = new byte[8192];
+                                var isMoreToRead = true;
+                
+                                do
+                                {
+                                    var read = await contentStream.ReadAsync(buffer, 0, buffer.Length);
+                                    if (read == 0)
+                                    {
+                                        isMoreToRead = false;
+                                    }
+                                    else
+                                    {
+                                        await fileStream.WriteAsync(buffer, 0, read);
+                
+                                        totalRead += read;
+                                        totalReads += 1;
+                
+                                        if (totalReads % 2000 == 0)
+                                        {
+                                            Console.WriteLine(string.Format("total bytes downloaded so far: {0:n0}", totalRead));
+                                        }
+                                    }
+                                }
+                                while (isMoreToRead);
+                            }
+                        }
+                        
+                        return true;
+                    }
+                    catch
+                    {
+                        Console.WriteLine(exception);
+                        return false;
+                    }
+                }
+            }
+        }
+"@
+        
+        $CurrentLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
+        $CheckMyCoreUtilsDownloadIsLoaded = $CurrentLoadedAssemblies | Where-Object {$_.ExportedTypes -like "MyCore.Utils.Download*"}
+        if ($CheckMyCoreUtilsDownloadIsLoaded -eq $null) {
+            Add-Type -ReferencedAssemblies $ReferencedAssemblies -TypeDefinition $TypeDefinition
+        }
+        else {
+            Write-Warning "The namespace MyCore.Utils Class Download is already loaded!"
+        }
+    
+        ##### END Variable/Parameter Transforms and PreRun Prep #####
+    
+    
+        ##### BEGIN Main Body #####
+        
+        # Download the file
+        ([MyCore.Utils.Download]::new()).FileDownload($Uri,$OutFile)
+    
+        ##### END Main Body #####
+    
+    }
+
     ##### END Helper Functions #####
 
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
     $HTMLAgilityPackUri = "https://www.nuget.org/api/v2/package/HTMLAgilityPack"
-    $OutFileBaseNamePrep = Invoke-WebRequest $HTMLAgilityPackUri -DisableKeepAlive -UseBasicParsing
-    $OutFileBaseName = $($OutFileBaseNamePrep.BaseResponse.ResponseUri.AbsoluteUri -split "/")[-1] -replace "nupkg","zip"
-    $DllFileName = $OutFileBaseName -replace "zip","dll"
+    try {
+        $OutFileBaseNamePrep = Invoke-WebRequest $HTMLAgilityPackUri -DisableKeepAlive -UseBasicParsing
+        $OutFileBaseName = $($OutFileBaseNamePrep.BaseResponse.ResponseUri.AbsoluteUri -split "/")[-1] -replace "nupkg","zip"
+        $DllFileName = $OutFileBaseName -replace "zip","dll"
+    }
+    catch {
+        $OutFileBaseName = "HTMLAgilityPack_LatestAsOf_$(Get-Date -Format MMddyy).zip"
+    }
 
     $TestPath = $NuGetPkgDownloadPath
-
     $BrokenDir = while (-not (Test-Path $TestPath)) {
         $CurrentPath = $TestPath
         $TestPath = Split-Path $TestPath
         if (Test-Path $TestPath) {$CurrentPath}
     }
+
     if ([String]::IsNullOrWhitespace([System.IO.Path]::GetExtension($NuGetPkgDownloadPath))) {
         # Assume it's a directory
-        Write-Host "BrokenDir is $BrokenDir"
         if ($BrokenDir) {
             if ($BrokenDir -eq $NuGetPkgDownloadPath) {
-                New-Item -ItemType Directory -Path $BrokenDir -Force
+                $null = New-Item -ItemType Directory -Path $BrokenDir -Force
             }
             else {
                 Write-Error "The path $TestPath was not found! Halting!"
@@ -377,7 +554,7 @@ function Install-HTMLAgilityPack {
         else {
             if ($(Get-ChildItem $NuGetPkgDownloadPath).Count -ne 0) {
                 $NewDir = "$NuGetPkgDownloadPath\$([System.IO.Path]::GetFileNameWithoutExtension($OutFileBaseName))"
-                New-Item -ItemType Directory -Path $NewDir -Force
+                $null = New-Item -ItemType Directory -Path $NewDir -Force
             }
             $FinalNuGetPkgPath = "$NewDir\$OutFileBaseName"
         }
@@ -393,7 +570,7 @@ function Install-HTMLAgilityPack {
         if ($BrokenDir) {
             Write-Host "BrokenDir is $BrokenDir"
             if ($BrokenDir -eq $($NuGetPkgDownloadPath | Split-Path -Parent)) {
-                New-Item -ItemType Directory -Path $BrokenDir -Force
+                $null = New-Item -ItemType Directory -Path $BrokenDir -Force
             }
             else {
                 Write-Error "The path $TestPath was not found! Halting!"
@@ -406,7 +583,7 @@ function Install-HTMLAgilityPack {
         else {
             if ($(Get-ChildItem $($NuGetPkgDownloadPath | Split-Path -Parent)).Count -ne 0) {
                 $NewDir = "$($NuGetPkgDownloadPath | Split-Path -Parent)\$([System.IO.Path]::GetFileNameWithoutExtension($OutFileBaseName))"
-                New-Item -ItemType Directory -Path $NewDir -Force
+                $null = New-Item -ItemType Directory -Path $NewDir -Force
             }
             
             $FinalNuGetPkgPath = "$NewDir\$OutFileBaseName"
@@ -417,7 +594,7 @@ function Install-HTMLAgilityPack {
         $subdir = "lib\netstandard2.0"
     }
     else {
-        $subdir = "lib\net40"
+        $subdir = "lib\net45"
     }
 
     $NuGetPkgDownloadPathParentDir = $FinalNuGetPkgPath | Split-Path -Parent
@@ -434,8 +611,16 @@ function Install-HTMLAgilityPack {
     Write-Host "Extracting $subdir\HTMLAgilityPack.dll ..."
     Unzip-File -PathToZip $FinalNuGetPkgPath -TargetDir $NuGetPkgDownloadPathParentDir -SpecificItem "$subdir\HTMLAgilityPack.dll"
     
-    Add-Type -Path "$NuGetPkgDownloadPathParentDir\HTMLAgilityPack.dll"
+    $CurrentLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
+    $CheckMyCoreUtilsDownloadIsLoaded = $CurrentLoadedAssemblies | Where-Object {$_.FullName -like "HtmlAgilityPack*"}
+    if ($CheckMyCoreUtilsDownloadIsLoaded -eq $null) {
+        Add-Type -Path "$NuGetPkgDownloadPathParentDir\HTMLAgilityPack.dll"
+    }
+    else {
+        Write-Warning "The Assembly HTMLAgilityPack is already loaded!"
+    }
 
+    
     ##### END Main Body #####
 
 }
@@ -457,8 +642,8 @@ function Install-HTMLAgilityPack {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4S/hOnFqg+2Ismv7dHLIqgtH
-# numgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUFUk8B3fb5aJ4+8mC+QywxMFw
+# ivygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -515,11 +700,11 @@ function Install-HTMLAgilityPack {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOAAMC69husMZg1a
-# aJiq+BT5KTUeMA0GCSqGSIb3DQEBAQUABIIBADJMeENg3QYqxLf2KMm7XEsZp+jL
-# 2tAK3iWxHHEmmeaclrNdl12qEs9igK1EBJtVd45UOz88z5sXkSV5vLOKH0r4J+w3
-# 1IHdObJLCHqGm9qTLO/pLKzvUb8KReJU51OZlFiQLyG0z9zlmmavwc7w5FHNDa7t
-# Oatx6REyv4aJRXx3dZ5yl/DsOIvF4t7jilHMbJ0DVchlf20VCMPpRFiO/cuxjxHv
-# PtYIADDFFLDYq8ui4JmH30AXPR+Cgge52O0WVR0Mk7n9cZke506wFCwdbzj4gZVc
-# Z4WChocEeEMEqKxMhZQsvreVLC5w8rO9WehiXzFWROFaADX+wl+sAhLqJQs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHai3CykmMYVwQIM
+# v1TKVKCWTeFXMA0GCSqGSIb3DQEBAQUABIIBADSmuTceT1iKhgqxkcarFXAGTZnA
+# 6xmPQ4DK1B4KniL5L9zznl3DTWznUQz2U7IxslMfpGQnsUcVBI4iviiK2OJ8PM6A
+# G7w2E+pHvq+eRAA/dyucwpgTOrwgPVL1nSKyEpo6NsJl3mN/BcBGEtialca53JH8
+# mjHvMzFJPJfk8HI/3iAOXaq7J3bPvGVhGQcyUxAABgFGuHGce/lNxC/7gngcHaBs
+# iKvcleeeOvWc5o8QLS/mTperrxfyFIxh0NQbgLSx+ppMdp3xspUuADzGgxgiT9Er
+# JgmRlNj9JAhDYwdxvBepKwdWDmwBTKkWT5MKXjadQg4OIbVx9klUzvQegpU=
 # SIG # End signature block
