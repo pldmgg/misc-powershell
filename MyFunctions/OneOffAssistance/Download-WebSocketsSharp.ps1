@@ -123,7 +123,7 @@ function Download-WebSocketsSharp {
     ##### BEGIN Main Body #####
 
     # Download the NuGet Package
-    Write-Host "Downloading HTMLAgilityPack NuGet Package to $FinalNuGetPkgPath..."
+    Write-Host "Downloading WebSocketSharp NuGet Package to $FinalNuGetPkgPath..."
     Invoke-WebRequest -Uri $WebSocketSharpUri -OutFile $FinalNuGetPkgPath
 
     Write-Host "Extracting WebSocketSharp NuGet Package ..."
@@ -157,8 +157,8 @@ function Download-WebSocketsSharp {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2q1CwCEIDSkR9gcxmiQU168e
-# /m2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7uYLCv2u7Kb4YRVntTDZi30s
+# Yhmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -215,11 +215,11 @@ function Download-WebSocketsSharp {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAbiXYsa94RHMcO8
-# xHkbuWCTeONGMA0GCSqGSIb3DQEBAQUABIIBAGj+b98svdZ0FPIlqAulzawdDHik
-# l2LszLnSQ91OHqd4focPTEl4qooVw5yt2H6mBum2uo21/nM5StD8qRsWQ5nG4v9C
-# J78gV+8sejNPo9x1cBTHR5vAHgWjHM3JHy0gUIgpUd6+tHtmdyuwcFUVWDXK4Stt
-# r1S6ex4ZdABsbyXI7MOlXPY1lDniz9z5gi+iFS1Y0/9IIV8KiBOZn2ELuEeHKCoW
-# bmhPvpfg9ufBVhjn9nKfLO53d65ocAND3nkKa62GhkSlw5h9sGbJ2VyK8y/yrBiM
-# SB+stxurs5T0vP/RODzxE4JvjrGEcmAqNjgLtXaxH5VZBN0vlUySGBpyRIQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNE0bM4Jhd4bKIVs
+# jrKJug93Iw5PMA0GCSqGSIb3DQEBAQUABIIBAK14l5lD+gohsTLDwa79K1OESBcZ
+# iUcSIJqDOO07gIeDjqx9AQYovy93QyHKarGed3qpdhwsWQhm8neBaStkB0u+5Y8C
+# yUWl3HCYc5LcuTDZT3f/nHg+E7EcJCIpVo9nnxr+dnLUcu7tVmLzykL2LdQjEuCd
+# zHBX+KaVRkYaNiFqslWomVrT86Gd0RgPl934E04hLHD7zsl/MMDOCX41uYuPWhxp
+# UF30BFVsbEtwzm+scUB3THTQEa5NH5nAhIssjMXlpiX+ql3PSjQFQPURNN8Cr9xk
+# j27jVCpWfKoit0DItsaYENqKIKjrbylQQ3sTirwG7lDjjQ2zyW+yVIcwg04=
 # SIG # End signature block
