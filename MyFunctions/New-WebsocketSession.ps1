@@ -15,7 +15,8 @@
     This parameter takes a string that represents a URL to a WebSocket endpoint.
 
 .EXAMPLE
-    PS C:\Users\testadmin> [MyCore.Utils.WebsocketClient]::StartWSSession("wss://ws.blockchain.info/inv")
+    PS C:\Users\testadmin> New-WebsocketSession -WSEndpointUrl "wss://ws.blockchain.info/inv"
+    Starting WebSocketSession ...
 
     Type 'exit' to exit.
 
@@ -445,8 +446,8 @@ function New-WebsocketSession {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU16CF8GBNsbSyiXc17zshkkTo
-# qMqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUG5hMKmZOczO+O2c5ZTa88f1r
+# F4Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -503,11 +504,11 @@ function New-WebsocketSession {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNdcMgiBWCIliHnn
-# gTW5p2yzi89ZMA0GCSqGSIb3DQEBAQUABIIBAITAQ7D7jLgdnviwgs+PgxwgaJsZ
-# 2EB0Wo3q2El7SDq2dq9E6figKrO0fXrzAkhykYUeVFZp80gzgpwHFyTVk2+nkQTQ
-# 08O7kAeaHI1IF8MLcGqSSh9O8BDiv2ntYTXPRBVWqh7NCjX1U1YR3qDceTSW1lRt
-# YOIqa02tjlU3H/jqsUJcMk80uuqO3Wp3hD7mTrUSXHmjHoaUAVpFnX0SYq1iFtuh
-# t+usVhZvIbRlQ6l/2Vt0dnnTRKNjhRo4dGEnZesIVG2too6Vax3Uyx7xz4m1smva
-# dwQbfB8uzf3ncTorNSSy14UUPecYoCw3KLvuATSVaQDjzWUKynh90YL2U/A=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBaQsYeNdlD3AHPf
+# FQokcD+M8GckMA0GCSqGSIb3DQEBAQUABIIBAHijHPlLNfBsNrI4R1IA4sg/xZdm
+# OiF9J3PQoUnueKJZLMJ0/9iGOQE26QTLWuX90joE+rjxJhiO905de6sNDdzrcjSB
+# mMdYGeVwYlfNKYXLLUaVZuGJyxh6gVaTSVWiRb94EaIzIqyw49aWSL2zwiNAhFek
+# MszD25fSg4Byqxgv9cEsfvbLVkf7LAZTCDHApBxV+4OGF6BvyREDemtVd14pj8H2
+# OBePy+ds0TU/ZA3JhBJLEKJLq8yPJ85PA9vor217D3iHrdgs+JuH6jakMMUv602Q
+# zG+SJYXP6JKi5oGpHyEYAkK9t6Mtlx7wnmrlosOP2hz0y/8wmrFOcSIkNMQ=
 # SIG # End signature block
