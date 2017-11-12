@@ -104,6 +104,48 @@ function Get-NetworkInfo {
 
     $ReferencedAssemblies = $AssembliesFullInfo.FullName | Sort-Object | Get-Unique
 
+    $AllAdapterProps = @"
+adapterProperties.Add("Id", adapter.Id.ToString());
+adapterProperties.Add("Name", adapter.Name.ToString());
+adapterProperties.Add("Description", adapter.Description.ToString());
+adapterProperties.Add("OperationalStatus", adapter.OperationalStatus.ToString());
+adapterProperties.Add("Speed", adapter.Speed.ToString());
+adapterProperties.Add("IsReceiveOnly", adapter.IsReceiveOnly.ToString());
+adapterProperties.Add("SupportsMulticast", adapter.SupportsMulticast.ToString());
+adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToString());
+"@
+
+    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or 
+    $($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
+        # Adapter Properties for Windows...
+        $adapterProps = $AllAdapterProps
+
+        # IP Properties for Windows...
+        $ipProps = @"
+        ipProperties.Add("AddressPreferredLifetime", ip.AddressPreferredLifetime.ToString());
+        ipProperties.Add("AddressValidLifetime", ip.AddressValidLifetime.ToString());
+        ipProperties.Add("DhcpLeaseLifetime", ip.DhcpLeaseLifetime.ToString());
+        ipProperties.Add("DuplicateAddressDetectionState", ip.DuplicateAddressDetectionState.ToString());
+        ipProperties.Add("PrefixOrigin", ip.PrefixOrigin.ToString());
+        ipProperties.Add("SuffixOrigin", ip.SuffixOrigin.ToString());
+        ipProperties.Add("IPv4Mask", ip.IPv4Mask.ToString());
+        ipProperties.Add("PrefixLength", ip.PrefixLength.ToString());
+        ipProperties.Add("Address", ip.Address.ToString());
+        ipProperties.Add("IsDnsEligible", ip.IsDnsEligible.ToString());
+        ipProperties.Add("IsTransient", ip.IsTransient.ToString());
+"@
+    }
+    if ($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") {
+        # Adapter Properties for Linux...
+        $adapterProps = $($AllAdapterProps -split "`n" | Where-Object {$_ -notlike "*IsReceiveOnly*"}) -join "`n"
+
+        # IP Properties for Linux...
+        $ipProps = @"
+        ipProperties.Add("IPv4Mask", ip.IPv4Mask.ToString());
+        ipProperties.Add("Address", ip.Address.ToString());
+"@
+    }
+
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
@@ -153,27 +195,10 @@ function Get-NetworkInfo {
                             Dictionary<string, string> adapterProperties = new Dictionary<string, string>();
                             Dictionary<string, string> ipProperties = new Dictionary<string, string>();
                             
-                            adapterProperties.Add("Id", adapter.Id.ToString());
-                            adapterProperties.Add("Name", adapter.Name.ToString());
-                            adapterProperties.Add("Description", adapter.Description.ToString());
-                            adapterProperties.Add("OperationalStatus", adapter.OperationalStatus.ToString());
-                            adapterProperties.Add("Speed", adapter.Speed.ToString());
-                            adapterProperties.Add("IsReceiveOnly", adapter.IsReceiveOnly.ToString());
-                            adapterProperties.Add("SupportsMulticast", adapter.SupportsMulticast.ToString());
-                            adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToString());
-                            
-                            ipProperties.Add("AddressPreferredLifetime", ip.AddressPreferredLifetime.ToString());
-                            ipProperties.Add("AddressValidLifetime", ip.AddressValidLifetime.ToString());
-                            ipProperties.Add("DhcpLeaseLifetime", ip.DhcpLeaseLifetime.ToString());
-                            ipProperties.Add("DuplicateAddressDetectionState", ip.DuplicateAddressDetectionState.ToString());
-                            ipProperties.Add("PrefixOrigin", ip.PrefixOrigin.ToString());
-                            ipProperties.Add("SuffixOrigin", ip.SuffixOrigin.ToString());
-                            ipProperties.Add("IPv4Mask", ip.IPv4Mask.ToString());
-                            ipProperties.Add("PrefixLength", ip.PrefixLength.ToString());
-                            ipProperties.Add("Address", ip.Address.ToString());
-                            ipProperties.Add("IsDnsEligible", ip.IsDnsEligible.ToString());
-                            ipProperties.Add("IsTransient", ip.IsTransient.ToString());
-                            
+                            $adapterProps
+
+                            $ipProps
+
                             intDetails.adapterProperties = adapterProperties;
                             intDetails.ipProperties = ipProperties;
                             
@@ -249,8 +274,8 @@ function Get-NetworkInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2fZHN5+vW5GF3slz37upplws
-# QBagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAsFg61R3AIjoUH76RJPszITb
+# ai+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -307,11 +332,11 @@ function Get-NetworkInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBSDZ+NZyaWQ+jTn
-# cQyvpHfcPwscMA0GCSqGSIb3DQEBAQUABIIBAK/vEQeA2oSBoI1H5wlQYiee8Svt
-# T7TIfYuAemiNid+W2N2vIfKV+yAlEpwKfsbaoF4E87ljrAC7eURrbblVucGq0h0q
-# a/etWkurntibNLTn47SY3/MaLjMOpOvKvbEK8pYDXdAtlYZFozcBays3Ck/b9STl
-# n+J+/qWZEhC3xSzvVdAiwzYOAR9SHQdVXc0XAWEN1g04aqFNhp6K5nmF4BYNiyKV
-# ojZlOQLrQPxPpkJZG5QMAJ7X3R4oei/HT9GlhYR6jEBw36pV0GI0iEZys10QZPkI
-# G11L55Prt1lKOyf6+GTiVD0T7ERy4EtVYm3tXBvhHlTQyedgdki7dM9QNvg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA2p12nMyKQT0UW3
+# 2Jtv/QgD3av3MA0GCSqGSIb3DQEBAQUABIIBAGWGayDEIjEqxdZZ68bIl22vsF6r
+# wrIV6HEhCHKjwApVz9JxGcV2qYONOfpWoyveb2gfajynepAKAARKXn66JzewqB6T
+# nDjhq0ei5JBll8Bq362ZX6eiNFog0vyIFw/4lBqNgylI8ROCPvoTOvMBqbuizMYl
+# RJ3bg2/XwBW/hJROvVwbre01uKIG/vDxkQ8Tc19GvyJ74FQ/xPmovkf9JyTrn6Km
+# tUtY2hm3nDJb+PQguGiRTIRgJ5LdQXvMPXdN0E3FQ/JSblcO3jeB5PEGsJMCgEdA
+# pNV5gwISRilnTgFC5QCsEx13MtdR/mFHNnAXLPi3JC8IzDLH2XguCL58sQs=
 # SIG # End signature block
