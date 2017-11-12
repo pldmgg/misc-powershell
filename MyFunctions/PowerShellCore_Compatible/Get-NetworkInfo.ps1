@@ -120,6 +120,8 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
         # Adapter Properties for Windows...
         $adapterProps = $AllAdapterProps
 
+        $DynamicDnsProperty = 'adapterProperties.Add("IsDynamicDnsEnabled", ipProps.IsDynamicDnsEnabled.ToString());'
+
         # IP Properties for Windows...
         $ipProps = @"
         ipProperties.Add("AddressPreferredLifetime", ip.AddressPreferredLifetime.ToString());
@@ -195,7 +197,20 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
                             Dictionary<string, string> adapterProperties = new Dictionary<string, string>();
                             Dictionary<string, string> ipProperties = new Dictionary<string, string>();
                             
+                            adapterProperties.Add("IsDnsEnabled", ipProps.IsDnsEnabled.ToString());
+                            adapterProperties.Add("DnsSuffix", ipProps.DnsSuffix.ToString());
+                            $DynamicDnsProperty
+                            adapterProperties.Add("DnsAddresses", String.Join(", ", ipProps.DnsAddresses));
+                            List<string> GatewayAddressList = new List<string>();
+                            foreach (GatewayIPAddressInformation address in ipProps.GatewayAddresses)
+                            {
+                                GatewayAddressList.Add(address.Address.ToString());
+                            }
+                            adapterProperties.Add("GatewayAddresses", String.Join(", ", GatewayAddressList));
+                            adapterProperties.Add("DhcpServerAddresses", String.Join(", ", ipProps.DhcpServerAddresses));
                             $adapterProps
+                            
+                            
 
                             $ipProps
 
@@ -274,8 +289,8 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAsFg61R3AIjoUH76RJPszITb
-# ai+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5cCZwmS543Gy0INKAeD4Un0a
+# p6Ogggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -332,11 +347,11 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA2p12nMyKQT0UW3
-# 2Jtv/QgD3av3MA0GCSqGSIb3DQEBAQUABIIBAGWGayDEIjEqxdZZ68bIl22vsF6r
-# wrIV6HEhCHKjwApVz9JxGcV2qYONOfpWoyveb2gfajynepAKAARKXn66JzewqB6T
-# nDjhq0ei5JBll8Bq362ZX6eiNFog0vyIFw/4lBqNgylI8ROCPvoTOvMBqbuizMYl
-# RJ3bg2/XwBW/hJROvVwbre01uKIG/vDxkQ8Tc19GvyJ74FQ/xPmovkf9JyTrn6Km
-# tUtY2hm3nDJb+PQguGiRTIRgJ5LdQXvMPXdN0E3FQ/JSblcO3jeB5PEGsJMCgEdA
-# pNV5gwISRilnTgFC5QCsEx13MtdR/mFHNnAXLPi3JC8IzDLH2XguCL58sQs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI1VIXGiR3AbXtGX
+# FM5L7WT9cBDRMA0GCSqGSIb3DQEBAQUABIIBAH1hZQAc5WvyKZJbKjI9TwjAmnyQ
+# 7tEXC3CRh/D5hOk/G7J2AI0f5nFja9b6pijIN5HzB93RTilPthV799kxx7qxKYJF
+# BLCjMk1EQ87RG0OvDsD9sAorfpJMsBvKN5nIwHXsbTHsWJx3oBm0D+5DlznESpie
+# qknkIclSVINa5xFWkba9sfozJKT1okCMfedGEBQaKbjj1FHrWMGfgecZf61wyT6+
+# N+M+FpHtFQmp1eVKrP+0d36TW8Vr9Uv9j745qzq49Al0OrcYKPUR7ji3iOWMRY5y
+# hhzaLxye8OSQbxCf0uFO/x4YbWVCsbVbVKBjDI0lKoFBDBoBt/EnqE2IeG8=
 # SIG # End signature block
