@@ -112,28 +112,35 @@ function Get-NetworkInfo {
         foreach ($ip in $UnicastAddressesToExplore) {
             $ipUnicastPropertyNames = $($ip | Get-Member -MemberType Property).Name
 
+            $Params = @{
+                ip                      = $ip
+                ipprops                 = $ipprops
+                ippropsPropertyNames    = $ippropsPropertyNames
+                ipUnicastPropertyNames  = $ipUnicastPropertyNames
+            }
+
             if (!$InterfaceStatus -and !$AddressFamily) {
-                $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
+                $FinalPSObject = Update-PSCustomObject @Params
                 $null = $PSObjectCollection.Add($FinalPSObject)
             }
 
             if ($InterfaceStatus -and $AddressFamily) {
                 if ($adapter.OperationalStatus -eq $InterfaceStatus -and $ip.Address.AddressFamily -eq $AddrFam) {
-                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
+                    $FinalPSObject = Update-PSCustomObject @Params
                     $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
 
             if ($InterfaceStatus -and !$AddressFamily) {
                 if ($adapter.OperationalStatus -eq $InterfaceStatus) {
-                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
+                    $FinalPSObject = Update-PSCustomObject @Params
                     $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
 
             if (!$InterfaceStatus -and $AddressFamily) {
                 if ($ip.Address.AddressFamily -eq $AddrFam) {
-                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
+                    $FinalPSObject = Update-PSCustomObject @Params
                     $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
@@ -170,8 +177,8 @@ function Get-NetworkInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV+tRUl+H8mO8qmfb1jTSYqly
-# P92gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUT2oqME9QjsUEgeIXHf6iRkrO
+# XGGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -228,11 +235,11 @@ function Get-NetworkInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLEh12pspXAKrWhu
-# AAOPVNBen3RcMA0GCSqGSIb3DQEBAQUABIIBAFZ9Wl9A7PmNLEr/IUAmYXE/rwDe
-# cBwM/r/VNBl1TFxPM4YSYCFxXlEyYUAlYeAUf+2yLrIDMmXdLzTTnLEx/BWGQkkV
-# tkwCDFrLaSvY/vzCdScv9ovw7BRYvwBT6noEdfjcbPABr7Xb9WPxymj30XbYNt7U
-# SCoh5iuHfzZ1zKc/KSwEFJoLxC8UXoHvoRnRRcbwt8XaeKCSQA9wvBN0T43SEeb8
-# HsZA29wQzwV9HPJXj6Onqhn/gNjmlc+0EO/7JXZF6ojLz7LJ5kD9+WjISAIDWlC2
-# 6bd2IPl6fSGQv6/2I+URPlRWrTeXZRVwwSvDyBzIvOJ1I63pB1h7tsI91Z8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCgu+nkkGNZKEpPJ
+# IUQcxsMSviy5MA0GCSqGSIb3DQEBAQUABIIBAL2vGw+HAJPfPxzmYQFRRUIykyY8
+# LvA4/EuSfWtjV3LhRVje++cB2GkAxjsJL9vVD2zPBjHcFtKRzmv9gX7NOqKy+q5E
+# 2k4Un93l5CZVbH0JXE2MlR4k5jPTAY/PU1NIQjJBKCr5YAyu4RoA1oph2n2tCkSR
+# MerIq0PdfMhmvaDHTrHsYhTVVo03o40Q0iFeS1LtLAxx1xSv44iB1IFZSX79dAhy
+# 2Hpw+M79QL1oLa9Oq8iFamDxM188QYUMF0mGD/BarhNrlWsSJXxg2s9PkMtYfo3h
+# 0dyyL8DTgAXiS9o1h5+n3nIIfHxH5oGoWJsh9r+8ASjOCbrmxlJcjV0mmdA=
 # SIG # End signature block
