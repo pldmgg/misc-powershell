@@ -141,15 +141,15 @@ function Get-NetworkInfo {
             }
         }
 
-        $adapterPropertyNames = $($adapter | Get-Member -MemberType Property).Name
-        foreach ($adapterPropName in $adapterPropertyNames) {
-            $FinalPSObjectMemberCheck = $($FinalPSObject | Get-Member -MemberType NoteProperty).Name
-            if ($FinalPSObjectMemberCheck -notcontains $adapterPropName) {
-                $FinalPSObject | Add-Member -MemberType NoteProperty -Name $adapterPropName -Value $($adapter.$adapterPropName)
+        if ($UnicastAddressesToExplore.Count -ne 0 -and $FinalPSObject) {
+            $adapterPropertyNames = $($adapter | Get-Member -MemberType Property).Name
+            foreach ($adapterPropName in $adapterPropertyNames) {
+                $FinalPSObjectMemberCheck = $($FinalPSObject | Get-Member -MemberType NoteProperty).Name
+                if ($FinalPSObjectMemberCheck -notcontains $adapterPropName) {
+                    $FinalPSObject | Add-Member -MemberType NoteProperty -Name $adapterPropName -Value $($adapter.$adapterPropName)
+                }
             }
-        }
-
-        if ($UnicastAddressesToExplore.Count -ne 0) {
+        
             $null = $PSObjectCollection.Add($FinalPSObject)
         }
     }
@@ -184,8 +184,8 @@ function Get-NetworkInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0hUe1OMMsV9oH4P8liczdhHv
-# S8Cgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUaS3ek4IIJfb34BkuwKeejcWS
+# LA+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -242,11 +242,11 @@ function Get-NetworkInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOq0GNDJGIIqRP7S
-# 4dH21oSrpkn1MA0GCSqGSIb3DQEBAQUABIIBAMA+ftdFJtKByU7wwzrV/tc4mZVd
-# LlyDJJ0osLM0p9bYWAKSj4pAUGqtUb4a+Nbdo7Uej65tcoZw3mFcKnGJHgONvBFQ
-# 5nS91J81eMtiYhth19SNNz6S/8MZ1eAlQHHclMs66CbkOpmyerT+GtADQjEiDdXW
-# E/Xmrf0o1UplkabJfZXWVdSyWPxHPuP1T3yfaHPrJ6t/DrwPCD2h6PZzG7LVBhUw
-# T8ww76E93f+zCyutqHP7zQhgHHq0pd0pINOzEc6HRwS7jWhGrhE2SsHzJVAnD0sS
-# OPAia8yMjiQazbQPnS7iq92BCCTuxlbAs7plOU/m3/ZhasVs+RkQS3pwZpk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCBkDzmSveNr9uFa
+# Z7t5MhIFgA/7MA0GCSqGSIb3DQEBAQUABIIBADrfh/hKU4hw3VLs/eg1+rJDIkHv
+# h5vuV8Y4HF2W3wQzyrvmwLXye64GAn+lZ9cnXkQYqzM/o6F+J6/3gV+fb6r1c92s
+# t6pqeO3DfuVGyyaCxDOvzO/nav84WWedmM7WGnhW9VzS6jJKWI91YyQILiOkjHsS
+# kpf0LrdCFY9Cl1gfSIbPPJqhn68+7GudT9b9e5vXQLHl3xERfd2K3XXEODzqpdRQ
+# DL/Q35Ts/nUtLo988t1OOIyReMYhseu3aBVduZQpVxHdw5oHpz/JvJqRKtk2VlKU
+# 8yVG9fNv4XjrLmEOSd74V7TF67YWTF/M5RCv5Xby491bnyElYSSt4Q5gZaA=
 # SIG # End signature block
