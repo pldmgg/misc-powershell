@@ -49,14 +49,18 @@ function Get-NetworkInfo {
             $ipprops,
 
             [Parameter(Mandatory=$True)]
-            $ippropsPropertyNames
+            $ippropsPropertyNames,
+
+            [Parameter(Mandatory=$True)]
+            $ipUnicastPropertyNames
         )
 
         $FinalPSObjectPrep = [pscustomobject]@{}
 
         foreach ($ippropsPropName in $ippropsPropertyNames) {
             $FinalPSObjectMemberCheck = $($FinalPSObjectPrep | Get-Member -MemberType NoteProperty).Name
-            if ($FinalPSObjectMemberCheck -notcontains $ippropsPropName) {
+            if ($FinalPSObjectMemberCheck -notcontains $ippropsPropName -and
+            $ippropsPropName -ne "UnicastAddresses" -and $ippropsPropName -ne "MulticastAddresses") {
                 $FinalPSObjectPrep | Add-Member -MemberType NoteProperty -Name $ippropsPropName -Value $($ipprops.$ippropsPropName)
             }
         }
@@ -98,38 +102,45 @@ function Get-NetworkInfo {
         $ipprops = $adapter.GetIPProperties()
         $ippropsPropertyNames = $($ipprops | Get-Member -MemberType Property).Name
 
-        foreach ($ip in $ipprops.UnicastAddresses) {
+        if ($AddressFamily) {
+            $UnicastAddressesToExplore = $ipprops.UnicastAddresses | Where-Object {$_.Address.AddressFamily -eq $AddrFam}
+        }
+        else {
+            $UnicastAddressesToExplore = $ipprops.UnicastAddresses
+        }
+
+        foreach ($ip in $UnicastAddressesToExplore) {
             $ipUnicastPropertyNames = $($ip | Get-Member -MemberType Property).Name
 
             if (!$InterfaceStatus -and !$AddressFamily) {
-                $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
                 $null = $PSObjectCollection.Add($FinalPSObject)
             }
 
             if ($InterfaceStatus -and $AddressFamily) {
                 if ($adapter.OperationalStatus -eq $InterfaceStatus -and $ip.Address.AddressFamily -eq $AddrFam) {
-                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
                     $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
 
             if ($InterfaceStatus -and !$AddressFamily) {
                 if ($adapter.OperationalStatus -eq $InterfaceStatus) {
-                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
                     $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
 
             if (!$InterfaceStatus -and $AddressFamily) {
                 if ($ip.Address.AddressFamily -eq $AddrFam) {
-                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames -ipUnicastPropertyNames $ipUnicastPropertyNames
                     $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
         }
-
-        $PSObjectCollection
     }
+
+    $PSObjectCollection
 
     ##### END Main Body #####
         
@@ -159,8 +170,8 @@ function Get-NetworkInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWWlayECT05V1tAtOSIeZKKgI
-# J2+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV+tRUl+H8mO8qmfb1jTSYqly
+# P92gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -217,11 +228,11 @@ function Get-NetworkInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFuO0O4cbqqMlMIU
-# 9I5Su7RENDiEMA0GCSqGSIb3DQEBAQUABIIBADwL+4MMG45ygNkkLBCCpSdpZfl3
-# ngvQt4h+PmdtQG3FqwdoQbexGvy/7sjdcqXXlNGUhIEQusIZyed1zUB6B13/C+yh
-# y+tUAvGRy1UbVdWyA9u/BR6ANLHKYn+6ihd5JgQ//Rmpuy8vYRYOud17OjRyy0IM
-# I1TQgUP7IMgogMera9ni7HYN1qzLKJ4+cuXu5ylO/r3d2dkfGQ4xpmYUaXyhCgcR
-# oH1Z5UwER1ayBmQYpoQ+dscyc8Xr4G7WTqE/mJt/J81+QLqNX3YbGwRSwe42iFt1
-# 112X7ldxo57GlSlv9oVOxPHqF4ZgXLxI+U7VjG1EMgRHkUxSqzDcBkV27wM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLEh12pspXAKrWhu
+# AAOPVNBen3RcMA0GCSqGSIb3DQEBAQUABIIBAFZ9Wl9A7PmNLEr/IUAmYXE/rwDe
+# cBwM/r/VNBl1TFxPM4YSYCFxXlEyYUAlYeAUf+2yLrIDMmXdLzTTnLEx/BWGQkkV
+# tkwCDFrLaSvY/vzCdScv9ovw7BRYvwBT6noEdfjcbPABr7Xb9WPxymj30XbYNt7U
+# SCoh5iuHfzZ1zKc/KSwEFJoLxC8UXoHvoRnRRcbwt8XaeKCSQA9wvBN0T43SEeb8
+# HsZA29wQzwV9HPJXj6Onqhn/gNjmlc+0EO/7JXZF6ojLz7LJ5kD9+WjISAIDWlC2
+# 6bd2IPl6fSGQv6/2I+URPlRWrTeXZRVwwSvDyBzIvOJ1I63pB1h7tsI91Z8=
 # SIG # End signature block
