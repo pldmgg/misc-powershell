@@ -98,7 +98,6 @@ function Get-NetworkInfo {
     $interfaces = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()
 
     foreach ($adapter in $interfaces) {
-        #$FinalPSObject = [pscustomobject]@{}
         $ipprops = $adapter.GetIPProperties()
         $ippropsPropertyNames = $($ipprops | Get-Member -MemberType Property).Name
 
@@ -121,29 +120,37 @@ function Get-NetworkInfo {
 
             if (!$InterfaceStatus -and !$AddressFamily) {
                 $FinalPSObject = Update-PSCustomObject @Params
-                $null = $PSObjectCollection.Add($FinalPSObject)
             }
 
             if ($InterfaceStatus -and $AddressFamily) {
                 if ($adapter.OperationalStatus -eq $InterfaceStatus -and $ip.Address.AddressFamily -eq $AddrFam) {
                     $FinalPSObject = Update-PSCustomObject @Params
-                    $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
 
             if ($InterfaceStatus -and !$AddressFamily) {
                 if ($adapter.OperationalStatus -eq $InterfaceStatus) {
                     $FinalPSObject = Update-PSCustomObject @Params
-                    $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
 
             if (!$InterfaceStatus -and $AddressFamily) {
                 if ($ip.Address.AddressFamily -eq $AddrFam) {
                     $FinalPSObject = Update-PSCustomObject @Params
-                    $null = $PSObjectCollection.Add($FinalPSObject)
                 }
             }
+        }
+
+        $adapterPropertyNames = $($adapter | Get-Member -MemberType Property).Name
+        foreach ($adapterPropName in $adapterPropertyNames) {
+            $FinalPSObjectMemberCheck = $($FinalPSObject | Get-Member -MemberType NoteProperty).Name
+            if ($FinalPSObjectMemberCheck -notcontains $adapterPropName) {
+                $FinalPSObject | Add-Member -MemberType NoteProperty -Name $adapterPropName -Value $($adapter.$adapterPropName)
+            }
+        }
+
+        if ($UnicastAddressesToExplore.Count -ne 0) {
+            $null = $PSObjectCollection.Add($FinalPSObject)
         }
     }
 
@@ -177,8 +184,8 @@ function Get-NetworkInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUT2oqME9QjsUEgeIXHf6iRkrO
-# XGGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0hUe1OMMsV9oH4P8liczdhHv
+# S8Cgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -235,11 +242,11 @@ function Get-NetworkInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCgu+nkkGNZKEpPJ
-# IUQcxsMSviy5MA0GCSqGSIb3DQEBAQUABIIBAL2vGw+HAJPfPxzmYQFRRUIykyY8
-# LvA4/EuSfWtjV3LhRVje++cB2GkAxjsJL9vVD2zPBjHcFtKRzmv9gX7NOqKy+q5E
-# 2k4Un93l5CZVbH0JXE2MlR4k5jPTAY/PU1NIQjJBKCr5YAyu4RoA1oph2n2tCkSR
-# MerIq0PdfMhmvaDHTrHsYhTVVo03o40Q0iFeS1LtLAxx1xSv44iB1IFZSX79dAhy
-# 2Hpw+M79QL1oLa9Oq8iFamDxM188QYUMF0mGD/BarhNrlWsSJXxg2s9PkMtYfo3h
-# 0dyyL8DTgAXiS9o1h5+n3nIIfHxH5oGoWJsh9r+8ASjOCbrmxlJcjV0mmdA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOq0GNDJGIIqRP7S
+# 4dH21oSrpkn1MA0GCSqGSIb3DQEBAQUABIIBAMA+ftdFJtKByU7wwzrV/tc4mZVd
+# LlyDJJ0osLM0p9bYWAKSj4pAUGqtUb4a+Nbdo7Uej65tcoZw3mFcKnGJHgONvBFQ
+# 5nS91J81eMtiYhth19SNNz6S/8MZ1eAlQHHclMs66CbkOpmyerT+GtADQjEiDdXW
+# E/Xmrf0o1UplkabJfZXWVdSyWPxHPuP1T3yfaHPrJ6t/DrwPCD2h6PZzG7LVBhUw
+# T8ww76E93f+zCyutqHP7zQhgHHq0pd0pINOzEc6HRwS7jWhGrhE2SsHzJVAnD0sS
+# OPAia8yMjiQazbQPnS7iq92BCCTuxlbAs7plOU/m3/ZhasVs+RkQS3pwZpk=
 # SIG # End signature block
