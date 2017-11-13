@@ -1,29 +1,27 @@
 <#
 .SYNOPSIS
-    Short description
+    Get all information about interfaces on your local machine
+
 .DESCRIPTION
-    Long description
-.NOTES
-    DEPENDENCIES
-        Helper scripts/functions and/or binaries needed for the function to work.
-.PARAMETER
-    N parameter
-.PARAMETER
-    N+1 parameter
+    See .SYNOPSIS
+
+.PARAMETER InterfaceStatus
+    This parameter is MANDATORY.
+    
+    This parameter takes a string that has a value of either "Up" or "Down".
+
+.PARAMETER AddressFamily
+    This parameter is MANDATORY.
+
+    This parameter takes a string that has a value of either "IPv4" or "IPv6"
+
 .EXAMPLE
-    Example of how to use this cmdlet
+    # On Windows
+    PS C:\Users\testadmin> Get-NetworkInfo -InterfaceStatus "Up" -AddressFamily "IPv4"
+
 .EXAMPLE
-    Another example of how to use this cmdlet
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
-.COMPONENT
-    The component this cmdlet belongs to
-.ROLE
-    The role this cmdlet belongs to
-.FUNCTIONALITY
-    The functionality that best describes this cmdlet
+    # On Linux
+    PS /home/pdadmin/Downloads> Get-NetworkInfo -InterfaceStatus "Up" -AddressFamily "IPv4"
 #>
 function Get-NetworkInfo {
     [CmdletBinding()]
@@ -116,7 +114,7 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 "@
 
     if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or 
-    $($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
+    $($PSVersionTable.PSVersion.Major -le 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
         # Adapter Properties for Windows...
         $adapterProps = $AllAdapterProps
 
@@ -210,8 +208,6 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
                             adapterProperties.Add("DhcpServerAddresses", String.Join(", ", ipProps.DhcpServerAddresses));
                             $adapterProps
                             
-                            
-
                             $ipProps
 
                             intDetails.adapterProperties = adapterProperties;
@@ -289,8 +285,8 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5cCZwmS543Gy0INKAeD4Un0a
-# p6Ogggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUtr2mY6kn+QoAS+DJEhZ2zYpi
+# 5hmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -347,11 +343,11 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI1VIXGiR3AbXtGX
-# FM5L7WT9cBDRMA0GCSqGSIb3DQEBAQUABIIBAH1hZQAc5WvyKZJbKjI9TwjAmnyQ
-# 7tEXC3CRh/D5hOk/G7J2AI0f5nFja9b6pijIN5HzB93RTilPthV799kxx7qxKYJF
-# BLCjMk1EQ87RG0OvDsD9sAorfpJMsBvKN5nIwHXsbTHsWJx3oBm0D+5DlznESpie
-# qknkIclSVINa5xFWkba9sfozJKT1okCMfedGEBQaKbjj1FHrWMGfgecZf61wyT6+
-# N+M+FpHtFQmp1eVKrP+0d36TW8Vr9Uv9j745qzq49Al0OrcYKPUR7ji3iOWMRY5y
-# hhzaLxye8OSQbxCf0uFO/x4YbWVCsbVbVKBjDI0lKoFBDBoBt/EnqE2IeG8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKL/LOy+Xrbfo8ok
+# Tmw1gwjzXyE0MA0GCSqGSIb3DQEBAQUABIIBAEHbeFNbwkzv1IIIGv2CDNaXakJn
+# R6wNowvc3E6zEJr2OfIUSw+nQrRb7o0JtxS9eQ34B7uGRUk/iF8IIsV7mwKcb0Nd
+# 532vtINbYR5tlXE9nFqJDCYc3qjmXSbmLUlMcOPJ3CRLAE58W227CFmbtlAPhcC9
+# zPFmMkvmFoQ16aGde/8OCIXLSiknNq+hEoBEJ0WApK5aFPxDahf07CvONf3SU5/X
+# GCJBpwbexSbETe7g0H9G3vPKi3KHDcl2Eams4YXzbq9pRBTaptknlw6i7+AYhJeE
+# J+OUkBmTtWqbZTBvpShZXAuIxML3N2v9KW1XzmaFW6jkOI024IS0CvhoKz8=
 # SIG # End signature block
