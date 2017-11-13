@@ -6,144 +6,83 @@
     See .SYNOPSIS
 
 .PARAMETER InterfaceStatus
-    This parameter is MANDATORY.
+    This parameter is OPTIONAL.
     
     This parameter takes a string that has a value of either "Up" or "Down".
 
 .PARAMETER AddressFamily
-    This parameter is MANDATORY.
+    This parameter is OPTIONAL.
 
     This parameter takes a string that has a value of either "IPv4" or "IPv6"
 
 .EXAMPLE
     # On Windows
-    PS C:\Users\testadmin> Get-NetworkInfo -InterfaceStatus "Up" -AddressFamily "IPv4"
+    PS C:\Users\testadmin> Get-NetworkInfo interfaceStatus "Up" -AddressFamily "IPv4"
 
 .EXAMPLE
     # On Linux
-    PS /home/pdadmin/Downloads> Get-NetworkInfo -InterfaceStatus "Up" -AddressFamily "IPv4"
+    PS /home/pdadmin/Downloads> Get-NetworkInfo interfaceStatus "Up" -AddressFamily "IPv4"
 #>
 function Get-NetworkInfo {
     [CmdletBinding()]
     Param
     (
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [ValidateSet("Up","Down")]
         [string]$InterfaceStatus,
 
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [ValidateSet("IPv4","IPv6")]
         [string]$AddressFamily
     )
 
+    ##### BEGIN Native Helper Functions #####
+
+    function Update-PSCustomObject {
+        [CmdletBinding()]
+        Param
+        (
+            [Parameter(Mandatory=$True)]
+            $ip,
+
+            [Parameter(Mandatory=$True)]
+            $ipprops,
+
+            [Parameter(Mandatory=$True)]
+            $ippropsPropertyNames
+        )
+
+        $FinalPSObjectPrep = [pscustomobject]@{}
+
+        foreach ($ippropsPropName in $ippropsPropertyNames) {
+            $FinalPSObjectMemberCheck = $($FinalPSObjectPrep | Get-Member -MemberType NoteProperty).Name
+            if ($FinalPSObjectMemberCheck -notcontains $ippropsPropName) {
+                $FinalPSObjectPrep | Add-Member -MemberType NoteProperty -Name $ippropsPropName -Value $($ipprops.$ippropsPropName)
+            }
+        }
+        
+        foreach ($UnicastPropName in $ipUnicastPropertyNames) {
+            $FinalPSObjectMemberCheck = $($FinalPSObjectPrep | Get-Member -MemberType NoteProperty).Name
+            if ($FinalPSObjectMemberCheck -notcontains $UnicastPropName) {
+                $FinalPSObjectPrep | Add-Member -MemberType NoteProperty -Name $UnicastPropName -Value $($ip.$UnicastPropName)
+            }
+        }
+
+        $FinalPSObjectPrep
+    }
+
+    ##### END Native Helper Functions #####
+
+
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
-
-    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or 
-    $($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
-        $AssembliesToLoad = @(
-            "Microsoft.CSharp"
-            "mscorlib"
-            "System"
-            "System.Collections"
-            "System.Core"
-            "System.IO"
-            "System.Linq"
-            "System.Net.NetworkInformation"
-            "System.Net.Primitives"
-            "System.Runtime"
-            "System.Runtime.Extensions"
-        )
-    }
-    if ($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") {
-        $AssembliesToLoad = @(
-            "Microsoft.CSharp"
-            "System"
-            "System.Collections"
-            "System.Console"
-            "System.Core"
-            "System.IO"
-            "System.Linq"
-            "System.Net.NetworkInformation"
-            "System.Net.Primitives"
-            "System.Net.Sockets"
-            "System.Private.CoreLib"
-            "System.Runtime"
-            "System.Runtime.Extensions"
-        )
-    }
-
-    $usingStatementsAsString = @"
-    using Microsoft.CSharp;
-    using System.Collections.Generic;
-    using System.Collections;
-    using System.IO;
-    using System.Linq;
-    using System.Net.NetworkInformation;
-    using System.Net.Sockets;
-    using System.Net;
-    using System.Runtime;
-    using System;
-"@
-
-    [System.Collections.ArrayList]$AssembliesFullInfo = @()
-    foreach ($AssemblyName in $AssembliesToLoad) {
-        $AssemCheck = $CurrentlyLoadedAssemblies | Where-Object {$_.GetName().Name -eq $AssemblyName}
-        if (!$AssemCheck) {
-            $AssemblyInfo = [System.Reflection.Assembly]::LoadWithPartialName($AssemblyName)
-            $null = $AssembliesFullInfo.Add($AssemblyInfo)
+    if ($AddressFamily) {
+        if ($AddressFamily -eq "IPv4") {
+            $AddrFam = "InterNetwork"
         }
-        else {
-            $null = $AssembliesFullInfo.Add($AssemCheck)
+        if ($AddressFamily -eq "IPv6") {
+            $AddrFam = "InterNetworkV6"
         }
-    }
-    $AssembliesFullInfo = $AssembliesFullInfo | Where-Object {$_.IsDynamic -eq $False}
-
-    $ReferencedAssemblies = $AssembliesFullInfo.FullName | Sort-Object | Get-Unique
-
-    $AllAdapterProps = @"
-adapterProperties.Add("Id", adapter.Id.ToString());
-adapterProperties.Add("Name", adapter.Name.ToString());
-adapterProperties.Add("Description", adapter.Description.ToString());
-adapterProperties.Add("OperationalStatus", adapter.OperationalStatus.ToString());
-adapterProperties.Add("Speed", adapter.Speed.ToString());
-adapterProperties.Add("IsReceiveOnly", adapter.IsReceiveOnly.ToString());
-adapterProperties.Add("SupportsMulticast", adapter.SupportsMulticast.ToString());
-adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToString());
-"@
-
-    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or 
-    $($PSVersionTable.PSVersion.Major -le 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
-        # Adapter Properties for Windows...
-        $adapterProps = $AllAdapterProps
-
-        $DynamicDnsProperty = 'adapterProperties.Add("IsDynamicDnsEnabled", ipProps.IsDynamicDnsEnabled.ToString());'
-
-        # IP Properties for Windows...
-        $ipProps = @"
-        ipProperties.Add("AddressPreferredLifetime", ip.AddressPreferredLifetime.ToString());
-        ipProperties.Add("AddressValidLifetime", ip.AddressValidLifetime.ToString());
-        ipProperties.Add("DhcpLeaseLifetime", ip.DhcpLeaseLifetime.ToString());
-        ipProperties.Add("DuplicateAddressDetectionState", ip.DuplicateAddressDetectionState.ToString());
-        ipProperties.Add("PrefixOrigin", ip.PrefixOrigin.ToString());
-        ipProperties.Add("SuffixOrigin", ip.SuffixOrigin.ToString());
-        ipProperties.Add("IPv4Mask", ip.IPv4Mask.ToString());
-        ipProperties.Add("PrefixLength", ip.PrefixLength.ToString());
-        ipProperties.Add("Address", ip.Address.ToString());
-        ipProperties.Add("IsDnsEligible", ip.IsDnsEligible.ToString());
-        ipProperties.Add("IsTransient", ip.IsTransient.ToString());
-"@
-    }
-    if ($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") {
-        # Adapter Properties for Linux...
-        $adapterProps = $($AllAdapterProps -split "`n" | Where-Object {$_ -notlike "*IsReceiveOnly*"}) -join "`n"
-
-        # IP Properties for Linux...
-        $ipProps = @"
-        ipProperties.Add("IPv4Mask", ip.IPv4Mask.ToString());
-        ipProperties.Add("Address", ip.Address.ToString());
-"@
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -151,111 +90,46 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 
     ##### BEGIN Main Body #####
 
-    $TypeDefinition = @"
-    $usingStatementsAsString
-    
-    namespace MyCore.Utils
-    { 
-        public class NetworkInfo
-        {
-            public static List<InterfaceDetails> GetIPInfo(string operationalStatus = "Up", string ipAddressFamily = "IPv4")
-            {
-                var interfaces = NetworkInterface.GetAllNetworkInterfaces();
-                List<InterfaceDetails> output = new List<InterfaceDetails>();
-            
-                AddressFamily addrFam = new AddressFamily();
-                if (ipAddressFamily == "IPv4")
-                {
-                    addrFam = AddressFamily.InterNetwork;
-                }
-                else
-                {
-                    addrFam = AddressFamily.InterNetworkV6;
-                }
-            
-                OperationalStatus opStat = new OperationalStatus();
-                if (operationalStatus == "Up")
-                {
-                    opStat = OperationalStatus.Up;
-                }
-                else
-                {
-                    opStat = OperationalStatus.Down;
-                }
-            
-                foreach (NetworkInterface adapter in interfaces)
-                {
-                    var ipProps = adapter.GetIPProperties();
-            
-                    foreach (var ip in ipProps.UnicastAddresses)
-                    {
-                        if ((adapter.OperationalStatus == opStat) && (ip.Address.AddressFamily == addrFam))
-                        {
-                            InterfaceDetails intDetails = new InterfaceDetails();
-                            Dictionary<string, string> adapterProperties = new Dictionary<string, string>();
-                            Dictionary<string, string> ipProperties = new Dictionary<string, string>();
-                            
-                            adapterProperties.Add("IsDnsEnabled", ipProps.IsDnsEnabled.ToString());
-                            adapterProperties.Add("DnsSuffix", ipProps.DnsSuffix.ToString());
-                            $DynamicDnsProperty
-                            adapterProperties.Add("DnsAddresses", String.Join(", ", ipProps.DnsAddresses));
-                            List<string> GatewayAddressList = new List<string>();
-                            foreach (GatewayIPAddressInformation address in ipProps.GatewayAddresses)
-                            {
-                                GatewayAddressList.Add(address.Address.ToString());
-                            }
-                            adapterProperties.Add("GatewayAddresses", String.Join(", ", GatewayAddressList));
-                            adapterProperties.Add("DhcpServerAddresses", String.Join(", ", ipProps.DhcpServerAddresses));
-                            $adapterProps
-                            
-                            $ipProps
+    [System.Collections.Arraylist]$PSObjectCollection = @()
+    $interfaces = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()
 
-                            intDetails.adapterProperties = adapterProperties;
-                            intDetails.ipProperties = ipProperties;
-                            
-                            output.Add(intDetails);
-                        }
-                    }
+    foreach ($adapter in $interfaces) {
+        #$FinalPSObject = [pscustomobject]@{}
+        $ipprops = $adapter.GetIPProperties()
+        $ippropsPropertyNames = $($ipprops | Get-Member -MemberType Property).Name
+
+        foreach ($ip in $ipprops.UnicastAddresses) {
+            $ipUnicastPropertyNames = $($ip | Get-Member -MemberType Property).Name
+
+            if (!$InterfaceStatus -and !$AddressFamily) {
+                $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                $null = $PSObjectCollection.Add($FinalPSObject)
+            }
+
+            if ($InterfaceStatus -and $AddressFamily) {
+                if ($adapter.OperationalStatus -eq $InterfaceStatus -and $ip.Address.AddressFamily -eq $AddrFam) {
+                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                    $null = $PSObjectCollection.Add($FinalPSObject)
                 }
-                
-                return output;
+            }
+
+            if ($InterfaceStatus -and !$AddressFamily) {
+                if ($adapter.OperationalStatus -eq $InterfaceStatus) {
+                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                    $null = $PSObjectCollection.Add($FinalPSObject)
+                }
+            }
+
+            if (!$InterfaceStatus -and $AddressFamily) {
+                if ($ip.Address.AddressFamily -eq $AddrFam) {
+                    $FinalPSObject = Update-PSCustomObject -ip $ip -ipprops $ipprops -ippropsPropertyNames $ippropsPropertyNames
+                    $null = $PSObjectCollection.Add($FinalPSObject)
+                }
             }
         }
-    
-        public class InterfaceDetails
-        {
-            public Dictionary<string, string> adapterProperties { get; set; }
-            public Dictionary<string, string> ipProperties { get; set; }
-        }
+
+        $PSObjectCollection
     }
-"@
-
-    $CheckMyCoreUtilsNetworkInfoLoaded = $CurrentlyLoadedAssemblies | Where-Object {$_.ExportedTypes -like "MyCore.Utils.NetworkInfo*"}
-    if ($CheckMyCoreUtilsNetworkInfoLoaded -eq $null) {
-        Add-Type -ReferencedAssemblies $ReferencedAssemblies -TypeDefinition $TypeDefinition
-    }
-    else {
-        Write-Verbose "The Namespace MyCore.Utils Class NetworkInfo is already loaded and available!"
-    }
-
-    $ResultsPrep = [MyCore.Utils.NetworkInfo]::GetIPInfo($InterfaceStatus, $AddressFamily)
-    $ResultsPrep2 = $($ResultsPrep.GetEnumerator())
-
-    [System.Collections.ArrayList]$Results = @()
-    for ($i=0; $i -lt $ResultsPrep2.Count; $i++) {
-        $IPProperties = $ResultsPrep2[$i].ipProperties
-        $AdapterProperties = $ResultsPrep2[$i].adapterProperties
-        $resultht = $IPProperties + $AdapterProperties
-
-        $result = [pscustomobject]@{}
-        foreach ($key in $resultht.Keys) {
-            $result | Add-Member -MemberType NoteProperty -Name $key -Value $resultht[$key]
-        }
-        
-        $null = $Results.Add($result)
-    }
-
-    $Results
 
     ##### END Main Body #####
         
@@ -285,8 +159,8 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUtr2mY6kn+QoAS+DJEhZ2zYpi
-# 5hmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWWlayECT05V1tAtOSIeZKKgI
+# J2+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -343,11 +217,11 @@ adapterProperties.Add("NetworkInterfaceType", adapter.NetworkInterfaceType.ToStr
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKL/LOy+Xrbfo8ok
-# Tmw1gwjzXyE0MA0GCSqGSIb3DQEBAQUABIIBAEHbeFNbwkzv1IIIGv2CDNaXakJn
-# R6wNowvc3E6zEJr2OfIUSw+nQrRb7o0JtxS9eQ34B7uGRUk/iF8IIsV7mwKcb0Nd
-# 532vtINbYR5tlXE9nFqJDCYc3qjmXSbmLUlMcOPJ3CRLAE58W227CFmbtlAPhcC9
-# zPFmMkvmFoQ16aGde/8OCIXLSiknNq+hEoBEJ0WApK5aFPxDahf07CvONf3SU5/X
-# GCJBpwbexSbETe7g0H9G3vPKi3KHDcl2Eams4YXzbq9pRBTaptknlw6i7+AYhJeE
-# J+OUkBmTtWqbZTBvpShZXAuIxML3N2v9KW1XzmaFW6jkOI024IS0CvhoKz8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFuO0O4cbqqMlMIU
+# 9I5Su7RENDiEMA0GCSqGSIb3DQEBAQUABIIBADwL+4MMG45ygNkkLBCCpSdpZfl3
+# ngvQt4h+PmdtQG3FqwdoQbexGvy/7sjdcqXXlNGUhIEQusIZyed1zUB6B13/C+yh
+# y+tUAvGRy1UbVdWyA9u/BR6ANLHKYn+6ihd5JgQ//Rmpuy8vYRYOud17OjRyy0IM
+# I1TQgUP7IMgogMera9ni7HYN1qzLKJ4+cuXu5ylO/r3d2dkfGQ4xpmYUaXyhCgcR
+# oH1Z5UwER1ayBmQYpoQ+dscyc8Xr4G7WTqE/mJt/J81+QLqNX3YbGwRSwe42iFt1
+# 112X7ldxo57GlSlv9oVOxPHqF4ZgXLxI+U7VjG1EMgRHkUxSqzDcBkV27wM=
 # SIG # End signature block
