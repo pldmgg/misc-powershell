@@ -1,25 +1,28 @@
 <#
 .SYNOPSIS
-    Short description
-.DESCRIPTION
-    Long description
-.NOTES
-    DEPENDENCEIES
-        Helper scripts/functions and/or binaries needed for the function to work.
-.PARAMETER
-    N parameter
-.PARAMETER
-    N+1 parameter
-.EXAMPLE
-    Example of how to use this cmdlet
-.EXAMPLE
-    Another example of how to use this cmdlet
-.INPUTS
-    Inputs to this cmdlet (if any)
-.OUTPUTS
-    Output from this cmdlet (if any)
-#>
+    Input a Host Name or IP Address and use DNS to figure out:
+    - IPAddressList (i.e. all associated IP Addresses that host might be using that DNS is aware of)
+    - FQDN
+    - HostName
+    - Domain
 
+.DESCRIPTION
+    See .SYNOPSIS
+
+.PARAMETER HostNameOrIP
+    This parameter is MANDATORY
+
+    This parameter takes a string that represents either an IP Address or a DNS-resolvable Host Name
+
+.EXAMPLE
+    Resolve-Host -HostNameOrIP 192.168.2.30
+
+.EXAMPLE
+    Resolve-Host -HostNameOrIP win12ws
+
+.EXAMPLE
+    Resolve-Host -HostNameOrIP win12ws.test2.lab
+#>
 function Resolve-Host {
     [CmdletBinding()]
     Param(
@@ -36,11 +39,6 @@ function Resolve-Host {
     }
 
     ## END Native Helper Functions ##
-
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
     
 
     ##### BEGIN Main Body #####
@@ -104,9 +102,28 @@ function Resolve-Host {
         return
     }
 
+    [System.Collections.ArrayList]$HostNameList = @()
+    [System.Collections.ArrayList]$DomainList = @()
+    foreach ($fqdn in $RemoteHostFQDNs) {
+        $PeriodCheck = $($fqdn | Select-String -Pattern "\.").Matches.Success
+        if ($PeriodCheck) {
+            $HostName = $($fqdn -split "\.")[0]
+            $Domain = $($fqdn -split "\.")[1..$($($fqdn -split "\.").Count-1)] -join '.'
+        }
+        else {
+            $HostName = $fqdn
+            $Domain = "Unknown"
+        }
+
+        $null = $HostNameList.Add($HostName)
+        $null = $DomainList.Add($Domain)
+    }
+
     [pscustomobject]@{
         IPAddressList   = $RemoteHostArrayOfIPAddresses
-        FQDNList        = $RemoteHostFQDNs
+        FQDN            = $RemoteHostFQDNs[0]
+        HostName        = $HostNameList[0]
+        Domain          = $DomainList[0]
     }
 
     ##### END Main Body #####
@@ -127,8 +144,8 @@ function Resolve-Host {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUThgVoJ7JAijmsfdPWh+XhpLW
-# F2Cgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9wh5uH2ytjG/Ky2hUpyOm31s
+# plGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -185,11 +202,11 @@ function Resolve-Host {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEdCuZqlBfXp+Gbc
-# YBNXyf27fRN4MA0GCSqGSIb3DQEBAQUABIIBAL6ZMU71MGOcnoi9+qLFcEheA3ki
-# o/cRew4hlMG0YiwXipEvWTrmbtJvBxFciN6HB0CMVPzr1ut+xkpqRNVk7KI+9wRY
-# CeKzwkOXVcu7O8LBNsp+JCLfnyBeXghDQEaU6M3zaxZ8w+lAEqBjTp6FLj3VZxQC
-# kKm9elzcc1hBoxK6Mq8y1YJNC3CDEmXowcBvfirN9BEwaMHo0ghr8ky4tU8XIFa7
-# ezw7d+adj7Qh6AIC1BKJilGTMc0dANa5n5UPhiMOAXbj0dRt+TwTgwYNFdI+10cR
-# u9t174BtUY0G7PJUHhTZVlBt0NmpK9gPIIMdGLdUFr9q/VL/zngBLRb7ElU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCviXjRmh7ZEcJlF
+# mkKEN78+DvayMA0GCSqGSIb3DQEBAQUABIIBADLD9WLuU6GRO6SGX2OI1n94r+vE
+# nHYom/dcnekxraFWQHKBkFCUZKCTBV3QOATcZiKekN3lY/uVw/5d52KA19SlfiH4
+# toTJi4z+IeGzGMc0dxNlIWURIiUwUEvbKQGNRhCBkZXdwcleSphUjQhYV/zCIHiO
+# 5NWb8sCXytmx6XhyIUYSG0DehFHWBpAB2BPMCisfpZx4Gw8k19DgV/Z7PlZFox2K
+# 2JW0+ih/j7ySiIYh39VggS5R1vwRJWw32NA6mPmCREE1mx+hqGMRQqv4zhGj7Kfq
+# Sxfm3fBvfS/FOfCp7cRvTQAdOQ04X+ci5+Hu/2eCtV7Eq+zSauagd5dXW98=
 # SIG # End signature block
