@@ -1,23 +1,45 @@
 <##
 .SYNOPSIS
-    Short description
+    Bootstrap an etcd cluster of Windows machines.    
+
 .DESCRIPTION
-    Long description
-.NOTES
-    DEPENDENCEIES
-        Helper scripts/functions and/or binaries needed for the function to work.
-.PARAMETER
-    N parameter
-.PARAMETER
-    N+1 parameter
+    Installs etcd as a Windows Service on a specified group of Windows machines.
+
+    This established a reliable way to store key/value pairs across a cluster of machines and
+    provides a relatively easy way to coordinate tasks among them.    
+
+.PARAMETER HostNamesOrIPsOfHostsInCluster
+    This parameter is MANDATORY.
+
+    This parameter takes an array of strings (must be 3 or more), each of which represents a DNS-resolvable
+    hostname or IP Address of **Windows Machines** that you would like to become members of the NEW etcd Cluster.
+    
+.PARAMETER LocalHostDataDirectory
+    This parameter is OPTIONAL.
+
+    This parameter takes a string that represents a full path to a directory that is available locally on
+    each of the Cluster Members.
+
+    If this parameter is not used, the default value is "C:\etcd"
+
+    NOTE: The specified directory must ALREADY EXIST on the Remote Hosts. If it does not, the function will
+    halt.
+
+.PARAMETER RemoteHostCredentials
+    This parameter is OPTIONAL.
+
+    This parameter takes a PSCredential object that represents a single set of credentials (i.e. Username and
+    Password) that can be used to access ALL Remote Hosts specified by the -HostNamesOrIPsOfHostsInCluster
+    parameter.
+
 .EXAMPLE
-    Example of how to use this cmdlet
+    Bootstrap-EtcdCluster -HostNamesOrIPsOfHostsInCluster @("win16chef","win12ws","win12chef")    
+
 .EXAMPLE
-    Another example of how to use this cmdlet
-.INPUTS
-    Inputs to this cmdlet (if any)
+    Bootstrap-EtcdCluster -HostNamesOrIPsOfHostsInCluster @("win16chef","win12ws","win12chef") -LocalHostDataDirectory "E:\etcd"    
+
 .OUTPUTS
-    Output from this cmdlet (if any)
+    A PSCustomObject with properties 'ClusterHealth' and 'MemberList' 
 #>
 
 function Bootstrap-EtcdCluster {
@@ -27,10 +49,10 @@ function Bootstrap-EtcdCluster {
         [string[]]$HostNamesOrIPsOfHostsInCluster,
 
         [Parameter(Mandatory=$False)]
-        [string]$LocalHostDataDirectory, # A drive path that exists locally on EACH of the hosts in the cluster. Defaults to C:\etcd.
+        [string]$LocalHostDataDirectory,
 
         [Parameter(Mandatory=$False)]
-        [System.Management.Automation.PSCredential]$RemoteHostCredentials # One set of credentials for ALL hosts in cluster
+        [System.Management.Automation.PSCredential]$RemoteHostCredentials
     )
 
     ##### BEGIN Native Helper Functions #####
@@ -1704,8 +1726,8 @@ force-new-cluster: false
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6HUzr3VcM+gp20csA9GM6862
-# bQqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUY48ckU8RMynI9U8NTWL2LypD
+# CDSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1762,11 +1784,11 @@ force-new-cluster: false
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFfSNKL1UOeZ5SEL
-# Ar22Kv4NfbfIMA0GCSqGSIb3DQEBAQUABIIBAEx65PpSYkeTExLvc+PQdEfaAjLI
-# 12I79WDz8ucRg5odxKGBN6Vue1fFq5dhcRLK56sHQV137Xm7RhaZRUzL6RaLthN1
-# Am0jf6qq064TOdGrU4nQOptRHk8cEbv+SP0bcbIRBQ8nHkcTmNXHLi1hDZK61o2q
-# ZMNdp6/i4AqFrpYo5sLAWFqfIYuwA6thwOGc9dQ6f37xn1NAIaJNh+rxIBNEM82F
-# e/O4WVyTSbAX0T4CNML1VcNIovbFH0I/rYsk5yQnt2Qg3b4ZRB+ZsLs4kR1UMubQ
-# zBH/z9+jm+Nx0GxZkQ/oOsRa0eLZsFVaGBROL14xvZKU6HVfBgyuHi4NDDQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPTY3i6KeHElBHax
+# vSp0FRzhqD6uMA0GCSqGSIb3DQEBAQUABIIBABVbprl88KnXule1mJreE88vP2t1
+# eIB2qpb9sRaYyf9GBpzU3tL79hou3C3LkA9gZYybjVcyvQqBlAak5cDuDAXpIIM8
+# nWO/mcaJnAph09unD7mJDYSAf4paWo78ti98ApApSCZO1O3vEzurOZiCsdJLHaNs
+# lH9hQPvzwxp62N6Q7dOWkwfelbdEXQCjiR9oRP0pCrnx/rqayoeqUQABCsTbcy4F
+# +4MvX4Axw890UqnAAsfwgA0MFvoPti9y52Vhe+PUrwtzjkU8saknd18GYTLG99nl
+# l3YtVNwDanXElSo1SZ+eKsB+tVUjlHXb0ydd7UXGdMFzwM8qKTcxDk0RIrs=
 # SIG # End signature block
