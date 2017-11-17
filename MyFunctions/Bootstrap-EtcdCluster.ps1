@@ -1038,7 +1038,12 @@ function Bootstrap-EtcdCluster {
         # binaries under C:\Chocolatey recursively, else, assume we should look under
         # C:\ProgramData\chocolatey\lib recursively
         if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
-            $ChocolateyPath = "C:\Chocolatey"
+            if (Test-Path "C:\Chocolatey") {
+                $ChocolateyPath = "C:\Chocolatey"
+            }
+            elseif (Test-Path "C:\ProgramData\chocolatey") {
+                $ChocolateyPath = "C:\ProgramData\chocolatey"
+            }
         }
         else {
             $ChocolateyPath = "$($($(Get-Command choco).Source -split "chocolatey")[0])chocolatey"
