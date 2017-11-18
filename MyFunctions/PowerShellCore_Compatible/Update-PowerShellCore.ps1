@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     Use PowerShell to Update PowerShell Core. If you're on Windows, this function can be used to do the initial
-    install of PowerShell Core. On any other OS, a beta version of PowerShell Core must already be installed and
-    used to run this function.
+    install of PowerShell Core. On any other OS, a version of PowerShell Core (at least 6.0.0-beta) must already
+    be installed and used to run this function.
 
 .DESCRIPTION
     See SYNOPSIS
@@ -45,7 +45,7 @@
 .Parameter Channel
     OPTIONAL
 
-    This parameter takes a string (i.e. 'beta' or 'stable') that indicates the Channel
+    This parameter takes a string (i.e. 'beta', 'rc', or 'stable') that indicates the Channel
     of the PowerShell Core Release that you would like to install.
 
     If the parameter is not used, the function will default to using the latest Channel for the
@@ -65,12 +65,14 @@
     OPTIONAL
 
     This parameter is a switch. If it is used, then the latest release of PowerShell Core available
-    will be installed.
+    will be installed. This switch overrides the -ReleaseVersion, -Channel, and -Iteration parameters
+    (i.e. it will be as if they were not used at all). By the same token, if you do not use any of the
+    -ReleaseVersion, -Channel, and -Iteration parameters, it will be as if this switch is used.
 
     IMPORTANT NOTE: Sometimes Package Management repositories are ahead of
     https://github.com/PowerShell/PowerShell/releases, and sometimes they are behind. If this
-    parameter is used, then it will either use PackageManagment OR Direct Download - whichever
-    is most recent.
+    parameter is used, then it will essentially ignore the -DownloadDirectory and -UsePackageManagement
+    parameters and use the install method that has the latest PowerShell Core package available.
 
 .EXAMPLE
     Update-PowerShellCore
@@ -1642,8 +1644,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHa+NmUkLoLqXRhOx71CpbDem
-# S8qgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUb2aN46hj3Fa+zgAViz/ziEQp
+# JVGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1700,11 +1702,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN8r9QocaI6RD+fv
-# aeWvzAWCUrqTMA0GCSqGSIb3DQEBAQUABIIBAHzS4bgyDxZ9tR2q8UaTF0x2eCCG
-# 8xtBSWW/+xglRs5uXXWz5CgAh/zHCro0WdQ4q81MOoUaxH4+NIGgyB1cbXuc2O56
-# E5nFOpjtOO2KWrZPS9oDeqGAuPufSnsFx1AtaXaXYhnLljiFcvDapPTV5MyBSqrq
-# eBVaAPxnnkhm5K/fccuuW5BNnAu4iqgRD9NX7VnvwyJDVtNSRy0PY0pz2IfvQOh5
-# oOxMyUabg0AAusuEVnTUulNWMdadUAjX2F8XO4DBmiXn8ldpZbhUOnZZUG3QK9HX
-# NghlfZx4jYjtreVdl1Gxdbo60SpvOUYnZJQ753CZ8aWhvd8DChFC4/34YYk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEfe8Ky8R5HInWs0
+# phmCmfwDqUsCMA0GCSqGSIb3DQEBAQUABIIBAEFFwLboNuEp/mG4XSFDCbx1TryR
+# xJExSMbpvkHxPoH9BcxAnY7WXBVPDULdtan+tkluDuBhYSotzxuWbtQ/mU6CFpR3
+# kmNblTEAlBDSLnYgA8InvqqT7c1gh3NiF9TL5sUwnXGeYUyKzN2Zu2fzZWikhp6r
+# SX02gV/oqorBdlYgjS/UvtTPcEBVSKAiY+379suVx3NApIeiuskdSub1kn1e/pjk
+# 2w1Jvm7iU1gcFkSNTXoOtR9MNlP3wA7so18nd9FTHTwRBhlH58jFCg9rGH4SSYnB
+# w9J+GhncGBO6Nzd8BxZqCPaAW/US+Gw3vOf0H7OK2nxLdlJ+md/MM9HfAUc=
 # SIG # End signature block
