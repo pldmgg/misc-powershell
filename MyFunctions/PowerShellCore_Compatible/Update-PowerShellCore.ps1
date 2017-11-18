@@ -109,7 +109,7 @@ function Update-PowerShellCore
         $ReleaseVersion,
 
         [Parameter(Mandatory=$False)]
-        [ValidateSet("beta", "stable")]
+        [ValidateSet("beta", "rc", "stable")]
         $Channel,
 
         [Parameter(Mandatory=$False)]
@@ -894,7 +894,10 @@ function Update-PowerShellCore
 
         [System.Collections.ArrayList]$PossibleReleaseVersions = [array]$($($PSCoreFullVersionArray | foreach {$($_ -split "-")[0]}) | Sort-Object | Get-Unique)
         [System.Collections.ArrayList]$PossibleChannels = [array]$($PSCoreFullVersionArray | foreach {$($_ | Select-String -Pattern "[a-zA-Z]+").Matches.Value} | Sort-Object | Get-Unique)
-        [System.Collections.ArrayList]$PossibleIterations = [array]$($PSCoreFullVersionArray | foreach {[int]$($_ -split "\.")[-1]} | Sort-Object | Get-Unique)
+        [System.Collections.ArrayList]$PossibleIterations = [array]$($PSCoreFullVersionArray | foreach {
+            try {[int]$($_ -split "\.")[-1]} catch {}
+        } | Sort-Object | Get-Unique)
+
 
         if ($ReleaseVersion) {
             if (!$($PossibleReleaseVersions -contains $ReleaseVersion)) {
@@ -923,7 +926,7 @@ function Update-PowerShellCore
             $PSCoreOption = [pscustomobject][ordered]@{
                 ReleaseVersion   = $($PSCoreFullVerString -split "-")[0]
                 Channel          = $($PSCoreFullVerString | Select-String -Pattern "[a-zA-Z]+").Matches.Value
-                Iteration        = $($PSCoreFullVerString -split "\.")[-1]
+                Iteration        = try {[int]$($PSCoreFullVerString -split "\.")[-1]} catch {$null}
             }
 
             $null = $PSCoreOptions.Add($PSCoreOption)
@@ -941,14 +944,22 @@ function Update-PowerShellCore
             if ($PotentialOptions.Channel -contains "stable") {
                 $Channel = "stable"
             }
-            if ($PotentialOptions.Channel -contains "beta") {
+            elseif ($PotentialOptions.Channel -contains "rc") {
+                $Channel = "rc"
+            }
+            elseif ($PotentialOptions.Channel -contains "beta") {
                 $Channel = "beta"
             }
         }
         $PotentialOptions = $PotentialOptions | Where-Object {$_.Channel -eq $Channel}
 
         if (!$Iteration) {
-            $LatestIteration = $($PotentialOptions.Iteration | foreach {[int]$_} | Sort-Object)[-1]
+            if ($PotentialOptions.Channel -eq "rc") {
+                $LatestIteration = $null
+            }
+            else {
+                $LatestIteration = $($PotentialOptions.Iteration | foreach {[int]$_} | Sort-Object)[-1]
+            }
             $Iteration = $LatestIteration
         }
         $PotentialOptions = $PotentialOptions | Where-Object {$_.Iteration -eq $Iteration}
@@ -967,7 +978,7 @@ function Update-PowerShellCore
                 $hrefMatch = "*$OS*x64.msi"
             }
             else {
-                $hrefMatch = "*$ReleaseVersion*$Channel.$Iteration*$OS*x64.msi"
+                $hrefMatch = "*$ReleaseVersion*$Channel*$Iteration*$OS*x64.msi"
             }
         }
     
@@ -976,7 +987,7 @@ function Update-PowerShellCore
                 $hrefMatch = "*$OS*x64.pkg"
             }
             else {
-                $hrefMatch = "*$ReleaseVersion*$Channel.$Iteration*$OS*x64.pkg"
+                $hrefMatch = "*$ReleaseVersion*$Channel*$Iteration*$OS*x64.pkg"
             }
         }
 
@@ -985,7 +996,7 @@ function Update-PowerShellCore
                 $hrefMatch = "*x86_64.AppImage"
             }
             else {
-                $hrefMatch = "*$ReleaseVersion*$Channel.$Iteration*x86_64.AppImage"
+                $hrefMatch = "*$ReleaseVersion*$Channel*$Iteration*x86_64.AppImage"
             }
         }
 
@@ -994,7 +1005,7 @@ function Update-PowerShellCore
                 $hrefMatch = "*$OS*$UbuntuVersion*64.deb"
             }
             else {
-                $hrefMatch = "*$ReleaseVersion*$Channel.$Iteration*$OS*$UbuntuVersion*64.deb"
+                $hrefMatch = "*$ReleaseVersion*$Channel*$Iteration*$OS*$UbuntuVersion*64.deb"
             }
         }
 
@@ -1034,12 +1045,13 @@ function Update-PowerShellCore
             $DownloadDirectory = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileNameSansExt)
             $DownloadPath = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileName)
         }
-        $PSFullVersion = $($DownloadFileNameSansExt | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-beta\.[0-9]").Matches.Value
-        $PSRelease = $PSFullVersion.Split("-")[0]
-        $PSChannel = $PSFullVersion.Split("-")[-1].Split(".")[0]
-        $PSIteration = $PSFullVersion.Split(".")[-1]
+        $PSFullVersion = $($DownloadFileNameSansExtNew | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-.*?win").Matches.Value -replace "-win",""
+        $PSRelease = $($PSFullVersion -split "-")[0]
+        $PSChannel = $($PSFullVersion | Select-String -Pattern "[a-zA-Z]+").Matches.Value
+        $PSIteration = $($($PSFullVersion -split "-") | Where-Object {$_ -match "[a-zA-Z].+[\d]"} | Select-String -Pattern "[\d]").Matches.Value
     }
     catch {
+        Write-Error $Error[0]
         Write-Error "Unable to find matching PowerShell Core version on https://github.com/powershell/powershell/releases"
         $global:FunctionResult = "1"
         return
@@ -1630,8 +1642,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyUs6bw99y+kiIjhkKT4+lWEx
-# C22gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHa+NmUkLoLqXRhOx71CpbDem
+# S8qgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1688,11 +1700,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPZpWBm0FVYWy12i
-# /m0x0I7bOvCgMA0GCSqGSIb3DQEBAQUABIIBADO7MQIgbCLRGG42DLjZLIVvgJTd
-# 59PMFhv9zQV3XhvCuVtC+kYmSKGBrEhEbKUL5ZWxne72JC5MohsBFpulQAPiVvBa
-# Q9pVszNovXaAt7gWIZCiXKCzztOo39zkU7gIyEdrcEFgQDynUia9yP9f+405tE6j
-# +squNnOcK/XJve07C/h1jEZEtIaFrKLnYlL2qtnNMem/YR+JwLFMqtf+TT7euZJp
-# HCcOiANPC3V6926zEwOcpIr3XaZKaWcBoK0suApFczTe3nXFNK67IYuPrBd9Isxu
-# oof0cQbwsoIhLxLas5k/cMA9iXylcYCEmVa9XM9WFyhCIpUGHvkZ46hY5W8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN8r9QocaI6RD+fv
+# aeWvzAWCUrqTMA0GCSqGSIb3DQEBAQUABIIBAHzS4bgyDxZ9tR2q8UaTF0x2eCCG
+# 8xtBSWW/+xglRs5uXXWz5CgAh/zHCro0WdQ4q81MOoUaxH4+NIGgyB1cbXuc2O56
+# E5nFOpjtOO2KWrZPS9oDeqGAuPufSnsFx1AtaXaXYhnLljiFcvDapPTV5MyBSqrq
+# eBVaAPxnnkhm5K/fccuuW5BNnAu4iqgRD9NX7VnvwyJDVtNSRy0PY0pz2IfvQOh5
+# oOxMyUabg0AAusuEVnTUulNWMdadUAjX2F8XO4DBmiXn8ldpZbhUOnZZUG3QK9HX
+# NghlfZx4jYjtreVdl1Gxdbo60SpvOUYnZJQ753CZ8aWhvd8DChFC4/34YYk=
 # SIG # End signature block
