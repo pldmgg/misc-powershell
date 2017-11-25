@@ -372,7 +372,7 @@ function Start-Sniffer {
         }
         # timeout after $Seconds...
         if ($Seconds -ne 0 -and ($([DateTime]::Now) -gt $starttime.addseconds($Seconds))) {
-            return
+            $running = $false
         }
         # no packets in card buffer...
         if (-not $Socket.Available) {
@@ -786,8 +786,8 @@ function Start-Sniffer {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmDU/jgrctJ46dU3VVUU+aCr2
-# nPmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgyr9yznKaIheQs+5kiFlyTfO
+# f5Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -844,11 +844,11 @@ function Start-Sniffer {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHxcS0lna74KdazI
-# 26WjNi0mnIhaMA0GCSqGSIb3DQEBAQUABIIBAEspz7mWR8hVcHhB3K9qp9xOR8hl
-# JDPXBDNcO25islQQ17ShuDqs1PTA3tY+rt9zFVATp4kGmCidorNynt7pp1sSSBQk
-# j4CtmhYzAkFnc4EDPqeehvoA6O/FrRKrOa9fQjdYJEY59zjp/dd+3aSqtMJJbrUF
-# MBw74OwjJGMCHrocgQU4V/sm5oGGGCpIlJSxedT+smps6Fr+CNW4xl9ePVzV4k7z
-# Ap4bPYs+y9fhoYLlxaEUCWBcR3sSaAlIVoJp9jP8bn+BJTR7/bBgOySkR0pvnSUT
-# SrUIjdaM9/wNxWOgrDh5M3qz+marc2Ukvr36u/DEStLTT3GIG9O0d2LM2hM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHJlVARWXGJvg252
+# UXVFjgX1pdpRMA0GCSqGSIb3DQEBAQUABIIBAJdh5WbjgquyRTDQl76ynBdrgVp8
+# t5dOvVDO6jB9Urfr6dPAD+Ko0mPQ/NCJ4Qjyf5Br691EEN65lKrQsXP5f9LGP2SV
+# lYSdo2fLXDL66WCgWxivqFLVH0Qr8gxkht20BaQSByHmrxY8zTkTEEtdjVNlrkdl
+# 4EDbm/IjKCGtrHRe5ky8BCto77H2oK4tdMBhxK1Tp4A06LWVlhXvEksB5jAdPDX4
+# GPtig7DKig4MKkuRKNZGBl/m7RUZUU+ncTvLBghlsscLR/n69jNDsDwAVdOtBLn0
+# XzlbLgc4bwh+Xi7wMgCDId3FEbBYfbZ8+wyIdCTCvbjO9HheBcGDbPA1jks=
 # SIG # End signature block
