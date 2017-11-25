@@ -1169,7 +1169,7 @@ function Start-Sniffer {
 
 <#
 .SYNOPSIS
-    Some of us are forced to use bad software. Sometimes this software hold TCP connections open
+    Some of us are forced to use bad software. Sometimes this software can hold TCP connections open
     to the detriment of the software itself business operations. Othertimes, it can send meaningless traffic
     that actually slows things down. And sometimes, we just would like the ability monitor these programs
     for bad behavior instead of needing to manually close TCP Connections or kill processes altogether.
@@ -1871,8 +1871,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULB63o+lyfwkFUSSWCQQ6+CkK
-# AySgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUE2AjlTi+qiUAOMn4HsHpcQaR
+# KEWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1929,11 +1929,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA7ut1zL+wz+/slR
-# X961FqJ9xBf0MA0GCSqGSIb3DQEBAQUABIIBAJMZ+Acci40W4bCEpTumApJIfK8w
-# Y/AePSFegqG/HNWwnczgvkabPnBU1Gx5hjIWMTqyubkxwdrzyByv+jMr2lsDn6vX
-# 1HTHjWNlk1ex95IFUV5ro6xGgaU57W857bUdXFb9brCx7IZrmJDyZOOr2Osc2Ybc
-# ohc35FE7QaFJNyrBLxj+Fm+oo6V/yWOvIHHX4GoK896oXFAvMG/sV8cLEfNB9KUM
-# VNmeBt5/DZmgWKL5B1sBTX5EkTsJsAlLIHP2E45Er5z4H7+8oHcBF3vs+vadGreR
-# xHjWzcS3tX03sg59ZNDLLG5jK7VvgziV4WIgeIwHPWALrvvVFNDo58yeFF0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPbn3zmYt3/eMj83
+# g9a/zAYWqL9mMA0GCSqGSIb3DQEBAQUABIIBAFzDOSKUfiErghI7N5ulKu3IMycd
+# XajsM07v6cQoH79xSH+wNrvz5zZu3LfwLgYtQEWlj71tAiY/Wq+L7OffLOzR4xXY
+# NSLqlmAZP6NMShDFYdXmIrWIHxRKfc3E84r8aJb7Jbep7NqvQ5EsK8/tMy9HyTVj
+# +Ex6RJ4DY7fSb3WPyeNSvJsNUNJgR1nipzN3H3rDalUN6ddzgFwsrhB616AKhkf3
+# +RUmDjFx068nauxMvO9sefDizSSGO+GDSnt/XgBF3Xqwhd6Kg9jMAJsl0/5+dN4b
+# EPK4qFm1vxMES6WuJX0z5j2tbbNXfWiubpusF6JSlf5yVsMxyyKsuJoS+A8=
 # SIG # End signature block
