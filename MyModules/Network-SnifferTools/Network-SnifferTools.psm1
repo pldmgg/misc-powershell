@@ -1092,7 +1092,12 @@ function Start-Sniffer {
             Add-Member -InputObject $PSCustomObjOutput -MemberType NoteProperty -Name "Data" -Value $($Data -join "")
 
             if ($($PSCustomObjOutput.PSObject.Properties) -ne $null) {
-                $PSCustomObjOutput | ConvertTo-JSON -Compress
+                if ([System.IO.Path]::GetExtension($OutputFile) -eq ".json") {
+                    $PSCustomObjOutput | ConvertTo-JSON -Compress
+                }
+                if ([System.IO.Path]::GetExtension($OutputFile) -eq ".xml") {
+                    $PSCustomObjOutput
+                }
                 if ($PacketCustomObjects.Count -gt $MaxEntries) {
                     $PacketCustomObjects.RemoveAt(0)
                 }
@@ -1374,7 +1379,7 @@ function Watch-BadProgramConnection {
         [string]$LocalIP,
 
         [Parameter(Mandatory=$True)]
-        [ValidateScript({[System.IO.Path]::GetExtension($_) -match "\.xml|\.json"})]
+        [ValidateScript({[System.IO.Path]::GetExtension($_) -eq ".json"})]
         [string]$SnifferOutputFile,
 
         [Parameter(Mandatory=$False)]
@@ -1870,8 +1875,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUzP715Jicptm2XwY9+/iWSMr1
-# Qt+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUiJKA6D03SIFFn5dT4YTWAadE
+# H92gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1928,11 +1933,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM+cjAC7yvD+KP5F
-# gdr3Via75zCuMA0GCSqGSIb3DQEBAQUABIIBAFcXOxx/2mjW/r1wEOzmNJRQu6MR
-# R2pjKNXFDzDRFxSJiFdU3twz3ceRfPbFiiZs7XWz1bkoBqkOqm9CZeprOqqKndWA
-# LhSw7hgeX8kuaLaKD40BEk4xcmVlB3zeFgMGTKNe/q9S/pSN3HAtZ7nt/L1K03Qb
-# RyWnvTDMc67M+6E6jNjM8TtVds4mOw/00iWd31YWyUCyASqtHIwlc+xdPBe/G7NT
-# Qq/U+XRwACPll8r+saPNeusAdnKNPsmIgeceQ+b2mC/IcOAXIU5UVEEYcwcEhAOo
-# D877HbCygYCKTHDqchg9q9TBf+AlMtuUIDnXu6UIxfgyxyG0CvhlxSgrXag=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBfSIkoy9fuJTPT9
+# 944rWcwjhYHVMA0GCSqGSIb3DQEBAQUABIIBACkRCOhJAZk6aI/moWlfoHOsACqd
+# wnlpv/QdUxZNz9Wps779xKrjcZMEA4NXyKLnWsjvrLdDLSoqcReZabq51/oeUdCA
+# +UvmdyIs0W6eOgyW5R7yZDKlL9JefHTsodZDkpkD6dqFjIRgZaco+miXvt8GiiLq
+# sPUQGBDx5AQcBvMIwJ1ifYlmPGvHG3xeHoSk5n6CWlApzCQKZW34s5nvhrRkpI8F
+# cWwGeTHYsnPOvo7eBG9JhM+Z8LvTDCiObKYbaN/TfBJ8y/pE9ieQ9V2Nb9h7FT6l
+# jIO5LTrELuxyv/Iz664ZZHm4nj8/AooajW72n2cVN4KjkHTD48bi1VukPd0=
 # SIG # End signature block
