@@ -1356,7 +1356,7 @@ function Start-Sniffer {
 
 #>
 function Watch-BadProgramConnection {
-    [CmdletBinding(DefaultParameterSetName='ProblematicData')]
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$True)]
         [string]$BadProgramName,
@@ -1698,8 +1698,7 @@ function Watch-BadProgramConnection {
             Write-Host "Received more Packets..."
             $CurrentJobOutput = $(Get-Job -Name Sniffer).ChildJobs.Output
             $ReceiveJobJson = $CurrentJobOutput[5..$($CurrentJobOutput.Count-1)]
-
-            Write-Host "Received more Packets..."
+            
             $ReceivedMorePackets = $true
             [datetime]$ReceivedMorePacketsDateTime = $($ReceiveJobJson[-1] | ConvertFrom-Json).Time.DateTime
 
@@ -1871,8 +1870,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUE2AjlTi+qiUAOMn4HsHpcQaR
-# KEWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUzP715Jicptm2XwY9+/iWSMr1
+# Qt+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1929,11 +1928,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPbn3zmYt3/eMj83
-# g9a/zAYWqL9mMA0GCSqGSIb3DQEBAQUABIIBAFzDOSKUfiErghI7N5ulKu3IMycd
-# XajsM07v6cQoH79xSH+wNrvz5zZu3LfwLgYtQEWlj71tAiY/Wq+L7OffLOzR4xXY
-# NSLqlmAZP6NMShDFYdXmIrWIHxRKfc3E84r8aJb7Jbep7NqvQ5EsK8/tMy9HyTVj
-# +Ex6RJ4DY7fSb3WPyeNSvJsNUNJgR1nipzN3H3rDalUN6ddzgFwsrhB616AKhkf3
-# +RUmDjFx068nauxMvO9sefDizSSGO+GDSnt/XgBF3Xqwhd6Kg9jMAJsl0/5+dN4b
-# EPK4qFm1vxMES6WuJX0z5j2tbbNXfWiubpusF6JSlf5yVsMxyyKsuJoS+A8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM+cjAC7yvD+KP5F
+# gdr3Via75zCuMA0GCSqGSIb3DQEBAQUABIIBAFcXOxx/2mjW/r1wEOzmNJRQu6MR
+# R2pjKNXFDzDRFxSJiFdU3twz3ceRfPbFiiZs7XWz1bkoBqkOqm9CZeprOqqKndWA
+# LhSw7hgeX8kuaLaKD40BEk4xcmVlB3zeFgMGTKNe/q9S/pSN3HAtZ7nt/L1K03Qb
+# RyWnvTDMc67M+6E6jNjM8TtVds4mOw/00iWd31YWyUCyASqtHIwlc+xdPBe/G7NT
+# Qq/U+XRwACPll8r+saPNeusAdnKNPsmIgeceQ+b2mC/IcOAXIU5UVEEYcwcEhAOo
+# D877HbCygYCKTHDqchg9q9TBf+AlMtuUIDnXu6UIxfgyxyG0CvhlxSgrXag=
 # SIG # End signature block
