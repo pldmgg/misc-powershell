@@ -481,9 +481,6 @@ function Invoke-PSTrace {
 
     Updated by Paul DiMaggio | pldmgg@github.com | /u/fourierswager (reddit)
 
-.PARAMETER 
-
-
 .PARAMETER LocalIP
     This parameter is OPTIONAL.
 
@@ -1192,9 +1189,8 @@ function Start-Sniffer {
     ProblematicData parameter to kill a TCP Connection when packet data matches the string provided to the
     ProblematicData parameter (this parameter can also be used by itself).
 
-
 .DESCRIPTION
-    See .Synopsis
+    See Synopsis
 
     IMPORTANT NOTE 1: The goal of this function is to kill ONLY ONE SPECIFIC TCP connection. NOT more than one
     TCP Connection and NOT entire programs/processes. If one specific TCP connection cannot be determined by the
@@ -1355,7 +1351,7 @@ function Start-Sniffer {
 
 .OUTPUTS
     This function outputs a log of all packets captured while the function is running to the 
-    .json or .xml file specified by the -SnifferOutputFile parameter. This log can be
+    json or xml file specified by the -SnifferOutputFile parameter. This log can be
     easily imported back into PowerShell for analysis after the fact.
 
 #>
@@ -1875,8 +1871,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQfHiZzZ+x8PgDuzzUxv2EwzS
-# WCugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULB63o+lyfwkFUSSWCQQ6+CkK
+# AySgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1933,11 +1929,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDW4wh/AnP6vghlG
-# haUyAXdXt12rMA0GCSqGSIb3DQEBAQUABIIBAAhpwUvwZ+txo64eyGBMRBgEP2yq
-# tfdKRPAiSmNnN3ZeLPa7n6/gncOs8cbrP29ZCmww1nMkddeCILHhe/rsqaqw/wd3
-# 0xkZfem0GbudzNBIQXESDy1TrjNEj37taZFQBmafZ7ctUpbp9P0j1hN7cItVNi2j
-# M6TZjc/rnWH4+nJ1Lqo+LnRIjV7lACf/60DJR0wKF6cs6XQ+IxtNmEZ4vmP/hoxd
-# Z7EIOi4bw4VGlpZQYikEW8OGFURmDS1wLshrxXyOLGdWCZBkP95vCQJDojKGJbTC
-# fcBOAGaTv+LPMJaC2IPVP+25Dd1j68O7mAUmOXDarh8w/GSMJdEjPvuu4bs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA7ut1zL+wz+/slR
+# X961FqJ9xBf0MA0GCSqGSIb3DQEBAQUABIIBAJMZ+Acci40W4bCEpTumApJIfK8w
+# Y/AePSFegqG/HNWwnczgvkabPnBU1Gx5hjIWMTqyubkxwdrzyByv+jMr2lsDn6vX
+# 1HTHjWNlk1ex95IFUV5ro6xGgaU57W857bUdXFb9brCx7IZrmJDyZOOr2Osc2Ybc
+# ohc35FE7QaFJNyrBLxj+Fm+oo6V/yWOvIHHX4GoK896oXFAvMG/sV8cLEfNB9KUM
+# VNmeBt5/DZmgWKL5B1sBTX5EkTsJsAlLIHP2E45Er5z4H7+8oHcBF3vs+vadGreR
+# xHjWzcS3tX03sg59ZNDLLG5jK7VvgziV4WIgeIwHPWALrvvVFNDo58yeFF0=
 # SIG # End signature block
