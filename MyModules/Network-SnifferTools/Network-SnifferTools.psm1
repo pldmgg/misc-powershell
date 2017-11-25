@@ -576,7 +576,7 @@ function Start-Sniffer {
         [String]$Protocol = "all",
         
         [Parameter(Mandatory=$False)]
-        [String]$Port="all",
+        [String]$Port = "all",
 
         [Parameter(Mandatory=$False)]
         [int]$LocalPort,
@@ -695,8 +695,35 @@ function Start-Sniffer {
     }
 
     if ($Port) {
-        if ($LocalPort) {
+        if ($LocalPort -or $RemotePort) {
             Write-Error "Please use *either* the -Port parameter OR the -LocalPort/-RemotePort parameters! Halting!"
+        }
+
+        if ($Port -ne "all") {
+            try {
+                $Port = [int]$Port
+            }
+            catch {
+                Write-Error "$Port is not a valid Port number! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    if ($LocalIP -ne "NotSpecified") {
+        if (!$(Test-IsValidIPAddress -IPAddress $LocalIP)) {
+            Write-Error "$LocalIP is not a valid IPv4 address! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    if ($ScanIP -ne "all") {
+        if (!$(Test-IsValidIPAddress -IPAddress $ScanIP)) {
+            Write-Error "$ScanIP is not a valid IPv4 address! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
 
@@ -736,14 +763,36 @@ function Start-Sniffer {
 
     
     # Get local IP-Address
-    if($LocalIP -eq "NotSpecified") {
-        route print 0* | foreach { 
-            if( $_ -match "\s{2,}0\.0\.0\.0" ) { 
-                $null,$null,$null,$LocalIP,$null = [regex]::replace($_.trimstart(" "),"\s{2,}",",").split(",")
-            }
+    if ($LocalIP -eq "NotSpecified") {
+        if ($ScanIP -ne "all") {
+            $LocalIP = $(Find-NetRoute -RemoteIPAddress $ScanIP | Where-Object {$($_ | Get-Member).Name -contains "IPAddress"}).IPAddress
+        }
+        else {
+            $NextHop = $(Get-NetRoute -AddressFamily IPv4 | Sort-Object RouteMetric)[0].NextHop
+            $LocalIP = $(Find-NetRoute -RemoteIPAddress $NextHop | Where-Object {$($_ | Get-Member).Name -contains "IPAddress"}).IPAddress
         }
     }
-    Write-Host "Using Local IP: $LocalIP"
+    if ($LocalIP.Count -gt 1) {
+        Write-Host "Possible LocalIP addresses are:"
+        for ($i=0; $i -lt $LocalIP.Count; $i++) {
+            Write-Host "$i) $($LocalIP[$i])"
+        }
+        $ValidIPChoiceNumbers = 0..$($LocalIP.Count-1)
+        $IPChoice = Read-Host -Prompt "Please enter the number that corresponds to the Local IP Address you would like to use. [$($ValidChoiceNumbers -join ', ')]"
+        if ($ValidIPChoiceNumbers -notcontains $IPChoice) {
+            Write-Error "$IPChoice is not a valid choice! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    if ($LocalIP) {
+        if ($(Get-NetIPAddress -AddressFamily IPv4).IPAddress -notcontains $LocalIP) {
+            Write-Error "$LocalIP is NOT an IP Address assigned to this local host (i.e. $env:ComputerName)! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    Write-Host "Using Local IP $LocalIP..."
     Write-Host ""
 
 
@@ -1420,34 +1469,6 @@ function Watch-BadProgramConnection {
         return
     }
 
-    if (!$LocalIP) {
-        $LocalIP = $(Get-NetIPAddress -AddressFamily IPv4 -PrefixOrigin DHCP).IPAddress
-        if ($LocalIP.count -lt 1) {
-            $LocalIP = $(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notmatch 'Loopback'}).IPAddress
-        }
-        if ($LocalIP.Count -gt 1) {
-            Write-Host "Possible LocalIP addresses are:"
-            for ($i=0; $i -lt $LocalIP.Count; $i++) {
-                Write-Host "$i) $($LocalIP[$i])"
-            }
-            $ValidIPChoiceNumbers = 0..$($LocalIP.Count-1)
-            $IPChoice = Read-Host -Prompt "Please enter the number that corresponds to the Local IP Address you would like to use. [$($ValidChoiceNumbers -join ', ')]"
-            if ($ValidIPChoiceNumbers -notcontains $IPChoice) {
-                Write-Error "$IPChoice is not a valid choice! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-    }
-    if ($LocalIP) {
-        if ($(Get-NetIPAddress -AddressFamily IPv4).IPAddress -notcontains $LocalIP) {
-            Write-Error "$LocalIP is NOT an IP Address assigned to this local host (i.e. $env:ComputerName)! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    Write-Host "Using Local IP $LocalIP..."
-
     if ($RemoteHostNameOrIP) {
         if (!$(Test-IsValidIPAddress -IPAddress $RemoteHostNameOrIP)) {
             try {
@@ -1469,6 +1490,38 @@ function Watch-BadProgramConnection {
             $RemoteIP = $RemoteHostNameOrIP
         }
     }
+
+
+    if (!$LocalIP) {
+        if ($RemoteHostNameOrIP) {
+            $LocalIP = $(Find-NetRoute -RemoteIPAddress $RemoteIP | Where-Object {$($_ | Get-Member).Name -contains "IPAddress"}).IPAddress
+        }
+        else {
+            $NextHop = $(Get-NetRoute -AddressFamily IPv4 | Sort-Object RouteMetric)[0].NextHop
+            $LocalIP = $(Find-NetRoute -RemoteIPAddress $NextHop | Where-Object {$($_ | Get-Member).Name -contains "IPAddress"}).IPAddress
+        }
+    }
+    if ($LocalIP.Count -gt 1) {
+        Write-Host "Possible LocalIP addresses are:"
+        for ($i=0; $i -lt $LocalIP.Count; $i++) {
+            Write-Host "$i) $($LocalIP[$i])"
+        }
+        $ValidIPChoiceNumbers = 0..$($LocalIP.Count-1)
+        $IPChoice = Read-Host -Prompt "Please enter the number that corresponds to the Local IP Address you would like to use. [$($ValidChoiceNumbers -join ', ')]"
+        if ($ValidIPChoiceNumbers -notcontains $IPChoice) {
+            Write-Error "$IPChoice is not a valid choice! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    if ($LocalIP) {
+        if ($(Get-NetIPAddress -AddressFamily IPv4).IPAddress -notcontains $LocalIP) {
+            Write-Error "$LocalIP is NOT an IP Address assigned to this local host (i.e. $env:ComputerName)! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    Write-Host "Using Local IP $LocalIP..."
 
     # Get All of the Bound Parameters for use multiple times in the Main Body
     $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
@@ -1875,8 +1928,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUiJKA6D03SIFFn5dT4YTWAadE
-# H92gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1EdEWVRxwVLDmc5mfkkG6B7p
+# iTugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1933,11 +1986,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBfSIkoy9fuJTPT9
-# 944rWcwjhYHVMA0GCSqGSIb3DQEBAQUABIIBACkRCOhJAZk6aI/moWlfoHOsACqd
-# wnlpv/QdUxZNz9Wps779xKrjcZMEA4NXyKLnWsjvrLdDLSoqcReZabq51/oeUdCA
-# +UvmdyIs0W6eOgyW5R7yZDKlL9JefHTsodZDkpkD6dqFjIRgZaco+miXvt8GiiLq
-# sPUQGBDx5AQcBvMIwJ1ifYlmPGvHG3xeHoSk5n6CWlApzCQKZW34s5nvhrRkpI8F
-# cWwGeTHYsnPOvo7eBG9JhM+Z8LvTDCiObKYbaN/TfBJ8y/pE9ieQ9V2Nb9h7FT6l
-# jIO5LTrELuxyv/Iz664ZZHm4nj8/AooajW72n2cVN4KjkHTD48bi1VukPd0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIe3okg+IRuDN819
+# kID6TdcGffV7MA0GCSqGSIb3DQEBAQUABIIBACm/wGFnR8wGIQ41B5QARNwB1OSQ
+# 3Rem5XUKZooDiFUoS6XRuBFBfZ+4xO4X7s/npLWoysb0joh7VCnsP7RRixVRlmas
+# 9mCzIWyvpnpIEa2iHgLNGiFzDtRmgVwmkFg3BFoEkX8ZD8dF1PPr9g4DhsgxLzM2
+# Whuzve55SkPXpLhPp6N3BKFFYrHwqZ6PY03/22MJGx1eCLM8aJnrYHv+yw/V9U1f
+# +6epqDhcqflsB/+TH2f1SCn6H9yRoWlNVept4e/h5e7OrGAxz8So2lKWgdEYGT9X
+# JnPA7wH1d9Ot8ImdL/lynl6vRx27WdOKJRfbDnHijtEF89dptDEAADu5Zq4=
 # SIG # End signature block
