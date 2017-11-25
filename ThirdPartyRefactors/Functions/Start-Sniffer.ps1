@@ -109,7 +109,7 @@ function Start-Sniffer {
         [String]$Protocol = "all",
         
         [Parameter(Mandatory=$False)]
-        [String]$Port="all",
+        [String]$Port = "all",
 
         [Parameter(Mandatory=$False)]
         [int]$LocalPort,
@@ -139,6 +139,12 @@ function Start-Sniffer {
     )
 
     ##### BEGIN Helper Functions #####
+
+    function Test-IsValidIPAddress([string]$IPAddress) {
+        [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
+        [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
+        Return  ($Valid -and $Octets)
+    }
 
     # Convert from big to little endian & convert to uint16
     Function NetworkToHostUInt16($address) {
@@ -228,8 +234,35 @@ function Start-Sniffer {
     }
 
     if ($Port) {
-        if ($LocalPort) {
+        if ($LocalPort -or $RemotePort) {
             Write-Error "Please use *either* the -Port parameter OR the -LocalPort/-RemotePort parameters! Halting!"
+        }
+
+        if ($Port -ne "all") {
+            try {
+                $Port = [int]$Port
+            }
+            catch {
+                Write-Error "$Port is not a valid Port number! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    if ($LocalIP -ne "NotSpecified") {
+        if (!$(Test-IsValidIPAddress -IPAddress $LocalIP)) {
+            Write-Error "$LocalIP is not a valid IPv4 address! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    if ($ScanIP -ne "all") {
+        if (!$(Test-IsValidIPAddress -IPAddress $ScanIP)) {
+            Write-Error "$ScanIP is not a valid IPv4 address! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
 
@@ -269,14 +302,36 @@ function Start-Sniffer {
 
     
     # Get local IP-Address
-    if($LocalIP -eq "NotSpecified") {
-        route print 0* | foreach { 
-            if( $_ -match "\s{2,}0\.0\.0\.0" ) { 
-                $null,$null,$null,$LocalIP,$null = [regex]::replace($_.trimstart(" "),"\s{2,}",",").split(",")
-            }
+    if ($LocalIP -eq "NotSpecified") {
+        if ($ScanIP -ne "all") {
+            $LocalIP = $(Find-NetRoute -RemoteIPAddress $ScanIP | Where-Object {$($_ | Get-Member).Name -contains "IPAddress"}).IPAddress
+        }
+        else {
+            $NextHop = $(Get-NetRoute -AddressFamily IPv4 | Sort-Object RouteMetric)[0].NextHop
+            $LocalIP = $(Find-NetRoute -RemoteIPAddress $NextHop | Where-Object {$($_ | Get-Member).Name -contains "IPAddress"}).IPAddress
         }
     }
-    Write-Host "Using Local IP: $LocalIP"
+    if ($LocalIP.Count -gt 1) {
+        Write-Host "Possible LocalIP addresses are:"
+        for ($i=0; $i -lt $LocalIP.Count; $i++) {
+            Write-Host "$i) $($LocalIP[$i])"
+        }
+        $ValidIPChoiceNumbers = 0..$($LocalIP.Count-1)
+        $IPChoice = Read-Host -Prompt "Please enter the number that corresponds to the Local IP Address you would like to use. [$($ValidChoiceNumbers -join ', ')]"
+        if ($ValidIPChoiceNumbers -notcontains $IPChoice) {
+            Write-Error "$IPChoice is not a valid choice! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    if ($LocalIP) {
+        if ($(Get-NetIPAddress -AddressFamily IPv4).IPAddress -notcontains $LocalIP) {
+            Write-Error "$LocalIP is NOT an IP Address assigned to this local host (i.e. $env:ComputerName)! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    Write-Host "Using Local IP $LocalIP..."
     Write-Host ""
 
 
@@ -731,8 +786,8 @@ function Start-Sniffer {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUx2tTyYc5w/lLomJ3tQzYHjeR
-# lwagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/JrvVpBezTHVz4rF1/rGQUHI
+# BcKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -789,11 +844,11 @@ function Start-Sniffer {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOIlHgja/KL1aLUN
-# r8qIaBQBbLZRMA0GCSqGSIb3DQEBAQUABIIBAEQx1iPWd/QBMUO3Em92EOGK2I53
-# SqkieAb9O2Qqm+XZwU8i79OkB+pE4yU5Q7bOZ8arA8/fw9q+Y2m8E0qgqmiR6tSv
-# 5WkAlLvcqqb7x7OCsGjFtohq7/zBbOO7rqTncKtzP6ApwpSZdOrqvvOwg/Z2Co/O
-# pu2Rr4mQURn/Kc7GZiyiO3igXd+TCS/nFBeoflgxZHk+s/yborGx9V2Uxo8lHR0K
-# NGBuwRknnGb00OmHTC+TVoRDtzReb/iuyEFOXKH8tfm5WqYkAkdn2nbM5xbYqVkq
-# BzuCRILtwChLRnd4QUaAlnQZj3RYqgBIteZoik2UTr0KvY7U9BPzkalmhiM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFINBryiCH6TZ/W8q
+# rr5YtGsCZBaPMA0GCSqGSIb3DQEBAQUABIIBAHzNttc61dGXNfnYAW4lKoxJhilt
+# R1t0NvjJ//vLzHYwcGxwHCyeHwxqedHCCICGBrHXPhUDCaAi4eZcDVy8Fm55U35B
+# O8/mswa/HZytvDQXVijkoa/Fj507pNwLOX0XOeK1v+mMmehFo8F6R/ZPAo2e0F7E
+# EAWXT1aoCs26yUBqVoeEEoWsNNQKXQf0Y6Of9jT2K88s2s+lYiuqqnkjpZc1LRHq
+# foiHYSrT4nU0gX088VSlb9jJa5109AwadwcAELPsm3BGlcI+n0gE6rARhFngEESQ
+# 7R7wO3HDlG/V27DeQ8oQ9EVIQIM4qaoJuPJc6A3AbNB/fvOveHGfNy3mx/A=
 # SIG # End signature block
