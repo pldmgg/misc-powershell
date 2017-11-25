@@ -233,20 +233,20 @@ function Start-Sniffer {
         $MaxEntries = 10000
     }
 
-    if ($Port) {
+    if ($Port -ne "all") {
         if ($LocalPort -or $RemotePort) {
             Write-Error "Please use *either* the -Port parameter OR the -LocalPort/-RemotePort parameters! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
 
-        if ($Port -ne "all") {
-            try {
-                $Port = [int]$Port
-            }
-            catch {
-                Write-Error "$Port is not a valid Port number! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
+        try {
+            $Port = [int]$Port
+        }
+        catch {
+            Write-Error "$Port is not a valid Port number! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
 
@@ -786,8 +786,8 @@ function Start-Sniffer {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/JrvVpBezTHVz4rF1/rGQUHI
-# BcKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmDU/jgrctJ46dU3VVUU+aCr2
+# nPmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -844,11 +844,11 @@ function Start-Sniffer {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFINBryiCH6TZ/W8q
-# rr5YtGsCZBaPMA0GCSqGSIb3DQEBAQUABIIBAHzNttc61dGXNfnYAW4lKoxJhilt
-# R1t0NvjJ//vLzHYwcGxwHCyeHwxqedHCCICGBrHXPhUDCaAi4eZcDVy8Fm55U35B
-# O8/mswa/HZytvDQXVijkoa/Fj507pNwLOX0XOeK1v+mMmehFo8F6R/ZPAo2e0F7E
-# EAWXT1aoCs26yUBqVoeEEoWsNNQKXQf0Y6Of9jT2K88s2s+lYiuqqnkjpZc1LRHq
-# foiHYSrT4nU0gX088VSlb9jJa5109AwadwcAELPsm3BGlcI+n0gE6rARhFngEESQ
-# 7R7wO3HDlG/V27DeQ8oQ9EVIQIM4qaoJuPJc6A3AbNB/fvOveHGfNy3mx/A=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHxcS0lna74KdazI
+# 26WjNi0mnIhaMA0GCSqGSIb3DQEBAQUABIIBAEspz7mWR8hVcHhB3K9qp9xOR8hl
+# JDPXBDNcO25islQQ17ShuDqs1PTA3tY+rt9zFVATp4kGmCidorNynt7pp1sSSBQk
+# j4CtmhYzAkFnc4EDPqeehvoA6O/FrRKrOa9fQjdYJEY59zjp/dd+3aSqtMJJbrUF
+# MBw74OwjJGMCHrocgQU4V/sm5oGGGCpIlJSxedT+smps6Fr+CNW4xl9ePVzV4k7z
+# Ap4bPYs+y9fhoYLlxaEUCWBcR3sSaAlIVoJp9jP8bn+BJTR7/bBgOySkR0pvnSUT
+# SrUIjdaM9/wNxWOgrDh5M3qz+marc2Ukvr36u/DEStLTT3GIG9O0d2LM2hM=
 # SIG # End signature block
