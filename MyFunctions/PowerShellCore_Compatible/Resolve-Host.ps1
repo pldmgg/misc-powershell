@@ -51,25 +51,12 @@ function Resolve-Host {
             $IPv4AddressFamily = "InterNetwork"
             $IPv6AddressFamily = "InterNetworkV6"
 
-            [System.Net.Dns]::GetHostEntry($HostNamePrep).AddressList | Where-Object {
+            $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
+            $ResolutionInfo.AddressList | Where-Object {
                 $_.AddressFamily -eq $IPv4AddressFamily
             } | foreach {
                 if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
                     $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
-                }
-            }
-            
-            [System.Collections.ArrayList]$RemoteHostFQDNs = @()
-            foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
-                try {
-                    $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
-                }
-                catch {
-                    Write-Verbose "Unable to resolve $HostIP. Please check your DNS config."
-                    continue
-                }
-                if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
-                    $null = $RemoteHostFQDNs.Add($FQDNPrep)
                 }
             }
         }
@@ -83,8 +70,10 @@ function Resolve-Host {
             [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
             $null = $RemoteHostArrayOfIPAddresses.Add($HostIPPrep)
 
+            $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostIPPrep)
+
             [System.Collections.ArrayList]$RemoteHostFQDNs = @() 
-            $null = $RemoteHostFQDNs.Add([System.Net.Dns]::GetHostEntry($HostIPPrep).HostName)
+            $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
         }
         catch {
             Write-Verbose "Unable to resolve $HostNameOrIP when treated as an IP Address (as opposed to Host Name)!"
@@ -93,13 +82,27 @@ function Resolve-Host {
 
     if ($RemoteHostArrayOfIPAddresses.Count -eq 0) {
         Write-Error "Unable to determine IP Address of $HostNameOrIP! Halting!"
-    }
-    if ($RemoteHostFQDNs.Count -eq 0) {
-        Write-Error "Unable to determine FQDN of $HostNameOrIP! Halting!"
-    }
-    if ($RemoteHostArrayOfIPAddresses.Count -eq 0 -or $RemoteHostFQDNs.Count -eq 0) {
         $global:FunctionResult = "1"
         return
+    }
+
+    # At this point, we have $RemoteHostArrayOfIPAddresses...
+    [System.Collections.ArrayList]$RemoteHostFQDNs = @()
+    foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
+        try {
+            $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
+        }
+        catch {
+            Write-Verbose "Unable to resolve $HostIP. No PTR Record? Please check your DNS config."
+            continue
+        }
+        if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
+            $null = $RemoteHostFQDNs.Add($FQDNPrep)
+        }
+    }
+
+    if ($RemoteHostFQDNs.Count -eq 0) {
+        $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
     }
 
     [System.Collections.ArrayList]$HostNameList = @()
@@ -144,8 +147,8 @@ function Resolve-Host {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUo14+qKp05ShtN1yk8zarW08A
-# dnKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJ+RXvG9oBUae3Xx0v/3loJTQ
+# kiqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -202,11 +205,11 @@ function Resolve-Host {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBRuot3W8y9UkivW
-# hK8FPRCttccOMA0GCSqGSIb3DQEBAQUABIIBAEblO7mA1Up60uo5Nr9JBGdVQO6p
-# nQ5L5fe3htBPLUjMav+r9l8q/d3qW5At2D5si9oDK3i+epyLkaYVoorOL5uN6qd3
-# 9m2g+cz9irLTIFd1A/1Gsib7obfk0Gm+c6jD4GDbR1lHq8Lcw+rGnefahnAk7UjI
-# 5zgItatE5lMyBInAt69JUGU5zXejdTzztV0ZmqzjvoyfoWB7O4fVEumUGLNZS3F2
-# Ydw13ASABXHvNhmwBmdarquWR0QShTYF4C/2UCiZq8zlUm5yviwH3eI63V+ZEtZQ
-# ZiX1iZXZDtqpCPX9viv0iDZLQKaKGh4eN3Qz4pFEBiDRqzGf0HLTIzSzthE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKfI1zwdz1h29LQU
+# YBE1Djfp8y0fMA0GCSqGSIb3DQEBAQUABIIBAGG+WNTpSSHwt7KD1FjPfNSe+WXo
+# TA3c3lLjafi4bDNTeCseduy6ppHTafVoDj9Xywie4QrFeljOsQa1AnfirPZ6un5W
+# u9IipDL6mwvhgTi/nVYOr2vZjfgtaZzOzlGiu0bw1YNwRyCzJ9lAqRICQLpO9cqi
+# pOTsjZqy8guiyOnTRz93IWMX5eejd2j5hxKiu+KH7dPaZ0BVEu7Xyo5EYcp9Vt5f
+# 0Esu+//inJkrVprgvVJc21ha4R6Js7rJztDjs38cIHax2s1wfoMRRQUKvEh8B7/K
+# eYeARVKB5QrGj6g6PMVsgYryfSvnzlSET9HHE86W8RfW2a9Y5hogsbd3iYI=
 # SIG # End signature block
