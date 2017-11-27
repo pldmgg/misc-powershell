@@ -698,25 +698,12 @@ function Bootstrap-EtcdCluster {
                 $IPv4AddressFamily = "InterNetwork"
                 $IPv6AddressFamily = "InterNetworkV6"
     
-                [System.Net.Dns]::GetHostEntry($HostNamePrep).AddressList | Where-Object {
+                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
+                $ResolutionInfo.AddressList | Where-Object {
                     $_.AddressFamily -eq $IPv4AddressFamily
                 } | foreach {
                     if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
                         $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
-                    }
-                }
-                
-                [System.Collections.ArrayList]$RemoteHostFQDNs = @()
-                foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
-                    try {
-                        $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
-                    }
-                    catch {
-                        Write-Verbose "Unable to resolve $HostIP. Please check your DNS config."
-                        continue
-                    }
-                    if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
-                        $null = $RemoteHostFQDNs.Add($FQDNPrep)
                     }
                 }
             }
@@ -730,8 +717,10 @@ function Bootstrap-EtcdCluster {
                 [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
                 $null = $RemoteHostArrayOfIPAddresses.Add($HostIPPrep)
     
+                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostIPPrep)
+    
                 [System.Collections.ArrayList]$RemoteHostFQDNs = @() 
-                $null = $RemoteHostFQDNs.Add([System.Net.Dns]::GetHostEntry($HostIPPrep).HostName)
+                $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
             }
             catch {
                 Write-Verbose "Unable to resolve $HostNameOrIP when treated as an IP Address (as opposed to Host Name)!"
@@ -740,13 +729,27 @@ function Bootstrap-EtcdCluster {
     
         if ($RemoteHostArrayOfIPAddresses.Count -eq 0) {
             Write-Error "Unable to determine IP Address of $HostNameOrIP! Halting!"
-        }
-        if ($RemoteHostFQDNs.Count -eq 0) {
-            Write-Error "Unable to determine FQDN of $HostNameOrIP! Halting!"
-        }
-        if ($RemoteHostArrayOfIPAddresses.Count -eq 0 -or $RemoteHostFQDNs.Count -eq 0) {
             $global:FunctionResult = "1"
             return
+        }
+    
+        # At this point, we have $RemoteHostArrayOfIPAddresses...
+        [System.Collections.ArrayList]$RemoteHostFQDNs = @()
+        foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
+            try {
+                $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
+            }
+            catch {
+                Write-Verbose "Unable to resolve $HostIP. No PTR Record? Please check your DNS config."
+                continue
+            }
+            if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
+                $null = $RemoteHostFQDNs.Add($FQDNPrep)
+            }
+        }
+    
+        if ($RemoteHostFQDNs.Count -eq 0) {
+            $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
         }
     
         [System.Collections.ArrayList]$HostNameList = @()
@@ -1731,8 +1734,8 @@ force-new-cluster: false
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUY48ckU8RMynI9U8NTWL2LypD
-# CDSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIrL/o5R0FPxQtve25smNs/Ts
+# rxegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1789,11 +1792,11 @@ force-new-cluster: false
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPTY3i6KeHElBHax
-# vSp0FRzhqD6uMA0GCSqGSIb3DQEBAQUABIIBABVbprl88KnXule1mJreE88vP2t1
-# eIB2qpb9sRaYyf9GBpzU3tL79hou3C3LkA9gZYybjVcyvQqBlAak5cDuDAXpIIM8
-# nWO/mcaJnAph09unD7mJDYSAf4paWo78ti98ApApSCZO1O3vEzurOZiCsdJLHaNs
-# lH9hQPvzwxp62N6Q7dOWkwfelbdEXQCjiR9oRP0pCrnx/rqayoeqUQABCsTbcy4F
-# +4MvX4Axw890UqnAAsfwgA0MFvoPti9y52Vhe+PUrwtzjkU8saknd18GYTLG99nl
-# l3YtVNwDanXElSo1SZ+eKsB+tVUjlHXb0ydd7UXGdMFzwM8qKTcxDk0RIrs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJycfM2DjXkJI7FN
+# JJy9g90VeC8yMA0GCSqGSIb3DQEBAQUABIIBAI4OP1M3nX7FuoRwUs4YUT4c4oDr
+# 7biCrsgjgzM0Wo6WzyVQzQEPSeax9+6gPPPtgepIeBpGIUliTM07mxLFeuSn9Aeb
+# 01dL0YBJqLujzpg2i2uJb6QxTu3MvZVDvbhVma959Xz8WyeAgi9kBfNkw6faTblf
+# s1QqQH/FkzjqIeO11vuR93YbBLBHfJTKk/WUrWXxaijhSeLpZnl1YIZu1k8j8lUy
+# YPMvJjPSHxNPbw604fJ0PQAs+y/BlNMuw9zwtwsE522Iv6mWwwE00A2sDn0MZo8z
+# LZJ9kbxZJq9BtNS728xIhjKJgJzjXS5PsYPOV02Pc4V6iqpCnJuiaXQcYSs=
 # SIG # End signature block

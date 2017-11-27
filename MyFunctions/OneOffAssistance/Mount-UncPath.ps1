@@ -56,25 +56,12 @@ function Mount-UncPath {
                 $IPv4AddressFamily = "InterNetwork"
                 $IPv6AddressFamily = "InterNetworkV6"
     
-                [System.Net.Dns]::GetHostEntry($HostNamePrep).AddressList | Where-Object {
+                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
+                $ResolutionInfo.AddressList | Where-Object {
                     $_.AddressFamily -eq $IPv4AddressFamily
                 } | foreach {
                     if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
                         $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
-                    }
-                }
-                
-                [System.Collections.ArrayList]$RemoteHostFQDNs = @()
-                foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
-                    try {
-                        $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
-                    }
-                    catch {
-                        Write-Verbose "Unable to resolve $HostIP. Please check your DNS config."
-                        continue
-                    }
-                    if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
-                        $null = $RemoteHostFQDNs.Add($FQDNPrep)
                     }
                 }
             }
@@ -88,8 +75,10 @@ function Mount-UncPath {
                 [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
                 $null = $RemoteHostArrayOfIPAddresses.Add($HostIPPrep)
     
+                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostIPPrep)
+    
                 [System.Collections.ArrayList]$RemoteHostFQDNs = @() 
-                $null = $RemoteHostFQDNs.Add([System.Net.Dns]::GetHostEntry($HostIPPrep).HostName)
+                $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
             }
             catch {
                 Write-Verbose "Unable to resolve $HostNameOrIP when treated as an IP Address (as opposed to Host Name)!"
@@ -98,18 +87,51 @@ function Mount-UncPath {
     
         if ($RemoteHostArrayOfIPAddresses.Count -eq 0) {
             Write-Error "Unable to determine IP Address of $HostNameOrIP! Halting!"
-        }
-        if ($RemoteHostFQDNs.Count -eq 0) {
-            Write-Error "Unable to determine FQDN of $HostNameOrIP! Halting!"
-        }
-        if ($RemoteHostArrayOfIPAddresses.Count -eq 0 -or $RemoteHostFQDNs.Count -eq 0) {
             $global:FunctionResult = "1"
             return
         }
     
+        # At this point, we have $RemoteHostArrayOfIPAddresses...
+        [System.Collections.ArrayList]$RemoteHostFQDNs = @()
+        foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
+            try {
+                $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
+            }
+            catch {
+                Write-Verbose "Unable to resolve $HostIP. No PTR Record? Please check your DNS config."
+                continue
+            }
+            if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
+                $null = $RemoteHostFQDNs.Add($FQDNPrep)
+            }
+        }
+    
+        if ($RemoteHostFQDNs.Count -eq 0) {
+            $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
+        }
+    
+        [System.Collections.ArrayList]$HostNameList = @()
+        [System.Collections.ArrayList]$DomainList = @()
+        foreach ($fqdn in $RemoteHostFQDNs) {
+            $PeriodCheck = $($fqdn | Select-String -Pattern "\.").Matches.Success
+            if ($PeriodCheck) {
+                $HostName = $($fqdn -split "\.")[0]
+                $Domain = $($fqdn -split "\.")[1..$($($fqdn -split "\.").Count-1)] -join '.'
+            }
+            else {
+                $HostName = $fqdn
+                $Domain = "Unknown"
+            }
+    
+            $null = $HostNameList.Add($HostName)
+            $null = $DomainList.Add($Domain)
+        }
+    
         [pscustomobject]@{
             IPAddressList   = $RemoteHostArrayOfIPAddresses
-            FQDNList        = $RemoteHostFQDNs
+            FQDN            = $RemoteHostFQDNs[0]
+            HostName        = $HostNameList[0].ToLowerInvariant()
+            Domain          = $DomainList[0]
         }
     
         ##### END Main Body #####
@@ -198,8 +220,8 @@ function Mount-UncPath {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvPuErmu7QmQn9woZjKAyF+I+
-# UPegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWAWme6/8xBbyF0/qtwGOgqRU
+# t8mgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -256,11 +278,11 @@ function Mount-UncPath {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJwHTj0k1n2AP4KH
-# bDsA38tC+OyrMA0GCSqGSIb3DQEBAQUABIIBAFM8B/9rwp1GFOyK0xwbfL/xOFEk
-# +J2aiGET+Q/FuXCx/LXvV/gtXKPP1UngQ5ieOk+B+Ct51QncakCDo/1iGgsU+pmu
-# mktYPEWo3ueyCgg362j/y0ShrhprDODdylCHmx+7bwQTWdcl36POSrhAFVohAiMt
-# s0yuaPkLjdf49YxvDKrULaV4JIVXb8NfrRjkryvUspYCYYfqQaXAhN0jDID0KvJk
-# ELlCm2FZGs8GS9QiGNytz4c/vUpYNGPI8O49d+nTCWqs4FiVDsM/8U+xGmblgoBr
-# wLowgIPOVt5hxuUKQSuOdWpQE4MWW0bPnENZH9G8CuvhpEEtyYH0fYCbgvc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOkk4N2QpvPq5Hmk
+# fUkRquxrZoSAMA0GCSqGSIb3DQEBAQUABIIBAGK6Uhy1Au2bD/Vawtkry7rRMRyC
+# m6j8GYX6oGshmSUcbrju4Q0y8bAe8A+r7J7q8ydhBesaX/w5i0CE1xDDViON4p0g
+# mDbO7t9sYkHDYH3W97Dz6KZna56310Jw3Xbgn1jiwHy903czkSBU0+cflsOKB8Sh
+# /Y8cwsoPY/1EeMdH4Zy5LsTNknstBkYBdpQze/GAjeOoq8vrTiAVYsGaSYxZVojk
+# NwnFsn0Ak2zbQdBjM1UK1T/VcAvH64lsl7YiH+VBiYTGmwACupJPOvOIWi4C9eWO
+# /Dc2GwmHolgApYXb7K+qp8tOisWug8nZ9yPLeCKDEojSEGY4oU7HkOYNKF4=
 # SIG # End signature block

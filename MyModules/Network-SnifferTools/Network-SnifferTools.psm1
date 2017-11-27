@@ -11,6 +11,17 @@ function Resolve-Host {
         [string]$HostNameOrIP
     )
 
+    ## BEGIN Native Helper Functions ##
+
+    function Test-IsValidIPAddress([string]$IPAddress) {
+        [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
+        [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
+        Return  ($Valid -and $Octets)
+    }
+
+    ## END Native Helper Functions ##
+    
+
     ##### BEGIN Main Body #####
 
     $RemoteHostNetworkInfoArray = @()
@@ -21,25 +32,12 @@ function Resolve-Host {
             $IPv4AddressFamily = "InterNetwork"
             $IPv6AddressFamily = "InterNetworkV6"
 
-            [System.Net.Dns]::GetHostEntry($HostNamePrep).AddressList | Where-Object {
+            $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
+            $ResolutionInfo.AddressList | Where-Object {
                 $_.AddressFamily -eq $IPv4AddressFamily
             } | foreach {
                 if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
                     $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
-                }
-            }
-            
-            [System.Collections.ArrayList]$RemoteHostFQDNs = @()
-            foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
-                try {
-                    $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
-                }
-                catch {
-                    Write-Verbose "Unable to resolve $HostIP. Please check your DNS config."
-                    continue
-                }
-                if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
-                    $null = $RemoteHostFQDNs.Add($FQDNPrep)
                 }
             }
         }
@@ -53,8 +51,10 @@ function Resolve-Host {
             [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
             $null = $RemoteHostArrayOfIPAddresses.Add($HostIPPrep)
 
+            $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostIPPrep)
+
             [System.Collections.ArrayList]$RemoteHostFQDNs = @() 
-            $null = $RemoteHostFQDNs.Add([System.Net.Dns]::GetHostEntry($HostIPPrep).HostName)
+            $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
         }
         catch {
             Write-Verbose "Unable to resolve $HostNameOrIP when treated as an IP Address (as opposed to Host Name)!"
@@ -63,13 +63,27 @@ function Resolve-Host {
 
     if ($RemoteHostArrayOfIPAddresses.Count -eq 0) {
         Write-Error "Unable to determine IP Address of $HostNameOrIP! Halting!"
-    }
-    if ($RemoteHostFQDNs.Count -eq 0) {
-        Write-Error "Unable to determine FQDN of $HostNameOrIP! Halting!"
-    }
-    if ($RemoteHostArrayOfIPAddresses.Count -eq 0 -or $RemoteHostFQDNs.Count -eq 0) {
         $global:FunctionResult = "1"
         return
+    }
+
+    # At this point, we have $RemoteHostArrayOfIPAddresses...
+    [System.Collections.ArrayList]$RemoteHostFQDNs = @()
+    foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
+        try {
+            $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
+        }
+        catch {
+            Write-Verbose "Unable to resolve $HostIP. No PTR Record? Please check your DNS config."
+            continue
+        }
+        if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
+            $null = $RemoteHostFQDNs.Add($FQDNPrep)
+        }
+    }
+
+    if ($RemoteHostFQDNs.Count -eq 0) {
+        $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
     }
 
     [System.Collections.ArrayList]$HostNameList = @()
@@ -1928,8 +1942,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZK87FlvHaGSNJiKon1uV/J2I
-# paWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUklZnZObznvSU3B/tfkxTCD0o
+# s9Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1986,11 +2000,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCGIVuuKnzS1/2Pc
-# U9G6D1PaEvbCMA0GCSqGSIb3DQEBAQUABIIBAF4wpya8FAu/cRFpiEIfF4hQQ795
-# Q3GRHfVoEW3LpfhvniUfHi4JkQ1ZQ/PxJtrpL6WHZ2XRkFHKE61UMRzWCoyQWk9q
-# J1rlS8x1pCqi/79Mht3C3P4BaUFT1O6Vpcy6BizuCilP3eRm1GbRHdTW5ks7RDSl
-# 4njF+SPHxHchgkYy7cY3xKdaQn1XimIVncWcptL0cOpexSpA1vwm4pmdfkBv0qiN
-# XyancR23N/8ZvuSjwkOOe9JGfEaTdrUJB8mCdTzfFUP0YtvH6iqyNJBsUgiHXbF5
-# Yc1u3EmnA2ee3rUSDN+6i1ooZmPl7b7V+UuZ5d61l0txX2udjk1E5nAaYFI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBlfU4G4XsUtRkmj
+# abJlI0Y7rJaXMA0GCSqGSIb3DQEBAQUABIIBACtmKPNv7WRpvEkhufmEes22w7Hc
+# Z3XWHkTu57ukM1kBexRhm52QKyJNGgufEv5hp1g7jfkD+OARgEsXwDKBIEtTuvBe
+# xVtK5rCk6hGXrlbtJCqUE5c/Tz9QDpKjAqT2pQOzd2llexHioo4Ap0NdOlgtYKYL
+# 7ODe4oBvsX4d2h1dul5sZXGFg/JNmO2XTWhXI2Gc08FOAbcQZKFmU/ljzgdOR5Mh
+# Vt+7qGXavxHvpr4UqDyxibIG87q0BHY3QwWApHpb1lRAPW+qRCSuXOfw2vlpFnkd
+# W86yhNRXT/y0XwoxNqq0KPEVdphI0dH/APeTrSgzPTtmX9DXoeJE9vXd0bE=
 # SIG # End signature block
