@@ -1707,7 +1707,12 @@ function Watch-BadProgramConnection {
         }
 
         $CurrentJobOutput =  $(Get-Job -Name Sniffer).ChildJobs.Output
-        $ReceiveJobJson = $CurrentJobOutput[5..$($CurrentJobOutput.Count-1)]
+        if ($($CurrentJobOutput.Count-1) -gt 5) {
+            $ReceiveJobJson = $CurrentJobOutput[5..$($CurrentJobOutput.Count-1)]
+        }
+        else {
+            $ReceiveJobJson = @()
+        }
         if ($ReceiveJobJson.Count -gt 5) {
             [datetime]$ReceivedMorePacketsDateTime = $($ReceiveJobJson[-1] | ConvertFrom-Json).Time.DateTime
         }
@@ -1774,15 +1779,17 @@ function Watch-BadProgramConnection {
             $ReceivedMorePackets = $true
             [datetime]$ReceivedMorePacketsDateTime = $($ReceiveJobJson[-1] | ConvertFrom-Json).Time.DateTime
 
-            [System.Collections.ArrayList]$ProblemDataFound = @()
-            foreach ($jsonString in $ReceiveJobJson) {
-                if ($($($jsonString | ConvertFrom-JSON).Data -match $ProblematicData)) {
-                    $null = $ProblemDataFound.Add("True")
+            if ($ProblematicData) {
+                [System.Collections.ArrayList]$ProblemDataFound = @()
+                foreach ($jsonString in $ReceiveJobJson) {
+                    if ($($($jsonString | ConvertFrom-JSON).Data -match $ProblematicData)) {
+                        $null = $ProblemDataFound.Add("True")
+                    }
                 }
-            }
-            if ($ProblemDataFound -contains "True") {
-                Write-Warning "ProblematicData detected! Killing the TCP Connection!"
-                $KillTCPConnection = $true
+                if ($ProblemDataFound -contains "True") {
+                    Write-Warning "ProblematicData detected! Killing the TCP Connection!"
+                    $KillTCPConnection = $true
+                }
             }
 
             [datetime]$TimeOfLatestPacketReceived = $ReceivedMorePacketsDateTime
@@ -1942,8 +1949,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUklZnZObznvSU3B/tfkxTCD0o
-# s9Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIFtN3NmmNsvzp4F88+x3ffsE
+# +Mygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2000,11 +2007,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBlfU4G4XsUtRkmj
-# abJlI0Y7rJaXMA0GCSqGSIb3DQEBAQUABIIBACtmKPNv7WRpvEkhufmEes22w7Hc
-# Z3XWHkTu57ukM1kBexRhm52QKyJNGgufEv5hp1g7jfkD+OARgEsXwDKBIEtTuvBe
-# xVtK5rCk6hGXrlbtJCqUE5c/Tz9QDpKjAqT2pQOzd2llexHioo4Ap0NdOlgtYKYL
-# 7ODe4oBvsX4d2h1dul5sZXGFg/JNmO2XTWhXI2Gc08FOAbcQZKFmU/ljzgdOR5Mh
-# Vt+7qGXavxHvpr4UqDyxibIG87q0BHY3QwWApHpb1lRAPW+qRCSuXOfw2vlpFnkd
-# W86yhNRXT/y0XwoxNqq0KPEVdphI0dH/APeTrSgzPTtmX9DXoeJE9vXd0bE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGL/SDioebK7yJc0
+# TfpCbBiaI/uGMA0GCSqGSIb3DQEBAQUABIIBACLwDu/pMno1RCRpss7oZdvkAZKf
+# Rq/q5X9Q+EI5HJN3gvvzT27hxUsY4DTPoJ1Rf/JEfPrQ5zXhidUd400XnnijlAi2
+# HT/MxMsOKdo8byET8dZ2ywrL2h6ZwHHC8BLlOKUrRzHYbhR/d/h3ZWIEkdq4oR7A
+# V1+axPOXJwuqRozHC2aKjMpGuSqrbp9qVsIM4ttOaBDq+KafXwRxfDUlYhMvHICo
+# Jv6v+DYDLprVnM6IXCMb91eLohgIHqCcsc2UkUUDYEAhVx+sHdomeTdfMLkNpKT1
+# sVR/r4ipZvmXAuCQVFkkQxy8qd/hQSK9cQNU5LpvcpL1iWokjAQRsyhe5xU=
 # SIG # End signature block
