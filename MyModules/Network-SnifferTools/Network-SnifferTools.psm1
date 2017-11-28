@@ -615,8 +615,10 @@ function Start-Sniffer {
         [int]$MaxEntries = 10000,
 
         [Parameter(Mandatory=$False)]
-        [switch]$Help
-        
+        [switch]$Help,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SuppressStdOutMsgs
     )
 
     ##### BEGIN Helper Functions #####
@@ -806,9 +808,11 @@ function Start-Sniffer {
             return
         }
     }
-    Write-Host "Using Local IP $LocalIP..."
-    Write-Host ""
 
+    if (!$SuppressStdOutMsgs) {
+        Write-Host "Using Local IP $LocalIP..."
+        Write-Host ""
+    }
 
     # Open a raw ip socket
     # More on Sockets here: https://codereview.stackexchange.com/questions/86759/receiving-all-data-comes-from-web-in-system-net-socket
@@ -827,9 +831,11 @@ function Start-Sniffer {
     # Enable promiscuous mode
     [void]$Socket.IOControl([Net.Sockets.IOControlCode]::ReceiveAll, $byteIn, $byteOut)
 
-    Write-Host "Press ESC to stop the packet sniffer ..." -fore yellow
-    Write-Host "IMPORTANT NOTE: There is about a 30 second delay between network activity and output!" -fore yellow
-    Write-Host ""
+    if (!$SuppressStdOutMsgs) {
+        Write-Host "Press ESC to stop the packet sniffer ..." -fore yellow
+        Write-Host "IMPORTANT NOTE: There is about a 30 second delay between network activity and output!" -fore yellow
+        Write-Host ""
+    }
     $ESCKey = 27
     $running = $true
 
@@ -1579,7 +1585,7 @@ function Watch-BadProgramConnection {
     }
     $StartSnifferArgsAsString = $TCPParametersAsStringArray -join " "
 
-    $RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {. '$tmpfl'; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts}`""
+    $RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {. '$tmpfl'; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts -SuppressStdOutMsgs}`""
     $InvokeExpressionString = "$BinPath $RunBinArgs"
     #Write-Host "Running Job: $InvokeExpressionString"
 
@@ -1663,6 +1669,10 @@ function Watch-BadProgramConnection {
 
     try {
         $CheckJobOutput = $(Get-Job -Name Sniffer).ChildJobs.Output[0]
+
+        if (!$CheckJobOutput -or $CheckJobOutput[0] -eq $null) {
+            throw
+        }
     }
     catch {
         Write-Verbose "No ouput yet..."
@@ -1670,6 +1680,10 @@ function Watch-BadProgramConnection {
     while (!$CheckJobOutput) {
         try {
             $CheckJobOutput = $(Get-Job -Name Sniffer).ChildJobs.Output[0]
+
+            if (!$CheckJobOutput -or $CheckJobOutput[0] -eq $null) {
+                throw
+            }
         }
         catch {
             Write-Verbose "Waiting for Sniffer to capture output..."
@@ -1685,7 +1699,7 @@ function Watch-BadProgramConnection {
 
     $ConnectionStillExists = $TCPConnectionToKill
     $Time = 0
-    while ($ReceiveJobJson.Count -lt 5 -and $ConnectionStillExists) {
+    while ($ReceiveJobJson.Count -eq 0 -and $ConnectionStillExists) {
         Write-Verbose "Waiting for Sniffer to output packets received..."
         # Make sure there's still a TCP Connection matching $TCPConnectionToKill
         [System.Collections.ArrayList]$NetTCPParametersAsStringArray = @()
@@ -1707,13 +1721,13 @@ function Watch-BadProgramConnection {
         }
 
         $CurrentJobOutput =  $(Get-Job -Name Sniffer).ChildJobs.Output
-        if ($($CurrentJobOutput.Count-1) -gt 5) {
-            $ReceiveJobJson = $CurrentJobOutput[5..$($CurrentJobOutput.Count-1)]
+        if ($CurrentJobOutput.Count -gt 0) {
+            $ReceiveJobJson = $CurrentJobOutput
         }
         else {
-            $ReceiveJobJson = @()
+            [System.Collections.Arraylist]$ReceiveJobJson = @()
         }
-        if ($ReceiveJobJson.Count -gt 5) {
+        if ($ReceiveJobJson.Count -gt 0) {
             [datetime]$ReceivedMorePacketsDateTime = $($ReceiveJobJson[-1] | ConvertFrom-Json).Time.DateTime
         }
 
@@ -1744,6 +1758,7 @@ function Watch-BadProgramConnection {
     $StartedReceivingPacketsStartTime = [datetime]::MinValue
     $StoppedReceivingPacketsStartTime = [datetime]::MinValue
     $NoPacketsReceivedDateTime = [datetime]::MinValue
+    $ReceivedMorePacketsTimer = 0
     while ($ConnectionStillExists) {
         # Make sure there's still a TCP Connection matching $TCPConnectionToKill
         [System.Collections.ArrayList]$NetTCPParametersAsStringArray = @()
@@ -1771,10 +1786,10 @@ function Watch-BadProgramConnection {
         }
 
         #$ReceiveJobPrepInternal = Receive-Job -Name Sniffer
-        if ($($($(Get-Job -Name Sniffer).ChildJobs.Output).Count-5) -gt $ReceiveJobJson.Count) {
+        if ($($(Get-Job -Name Sniffer).ChildJobs.Output).Count -gt $ReceiveJobJson.Count) {
             Write-Host "Received more Packets..."
             $CurrentJobOutput = $(Get-Job -Name Sniffer).ChildJobs.Output
-            $ReceiveJobJson = $CurrentJobOutput[5..$($CurrentJobOutput.Count-1)]
+            $ReceiveJobJson = $CurrentJobOutput
             
             $ReceivedMorePackets = $true
             [datetime]$ReceivedMorePacketsDateTime = $($ReceiveJobJson[-1] | ConvertFrom-Json).Time.DateTime
@@ -1791,8 +1806,6 @@ function Watch-BadProgramConnection {
                     $KillTCPConnection = $true
                 }
             }
-
-            [datetime]$TimeOfLatestPacketReceived = $ReceivedMorePacketsDateTime
         }
         else {
             $ReceivedMorePackets = $false
@@ -1802,10 +1815,15 @@ function Watch-BadProgramConnection {
         try {
             if (!$ReceivedMorePackets -and $NoPacketsReceivedDateTime -ne [datetime]::MinValue) {
                 $AmountOfTimeWithoutNetworkCommunication = $(Get-Date) - $NoPacketsReceivedDateTime
+
+                if ($AmountOfTimeWithoutNetworkCommunication -gt $(New-Timespan -Seconds 15)) {
+                    $ReceivedMorePacketsTimer = 0
+                }
             }
 
             if ($ReceivedMorePackets) {
-                $AmountOfTimeWithPersistentNetworkCommunication = $(Get-Date) - $ReceivedMorePacketsDateTime
+                $ReceivedMorePacketsTimer++
+                $AmountOfTimeWithPersistentNetworkCommunication = New-Timespan -Seconds $ReceivedMorePacketsTimer
             }
         }
         catch {
@@ -1854,9 +1872,7 @@ function Watch-BadProgramConnection {
             break
         }
 
-        [datetime]$TimeOfLatestPacketReceived =  $ReceivedMorePacketsDateTime
-
-        Start-Sleep -Seconds 2
+        Start-Sleep -Seconds 1
     }
 
     Write-Host "Exporting Packet Capture and cleaning up..."
@@ -1949,8 +1965,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIFtN3NmmNsvzp4F88+x3ffsE
-# +Mygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8eH36vZdvdM0v8lmvA0jajVi
+# bF2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2007,11 +2023,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGL/SDioebK7yJc0
-# TfpCbBiaI/uGMA0GCSqGSIb3DQEBAQUABIIBACLwDu/pMno1RCRpss7oZdvkAZKf
-# Rq/q5X9Q+EI5HJN3gvvzT27hxUsY4DTPoJ1Rf/JEfPrQ5zXhidUd400XnnijlAi2
-# HT/MxMsOKdo8byET8dZ2ywrL2h6ZwHHC8BLlOKUrRzHYbhR/d/h3ZWIEkdq4oR7A
-# V1+axPOXJwuqRozHC2aKjMpGuSqrbp9qVsIM4ttOaBDq+KafXwRxfDUlYhMvHICo
-# Jv6v+DYDLprVnM6IXCMb91eLohgIHqCcsc2UkUUDYEAhVx+sHdomeTdfMLkNpKT1
-# sVR/r4ipZvmXAuCQVFkkQxy8qd/hQSK9cQNU5LpvcpL1iWokjAQRsyhe5xU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE/u8L6V7t4YsmAk
+# JycrtK/rxho9MA0GCSqGSIb3DQEBAQUABIIBADUhSnRCGgAS19m6aoA4Y8iBfH7l
+# uaccRNFo9w8GYTSM6UX5uZPOHkYh/OOt/f91s2gCIxegeWoufTKZi27ivFbJklGQ
+# VA2BrwWu1zt+4dQSREmCQQ7x7Yddebs+fUUJHi9glLKMe/yqDnxP1gRwzQrPjOtY
+# IB3lK5mhpoqYJup6r62IpEAhmh33LFmJyyL/IBbmvR2z4XVRAT87tzRcHyq893lA
+# Q3JvmLycfUuaPlRJXI5JmMtWUi085ZsLnCNMiLTw4pfYqaMtOkJr+iY5Cv2gLVTA
+# KwT44RD4KfctlbgxNH5DuOhaedju6wbO6vq9Qryv3Co1ewz7V2v3YR/PIC0=
 # SIG # End signature block
