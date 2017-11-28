@@ -866,11 +866,13 @@ function Download-NuGetPackage {
         }
     }
 
+    <#
     if ($PSVersionTable.PSEdition -eq "Desktop" -and $NuGetPkgDownloadPath) {
         Write-Error "The -NuGetPkgDownloadPath parameter is only meant to be used with PowerShell Core! Halting!"
         $global:FunctionResult = "1"
         return
     }
+    #>
     
     ##### END Parameter Validation #####
 
@@ -879,7 +881,7 @@ function Download-NuGetPackage {
 
     $s = [IO.Path]::DirectorySeparatorChar
 
-    if ($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") {
+    if ($($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") -or $NuGetPkgDownloadPath) {
         $NuGetPackageUri = "https://www.nuget.org/api/v2/package/$AssemblyName"
         try {
             $OutFileBaseNamePrep = Invoke-WebRequest $NuGetPackageUri -DisableKeepAlive -UseBasicParsing
@@ -958,7 +960,7 @@ function Download-NuGetPackage {
 
         $NuGetPkgDownloadPathParentDir = $FinalNuGetPkgPath | Split-Path -Parent
     }
-    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+    if ($($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") -and !$NuGetPkgDownloadPath) {
         $NuGetConfigContent = Get-Content $(Get-NativePath @($env:AppData, "NuGet", "nuget.config"))
         $NuGetRepoPathCheck = $NuGetConfigContent | Select-String -Pattern '<add key="repositoryPath" value=' -ErrorAction SilentlyContinue
         if ($NuGetRepoPathCheck -ne $null) {
@@ -1064,7 +1066,7 @@ function Download-NuGetPackage {
 
     
     ##### BEGIN Main Body #####
-    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") {
+    if ($($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT") -and !$NuGetPkgDownloadPath) {
         $null = Update-PackageManagement -InstallNuGetCmdLine
 
         if (!$(Get-Command nuget.exe -ErrorAction SilentlyContinue)) {
@@ -1119,7 +1121,7 @@ function Download-NuGetPackage {
             return
         }
     }
-    if ($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") {
+    if ($($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") -or $NuGetPkgDownloadPath) {
         try {
             # Download the NuGet Package
             Write-Host "Downloading $AssemblyName NuGet Package to $FinalNuGetPkgPath ..."
@@ -1219,8 +1221,8 @@ function Download-NuGetPackage {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwViSkfHd8BfYFvPRYVr58mqR
-# erKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUm9BuR+GXNvUSlxHGKA1Ifr8F
+# 5Jqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1277,11 +1279,11 @@ function Download-NuGetPackage {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFECzB7MbKcaaN2mI
-# NQ8JchuakkZjMA0GCSqGSIb3DQEBAQUABIIBAKVPF71DzIE7TDzaAqGuI7OWAwYV
-# n6WuAEnzHhUsbxOqkjulyb1yhbTeKBWKwt3gQtD52xR65LeLryNT2Mo0wwdqlG0Y
-# ahZ1I9TrlfPmNdr2Akd5rLevmJM28Ia/vL3HYVI4ABobPOwMyYQq02EHUYz4llPC
-# w/CwfE3jVpktuwh+IPtryQDv+ejImStbBvfVzDCps9jEpV2LReCapPOyz1hrjMvP
-# 70N3EA20JwgbGRQzUYFDlIo1TtAOazAVPJkF6zefzjFqMuhDkyE2eTpqIZzJduOX
-# 1xh8EoSgY8ZrMJf4X+Wq53CJa6gOlxDhZvzFJr7RoR3iXo0VQdJgL/flRiU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNNKjc/xXSlbYDLM
+# BA6vx65vyEx8MA0GCSqGSIb3DQEBAQUABIIBAIMBSz68xUyEizEZtbYXU9bolos4
+# 7LYkvnm4VfFppwg5au80LkJ0D2vzYwzfF/c7TMrxtyaKXdFZbKpRwfqmVlaBCDD8
+# s3aG7Z3GNSAW23H2oo8kCo4YchBrEs1sW8DMFS9bQUVhPNwjMFJzNsIA40aKlNFO
+# 9jnl5vakPoQpdN5d3xS+S/oNuLthGoSI2P18psEw6GgWg7yUshazBIkVS0PuHHp5
+# s2CIgsYsvIuQBqyC/JE7PrVUi/gh5MVfg43RNarpi9cFWe4v5kJJgkjxxJoa2Dnd
+# wuA1yx5Lbbp5apPzxiQrgIkPkD7du3jm4idH1/YvTgNXmVgTmXmZR1eC6z8=
 # SIG # End signature block
