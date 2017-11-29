@@ -1913,11 +1913,17 @@ function Watch-BadProgramConnection {
 
     if ($PerpetualWatch) {
         Write-Host "We are using PerpetualWatch Mode!"
-        Write-Host "Conitnuing to watch for TCP connections that match the parameters specified..."
+        Write-Host "Continuing to watch for TCP connections that match the parameters specified..."
         $FunctionName = $PSCmdlet.MyInvocation.InvocationName
         [System.Collections.ArrayList]$PerpParametersAsStringArray = @()
         foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
-            $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + "$($BoundParametersDictionary[$kvpair.Key])")
+            if ($BoundParametersDictionary[$kvpair.Key].GetType().FullName -eq "System.Management.Automation.SwitchParameter" -or
+            $BoundParametersDictionary[$kvpair.Key].GetType().FullName -eq "System.Boolean") {
+                $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + '$' + "$($BoundParametersDictionary[$kvpair.Key])")
+            }
+            else {
+                $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + "$($BoundParametersDictionary[$kvpair.Key])")
+            }
         }
         $InvokeExpressionWatchBadProgramString = $FunctionName + " " + $($PerpParametersAsStringArray -join " ")
 
@@ -1965,8 +1971,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUEFh3w8xe3SOAacrkxZn9Mx+m
-# Ouigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+rEaEdCgRmcaJoh62A42BLDr
+# Y4Wgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2023,11 +2029,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKNkKrRH82tMib9I
-# kgUt6m6EiDdSMA0GCSqGSIb3DQEBAQUABIIBALVBFY3LEUhVm2nP2u4igmLTMfVg
-# sE0D8xEpxLR5mQKFRsyTQ4L1Bj5DY45vqZQE2o5Ll737zVx8lrZahm35ojcZyeom
-# FWPNb5SJjwXmb7LDjSAl84OkhpixMLlZyEc7r5HdJaFWUtgry0L3Vddyd34XmhsM
-# VOrP4Zw837EcT4BsrbXKbcEHEbKOQ/gvZNag3UQXN5t7IR/SUk1nKKl4WtXjc2/m
-# EFhICkTOvVK3Cxr4+soOLCNdxOJ4bGZRcE+HUYSVcZHowtWd2aNvVmnyhfMxK71I
-# oM2eZ4IYfb45+NI0Elw2KjLyM5bwG1ZwBICEcwwDmYfjrPMSw1nQcZkNUgo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM2QoAqnxfM+Nh43
+# 8wnUUnhP0XurMA0GCSqGSIb3DQEBAQUABIIBAMOGFvEweGYjOpDwtsPplhXyj+XQ
+# FJ3FgpC6gXEpCHjkPrFSW5xH2kTum2OwYSL9bW1ZTLxQoiDrpYhRofc0rS91LUYg
+# C/K8+r+ScfhZn3Ksuu9Owd+4E6o5jojdSZZQ47mIixy1DoXLmtG8+AO52HwTPWI5
+# Iff9bbYmw3x60DhtlalIRtbZc766NUCAL9sqszUDSMgGX4t7CWN96XSpLF5guSWA
+# bhKCJVjXSeUr82zu0xppA2eQFSxJkESP5qc6gUv2Vx55tfuT2SqdPWbZ3YdLnMcK
+# sliv9IX8m0sY60lT/cKyIGMurmZ2jFtJnpPcfqg9BpunxIcXC5Sl4grswWs=
 # SIG # End signature block
