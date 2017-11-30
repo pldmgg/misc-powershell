@@ -1922,9 +1922,11 @@ function Watch-BadProgramConnection {
         $FunctionName = $PSCmdlet.MyInvocation.InvocationName
         [System.Collections.ArrayList]$PerpParametersAsStringArray = @()
         foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
-            if ($BoundParametersDictionary[$kvpair.Key].GetType().FullName -eq "System.Management.Automation.SwitchParameter" -or
-            $BoundParametersDictionary[$kvpair.Key].GetType().FullName -eq "System.Boolean") {
+            if ($BoundParametersDictionary[$kvpair.Key].GetType().FullName -eq "System.Boolean") {
                 $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + '$' + "$($BoundParametersDictionary[$kvpair.Key])")
+            }
+            elseif ($BoundParametersDictionary[$kvpair.Key].GetType().FullName -eq "System.Management.Automation.SwitchParameter") {
+                $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)")
             }
             elseif ($($kvpair.Key) -eq "SnifferOutputFile") {
                 $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + "'" + "$($BoundParametersDictionary[$kvpair.Key])" + "'")
@@ -1979,8 +1981,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQsTYFRWQmq7czJdhQdo3s+h0
-# mUGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUDZav8VFV0hZz7ddRe8zD6fPi
+# 4rqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2037,11 +2039,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIV+bpEYHtgc5MHu
-# 3ewk8eKiuqSJMA0GCSqGSIb3DQEBAQUABIIBAJsLIFGiiSWi7AnMg49tSjza21Hq
-# nPSr8tk+NhDxnVBoMZpt2ptqwMBIp8vaMkfpve0ywHyoO+fGIwKnAp2PL1XtWCoz
-# IlO0EjJH2zwEfW+rOTT4gSPxIeo1NvVYmVdI/lzwSHEsDYYjqKMekRYy2D+6uS+S
-# NtL689ip47raQ8ESIdARlxOnqkJ8L/MAgtDnTVhQ17/2zyHe+aNG8lBacJEsbTCY
-# G7Z65HaP970xdzCJbrpSrrFoBHHPyqtClrS2bfi4QVm2BBIwr4TcCuUL/mLjEQlw
-# 0aAg1qSFiQ0Yu/Q1/3dRNi6JBzXaXA5zF8+rT5CrNd5ANMnY9RowjCzhRQo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFh2D/GreiGb6pQu
+# 9Jck4z5FGD4EMA0GCSqGSIb3DQEBAQUABIIBAKGqsgxxg/FQHxokML5KRQ7RWNxp
+# Gf8jR67NRZxRi4+fTv2PfL4vpJ+X7T7hfiBUf1neT7xaO49gcvAdwiOdIuH77Rfs
+# l4+2+9sSr9CycWMSvnQRyiC9dOD+tsjYsu+dwDOmoKOqdPmO5u+etEDVJ9PIGNzq
+# GewN5N9z/p5jAmM0jLA2w4jlKmxYuKdxzdIKF29Hxg3rkFamRvGe2J5zOJxjpnXa
+# qDka7F3/XnIuTdmV5YUZAgBuKkjt/7s2skkULdtFFO1m5gsJxxRF+rJcMHA3H5EK
+# b+o5Ye/2mAthdCzg55RlIOyOTir2ku4ysY399lt4UWIeAj+tRlW2MbEJVNQ=
 # SIG # End signature block
