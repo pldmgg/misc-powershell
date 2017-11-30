@@ -1728,7 +1728,12 @@ function Watch-BadProgramConnection {
             [System.Collections.Arraylist]$ReceiveJobJson = @()
         }
         if ($ReceiveJobJson.Count -gt 0) {
-            [datetime]$ReceivedMorePacketsDateTime = $($ReceiveJobJson[-1] | ConvertFrom-Json).Time.DateTime
+            try {
+                [datetime]$ReceivedMorePacketsDateTime = $($ReceiveJobJson[-1] | ConvertFrom-Json).Time.DateTime
+            }
+            catch {
+                Write-Verbose "Still waiting for Sniffer to output packets received..."
+            }
         }
 
         $Time++
@@ -1974,8 +1979,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXf/++GlHmK4EzOv92RzP4b7n
-# DEagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQsTYFRWQmq7czJdhQdo3s+h0
+# mUGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2032,11 +2037,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE6TlvzgJXdSMNRS
-# niezCtSK/WlzMA0GCSqGSIb3DQEBAQUABIIBAE5jHtkqIzk4vI9wwmM3p/fi46GX
-# nTOm1NthB2KjBmeOGSkBUVLpQN9sVeYbDNAWFyhymqBm114Cx0Q4b9NV/W0OGkSn
-# ABYhhu/tgsPanNFJiDOerbYfutDgBjSTxlTETyzPUvuwxhjsrpP7JzWXX/DphBNV
-# Q0DZwzdWaGjmDNXLe4SmxUvqawVzp6CGgD6UuCrzGH9zMq28ekfHVkpXkk6mHaPx
-# zaXsNCOh+yzY00/WJ0QFI9Bdj7rORpbYT5s7izSvePCpIjS45yf2YVp2P1cudkPL
-# nSbyQJ1b71rZNxN8s6KXSbyV4uiDuY203kByMANUaIkJW+hEvg2II5c134E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIV+bpEYHtgc5MHu
+# 3ewk8eKiuqSJMA0GCSqGSIb3DQEBAQUABIIBAJsLIFGiiSWi7AnMg49tSjza21Hq
+# nPSr8tk+NhDxnVBoMZpt2ptqwMBIp8vaMkfpve0ywHyoO+fGIwKnAp2PL1XtWCoz
+# IlO0EjJH2zwEfW+rOTT4gSPxIeo1NvVYmVdI/lzwSHEsDYYjqKMekRYy2D+6uS+S
+# NtL689ip47raQ8ESIdARlxOnqkJ8L/MAgtDnTVhQ17/2zyHe+aNG8lBacJEsbTCY
+# G7Z65HaP970xdzCJbrpSrrFoBHHPyqtClrS2bfi4QVm2BBIwr4TcCuUL/mLjEQlw
+# 0aAg1qSFiQ0Yu/Q1/3dRNi6JBzXaXA5zF8+rT5CrNd5ANMnY9RowjCzhRQo=
 # SIG # End signature block
