@@ -1921,6 +1921,9 @@ function Watch-BadProgramConnection {
             $BoundParametersDictionary[$kvpair.Key].GetType().FullName -eq "System.Boolean") {
                 $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + '$' + "$($BoundParametersDictionary[$kvpair.Key])")
             }
+            elseif ($($kvpair.Key) -eq "SnifferOutputFile") {
+                $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + "'" + "$($BoundParametersDictionary[$kvpair.Key])" + "'")
+            }
             else {
                 $null = $PerpParametersAsStringArray.Add("-$($kvpair.Key)" + " " + "$($BoundParametersDictionary[$kvpair.Key])")
             }
@@ -1971,8 +1974,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+rEaEdCgRmcaJoh62A42BLDr
-# Y4Wgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXf/++GlHmK4EzOv92RzP4b7n
+# DEagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2029,11 +2032,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM2QoAqnxfM+Nh43
-# 8wnUUnhP0XurMA0GCSqGSIb3DQEBAQUABIIBAMOGFvEweGYjOpDwtsPplhXyj+XQ
-# FJ3FgpC6gXEpCHjkPrFSW5xH2kTum2OwYSL9bW1ZTLxQoiDrpYhRofc0rS91LUYg
-# C/K8+r+ScfhZn3Ksuu9Owd+4E6o5jojdSZZQ47mIixy1DoXLmtG8+AO52HwTPWI5
-# Iff9bbYmw3x60DhtlalIRtbZc766NUCAL9sqszUDSMgGX4t7CWN96XSpLF5guSWA
-# bhKCJVjXSeUr82zu0xppA2eQFSxJkESP5qc6gUv2Vx55tfuT2SqdPWbZ3YdLnMcK
-# sliv9IX8m0sY60lT/cKyIGMurmZ2jFtJnpPcfqg9BpunxIcXC5Sl4grswWs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE6TlvzgJXdSMNRS
+# niezCtSK/WlzMA0GCSqGSIb3DQEBAQUABIIBAE5jHtkqIzk4vI9wwmM3p/fi46GX
+# nTOm1NthB2KjBmeOGSkBUVLpQN9sVeYbDNAWFyhymqBm114Cx0Q4b9NV/W0OGkSn
+# ABYhhu/tgsPanNFJiDOerbYfutDgBjSTxlTETyzPUvuwxhjsrpP7JzWXX/DphBNV
+# Q0DZwzdWaGjmDNXLe4SmxUvqawVzp6CGgD6UuCrzGH9zMq28ekfHVkpXkk6mHaPx
+# zaXsNCOh+yzY00/WJ0QFI9Bdj7rORpbYT5s7izSvePCpIjS45yf2YVp2P1cudkPL
+# nSbyQJ1b71rZNxN8s6KXSbyV4uiDuY203kByMANUaIkJW+hEvg2II5c134E=
 # SIG # End signature block
