@@ -406,6 +406,7 @@ function Get-GuestVMAndHypervisorInfo {
             [pscustomobject]@{
                 HostNameComputerInfo  = Get-CimInstance Win32_ComputerSystem
                 HostNameOSInfo        = Get-CimInstance Win32_OperatingSystem
+                HostNameProcessorInfo = Get-CimInstance Win32_Processor
             }
         }
 
@@ -419,6 +420,7 @@ function Get-GuestVMAndHypervisorInfo {
             $HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue            
             $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
             $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+            $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
         }
         catch {
             if ($Error[1] -match "Connecting to remote server") {
@@ -441,6 +443,7 @@ function Get-GuestVMAndHypervisorInfo {
                     $HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -WarningAction SilentlyContinue
                     $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
                     $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                    $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
                 }
                 catch {
                     Write-Error $Error[1]
@@ -542,6 +545,7 @@ function Get-GuestVMAndHypervisorInfo {
                 [pscustomobject]@{
                     HostNameComputerInfo        = Get-CimInstance Win32_ComputerSystem
                     HostNameOSInfo              = Get-CimInstance Win32_OperatingSystem
+                    HostNameProcessorInfo       = Get-CimInstance Win32_Processor
                     HostNameGuestVMInfo         = $HostNameGuestVMInfo
                 }
             }
@@ -560,6 +564,7 @@ function Get-GuestVMAndHypervisorInfo {
 
             $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
             $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+            $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
             $HostNameGuestVMInfo = $InvokeCommandOutput.HostNameGuestVMInfo
         }
         else {
@@ -576,6 +581,7 @@ function Get-GuestVMAndHypervisorInfo {
 
             $HostNameComputerInfo = Get-CimInstance Win32_ComputerSystem
             $HostNameOSInfo = Get-CimInstance Win32_OperatingSystem
+            $HostNameProcessorInfo = Get-CimInstance Win32_Processor
             $HostNameGuestVMInfo = $HostNameGuestVMInfo
         }
 
@@ -814,7 +820,9 @@ function Get-GuestVMAndHypervisorInfo {
         }
 
         # Now we have $HypervisorNetworkInfo, $HypervisorComputerInfo, $HypervisorOSInfo, $TargetVMInfoFromHyperV, 
-        # $HostNameGuestVMInfo, $HostNameNetworkInfo, $HostNameComputerInfo, and $HostNameOSInfo, and $HostNameVirtualStatusInfo
+        # $HostNameGuestVMInfo, $HostNameNetworkInfo, $HostNameComputerInfo, and $HostNameOSInfo, $HostNameVirtualStatusInfo,
+        # and $HostNameProcessorInfo
+
             
         # End Get Hypervisor Info #
 
@@ -830,6 +838,7 @@ function Get-GuestVMAndHypervisorInfo {
         HostNameNetworkInfo         = $HostNameNetworkInfo
         HostNameComputerInfo        = $HostNameComputerInfo
         HostNameOSInfo              = $HostNameOSInfo
+        HostNameProcessorInfo       = $HostNameProcessorInfo
         HostNameVirtualStatusInfo   = $HostNameVirtualStatusInfo 
     }
 }
@@ -850,8 +859,8 @@ function Get-GuestVMAndHypervisorInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUPorcbwOE1SX7el/A+2JChnqa
-# ePygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJb+SUw7c5AwFL0KI4zHs3eIh
+# ngqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -908,11 +917,11 @@ function Get-GuestVMAndHypervisorInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOpagUJ2sKlPCJ09
-# Y6ZZ3mQQ2Nh3MA0GCSqGSIb3DQEBAQUABIIBACvsvOTyhc8IYFTdAD8Vnh33zFBx
-# V6UfsTJFpLSYxQppVENfXuk4QpmvJjHjaVs8JwFnWXdlYz86biqqbFPQggRrNUko
-# ew3P2jc4jpR7SftWVp0zKjnqfhbNl/tS5Wi9ulF+q56MvKuJoHamLvqOuQtgJv7s
-# F+83ZfbyE4ammpGLkE9mcYBHOo8pTDtC1nz8tm03TemNkeeGJOlx+197zGCiBEri
-# iItHf9y6fr4+DQK3mbefDR+G5+YrOsLqdW43iVQ7WWRf9Y1x30Rrj/xbfa6Mhjds
-# M2eaPI5jeiOKgm014REv0u9Y64hbd7qyslZwSMURFmX8uHoZKYFzNsVqnwI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBISEXIzbzeHbPbL
+# b816MiHY4K99MA0GCSqGSIb3DQEBAQUABIIBALcTzL4kSki3rf5knZufKFG21FI8
+# SLFqXmug+RsVdJ6wB5/uazD3rEd0RNYhkJqqkLSS5dC0tk5uhqituJPBP0e8227x
+# nrImMk+fxAs9rGGDo/Psle464V2UYmPfkqeos8Xezc02acpfvLGnIM4WKchHhrbe
+# MIqTayfbJvt9h/Rc0jjM9npMDeaPEX18FAtHD9DZJzI/u4YUuveClX456KXPW9g5
+# jyatkFhuis0Oa3ianU5+xC64W59biDrUSS4pgbgabClaQeEeClMgYwEmalP7V3vH
+# PV5VQowNYg3HnDAROsqUeDLVh85BSAITuqqoK9IyRq4wPGiDhbb/9fiZzbg=
 # SIG # End signature block
