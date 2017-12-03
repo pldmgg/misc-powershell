@@ -588,10 +588,7 @@ function Install-WinSSH {
     if ($UsePackageManagement) {
         try {
             $LatestOpenSSHWin = Find-Package -Name OpenSSH -AllowPrereleaseVersions
-            $LatestOpenSSHWin | Install-Package
-            if (!$?) {
-                throw
-            }
+            $LatestOpenSSHWin | Install-Package -ErrorAction Stop
 
             if ($ConfigureSSHDOnLocalHost) {
                 & "C:\Chocolatey\lib\openssh.$($LatestOpenSSHWin.Version)\tools\chocolateyinstall.ps1" -SSHServerFeature -SSHAgentFeature
@@ -603,7 +600,7 @@ function Install-WinSSH {
             $OpenSSHWinPath = $(Get-ChildItem $env:ProgramFiles -Filter *OpenSSH* | Sort-Object -Property LastWriteTime)[-1].FullName
         }
         catch {
-            Write-Error $Error[0]
+            Write-Error $_
             Write-Error "Installation of OpenSSH failed! Halting!"
             $global:FunctionResult = "1"
             return
@@ -629,7 +626,7 @@ function Install-WinSSH {
                 $OpenSSHWinPath = "$env:ProgramFiles\$WinSSHFileNameSansExt"
             }
             catch {
-                Write-Error $Error[0]
+                Write-Error $_
                 Write-Error "Installation of OpenSSH failed! Halting!"
                 $global:FunctionResult = "1"
                 return
@@ -852,12 +849,11 @@ function Install-WinSSH {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNY+m58sFdzna7dYTy3zb2mT5
-# kuSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHg22sjITeeBqmbyOKw8tCAKH
+# vICgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -914,11 +910,11 @@ function Install-WinSSH {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFK41C7SKV3wF3Dcm
-# RU+bgU/xp2FHMA0GCSqGSIb3DQEBAQUABIIBAIqKLqpX7AcLPaDc334yU2rHDTwP
-# mCXJ9QZevsFPPYCkF1kyS+oAED11/CJVqqvP3UYuhwgNIaGVT/hW30B9dahhb062
-# fNupSQvFFadyp/DVkZVKH9YSmYjDgmWSyygHkuB7xL81LMMDlZHhub+tpHPpvhnR
-# nxhM/jwnhmcPWp/z+BTB6upvn9GYRJM2X/FTcn62ushqLbz3IJs9YwsFT173A8Ko
-# 9cMfFsTld5DdOoqYqF70Mbkx/tTWnYqXMuoV0mbHC5bFdKFcMLuxs7eFW7dcccH+
-# nuE6zAy6BGGqV6RUu+Es0eHrFDPpOuu6Ms382y9I1zXncDmhlybaONCc+LE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFC2zi8CwHB+EJRPc
+# 0Rofz2Nfj93kMA0GCSqGSIb3DQEBAQUABIIBAEU7Ub8yya+juSB426DrtgdVxMTs
+# QCKvuvc5OC3ADhssFuztT5tMJgA6XqEeBfEttjQvop/y4Xh8EMHp3lyod2rXPi0t
+# E6bbQXhtvHJEdY2F1x3xVWqsXVPfgoc5H1D/qPXff+O45899RGHPEmuyHOyEg8Gl
+# 9SbTLHNleLSUcTFEraNw0coy8C0ygtYduX2ibwLyO/23F+Xp0aT4xB/IUSS7LTX3
+# Z8HWiDHLMfiNvuT5fQVm/OxqGwfEJy1PJEI/PHy5KuoOF+r7UAvs51ZeMhTRQ1bJ
+# cVaulPUaLGIivfRDiQO+GNx3YwLxPB5hwYDYXeKGLLt3uKZgSyHKL5KVbbQ=
 # SIG # End signature block

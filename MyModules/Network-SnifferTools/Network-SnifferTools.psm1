@@ -215,7 +215,7 @@ function Install-MicrosoftMessageAnalyzer {
             Invoke-WebRequest -Uri "https://download.microsoft.com/download/2/8/3/283DE38A-5164-49DB-9883-9D1CC432174D/MessageAnalyzer64.msi" -OutFile "$HOME\Downloads\MessageAnalyzer64.msi"
         }
         catch {
-            Write-Error $Error[0]
+            Write-Error $_
             Write-Error "Unable to download Microsoft Message Analyzer!"
             $global:FunctionResult = "1"
             return
@@ -1981,8 +1981,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUDZav8VFV0hZz7ddRe8zD6fPi
-# 4rqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5DVkMBrtZvWZnAJSZ+LdTp4p
+# CO6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2039,11 +2039,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFh2D/GreiGb6pQu
-# 9Jck4z5FGD4EMA0GCSqGSIb3DQEBAQUABIIBAKGqsgxxg/FQHxokML5KRQ7RWNxp
-# Gf8jR67NRZxRi4+fTv2PfL4vpJ+X7T7hfiBUf1neT7xaO49gcvAdwiOdIuH77Rfs
-# l4+2+9sSr9CycWMSvnQRyiC9dOD+tsjYsu+dwDOmoKOqdPmO5u+etEDVJ9PIGNzq
-# GewN5N9z/p5jAmM0jLA2w4jlKmxYuKdxzdIKF29Hxg3rkFamRvGe2J5zOJxjpnXa
-# qDka7F3/XnIuTdmV5YUZAgBuKkjt/7s2skkULdtFFO1m5gsJxxRF+rJcMHA3H5EK
-# b+o5Ye/2mAthdCzg55RlIOyOTir2ku4ysY399lt4UWIeAj+tRlW2MbEJVNQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDKqapMNuFWHUQHk
+# TS8pI0YSU/joMA0GCSqGSIb3DQEBAQUABIIBAGKRHPWtwFElmQtXLxYFniWFoWmg
+# y5mwbO0jwenz9i9bdBjgFKwzFFWcLma6hWHxOHYCO86rWlM5fJO15jTCuJOjqWSa
+# Uh81Pc3XiGSmmUo6TJRNCyMsDwCRZXdO/kicmwP0MzJlud5MFLRK3LqkZuB+e0ga
+# Bkq2HIYpCq8Jph7zf7vZV/Tz39/6OaLKXTO5eHFTOd1/KTTdIv0nG+yBkv/eLFRz
+# lAA+OGAShuBZ9/Psno7ZXzQpTS0zbpsUn2vCX3G7G8pAyoeht6zRqmDIPuZorymF
+# 2flfmh+lVm1Irt7mN4sepaXbfhFXQbL/pbzsu2Qy8QLjq26ZgCqtR+zZ9yc=
 # SIG # End signature block

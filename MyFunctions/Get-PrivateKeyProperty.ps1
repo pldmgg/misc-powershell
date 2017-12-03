@@ -847,7 +847,7 @@ function Get-PrivateKeyProperty {
         Add-Type -TypeDefinition $opensslkeysource
     }
     catch {
-        if ($Error[0].Exception -match "already exists") {
+        if ($_.Exception -match "already exists") {
             Write-Verbose "The JavaScience.Win32 assembly (i.e. opensslkey.cs) is already loaded. Continuing..."
         }
     }
@@ -874,12 +874,11 @@ function Get-PrivateKeyProperty {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULPsgBN7JcnftVN1sLqlp60nS
-# m2agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbEWJbKEfB9NeoxsawxOelxQF
+# F/egggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -936,11 +935,11 @@ function Get-PrivateKeyProperty {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFL/l9//aqEaK0bnj
-# IZKaHZy79JZhMA0GCSqGSIb3DQEBAQUABIIBAKpFLYFMVX7kmf5YL3s0gs9G9o82
-# GgyTlh1O//3zSNtL11KclUL8pezZGhnaMy7XCx8N5LpNqllcYI/dpbc0Jip7sIRh
-# rlFn0tFSLrW8tiAFkX05qWrT7v5NzTDD1jfEKXlpyPIlGHoga56pcwNWfgqTZksK
-# C5h+CU0bxymVE7IM+S62MtEQXxoCaHm45vwAdo43Dnwa8oVrUfQbdAA74H4Xzrnh
-# kyQvmUoPxgjtH4FhyJl3FEkfEahw7lJgnBby4C9j2aF6mK3r+O9gcbNHYuDKAxSR
-# 5G/QGYBrS/TG428huCCBSADNABBG3ZzEUwHbExGCjStDcLtUH+vcAQ6XJoI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFODrL25P4w6wNf0x
+# jSAWOYIhcHyWMA0GCSqGSIb3DQEBAQUABIIBAJ1wmtuFxn/858jf3xmkqpy4y4Jl
+# spD0FdDbtDzYIL05XyKJV1dlGWbAErEifZWxYJsuGAZNBhrA4y3gYoOjSUxIrkVF
+# OBowkPtF2X131mfDuNAqlcLpx7LBE9QCQBKK1OgSZJ1LagAO6lvXOI2ey7PtbAQM
+# pmAs3c35a/8JhisLBoHlAUAmElmxhTaD7GjLULld96CEKMTyYxadinbhIfDmsTcH
+# uv5v5e8jFWOil6SzYdptzB0o5XB5SXX+yQEcY7OEVcdH0xQ2IOGWYvPawuIZoXg6
+# 442ctpV27KTWafLPAfF3C6pCfiHKgTGXMqPhHNjNq6/5KQ8mPhJ3ZAyjofg=
 # SIG # End signature block

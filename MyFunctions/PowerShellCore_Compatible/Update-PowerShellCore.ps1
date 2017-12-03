@@ -880,7 +880,7 @@ function Update-PowerShellCore
         $PowerShellCoreVersionPrep = Invoke-WebRequest -Uri "https://github.com/powershell/powershell/releases"
     }
     catch {
-        Write-Error $Error[0]
+        Write-Error $_
         $global:FunctionResult = "1"
         return
     }
@@ -1053,7 +1053,7 @@ function Update-PowerShellCore
         $PSIteration = $($($PSFullVersion -split "-") | Where-Object {$_ -match "[a-zA-Z].+[\d]"} | Select-String -Pattern "[\d]").Matches.Value
     }
     catch {
-        Write-Error $Error[0]
+        Write-Error $_
         Write-Error "Unable to find matching PowerShell Core version on https://github.com/powershell/powershell/releases"
         $global:FunctionResult = "1"
         return
@@ -1086,7 +1086,7 @@ function Update-PowerShellCore
                                     Pop-Location
                                 }
                                 catch {
-                                    Write-Error $Error[0]
+                                    Write-Error $_
                                     $global:FunctionResult = "1"
                                     return
                                 }
@@ -1103,7 +1103,7 @@ function Update-PowerShellCore
                             Invoke-WebRequest -Uri $PowerShellCoreVersionURL -OutFile $DownloadPath
                         }
                         catch {
-                            Write-Error $Error[0]
+                            Write-Error $_
                             $global:FunctionResult = "1"
                             return
                         }
@@ -1319,7 +1319,7 @@ function Update-PowerShellCore
                                 }
                             }
                             catch {
-                                Write-Error $Error[0]
+                                Write-Error $_
                                 Write-Error "Unable to use Chocolatey CmdLine to install PowerShell Core! Try the Update-PowerShell function again using Direct Download (i.e. -DownloadDirectory parameter). Halting!"
                                 $global:FunctionResult = "1"
                                 return
@@ -1387,7 +1387,7 @@ function Update-PowerShellCore
                     Invoke-WebRequest -Uri $PowerShellCoreVersionURL -OutFile $DownloadPath
                 }
                 catch {
-                    Write-Error $Error[0]
+                    Write-Error $_
                     $global:FunctionResult = "1"
                     return
                 }
@@ -1481,7 +1481,7 @@ function Update-PowerShellCore
                             Invoke-WebRequest -Uri $PowerShellCoreVersionURL -OutFile $DownloadPath
                         }
                         catch {
-                            Write-Error $Error[0]
+                            Write-Error $_
                             $global:FunctionResult = "1"
                             return
                         }
@@ -1548,7 +1548,7 @@ function Update-PowerShellCore
                                 Invoke-WebRequest -Uri $PowerShellCoreVersionURL -OutFile $DownloadPath
                             }
                             catch {
-                                Write-Error $Error[0]
+                                Write-Error $_
                                 $global:FunctionResult = "1"
                                 return
                             }
@@ -1586,7 +1586,7 @@ function Update-PowerShellCore
                             Invoke-WebRequest -Uri $PowerShellCoreVersionURL -OutFile $DownloadPath
                         }
                         catch {
-                            Write-Error $Error[0]
+                            Write-Error $_
                             $global:FunctionResult = "1"
                             return
                         }
@@ -1644,8 +1644,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUb2aN46hj3Fa+zgAViz/ziEQp
-# JVGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUDbjGusz9tFJ7wIDFeqi4OD8U
+# F2Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1702,11 +1702,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEfe8Ky8R5HInWs0
-# phmCmfwDqUsCMA0GCSqGSIb3DQEBAQUABIIBAEFFwLboNuEp/mG4XSFDCbx1TryR
-# xJExSMbpvkHxPoH9BcxAnY7WXBVPDULdtan+tkluDuBhYSotzxuWbtQ/mU6CFpR3
-# kmNblTEAlBDSLnYgA8InvqqT7c1gh3NiF9TL5sUwnXGeYUyKzN2Zu2fzZWikhp6r
-# SX02gV/oqorBdlYgjS/UvtTPcEBVSKAiY+379suVx3NApIeiuskdSub1kn1e/pjk
-# 2w1Jvm7iU1gcFkSNTXoOtR9MNlP3wA7so18nd9FTHTwRBhlH58jFCg9rGH4SSYnB
-# w9J+GhncGBO6Nzd8BxZqCPaAW/US+Gw3vOf0H7OK2nxLdlJ+md/MM9HfAUc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFP1xvgRXW47jNZOr
+# ZUnZbg4F+jWvMA0GCSqGSIb3DQEBAQUABIIBAF2S2BY8aF6UrlypcvCp8ifrU0xP
+# pVleexEmAzn1bQrE6KYYUNbq3kHp7qjpSbJzz0keVYvR5QJT4sLWRod0QYhNd3yd
+# fzhzQvMTF/6Dlsl0BJMRFYfbVTm8QWXdfWsrrXYnB9gbaZLAng1mrC58TH6pm4kk
+# O2kUnuekQkkwoxKfbXGOzkssijw+HdVNoNG1GDz/i7oBpAywblXFGzp9LAxkE9Mh
+# AEtDAobMVPJrxN8uBnnEC3xqK1hQivxD5etCOhhs9RvrsEoRKTHpgZicuoiAMHDN
+# GNWGU7UVGb4fC3fEBUKJo2oBHyW+T9TnOxnflJ16oYsiSzUNmtwi+BRKKuQ=
 # SIG # End signature block

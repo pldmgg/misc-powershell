@@ -964,7 +964,7 @@ function Get-PrivateKeyProperty {
         Add-Type -TypeDefinition $opensslkeysource
     }
     catch {
-        if ($Error[0].Exception -match "already exists") {
+        if ($_.Exception -match "already exists") {
             Write-Verbose "The JavaScience.Win32 assembly (i.e. opensslkey.cs) is already loaded. Continuing..."
         }
     }
@@ -2896,7 +2896,7 @@ function Decrypt-EncryptedFile {
                 $DecryptedFiles += $OutputFile
             }
             catch {
-                Write-Error $Error[0]
+                Write-Error $_
                 $FailedToDecryptFiles += $Outputfile
             }
         }
@@ -2921,7 +2921,7 @@ function Decrypt-EncryptedFile {
                     $DecryptedFiles += $OutputFile
                 }
                 catch {
-                    Write-Error $Error[0]
+                    Write-Error $_
                     $FailedToDecryptFiles += $Outputfile
                 }
             }
@@ -2954,7 +2954,7 @@ function Decrypt-EncryptedFile {
                     $DecryptedFiles += $OutputFile
                 }
                 catch {
-                    Write-Error $Error[0]
+                    Write-Error $_
                     $FailedToDecryptFiles += $Outputfile
                 }
             }
@@ -2978,7 +2978,7 @@ function Decrypt-EncryptedFile {
                     $DecryptedFiles += $FileToOutput
                 }
                 catch {
-                    Write-Error $Error[0]
+                    Write-Error $_
                     $FailedToDecryptFiles += $FileToOutput
                 }
             }
@@ -2998,7 +2998,7 @@ function Decrypt-EncryptedFile {
                     $DecryptedFiles += "$ContentToDecrypt.decrypted"
                 }
                 catch {
-                    Write-Error $Error[0]
+                    Write-Error $_
                     $FailedToDecryptFiles += $ContentToDecrypt
                 }
                 
@@ -3023,7 +3023,7 @@ function Decrypt-EncryptedFile {
                     $DecryptedFiles += $OutputFile
                 }
                 catch {
-                    Write-Error $Error[0]
+                    Write-Error $_
                     $FailedToDecryptFiles += $OutputFile
                 }
             }
@@ -3077,7 +3077,7 @@ function Decrypt-EncryptedFile {
                     $DecryptedFiles += $OutputFile
                 }
                 catch {
-                    #Write-Error $Error[0]
+                    #Write-Error $_
                     $FailedToDecryptFiles += $(Get-ChildItem $file).FullName
                 }
             }
@@ -4337,12 +4337,11 @@ if(Win32.CertStrToName(X509_ASN_ENCODING, DN, CERT_X500_NAME_STR, IntPtr.Zero, n
 '@
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNB+WX0grXkI2y2sCFGJN83US
-# 0Hmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUSbfN/SNCk/fTVj+G1Sbu5mbG
+# dKCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4399,11 +4398,11 @@ if(Win32.CertStrToName(X509_ASN_ENCODING, DN, CERT_X500_NAME_STR, IntPtr.Zero, n
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFC0Qxr9vtnHYFRBV
-# hDE870DGtTqVMA0GCSqGSIb3DQEBAQUABIIBAF5jgwbVPZIvBrsp9bZIg8lIFnfx
-# QGdT8zp18/Oo5XyzxtTDgh7L9PM/8W3IufLbMK/qseQWMj1CnYVsu7+uvIvCwWIe
-# iWbre2Ku/wep3f4cddmdjtckhEHrHwo6TeRNtJXrf04AJ68TPy2umIaC4m8Kw03r
-# 2hUTVAyexYrljAcCmcLc0pTAX8QnINzgnl5oX0S3R+Tnov0awnZoiVz0u4z47Qf0
-# xyPOVD4gUhnw30LmFvA2+NohfaLN0G7NofS3jlcSHdfWMHqjDZGCP1eKWk4KYQwp
-# OnmIRZJd7Ua28XApu6kr+TceyYV1P3iyo/xiZjnX4iKa4Qcp41J++T2E8KQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKAaSPsJKdECvYmZ
+# ZL81lZTfawTUMA0GCSqGSIb3DQEBAQUABIIBALzdq5j3D7+6zGuYFBmqxad2XnXl
+# Qf+VY4srGibo2uW6vIJKdxPRi75MBRrYLzzNPvYo3Gc7v7qt8sNOMpyZhZp0l7K3
+# IPMG31y5bOmqHUD2ewrl0/B1R6tI6bpYfLlv8s40QXCXf/kBjpvB3YcMohklIAps
+# dhRNrNN8ktg2SYFZt61sv5zO1TW9CylYEQ7DHqXYv/ijWtR0me8xRVTaR5Y7PjZg
+# PH+MyY1JHBnle6noU2v1W3/I+qnAMjGIf45kNzRVT8uMTLiTTGCCUKf6v3xDls+9
+# aWyh6bQ+7VxBEtVorSsLUhUVF80aEl+NOAc699A4tVHmXkdSF2uvQ6eXHKQ=
 # SIG # End signature block

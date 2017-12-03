@@ -2160,18 +2160,18 @@ function Get-UserSessionEx {
     $($HostName -ne $env:COMPUTERNAME -and $HostName -ne $(Resolve-DNSName $env:COMPUTERNAME).IPAddress) -or
     $HostName.Count -gt 1) {
         try {
-            $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName -RemoteCreds $FinalCreds -ErrorAction SilentlyContinue
+            $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName -RemoteCreds $FinalCreds -ErrorAction Stop
         }
         catch {
-            Write-Verbose $Error[0]
+            Write-Verbose $_
         }
     }
     else {
         try {
-            $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName -ErrorAction SilentlyContinue
+            $WSManResults = Get-WsManServerInfo -RemoteComputer $HostName -ErrorAction Stop
         }
         catch {
-            Write-Verbose $Error[0]
+            Write-Verbose $_
         }
     }
 
@@ -2288,12 +2288,11 @@ function Get-UserSessionEx {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgCLX6gifGK7p9P8SF3FXJGkX
-# JUCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUSkJ3FWytLaTybmmcJPXNhPKM
+# xs+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2350,11 +2349,11 @@ function Get-UserSessionEx {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFG6D1+E7AUHqRwO5
-# kLMHvsdBMiDcMA0GCSqGSIb3DQEBAQUABIIBALpu6iaG9S2XIxXqJBO0mnHUxX4p
-# SMBNB8X4A6A1XmoiV8iaVG6at5gAc0HWHPXWqTk1G7hE2zd/rZV3sMSx0lid5rQO
-# cmaRS2UulMzVf5fEl8aOcULeHVKz9azcBBwBVLoc3XckKN55CqUzZhLuuwCVExe0
-# vVJIvEJpAKJZcX444yKMcZUErNfc/yXAT0v3DH3sd7CpCqVROhIweWXDbtAyB4QA
-# Fx1J6LJbwaAAn8dEtudhxoKSRNxvikgPV2iXU79AZTQ56LzB4tvzacbdAQt9nvp1
-# 1xMwf6AzPPauOo6Pi3+5XwHN5MOP51Fr9fUJoYWb8GZhRX/xFguSM92xP3U=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHTUmLR15fTdFcs6
+# CU7PI4iI5OB6MA0GCSqGSIb3DQEBAQUABIIBAAqi5wMlet25LdL8MPuQrlB32GwA
+# AXvtuDBj/bzJYadd8b4owyNtBGjHkp+DbiQRCEGQp4E8aE6FaBMf3bjC/8drV62X
+# ZGMwxYcqE9aKpxuaA38Ky09UzHu1sfBsYHcyQOaDMAVyAxU4Ad900rBzwdskJhUe
+# wank+bztDEBabz+JI7NT8l1w57ZXfFR+COdnuxjrtWwoXrZGS6Fbm0N7S/w+HVXr
+# ApmbBhcneqPnp6vi+veuzUtgp6ZC5qfGAwH65Hh105YWKl9tcRfSkCvIAsPaqI9q
+# oKjUNl4ARibBqs1IxlSD5PNPiDBIJY67Mvbx7Plw8tmdX8BsnugOMJbE+ew=
 # SIG # End signature block
