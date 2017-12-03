@@ -378,10 +378,7 @@ function Bootstrap-EtcdCluster {
                                 Start-Sleep -Seconds 2
                             }
                             
-                            Get-Package NuGet.CommandLine -ErrorAction SilentlyContinue
-                            if (!$?) {
-                                throw
-                            }
+                            Get-Package NuGet.CommandLine -ErrorAction Stop
                         } 
                         catch {
                             Install-Package Nuget.CommandLine -Source chocolatey -Force
@@ -562,9 +559,7 @@ function Bootstrap-EtcdCluster {
         $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
         Write-Verbose "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
         Write-Verbose "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
-    
-        #$ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
-        #$CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
+        
         if ($($ImportPackManProblems | Out-String) -match "Assembly with same name is already loaded" -or 
             $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
             $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
@@ -1022,7 +1017,7 @@ function Bootstrap-EtcdCluster {
         }
         catch {
             Write-Warning "Unable to set appropriate Windows Firewall rules for $env:ComputerName! Halting!"
-            Write-Error $Error[0]
+            Write-Error $_
             $global:FunctionResult = "1"
             return
         }
@@ -1349,14 +1344,12 @@ force-new-cluster: false
     
         if (!$(Get-Service etcd)) {
             try {
-                $EtcdService = New-Service -Name "etcd" -BinaryPathName "C:\ProgramData\etcd\etcd.exe --config-file C:\ProgramData\etcd\etcd.config.yml" -DisplayName "etcd" -StartupType Automatic -Description "Etcd key/value pair cluster"
-                if (![bool]$EtcdService) {
-                    throw
-                }
+                $EtcdService = New-Service -Name "etcd" -BinaryPathName "C:\ProgramData\etcd\etcd.exe --config-file C:\ProgramData\etcd\etcd.config.yml" -DisplayName "etcd" -StartupType Automatic -Description "Etcd key/value pair cluster" -ErrorAction Stop
     
                 $null = sc.exe failure etcd reset=86400 actions= restart/60000/restart/60000/restart/60000
             }
             catch {
+                Write-Error $_
                 Write-Error "Unable create new etcd service using the New-Service cmdlet! Halting!"
                 $global:FunctionResult = "1"
                 return
@@ -1423,11 +1416,7 @@ force-new-cluster: false
     [System.Collections.ArrayList]$ResolveHostFailures = @()
     foreach ($ClusterMember in $HostNamesOrIPsOfHostsInCluster) {
         try {
-            $FQDNandIPInfo = Resolve-Host -HostNameOrIP $ClusterMember -ErrorAction SilentlyContinue
-
-            if (![bool]$FQDNandIPInfo) {
-                throw
-            }
+            $FQDNandIPInfo = Resolve-Host -HostNameOrIP $ClusterMember -ErrorAction Stop
 
             $null = $ClusterMemberFQDNandIPInfo.Add($FQDNandIPInfo)
         }
@@ -1463,11 +1452,7 @@ force-new-cluster: false
                 $InstallEtcdSB = [scriptblock]::Create($using:InstallEtcdFunctionAsString)
                 . $InstallEtcdSB
                 Install-Etcd @using:InstallEtcdParams
-            }
-
-            if (![bool]$InstallEtcdResult) {
-                throw
-            }
+            } -ErrorAction Stop
 
             $InstallSuccess = [pscustomobject]@{
                 ClusterMember       = $ClusterMember
@@ -1477,7 +1462,7 @@ force-new-cluster: false
             $null = $EtcdInstallSuccess.Add($InstallSuccess)
         }
         catch {
-            if ($Error[0] -match "Connecting to remote server") {
+            if ($_ -match "Connecting to remote server") {
                 try {
                     if (!$RemoteHostCredentials) {
                         Write-Warning "Connecting to remote server $($ClusterMember.FQDN) failed using credentials of the current user."
@@ -1498,11 +1483,7 @@ force-new-cluster: false
                         $InstallEtcdSB = [scriptblock]::Create($using:InstallEtcdFunctionAsString)
                         . $InstallEtcdSB
                         Install-Etcd @using:InstallEtcdParams
-                    }
-                
-                    if (![bool]$InstallEtcdResult) {
-                        throw
-                    }
+                    } -ErrorAction Stop
 
                     $InstallSuccess = [pscustomobject]@{
                         ClusterMember       = $ClusterMember
@@ -1513,7 +1494,7 @@ force-new-cluster: false
                     
                 }
                 catch {
-                    Write-Error $Error[0]
+                    Write-Error $_
                     Write-Warning "Etcd install on $($ClusterMember.FQDN) failed! Moving on to etcd installation on next Cluster Member..."
 
                     $null = $EtcdInstallFailure.Add($ClusterMember)
@@ -1521,7 +1502,7 @@ force-new-cluster: false
                 }
             }
             else {
-                Write-Error $Error[0]
+                Write-Error $_
                 $null = $EtcdInstallFailure.Add($ClusterMember)
                 continue
             }
@@ -1568,11 +1549,7 @@ force-new-cluster: false
                 }
                 Start-Service etcd
                 Get-Service etcd
-            } -ErrorAction SilentlyContinue
-
-            if (![bool]$StartEtcdService) {
-                throw
-            }
+            } -ErrorAction Stop
 
             $ClusterMemberEtcdServiceInfo = [pscustomobject]@{
                 ClusterMember       = $ClusterMember
@@ -1582,7 +1559,7 @@ force-new-cluster: false
             $null = $EtcdStartServiceSuccess.Add($ClusterMemberEtcdServiceInfo)
         }
         catch {
-            if ($Error[0] -match "Connecting to remote server") {
+            if ($_ -match "Connecting to remote server") {
                 try {
                     if ($ClusterMember.Credentials) {
                         $Creds = $ClusterMember.Credentials
@@ -1597,11 +1574,7 @@ force-new-cluster: false
                             }
                             Start-Service etcd
                             Get-Service etcd
-                        } -ErrorAction SilentlyContinue
-                        
-                        if (![bool]$StartEtcdService) {
-                            throw
-                        }
+                        } -ErrorAction Stop
 
                         $ClusterMemberEtcdServiceInfo = [pscustomobject]@{
                             ClusterMember       = $ClusterMember
@@ -1612,7 +1585,7 @@ force-new-cluster: false
                     }
                     else {
                         $NetworkProblem = $true
-                        throw
+                        throw "No credentials available!"
                     }
                 }
                 catch {
@@ -1620,7 +1593,7 @@ force-new-cluster: false
                         Write-Warning "Starting the service etcd on $($ClusterMember.FQDN) failed due to a network connection issue! Moving on to try and start the service on next Cluster Member..."
                     }
                     else {
-                        Write-Error $Error[0]
+                        Write-Error $_
                         Write-Warning "Starting the service etcd on $($ClusterMember.FQDN) failed! Moving on to try and start the service on next Cluster Member..."
                     }
 
@@ -1629,7 +1602,7 @@ force-new-cluster: false
                 }
             }
             else {
-                Write-Error $Error[0]
+                Write-Error $_
                 $null = $EtcdInstallFailure.Add($ClusterMember)
                 continue
             }
@@ -1734,8 +1707,8 @@ force-new-cluster: false
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIrL/o5R0FPxQtve25smNs/Ts
-# rxegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxIjEs88BUNvSdIzXY8FgYle3
+# lFOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1792,11 +1765,11 @@ force-new-cluster: false
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJycfM2DjXkJI7FN
-# JJy9g90VeC8yMA0GCSqGSIb3DQEBAQUABIIBAI4OP1M3nX7FuoRwUs4YUT4c4oDr
-# 7biCrsgjgzM0Wo6WzyVQzQEPSeax9+6gPPPtgepIeBpGIUliTM07mxLFeuSn9Aeb
-# 01dL0YBJqLujzpg2i2uJb6QxTu3MvZVDvbhVma959Xz8WyeAgi9kBfNkw6faTblf
-# s1QqQH/FkzjqIeO11vuR93YbBLBHfJTKk/WUrWXxaijhSeLpZnl1YIZu1k8j8lUy
-# YPMvJjPSHxNPbw604fJ0PQAs+y/BlNMuw9zwtwsE522Iv6mWwwE00A2sDn0MZo8z
-# LZJ9kbxZJq9BtNS728xIhjKJgJzjXS5PsYPOV02Pc4V6iqpCnJuiaXQcYSs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN0XIGZmi0eBnFXp
+# 3YhX4rvMPhOhMA0GCSqGSIb3DQEBAQUABIIBAEG1FrQn9wplof/3tnatfayF2GTP
+# pEIvQzzcflvwQWJHsKA4n21uKT70qzjUmQEQfaL20tNNBA60wiHcqVEOWuEZtIvy
+# vI4Edza2zLV4cWC85KKtyZsp1iHd6Nl1JfBlelIPRKVgZwYYIiesicC962R6QycK
+# NNNzwM2HlvoPcaJbRdoMLiIpcxv5W1vlJyxP0rXTaE0zFE/zqUpfVLmXA0pTbkYP
+# Wyd6SH1I28szGmJJA/8Lp4c0wo5fJDFXszG3vWCBznskWKEnY6RuntDGXDDh2YdH
+# 1eXbTOHkxIDj0ZyXq1C36UnEScq1N5t8DRpAW0ql4IuIIIcg8zjUMDgNgp4=
 # SIG # End signature block
