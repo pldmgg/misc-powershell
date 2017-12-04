@@ -1563,12 +1563,15 @@ function Watch-BadProgramConnection {
 
     # Need to start Sniffer as soon as possible...
     # Prep Start-Sniffer function to be loaded within a separate powershell.exe process
+    <#
     [System.Collections.ArrayList]$StartSnifferFunction = $(Get-Command Start-Sniffer).Definition -split "`n"
     $StartSnifferFunction.Insert(0, "function Start-Sniffer {")
     $StartSnifferFunction.Insert($StartSnifferFunction.Count, "}")
     $StartSnifferFunctionAsString = $StartSnifferFunction -join "`n"
     $tmpfl = "C:\Windows\Temp\Start-Sniffer.ps1"
     Set-Content -Path $tmpfl -Value $StartSnifferFunctionAsString
+    #>
+    $ModulePSM1Path = $(Get-Module Network-SnifferTools).Path
 
     $BinPath = $(Get-Command powershell.exe).Source
 
@@ -1585,7 +1588,8 @@ function Watch-BadProgramConnection {
     }
     $StartSnifferArgsAsString = $TCPParametersAsStringArray -join " "
 
-    $RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {. '$tmpfl'; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts -SuppressStdOutMsgs}`""
+    #$RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {. '$tmpfl'; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts -SuppressStdOutMsgs}`""
+    $RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {Import-Module $ModulePSM1Path; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts -SuppressStdOutMsgs}`""
     $InvokeExpressionString = "$BinPath $RunBinArgs"
     #Write-Host "Running Job: $InvokeExpressionString"
 
@@ -1981,8 +1985,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5DVkMBrtZvWZnAJSZ+LdTp4p
-# CO6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmJmyDEEXiav3UKU1+OrwdquL
+# p0Ogggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2039,11 +2043,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDKqapMNuFWHUQHk
-# TS8pI0YSU/joMA0GCSqGSIb3DQEBAQUABIIBAGKRHPWtwFElmQtXLxYFniWFoWmg
-# y5mwbO0jwenz9i9bdBjgFKwzFFWcLma6hWHxOHYCO86rWlM5fJO15jTCuJOjqWSa
-# Uh81Pc3XiGSmmUo6TJRNCyMsDwCRZXdO/kicmwP0MzJlud5MFLRK3LqkZuB+e0ga
-# Bkq2HIYpCq8Jph7zf7vZV/Tz39/6OaLKXTO5eHFTOd1/KTTdIv0nG+yBkv/eLFRz
-# lAA+OGAShuBZ9/Psno7ZXzQpTS0zbpsUn2vCX3G7G8pAyoeht6zRqmDIPuZorymF
-# 2flfmh+lVm1Irt7mN4sepaXbfhFXQbL/pbzsu2Qy8QLjq26ZgCqtR+zZ9yc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHTya3xv9jF3mXae
+# R3TQBYwZp6e4MA0GCSqGSIb3DQEBAQUABIIBAFAljZmNG/QL9wjurTqKouU/8pUY
+# TUj75mpbPdbpvU7HgYY3hsHhS7qOZ2EnwqziomdeQsyyLzTJOaAT3woJLkyRvaRq
+# 9LzvC2hY5UNf/WIh4Eu0pyi+/WsJ4mXzJ16/SHoNFjx51mAE8vrAS+VMaQzCuW8s
+# P4oHIkQ3oeOufyk9Ten2LVcU+Dy+Pde0f99quC8/EoooU6EfJE1qqBki183Pp/rd
+# RpFdkEBFkCrAOMLRD96FB4B4QUQdo3FYo9fdJZg1YnD0YSdSWUXp6PlHtE6WK2Da
+# tIx9w0xMawCUQgqSemlnfF5wywl7SE3y6IMKG34/UAcSp6AU9Ho320xDwic=
 # SIG # End signature block
