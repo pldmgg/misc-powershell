@@ -1571,7 +1571,7 @@ function Watch-BadProgramConnection {
     $tmpfl = "C:\Windows\Temp\Start-Sniffer.ps1"
     Set-Content -Path $tmpfl -Value $StartSnifferFunctionAsString
     #>
-    $ModulePSM1Path = $(Get-Module Network-SnifferTools).Path
+    $ModulePSD1Path = $(Get-Module -ListAvailable Network-SnifferTools).Path
 
     $BinPath = $(Get-Command powershell.exe).Source
 
@@ -1589,7 +1589,7 @@ function Watch-BadProgramConnection {
     $StartSnifferArgsAsString = $TCPParametersAsStringArray -join " "
 
     #$RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {. '$tmpfl'; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts -SuppressStdOutMsgs}`""
-    $RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {Import-Module $ModulePSM1Path; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts -SuppressStdOutMsgs}`""
+    $RunBinArgs = "-NoProfile -WindowStyle Hidden -Command `"& {Import-Module $ModulePSD1Path; Start-Sniffer $StartSnifferArgsAsString -OutputFile '$SnifferOutputFile' -ResolveHosts -SuppressStdOutMsgs}`""
     $InvokeExpressionString = "$BinPath $RunBinArgs"
     #Write-Host "Running Job: $InvokeExpressionString"
 
@@ -1985,8 +1985,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmJmyDEEXiav3UKU1+OrwdquL
-# p0Ogggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoMgEi9N9Smwqy71QgQisSXtW
+# Kuagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2043,11 +2043,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHTya3xv9jF3mXae
-# R3TQBYwZp6e4MA0GCSqGSIb3DQEBAQUABIIBAFAljZmNG/QL9wjurTqKouU/8pUY
-# TUj75mpbPdbpvU7HgYY3hsHhS7qOZ2EnwqziomdeQsyyLzTJOaAT3woJLkyRvaRq
-# 9LzvC2hY5UNf/WIh4Eu0pyi+/WsJ4mXzJ16/SHoNFjx51mAE8vrAS+VMaQzCuW8s
-# P4oHIkQ3oeOufyk9Ten2LVcU+Dy+Pde0f99quC8/EoooU6EfJE1qqBki183Pp/rd
-# RpFdkEBFkCrAOMLRD96FB4B4QUQdo3FYo9fdJZg1YnD0YSdSWUXp6PlHtE6WK2Da
-# tIx9w0xMawCUQgqSemlnfF5wywl7SE3y6IMKG34/UAcSp6AU9Ho320xDwic=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE1kdoaCR4qjdc9m
+# 7nO9FMUUMLI7MA0GCSqGSIb3DQEBAQUABIIBADT1dESm1dg50oEO/yDSl43wkFrS
+# WhwfxcGKxGwfbMmUA8PQLeH1bPhQVvhpRc5EalATYgvkjnBPTFq4mQjDvRM/12QN
+# +n3yiiPxCsI0G4O5l8820vM1O7tgOsBPvipoZQK/QJLxYdIPyn0Y3ydmdeW83Rd0
+# GQRpMSfY6gDyEfSQizsMzIAkbyqCZGv4pBF0tKknuZ6Bc84oSJ3l2dEEUIm/t947
+# 8XiYFFXW0N2Qjxarwv2RjQntJC5AxL8mQT9fFmrPglVUJci4pn77ADGxoAdrkJvb
+# tM+4MZPKFSxVI+ssMI/JUHWkbQDTBbUEbhuXlB83Je6ftz3z7xFo9XutSsc=
 # SIG # End signature block
