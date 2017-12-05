@@ -36,7 +36,7 @@ function Get-GuestVMAndHypervisorInfo {
         Param(
             [Parameter(Mandatory=$True)]
             [string]$HostNameOrIP
-        ) 
+        )
     
         ##### BEGIN Main Body #####
     
@@ -130,124 +130,6 @@ function Get-GuestVMAndHypervisorInfo {
     
     }
 
-    function Get-ComputerVirtualStatus {
-        <# 
-        .SYNOPSIS 
-        Validate if a remote server is virtual or physical 
-        .DESCRIPTION 
-        Uses wmi (along with an optional credential) to determine if a remote computers, or list of remote computers are virtual. 
-        If found to be virtual, a best guess effort is done on which type of virtual platform it is running on. 
-        .PARAMETER ComputerName 
-        Computer or IP address of machine 
-        .PARAMETER Credential 
-        Provide an alternate credential 
-        .EXAMPLE 
-        $Credential = Get-Credential 
-        Get-RemoteServerVirtualStatus 'Server1','Server2' -Credential $Credential | select ComputerName,IsVirtual,VirtualType | ft 
-         
-        Description: 
-        ------------------ 
-        Using an alternate credential, determine if server1 and server2 are virtual. Return the results along with the type of virtual machine it might be. 
-        .EXAMPLE 
-        (Get-RemoteServerVirtualStatus server1).IsVirtual 
-         
-        Description: 
-        ------------------ 
-        Determine if server1 is virtual and returns either true or false. 
-    
-        .LINK 
-        http://www.the-little-things.net/ 
-        .LINK 
-        http://nl.linkedin.com/in/zloeber 
-        .NOTES 
-         
-        Name       : Get-RemoteServerVirtualStatus 
-        Version    : 1.1.0 12/09/2014
-                     - Removed prompt for credential
-                     - Refactored some of the code a bit.
-                     1.0.0 07/27/2013 
-                     - First release 
-        Author     : Zachary Loeber 
-        #> 
-        [cmdletBinding(SupportsShouldProcess = $true)] 
-        param( 
-            [parameter(Position=0, ValueFromPipeline=$true, HelpMessage="Computer or IP address of machine to test")] 
-            [string[]]$ComputerName = $env:COMPUTERNAME, 
-            [parameter(HelpMessage="Pass an alternate credential")] 
-            [System.Management.Automation.PSCredential]$Credential = $null 
-        ) 
-        begin {
-            $WMISplat = @{} 
-            if ($Credential -ne $null) { 
-                $WMISplat.Credential = $Credential 
-            } 
-            $results = @()
-            $computernames = @()
-        } 
-        process { 
-            $computernames += $ComputerName 
-        } 
-        end {
-            foreach($computer in $computernames) { 
-                $WMISplat.ComputerName = $computer 
-                try { 
-                    $wmibios = Get-WmiObject Win32_BIOS @WMISplat -ErrorAction Stop | Select-Object version,serialnumber 
-                    $wmisystem = Get-WmiObject Win32_ComputerSystem @WMISplat -ErrorAction Stop | Select-Object model,manufacturer
-                    $ResultProps = @{
-                        ComputerName = $computer 
-                        BIOSVersion = $wmibios.Version 
-                        SerialNumber = $wmibios.serialnumber 
-                        Manufacturer = $wmisystem.manufacturer 
-                        Model = $wmisystem.model 
-                        IsVirtual = $false 
-                        VirtualType = $null 
-                    }
-                    if ($wmibios.SerialNumber -like "*VMware*") {
-                        $ResultProps.IsVirtual = $true
-                        $ResultProps.VirtualType = "Virtual - VMWare"
-                    }
-                    else {
-                        switch -wildcard ($wmibios.Version) {
-                            'VIRTUAL' { 
-                                $ResultProps.IsVirtual = $true 
-                                $ResultProps.VirtualType = "Virtual - Hyper-V" 
-                            } 
-                            'A M I' {
-                                $ResultProps.IsVirtual = $true 
-                                $ResultProps.VirtualType = "Virtual - Virtual PC" 
-                            } 
-                            '*Xen*' { 
-                                $ResultProps.IsVirtual = $true 
-                                $ResultProps.VirtualType = "Virtual - Xen" 
-                            }
-                        }
-                    }
-                    if (-not $ResultProps.IsVirtual) {
-                        if ($wmisystem.manufacturer -like "*Microsoft*") 
-                        { 
-                            $ResultProps.IsVirtual = $true 
-                            $ResultProps.VirtualType = "Virtual - Hyper-V" 
-                        } 
-                        elseif ($wmisystem.manufacturer -like "*VMWare*") 
-                        { 
-                            $ResultProps.IsVirtual = $true 
-                            $ResultProps.VirtualType = "Virtual - VMWare" 
-                        } 
-                        elseif ($wmisystem.model -like "*Virtual*") { 
-                            $ResultProps.IsVirtual = $true
-                            $ResultProps.VirtualType = "Unknown Virtual Machine"
-                        }
-                    }
-                    $results += New-Object PsObject -Property $ResultProps
-                }
-                catch {
-                    Write-Warning "Cannot connect to $computer"
-                } 
-            } 
-            return $results 
-        } 
-    }
-
     ##### END Helper Functions #####
 
     ## BEGIN $TargetVMName adjudication ##
@@ -306,7 +188,7 @@ function Get-GuestVMAndHypervisorInfo {
                 $GuestVMIPAddresses = $InvokeCommandOutput.GuestVMIPAddresses
             }
             catch {
-                if ($_ -match "Connecting to remote server") {
+                if ($_ -match "Cannot find the computer") {
                     try {
                         if (!$HypervisorCreds) {
                             Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
@@ -325,9 +207,67 @@ function Get-GuestVMAndHypervisorInfo {
                         $GuestVMIPAddresses = $InvokeCommandOutput.GuestVMIPAddresses
                     }
                     catch {
-                        Write-Error $_
-                        $global:FunctionResult = "1"
-                        return
+                        if ($_ -match "no logon servers") {
+                            try {
+                                $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+        
+                                $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                                $GuestVMIPAddresses = $InvokeCommandOutput.GuestVMIPAddresses
+                            }
+                            catch {
+                                Write-Error $_
+                                $global:FunctionResult = "1"
+                                return
+                            }
+                        }
+                        else {
+                            Write-Error $_
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                }
+                elseif ($_ -match "no logon servers") {
+                    try {
+                        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+
+                        $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                        $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                        $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                        $GuestVMIPAddresses = $InvokeCommandOutput.GuestVMIPAddresses
+                    }
+                    catch {
+                        if ($_ -match "Cannot find the computer") {
+                            try {
+                                if (!$HypervisorCreds) {
+                                    Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
+                                    $UserName = Read-Host -Prompt "Please enter a user name with access to $($HypervisorNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
+                                    $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+            
+                                    $HypervisorCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
+                                }
+                                $Creds = $HypervisorCreds
+        
+                                $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+        
+                                $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                                $GuestVMIPAddresses = $InvokeCommandOutput.GuestVMIPAddresses
+                            }
+                            catch {
+                                Write-Error $_
+                                $global:FunctionResult = "1"
+                                return
+                            }
+                        }
+                        else {
+                            Write-Error $_
+                            $global:FunctionResult = "1"
+                            return
+                        }
                     }
                 }
                 else {
@@ -381,19 +321,21 @@ function Get-GuestVMAndHypervisorInfo {
                 HostNameComputerInfo  = Get-CimInstance Win32_ComputerSystem
                 HostNameOSInfo        = Get-CimInstance Win32_OperatingSystem
                 HostNameProcessorInfo = Get-CimInstance Win32_Processor
+                HostNameBIOSInfo      = Get-CimInstance Win32_BIOS
             }
         }
 
         try {
             $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.FQDN -ScriptBlock $InvokeCommandSB -ErrorAction Stop
 
-            $HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
+            #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
             $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
             $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
             $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+            $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
         }
         catch {
-            if ($_ -match "Connecting to remote server") {
+            if ($_ -match "Cannot find the computer") {
                 try {
                     if (!$TargetHostNameCreds) {
                         Write-Warning "Connecting to remote server $($HostNameNetworkInfo.FQDN) failed using credentials of the current user."
@@ -406,15 +348,77 @@ function Get-GuestVMAndHypervisorInfo {
 
                     $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
 
-                    $HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -WarningAction SilentlyContinue -ErrorAction Stop
+                    #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -WarningAction SilentlyContinue -ErrorAction Stop
                     $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
                     $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
                     $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                    $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
                 }
                 catch {
-                    Write-Error $_
-                    $global:FunctionResult = "1"
-                    return
+                    if ($_ -match "no logon servers") {
+                        try {
+                            $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                            
+                            #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
+                            $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                            $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                            $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                            $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                        }
+                        catch {
+                            Write-Error $_
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                    else {
+                        Write-Error $_
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                }
+            }
+            elseif ($_ -match "no logon servers") {
+                try {
+                    $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.HostName -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                    
+                    #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
+                    $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                    $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                    $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                    $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                }
+                catch {
+                    if ($_ -match "Cannot find the computer") {
+                        try {
+                            if (!$TargetHostNameCreds) {
+                                Write-Warning "Connecting to remote server $($HostNameNetworkInfo.FQDN) failed using credentials of the current user."
+                                $UserName = Read-Host -Prompt "Please enter a user name with access to $($HostNameNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
+                                $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+        
+                                $TargetHostNameCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
+                            }
+                            $Creds = $TargetHostNameCreds
+        
+                            $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+        
+                            #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -WarningAction SilentlyContinue -ErrorAction Stop
+                            $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                            $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                            $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                            $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                        }
+                        catch {
+                            Write-Error $_
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                    else {
+                        Write-Error $_
+                        $global:FunctionResult = "1"
+                        return
+                    }
                 }
             }
             else {
@@ -425,7 +429,7 @@ function Get-GuestVMAndHypervisorInfo {
         }
 
         # Now we have $HypervisorNetworkInfo, $HypervisorComputerInfo, $HypervisorOSInfo, $TargetVMInfoFromHyperV, 
-        # $HostNameNetworkInfo, $HostNameComputerInfo, $HostNameOSInfo, and $HostNameVirtualStatusInfo
+        # $HostNameNetworkInfo, $HostNameComputerInfo, $HostNameOSInfo, and $HostNameBIOSInfo
     }
 
     ## END $TargetVMName adjudication ##
@@ -442,47 +446,8 @@ function Get-GuestVMAndHypervisorInfo {
             return
         }
 
-        try {
-            $HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
-        }
-        catch {
-            if (!$TargetHostNameCreds) {
-                Write-Warning "Connecting to remote server $($HostNameNetworkInfo.FQDN) failed using credentials of the current user."
-                $UserName = Read-Host -Prompt "Please enter a user name with access to $($HostNameNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
-                $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-
-                $TargetHostNameCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
-            }
-            $Creds = $TargetHostNameCreds
-
-            try {
-                $HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -WarningAction SilentlyContinue -ErrorAction Stop
-            }
-            catch {
-                Write-Error $_
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        if (!$HostNameVirtualStatusInfo) {
-            Write-Error "Unable to connect to $($HostNameNetworkInfo.FQDN)! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        if (!$HostNameVirtualStatusInfo.IsVirtual) {
-            Write-Error "This function is meant to determine if a Guest VM is capable of Nested Virtualization, but $TargetHostNameOrIP is a physical machine! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        if ($HostNameVirtualStatusInfo.VirtualType -notmatch "Hyper-V") {
-            Write-Warning "The hypervisor for $($HostNameNetworkInfo.FQDN) is NOT Microsoft's Hyper-V. Unable to get additional information about the hypervisor!"
-        }
-
         # BEGIN Get Guest VM Info # 
-
+        
         if ($HostNameNetworkInfo.HostName -ne $env:ComputerName) {
             $InvokeCommandSB = {
                 try {
@@ -493,31 +458,121 @@ function Get-GuestVMAndHypervisorInfo {
                 }
 
                 [pscustomobject]@{
-                    HostNameComputerInfo        = Get-CimInstance Win32_ComputerSystem
-                    HostNameOSInfo              = Get-CimInstance Win32_OperatingSystem
-                    HostNameProcessorInfo       = Get-CimInstance Win32_Processor
-                    HostNameGuestVMInfo         = $HostNameGuestVMInfo
+                    HostNameComputerInfo  = Get-CimInstance Win32_ComputerSystem
+                    HostNameOSInfo        = Get-CimInstance Win32_OperatingSystem
+                    HostNameProcessorInfo = Get-CimInstance Win32_Processor
+                    HostNameBIOSInfo      = Get-CimInstance Win32_BIOS
+                    HostNameGuestVMInfo   = $HostNameGuestVMInfo 
                 }
-            }
-    
-            try {
-                if ($Creds) {
-                    $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
-                }
-                else {
-                    $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.FQDN -ScriptBlock $InvokeCommandSB -ErrorAction Stop
-                }
-            }
-            catch {
-                Write-Error $_
-                $global:FunctionResult = "1"
-                return
             }
 
-            $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
-            $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
-            $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
-            $HostNameGuestVMInfo = $InvokeCommandOutput.HostNameGuestVMInfo
+            try {
+                $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.FQDN -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+
+                #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
+                $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                $HostNameGuestVMInfo = $InvokeCommandOutput.HostNameGuestVMInfo
+            }
+            catch {
+                if ($_ -match "Cannot find the computer") {
+                    try {
+                        if (!$TargetHostNameCreds) {
+                            Write-Warning "Connecting to remote server $($HostNameNetworkInfo.FQDN) failed using credentials of the current user."
+                            $UserName = Read-Host -Prompt "Please enter a user name with access to $($HostNameNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
+                            $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+
+                            $TargetHostNameCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
+                        }
+                        $Creds = $TargetHostNameCreds
+
+                        $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+
+                        #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -WarningAction SilentlyContinue -ErrorAction Stop
+                        $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                        $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                        $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                        $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                        $HostNameGuestVMInfo = $InvokeCommandOutput.HostNameGuestVMInfo
+                    }
+                    catch {
+                        if ($_ -match "no logon servers") {
+                            try {
+                                $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                
+                                #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
+                                $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                                $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                                $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                                $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                                $HostNameGuestVMInfo = $InvokeCommandOutput.HostNameGuestVMInfo
+                            }
+                            catch {
+                                Write-Error $_
+                                $global:FunctionResult = "1"
+                                return
+                            }
+                        }
+                        else {
+                            Write-Error $_
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                }
+                elseif ($_ -match "no logon servers") {
+                    try {
+                        $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.HostName -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+        
+                        #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
+                        $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                        $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                        $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                        $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                        $HostNameGuestVMInfo = $InvokeCommandOutput.HostNameGuestVMInfo
+                    }
+                    catch {
+                        if ($_ -match "Cannot find the computer") {
+                            try {
+                                if (!$TargetHostNameCreds) {
+                                    Write-Warning "Connecting to remote server $($HostNameNetworkInfo.FQDN) failed using credentials of the current user."
+                                    $UserName = Read-Host -Prompt "Please enter a user name with access to $($HostNameNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
+                                    $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+        
+                                    $TargetHostNameCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
+                                }
+                                $Creds = $TargetHostNameCreds
+        
+                                $InvokeCommandOutput = Invoke-Command -ComputerName $HostNameNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+        
+                                #$HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -Credential $Creds -WarningAction SilentlyContinue -ErrorAction Stop
+                                $HostNameComputerInfo = $InvokeCommandOutput.HostNameComputerInfo
+                                $HostNameOSInfo = $InvokeCommandOutput.HostNameOSInfo
+                                $HostNameProcessorInfo = $InvokeCommandOutput.HostNameProcessorInfo
+                                $HostNameBIOSInfo = $InvokeCommandOutput.HostNameBIOSInfo
+                                $HostNameGuestVMInfo = $InvokeCommandOutput.HostNameGuestVMInfo
+                            }
+                            catch {
+                                Write-Error $_
+                                $global:FunctionResult = "1"
+                                return
+                            }
+                        }
+                        else {
+                            Write-Error $_
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                }
+                else {
+                    Write-Error $_
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
         }
         else {
             try {
@@ -530,14 +585,41 @@ function Get-GuestVMAndHypervisorInfo {
             $HostNameComputerInfo = Get-CimInstance Win32_ComputerSystem
             $HostNameOSInfo = Get-CimInstance Win32_OperatingSystem
             $HostNameProcessorInfo = Get-CimInstance Win32_Processor
+            $HostNameBIOSInfo = Get-CimInstance Win32_BIOS
             $HostNameGuestVMInfo = $HostNameGuestVMInfo
         }
+
+        if ($HostNameBIOSInfo.SMBIOSBIOSVersion -match "Hyper-V|VirtualBox|VMWare" -or
+        $HostNameBIOSInfo.Manufacturer -match "Hyper-V|VirtualBox|VMWare" -or
+        $HostNameBIOSInfo.Name -match "Hyper-V|VirtualBox|VMWare" -or
+        $HostNameBIOSInfo.SerialNumber -match "Hyper-V|VirtualBox|VMWare" -or
+        $HostNameBIOSInfo.Version -match "Hyper-V|VirtualBox|VMWare") {
+            Add-Member -InputObject $HostNameBIOSInfo NoteProperty -Name "IsVirtual" -Value $True
+        }
+        else {
+            Add-Member -InputObject $HostNameBIOSInfo NoteProperty -Name "IsVirtual" -Value $False
+        }
+
+        if (!$HostNameBIOSInfo.IsVirtual) {
+            Write-Error "This function is meant to determine if a Guest VM is capable of Nested Virtualization, but $TargetHostNameOrIP is a physical machine! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        if (!$($HostNameBIOSInfo.SMBIOSBIOSVersion -match "Hyper-V" -or $HostNameBIOSInfo.Name -match "Hyper-V")) {
+            Write-Warning "The hypervisor for $($HostNameNetworkInfo.FQDN) is NOT Microsoft's Hyper-V. Unable to get additional information about the hypervisor!"
+            $HypervisorIsHyperV = $False
+        }
+        else {
+            $HypervisorIsHyperV = $True
+        }
+
 
         # END Get Guest VM Info #
 
         # BEGIN Get Hypervisor Info #
 
-        if ($HostNameVirtualStatusInfo.VirtualType -match "Hyper-V") {
+        if ($HypervisorIsHyperV) {
             # Now we need to try and get some info about the hypervisor
             if ($HostNameGuestVMInfo -eq "IntegrationServices_Not_Installed") {
                 # Still need the FQDN/Location of the hypervisor
@@ -587,7 +669,7 @@ function Get-GuestVMAndHypervisorInfo {
                         $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
                     }
                     catch {
-                        if ($_ -match "Connecting to remote server") {
+                        if ($_ -match "Cannot find the computer") {
                             try {
                                 if (!$HypervisorCreds) {
                                     Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
@@ -605,9 +687,64 @@ function Get-GuestVMAndHypervisorInfo {
                                 $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
                             }
                             catch {
-                                Write-Error $_
-                                $global:FunctionResult = "1"
-                                return
+                                if ($_ -match "no logon servers") {
+                                    try {
+                                        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                                        
+                                        $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                        $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                        $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                                    }
+                                    catch {
+                                        Write-Error $_
+                                        $global:FunctionResult = "1"
+                                        return
+                                    }
+                                }
+                                else {
+                                    Write-Error $_
+                                    $global:FunctionResult = "1"
+                                    return
+                                }
+                            }
+                        }
+                        elseif ($_ -match "no logon servers") {
+                            try {
+                                $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                                
+                                $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                            }
+                            catch {
+                                if ($_ -match "Cannot find the computer") {
+                                    try {
+                                        if (!$HypervisorCreds) {
+                                            Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
+                                            $UserName = Read-Host -Prompt "Please enter a user name with access to $($HypervisorNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
+                                            $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+                    
+                                            $HypervisorCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
+                                        }
+                                        $Creds = $HypervisorCreds
+                
+                                        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo..HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                
+                                        $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                        $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                        $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                                    }
+                                    catch {
+                                        Write-Error $_
+                                        $global:FunctionResult = "1"
+                                        return
+                                    }
+                                }
+                                else {
+                                    Write-Error $_
+                                    $global:FunctionResult = "1"
+                                    return
+                                }
                             }
                         }
                         else {
@@ -668,7 +805,7 @@ function Get-GuestVMAndHypervisorInfo {
                         $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
                     }
                     catch {
-                        if ($_ -match "Connecting to remote server") {
+                        if ($_ -match "Cannot find the computer") {
                             try {
                                 if (!$HypervisorCreds) {
                                     Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
@@ -686,9 +823,64 @@ function Get-GuestVMAndHypervisorInfo {
                                 $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
                             }
                             catch {
-                                Write-Error $_
-                                $global:FunctionResult = "1"
-                                return
+                                if ($_ -match "no logon servers") {
+                                    try {
+                                        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                        
+                                        $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                        $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                        $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                                    }
+                                    catch {
+                                        Write-Error $_
+                                        $global:FunctionResult = "1"
+                                        return
+                                    }
+                                }
+                                else {
+                                    Write-Error $_
+                                    $global:FunctionResult = "1"
+                                    return
+                                }
+                            }
+                        }
+                        elseif ($_ -match "no logon servers") {
+                            try {
+                                $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                
+                                $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                            }
+                            catch {
+                                if ($_ -match "Cannot find the computer") {
+                                    try {
+                                        if (!$HypervisorCreds) {
+                                            Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
+                                            $UserName = Read-Host -Prompt "Please enter a user name with access to $($HypervisorNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
+                                            $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
+                    
+                                            $HypervisorCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
+                                        }
+                                        $Creds = $HypervisorCreds
+                
+                                        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -Credential $Creds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+                
+                                        $HypervisorComputerInfo = $InvokeCommandOutput.HypervisorComputerInfo
+                                        $HypervisorOSInfo = $InvokeCommandOutput.HypervisorOSInfo
+                                        $TargetVMInfoFromHyperV = $InvokeCommandOutput.TargetVMInfoFromHyperV
+                                    }
+                                    catch {
+                                        Write-Error $_
+                                        $global:FunctionResult = "1"
+                                        return
+                                    }
+                                }
+                                else {
+                                    Write-Error $_
+                                    $global:FunctionResult = "1"
+                                    return
+                                }
                             }
                         }
                         else {
@@ -724,7 +916,7 @@ function Get-GuestVMAndHypervisorInfo {
         }
 
         # Now we have $HypervisorNetworkInfo, $HypervisorComputerInfo, $HypervisorOSInfo, $TargetVMInfoFromHyperV, 
-        # $HostNameGuestVMInfo, $HostNameNetworkInfo, $HostNameComputerInfo, and $HostNameOSInfo, $HostNameVirtualStatusInfo,
+        # $HostNameGuestVMInfo, $HostNameNetworkInfo, $HostNameComputerInfo, and $HostNameOSInfo, $HostNameBIOSInfo,
         # and $HostNameProcessorInfo
 
             
@@ -743,9 +935,24 @@ function Get-GuestVMAndHypervisorInfo {
         HostNameComputerInfo        = $HostNameComputerInfo
         HostNameOSInfo              = $HostNameOSInfo
         HostNameProcessorInfo       = $HostNameProcessorInfo
-        HostNameVirtualStatusInfo   = $HostNameVirtualStatusInfo 
+        HostNameBIOSInfo            = $HostNameBIOSInfo
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -763,8 +970,8 @@ function Get-GuestVMAndHypervisorInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/V+ISIIuD5JkCu9Y6SUml+lI
-# Vg2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcNVVlkjIKd0FD7qy6wBWCltg
+# Raegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -821,11 +1028,11 @@ function Get-GuestVMAndHypervisorInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDEkt2rLqBC22pXp
-# 95iz9vYX8No0MA0GCSqGSIb3DQEBAQUABIIBAD5kGHBKXM6OYioyPcIqdTYfjeXV
-# INQK8Phr+6ZJ8iDozdx8tLpPaB96DXn94/BF9eZvJI1+u8jBeHuKH6DJJym2F2IG
-# LWSA79R+iAxLltMNW32tydOww1cplKjY0OmlziXgGGvF78WSOgV9G8qrkW/iv9RA
-# uBgoHtiP6U7wmbJJmU4eWFtgApcVBwHefSWrlqmu2qa5zWzkb07bUa40i1vTOjCW
-# iPwZpWdcA+5amAsg8QeWNbB7O2c1PzWtCz8r98loBszG/JXdfLiLo9kaKUmWii6y
-# 2k7BbIm+VNMErKX4u9OjqyzHJHf9ED/a6EuFByCBFinJaQMgAK1fzOmFTC4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFQZMe8dxYV0Hcrm
+# 8pBaKWtdoMCUMA0GCSqGSIb3DQEBAQUABIIBAGSFv7rbP1r8CiSdwJb/NKEkwumj
+# 1uQxtmL1IpuxzOccPKIQcN2Uz+oOvZnKLRJvAcmVPS0XjKJa4AI6i5B6HYqQiIbs
+# 0ccioAB0hwM6wOp9Ow1ZLNPiw6lrg94eAMfYvt8zwMygLj/PaA17fXm6ATV6rZU3
+# ffIjq7ucBPQVHP5fTWc+Ptxb92PuHrUxvOXWTLvdiUZIFgxI7kmuiO3VqbHHZb3J
+# 0NjBowEJwtKH3uwpJpATJCjR8lDwKfaRjr7dHGpTo6xJ5BwnKDY9A9VyaMOcKU2d
+# 18pmh6hIzsWVaBABtDVzqDem7fKYzbQoUeJqsc6rm8e2I8t89SSimLVRTdo=
 # SIG # End signature block
