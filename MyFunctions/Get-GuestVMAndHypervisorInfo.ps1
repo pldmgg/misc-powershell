@@ -265,11 +265,7 @@ function Get-GuestVMAndHypervisorInfo {
 
     if ($HypervisorFQDNOrIP) {
         try {
-            $HypervisorNetworkInfo = Resolve-Host -HostNameOrIP $HypervisorFQDNOrIP
-
-            if (!$HypervisorNetworkInfo) {
-                throw
-            }
+            $HypervisorNetworkInfo = Resolve-Host -HostNameOrIP $HypervisorFQDNOrIP -ErrorAction Stop
         }
         catch {
             Write-Error "Unable to resolve $HypervisorFQDNOrIP! Halting!"
@@ -283,11 +279,7 @@ function Get-GuestVMAndHypervisorInfo {
         if ($HypervisorNetworkInfo.HostName -ne $env:ComputerName) {
             $InvokeCommandSB = {
                 try {
-                    $TargetVMInfoFromHyperV  = Get-VM -Name $using:TargetVMName
-                    
-                    if (!$TargetVMInfoFromHyperV) {
-                        throw
-                    }
+                    $TargetVMInfoFromHyperV  = Get-VM -Name $using:TargetVMName -ErrorAction Stop
                 }
                 catch {
                     Write-Error "Unable to find $using:TargetVMName on $($using:HypervisorNetworkInfo.HostName)!"
@@ -366,11 +358,7 @@ function Get-GuestVMAndHypervisorInfo {
         [System.Collections.ArrayList]$ResolvedIPs = @()
         foreach ($IPAddr in $GuestVMIPAddresses) {
             try {
-                $HostNameNetworkInfoPrep = Resolve-Host -HostNameOrIP $IPAddr
-
-                if (!$HostNameNetworkInfoPrep.FQDN) {
-                    throw
-                }
+                $HostNameNetworkInfoPrep = Resolve-Host -HostNameOrIP $IPAddr -ErrorAction Stop
 
                 $null = $ResolvedIPs.Add($HostNameNetworkInfoPrep)
             }
@@ -446,11 +434,7 @@ function Get-GuestVMAndHypervisorInfo {
 
     if ($TargetHostNameOrIP) {
         try {
-            $HostNameNetworkInfo = Resolve-Host -HostNameOrIP $TargetHostNameOrIP
-
-            if (!$HostNameNetworkInfo) {
-                throw
-            }
+            $HostNameNetworkInfo = Resolve-Host -HostNameOrIP $TargetHostNameOrIP -ErrorAction Stop
         }
         catch {
             Write-Error "Unable to resolve $TargetHostNameOrIP! Halting!"
@@ -460,10 +444,6 @@ function Get-GuestVMAndHypervisorInfo {
 
         try {
             $HostNameVirtualStatusInfo = Get-ComputerVirtualStatus -ComputerName $HostNameNetworkInfo.FQDN -WarningAction SilentlyContinue -ErrorAction Stop
-
-            if (!$HostNameVirtualStatusInfo) {
-                throw
-            }
         }
         catch {
             if (!$TargetHostNameCreds) {
@@ -570,11 +550,7 @@ function Get-GuestVMAndHypervisorInfo {
                 }
 
                 try {
-                    $HypervisorNetworkInfo = Resolve-Host -HostNameOrIP $HypervisorFQDNOrIP
-        
-                    if (!$HypervisorNetworkInfo) {
-                        throw
-                    }
+                    $HypervisorNetworkInfo = Resolve-Host -HostNameOrIP $HypervisorFQDNOrIP -ErrorAction Stop
                 }
                 catch {
                     Write-Error "Unable to resolve $HypervisorFQDNOrIP! Halting!"
@@ -660,11 +636,7 @@ function Get-GuestVMAndHypervisorInfo {
             else {
                 # Already have the FQDN of the hypervisor...
                 try {
-                    $HypervisorNetworkInfo = Resolve-Host -HostNameOrIP $HostNameGuestVMInfo.PhysicalHostNameFullyQualified
-        
-                    if (!$HypervisorNetworkInfo) {
-                        throw
-                    }
+                    $HypervisorNetworkInfo = Resolve-Host -HostNameOrIP $HostNameGuestVMInfo.PhysicalHostNameFullyQualified -ErrorAction Stop
                 }
                 catch {
                     Write-Error "Unable to resolve $($HostNameGuestVMInfo.PhysicalHostNameFullyQualified))! Halting!"
@@ -791,8 +763,8 @@ function Get-GuestVMAndHypervisorInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBZtg1MSTWY/25ozQHMZxWCKD
-# O/agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/V+ISIIuD5JkCu9Y6SUml+lI
+# Vg2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -849,11 +821,11 @@ function Get-GuestVMAndHypervisorInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAqTVjae0i4c/4Xa
-# KntuFNRf3Cw1MA0GCSqGSIb3DQEBAQUABIIBAImClOBZPyw6nprWJw2l6xP5RsIH
-# 7st11YfNVfzCtRw6Vr1WflM+bUCxHVtep4fk2CubDCQ4pn34bX2a/4azzCAPaGkr
-# cdxm8w3/c5HDZxVq900SHDWMxfHp3V5Fqa4ZCsdFk9MMyVFCA1ZlGQusvOk8m7aN
-# w6HTdJA/VURQqkRRl84lnCmaViofbx5gWEaCkNxggzmwA6ayPVZaFVdAc+1YAu4v
-# pulSadAfydgTdmhrSKRwuJ0R1jKwaNvf/z1FiinFozPoU5LZNlO12lKTWf04Fbw6
-# KfNnyYJ7YBX3yoc1b4XBcXTCW1Zxe45w236PtFZeDMLesxvAAqPjKuuObDs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDEkt2rLqBC22pXp
+# 95iz9vYX8No0MA0GCSqGSIb3DQEBAQUABIIBAD5kGHBKXM6OYioyPcIqdTYfjeXV
+# INQK8Phr+6ZJ8iDozdx8tLpPaB96DXn94/BF9eZvJI1+u8jBeHuKH6DJJym2F2IG
+# LWSA79R+iAxLltMNW32tydOww1cplKjY0OmlziXgGGvF78WSOgV9G8qrkW/iv9RA
+# uBgoHtiP6U7wmbJJmU4eWFtgApcVBwHefSWrlqmu2qa5zWzkb07bUa40i1vTOjCW
+# iPwZpWdcA+5amAsg8QeWNbB7O2c1PzWtCz8r98loBszG/JXdfLiLo9kaKUmWii6y
+# 2k7BbIm+VNMErKX4u9OjqyzHJHf9ED/a6EuFByCBFinJaQMgAK1fzOmFTC4=
 # SIG # End signature block
