@@ -580,6 +580,8 @@ function Install-WinSSH {
         Update-PackageManagement -UseChocolatey
     }
 
+    $LatestOpenSSHWin = Find-Package -Name OpenSSH -AllowPrereleaseVersions
+
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
@@ -587,7 +589,6 @@ function Install-WinSSH {
 
     if ($UsePackageManagement) {
         try {
-            $LatestOpenSSHWin = Find-Package -Name OpenSSH -AllowPrereleaseVersions
             $LatestOpenSSHWin | Install-Package -ErrorAction Stop
 
             if ($ConfigureSSHDOnLocalHost) {
@@ -848,12 +849,11 @@ function Install-WinSSH {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHg22sjITeeBqmbyOKw8tCAKH
-# vICgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcNMwKO0cxAkIHnGBXzSDC/xr
+# 6qWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -910,11 +910,11 @@ function Install-WinSSH {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFC2zi8CwHB+EJRPc
-# 0Rofz2Nfj93kMA0GCSqGSIb3DQEBAQUABIIBAEU7Ub8yya+juSB426DrtgdVxMTs
-# QCKvuvc5OC3ADhssFuztT5tMJgA6XqEeBfEttjQvop/y4Xh8EMHp3lyod2rXPi0t
-# E6bbQXhtvHJEdY2F1x3xVWqsXVPfgoc5H1D/qPXff+O45899RGHPEmuyHOyEg8Gl
-# 9SbTLHNleLSUcTFEraNw0coy8C0ygtYduX2ibwLyO/23F+Xp0aT4xB/IUSS7LTX3
-# Z8HWiDHLMfiNvuT5fQVm/OxqGwfEJy1PJEI/PHy5KuoOF+r7UAvs51ZeMhTRQ1bJ
-# cVaulPUaLGIivfRDiQO+GNx3YwLxPB5hwYDYXeKGLLt3uKZgSyHKL5KVbbQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCCXH6PXjGsnUtN9
+# V/j35Qo7PAEgMA0GCSqGSIb3DQEBAQUABIIBAEdkk20+fR5CFlVS5LjF/Stoylix
+# FJJ8gvWhxXoryGZIXzkTzRn7zh0T2csaho3T+1N3HxjsnXbq4zhvI3QL5qz5wf/o
+# 1At5aaoDrEXj4CCz4nAr0Y835pfFHQNYAdEJimg+WAxEczIedewxnBMF8BvVERxg
+# AheQRQimfqymyVC2eZsbFN0JKEDDLZ3kyPCNr4mdUMNXqGvnq593cNnWaXctwRMI
+# jYJit6jWIuYP9EzOxK/3/SYItd+3vp8cTHE06O9xeUfdTSoG/T6zFIqEYEf6Qhto
+# yJP23AZmnKl//J+YID3assCTKGuXovWL36GmqNauwYHwTPQqIaknEGs7Hak=
 # SIG # End signature block
