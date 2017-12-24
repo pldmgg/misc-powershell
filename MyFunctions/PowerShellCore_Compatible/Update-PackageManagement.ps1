@@ -181,17 +181,27 @@ function Update-PackageManagement {
     }
 
     if ($InstallNuGetCmdLine -and !$UseChocolatey) {
-        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
-            $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
-            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
-            if ($WarningResponse) {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
+            if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
+                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
+                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                if ($WarningResponse) {
+                    $UseChocolatey = $true
+                }
+            }
+            else {
                 $UseChocolatey = $true
             }
         }
         elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
-            $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
-            $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
-            if ($WarningResponse) {
+            if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
+                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                if ($WarningResponse) {
+                    $UseChocolatey = $true
+                }
+            }
+            else {
                 $UseChocolatey = $true
             }
         }
@@ -256,10 +266,20 @@ function Update-PackageManagement {
     $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
 
     if ($(Get-Module).Name -notcontains "PackageManagement") {
-        Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+        if ($PSVersionTable.PSVersion.Major -ge 5) {
+            Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+        }
+        else {
+            Import-Module "PackageManagement"
+        }
     }
     if ($(Get-Module).Name -notcontains "PowerShellGet") {
-        Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+        if ($PSVersionTable.PSVersion.Major -ge 5) {
+            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+        }
+        else {
+            Import-Module "PowerShellGet"
+        }
     }
 
     if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0 -or
@@ -401,8 +421,21 @@ function Update-PackageManagement {
                     return
                 }
                 else {
-                    # 'choco update' aka 'cup' will update if already installed or install if not installed 
-                    Start-Process "cup" -ArgumentList "nuget.commandline -y" -Wait -NoNewWindow
+                    # 'choco update' aka 'cup' will update if already installed or install if not installed
+                    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $ProcessInfo.WorkingDirectory = $NuGetPackagesPath
+                    $ProcessInfo.FileName = "cup"
+                    $ProcessInfo.RedirectStandardError = $true
+                    $ProcessInfo.RedirectStandardOutput = $true
+                    $ProcessInfo.UseShellExecute = $false
+                    $ProcessInfo.Arguments = "nuget.commandline -y"
+                    $Process = New-Object System.Diagnostics.Process
+                    $Process.StartInfo = $ProcessInfo
+                    $Process.Start() | Out-Null
+                    $stdout = $($Process.StandardOutput.ReadToEnd()).Trim()
+                    $stderr = $($Process.StandardError.ReadToEnd()).Trim()
+                    $AllOutput = $stdout + $stderr
+                    $AllOutput = $AllOutput -split "`n"
                 }
                 # NOTE: The chocolatey install should take care of setting $env:Path and System PATH so that
                 # choco binaries and packages installed via chocolatey can be found here:
@@ -419,8 +452,8 @@ function Update-PackageManagement {
     [version]$MinimumVer = "1.0.0.1"
     $PackageManagementLatestVersion = $(Find-Module PackageManagement).Version
     $PowerShellGetLatestVersion = $(Find-Module PowerShellGet).Version
-    Write-Host "PackageManagement Latest Version is: $PackageManagementLatestVersion"
-    Write-Host "PowerShellGetLatestVersion Latest Version is: $PowerShellGetLatestVersion"
+    Write-Verbose "PackageManagement Latest Version is: $PackageManagementLatestVersion"
+    Write-Verbose "PowerShellGetLatestVersion Latest Version is: $PowerShellGetLatestVersion"
 
     if ($PackageManagementLatestVersion -gt $PackageManagementLatestLocallyAvailableVersion -and $PackageManagementLatestVersion -gt $MinimumVer) {
         if ($PSVersionTable.PSVersion.Major -lt 5) {
@@ -447,13 +480,13 @@ function Update-PackageManagement {
     # Reset the LatestLocallyAvailable variables, and then load them into the current session
     $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
     $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
-    Write-Host "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
-    Write-Host "Latest locally available PowerShellGet version is $PowerShellGetLatestLocallyAvailableVersion"
+    Write-Verbose "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
+    Write-Verbose "Latest locally available PowerShellGet version is $PowerShellGetLatestLocallyAvailableVersion"
 
     $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
     $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+    Write-Verbose "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Verbose "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
 
     if ($CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestLocallyAvailableVersion) {
         # Need to remove PowerShellGet first since it depends on PackageManagement
@@ -463,7 +496,7 @@ function Update-PackageManagement {
         Remove-Module -Name "PackageManagement"
     
         if ($(Get-Host).Name -ne "Package Manager Host") {
-            Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
+            Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
             
             # Need to Import PackageManagement first since it's a dependency for PowerShellGet
             # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
@@ -473,7 +506,7 @@ function Update-PackageManagement {
             $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -ErrorVariable ImportPSGetProblems 2>&1 6>&1
         }
         if ($(Get-Host).Name -eq "Package Manager Host") {
-            Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
+            Write-Verbose "We ARE in the Visual Studio Package Management Console. Continuing..."
     
             # Need to Import PackageManagement first since it's a dependency for PowerShellGet
             # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
@@ -487,8 +520,8 @@ function Update-PackageManagement {
     # Reset CurrentlyLoaded Variables
     $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
     $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+    Write-Verbose "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Verbose "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
     
     if ($CurrentlyLoadedPowerShellGetVersion -lt $PowerShellGetLatestLocallyAvailableVersion) {
         if (!$ImportPSGetProblems) {
@@ -497,7 +530,7 @@ function Update-PackageManagement {
         Remove-Module -Name "PowerShellGet"
     
         if ($(Get-Host).Name -ne "Package Manager Host") {
-            Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
+            Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
             
             # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
             Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
@@ -532,8 +565,8 @@ function Update-PackageManagement {
     # Reset CurrentlyLoaded Variables
     $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
     $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Host "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Host "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+    Write-Verbose "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+    Write-Verbose "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
 
     #$ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
     #$CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
@@ -561,16 +594,11 @@ function Update-PackageManagement {
 
 
 
-
-
-
-
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOfcXYqyGPeq7d5EA3D4LBDln
-# vBigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmG+L95iiQ1OvEPSwiw07d3XV
+# 4Mugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -627,11 +655,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFICvNXPijLQv/PbH
-# Sv5BOm9NobkvMA0GCSqGSIb3DQEBAQUABIIBAAWTSBemUqIzIOdz/1bQnLMlQKHE
-# 3ZsnvwVoOMDL3pGCabrJa1ErzyMFgLeKxXuETkFNdeTq5hum3jBpR8zJsELdGfj0
-# 7yHAcpgaZqPNss6egBlQi872PjnyS4Ofg5HF4SNlz/l9GzcXNaRbzu4Ym09XB+Yq
-# FAJnBkQhXLkxX4p3rMDopiwVMahE5IthRLiDs0u/S9SOQGVMV6T0CWhgwnbakw4Y
-# flFy95s8hRjeml2vjzT4kc/tnLfNFMOcN6kEYfP9XdsW7bY4psdJXV+Pd2GdMJuU
-# uog7FAXEYxaDJ1ZvMuRzsl8kGbCh5olf1eAqn/eX/U+L7BCYyKzSM9fCCxU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCcLiS3HS8nPHazT
+# WGvFJeZPifZPMA0GCSqGSIb3DQEBAQUABIIBAJm2WpTIuPcKnrNc54N/6ePt6QLY
+# 6sVWrhCLES9YtUlYPiFA740sarK/f18a/esv9KFCaVcqO5oVKZom8JkWbs6c5HEZ
+# JXABcdW5/Dn6AJExy9eKXgBJKEXZ2MpjrxDiieq7aml65giD+dqKOzKa/JqGGK4B
+# 0kwmoToAmlmQgMYNOzjaRMt86o7cX1sWYaxD+1x35UoGtkOJQEkByD+nfpnc2bFK
+# 5DPU7WWCr14GtvvfuFTSK0sxgcPTkk0zjnNmQThT6FyE9rMkaSJddXnb7uHUAwt7
+# jxADil8BrXi7YOkMtGLr/Sr5yC0/fXWVaV9EhfxOXnvkuYUuUg5Rgn3xkBM=
 # SIG # End signature block
