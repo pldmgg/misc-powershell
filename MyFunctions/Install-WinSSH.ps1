@@ -578,9 +578,9 @@ function Install-WinSSH {
         $UpdatePMScriptBlock = [scriptblock]::Create($UpdatePMString.Content)
         . $UpdatePMScriptBlock
         Update-PackageManagement -UseChocolatey
-    }
 
-    $LatestOpenSSHWin = Find-Package -Name OpenSSH -AllowPrereleaseVersions
+        $LatestOpenSSHWin = Find-Package -Name OpenSSH -AllowPrereleaseVersions
+    }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -848,12 +848,11 @@ function Install-WinSSH {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcNMwKO0cxAkIHnGBXzSDC/xr
-# 6qWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8XRA84kD1TmHub5uyIk9Hrj0
+# yrSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -910,11 +909,11 @@ function Install-WinSSH {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCCXH6PXjGsnUtN9
-# V/j35Qo7PAEgMA0GCSqGSIb3DQEBAQUABIIBAEdkk20+fR5CFlVS5LjF/Stoylix
-# FJJ8gvWhxXoryGZIXzkTzRn7zh0T2csaho3T+1N3HxjsnXbq4zhvI3QL5qz5wf/o
-# 1At5aaoDrEXj4CCz4nAr0Y835pfFHQNYAdEJimg+WAxEczIedewxnBMF8BvVERxg
-# AheQRQimfqymyVC2eZsbFN0JKEDDLZ3kyPCNr4mdUMNXqGvnq593cNnWaXctwRMI
-# jYJit6jWIuYP9EzOxK/3/SYItd+3vp8cTHE06O9xeUfdTSoG/T6zFIqEYEf6Qhto
-# yJP23AZmnKl//J+YID3assCTKGuXovWL36GmqNauwYHwTPQqIaknEGs7Hak=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM+bnClU4Oktv2SU
+# qIyWWo5rUqnfMA0GCSqGSIb3DQEBAQUABIIBAFB4ewKQwQtAwYD7sXx1yhSOnx0E
+# hHp7vB7AJX40fYlwnBEWZ6Hr7XfMeskgPwZRMHxFXy7LhBmwJSzdfBRSci9eJ5Zf
+# bSNmkx3Ch9vksaT4mwGIkDRtglbN3UFoDO8o3vzAr19WF3MWA9n3+YTR9er2FUTk
+# moVs3RW7aZgohRGpZCQYqedGVM4wnLPKA8NIKe4Zc2yxMF6UYU8ajghEVvYrTEco
+# CaBFrYzQLIduvjhkxYRy39KjdFOFqEL+DTQJAgL7p2GpwF8cWJwUp/vxhLOfwYpM
+# uSUwqK+d90Ya3MlkeGdl5AFSoIxmwnjJGKRIVsuFDjFiNSg4zqMNJeno4fs=
 # SIG # End signature block
