@@ -578,8 +578,15 @@ function Install-WinSSH {
         $UpdatePMScriptBlock = [scriptblock]::Create($UpdatePMString.Content)
         . $UpdatePMScriptBlock
         Update-PackageManagement -UseChocolatey
+    }
 
+    try {
         $LatestOpenSSHWin = Find-Package -Name OpenSSH -AllowPrereleaseVersions
+    }
+    catch {
+        Write-Error "Unable to determine the latest version of OpenSSH using the Find-Package cmdlet! Try the Install-WinSSH function again using the -UsePackageManagement switch. Halting!"
+        $global:FunctionResult = "1"
+        return
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -847,12 +854,11 @@ function Install-WinSSH {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8XRA84kD1TmHub5uyIk9Hrj0
-# yrSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcBvu82SmnJhq9s+YagOVKY5g
+# BS2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -909,11 +915,11 @@ function Install-WinSSH {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM+bnClU4Oktv2SU
-# qIyWWo5rUqnfMA0GCSqGSIb3DQEBAQUABIIBAFB4ewKQwQtAwYD7sXx1yhSOnx0E
-# hHp7vB7AJX40fYlwnBEWZ6Hr7XfMeskgPwZRMHxFXy7LhBmwJSzdfBRSci9eJ5Zf
-# bSNmkx3Ch9vksaT4mwGIkDRtglbN3UFoDO8o3vzAr19WF3MWA9n3+YTR9er2FUTk
-# moVs3RW7aZgohRGpZCQYqedGVM4wnLPKA8NIKe4Zc2yxMF6UYU8ajghEVvYrTEco
-# CaBFrYzQLIduvjhkxYRy39KjdFOFqEL+DTQJAgL7p2GpwF8cWJwUp/vxhLOfwYpM
-# uSUwqK+d90Ya3MlkeGdl5AFSoIxmwnjJGKRIVsuFDjFiNSg4zqMNJeno4fs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPjHX1A2cUBvw7Dm
+# vqWWKYS/v54eMA0GCSqGSIb3DQEBAQUABIIBAGgWPZ1ds5ooIsOYSxHUR7BLUrrb
+# 1cDLT1SBerz0mI828YdmK9C9w5PSO+PHPlXCBC06N/VwMshUo3EEgJ9Jqw4PcoMW
+# 3dOmQ5WSfCIUNE5A8YmmROkBM28NPQQG2JpttxBs49jPfm2RddKcS7PMMYI6Q0+p
+# GushHMFiKvX9jycW8owSSwLwDNx2sKg8uT8ps7j0mV08HRdd4617rx+8ArW0gf5q
+# Qt+a+x8XoZajX9uMnw6CZc6YlC7d33ai0uh97LVJQDhO0rPBXQWIvNKxiu8W8GSv
+# QfxIkgJRikSF/GdXcX2YU6wo08P7rIu4j8a8CDlMDrmPkQOISfdEpvYJ9W0=
 # SIG # End signature block
