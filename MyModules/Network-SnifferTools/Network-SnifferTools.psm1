@@ -103,11 +103,21 @@ function Resolve-Host {
         $null = $DomainList.Add($Domain)
     }
 
+    if (!$RemoteHostFQDNs -and !$HostNameList -and !$DomainList -and $RemoteHostArrayOfIPAddresses) {
+        [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
+        # Test to see if we can reach the IP Addresses
+        foreach ($ip in $RemoteHostArrayOfIPAddresses) {
+            if ([bool]$(Test-Connection $ip -Count 1)) {
+                $null = $SuccessfullyPingedIPs.Add($ip)
+            }
+        }
+    }
+
     [pscustomobject]@{
-        IPAddressList   = $RemoteHostArrayOfIPAddresses
-        FQDN            = $RemoteHostFQDNs[0]
-        HostName        = $HostNameList[0].ToLowerInvariant()
-        Domain          = $DomainList[0]
+        IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+        FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
+        HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
+        Domain          = if ($DomainList) {$DomainList[0]} else {$null}
     }
 
     ##### END Main Body #####
@@ -1985,8 +1995,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoMgEi9N9Smwqy71QgQisSXtW
-# Kuagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUuggVoFgxerUMsJKDA/KUxL0N
+# M5+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2043,11 +2053,11 @@ function Watch-BadProgramConnection {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE1kdoaCR4qjdc9m
-# 7nO9FMUUMLI7MA0GCSqGSIb3DQEBAQUABIIBADT1dESm1dg50oEO/yDSl43wkFrS
-# WhwfxcGKxGwfbMmUA8PQLeH1bPhQVvhpRc5EalATYgvkjnBPTFq4mQjDvRM/12QN
-# +n3yiiPxCsI0G4O5l8820vM1O7tgOsBPvipoZQK/QJLxYdIPyn0Y3ydmdeW83Rd0
-# GQRpMSfY6gDyEfSQizsMzIAkbyqCZGv4pBF0tKknuZ6Bc84oSJ3l2dEEUIm/t947
-# 8XiYFFXW0N2Qjxarwv2RjQntJC5AxL8mQT9fFmrPglVUJci4pn77ADGxoAdrkJvb
-# tM+4MZPKFSxVI+ssMI/JUHWkbQDTBbUEbhuXlB83Je6ftz3z7xFo9XutSsc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMxbJYD1/AnpbEFU
+# nD2tZGs0gDqhMA0GCSqGSIb3DQEBAQUABIIBAKo5F3g935HjhHqy4BmaDWe3vciE
+# lQirV5Xv5yCSJXC4X2eBwPFCefttnsNV/6bojf9g1iH5ALWfeipBGaWJM7sR/XLF
+# ngzBGej+Sr0Pmi1S+jfiNVzxqiFRmm8PmS091SeWiX3jxtElaUEAUPxFwrCDUe3v
+# SR9BW1RUAynYAadPG1Yi0MYUBU5nJCiuAgqJhuOdqs0kWqtlGRppuWm2Q05GN3SJ
+# gmvC2uSc0yWycWEeGrPPF4iW2oLFYVsz5viD3P6jCPbXPaxrKU5yFtKF4u8GDQ2c
+# sXH5UiGZ6FLkMSz7Sm/4MY6u1IkkB7dt+kkqTwR3g7BXiP+ez0Kd0zU5vRk=
 # SIG # End signature block

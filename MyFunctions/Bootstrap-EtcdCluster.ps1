@@ -764,11 +764,21 @@ function Bootstrap-EtcdCluster {
             $null = $DomainList.Add($Domain)
         }
     
+        if (!$RemoteHostFQDNs -and !$HostNameList -and !$DomainList -and $RemoteHostArrayOfIPAddresses) {
+            [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
+            # Test to see if we can reach the IP Addresses
+            foreach ($ip in $RemoteHostArrayOfIPAddresses) {
+                if ([bool]$(Test-Connection $ip -Count 1)) {
+                    $null = $SuccessfullyPingedIPs.Add($ip)
+                }
+            }
+        }
+    
         [pscustomobject]@{
-            IPAddressList   = $RemoteHostArrayOfIPAddresses
-            FQDN            = $RemoteHostFQDNs[0]
-            HostName        = $HostNameList[0].ToLowerInvariant()
-            Domain          = $DomainList[0]
+            IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+            FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
+            HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
+            Domain          = if ($DomainList) {$DomainList[0]} else {$null}
         }
     
         ##### END Main Body #####
@@ -1707,8 +1717,8 @@ force-new-cluster: false
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxIjEs88BUNvSdIzXY8FgYle3
-# lFOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkOZEWlRXtfxdk19RlTGBbTYh
+# XXigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1765,11 +1775,11 @@ force-new-cluster: false
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN0XIGZmi0eBnFXp
-# 3YhX4rvMPhOhMA0GCSqGSIb3DQEBAQUABIIBAEG1FrQn9wplof/3tnatfayF2GTP
-# pEIvQzzcflvwQWJHsKA4n21uKT70qzjUmQEQfaL20tNNBA60wiHcqVEOWuEZtIvy
-# vI4Edza2zLV4cWC85KKtyZsp1iHd6Nl1JfBlelIPRKVgZwYYIiesicC962R6QycK
-# NNNzwM2HlvoPcaJbRdoMLiIpcxv5W1vlJyxP0rXTaE0zFE/zqUpfVLmXA0pTbkYP
-# Wyd6SH1I28szGmJJA/8Lp4c0wo5fJDFXszG3vWCBznskWKEnY6RuntDGXDDh2YdH
-# 1eXbTOHkxIDj0ZyXq1C36UnEScq1N5t8DRpAW0ql4IuIIIcg8zjUMDgNgp4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGUPG8+n12C2v8ky
+# t93cpanS3I3WMA0GCSqGSIb3DQEBAQUABIIBALngluQWjUxDh29lluSjp3sKlubW
+# bSW5mxkO/pjeSmIketNIQvpgRbMQu2Hu9CMydVq/zjuzCXuztO3csuf+6ZuVIKzU
+# 8vSxqLsfjioiu20/muql4cNvX5H22fqTBchWwl1pG92if2ml7uRM5990E9v3aje3
+# wctjAEFxb2Hzm1kbAhTNKW+fiKXYnpWnZjnOYwI0FGWE6FKLh65RTesIdH7qhCf3
+# jm5rgsoP9ab0Y9HA2i6YHpxLJGdzDr5h1rMsrw2GI5y6lcs5zqz2z7JKkN2IP0UZ
+# zzOnV7v1MGq8LRn9hMsoJ+/hRfIs42vYiRjTpG/b4rMvZIg12lmH6165LkY=
 # SIG # End signature block
