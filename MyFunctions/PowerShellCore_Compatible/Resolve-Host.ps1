@@ -122,18 +122,24 @@ function Resolve-Host {
         $null = $DomainList.Add($Domain)
     }
 
-    if (!$RemoteHostFQDNs -and !$HostNameList -and !$DomainList -and $RemoteHostArrayOfIPAddresses) {
+    if ($RemoteHostFQDNs[0] -eq $null -and $HostNameList[0] -eq $null -and $DomainList -eq "Unknown" -and $RemoteHostArrayOfIPAddresses) {
         [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
         # Test to see if we can reach the IP Addresses
         foreach ($ip in $RemoteHostArrayOfIPAddresses) {
-            if ([bool]$(Test-Connection $ip -Count 1)) {
+            if ([bool]$(Test-Connection $ip -Count 1 -ErrorAction SilentlyContinue)) {
                 $null = $SuccessfullyPingedIPs.Add($ip)
             }
+        }
+
+        if ($SuccessfullyPingedIPs.Count -eq 0) {
+            Write-Error "Unable to resolve $HostNameOrIP! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
 
     [pscustomobject]@{
-        IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+        IPAddressList   = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
         FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
         HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
         Domain          = if ($DomainList) {$DomainList[0]} else {$null}
@@ -157,8 +163,8 @@ function Resolve-Host {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlM+FfUpouLufItD1EX61PjJW
-# /o6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUDnOm6OiDMedsA75q+FycB/wF
+# 4rmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -215,11 +221,11 @@ function Resolve-Host {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA+WcfDcTcby0rxh
-# MKWrepJcGC/SMA0GCSqGSIb3DQEBAQUABIIBAHlhZ6ISwg5hj0bK465DYIEmy8ZT
-# OJOfTDeqPccTwli3LEoJtdRSTCALaL06CMBALQibpYJRtmO8B7pOqq5lSCDvG5pU
-# qDBd7by5jtfBhNrr0US3tTnnBk3VHI4z2OHPIR/krh/gr2FOgrZ1yfvcMBWuAvRy
-# geY+PWIOEe9KVG250x1tFOEM4GrBhERx4z1NO1zmOFYixrxEPBCXPy7zyHIN3/0e
-# ISlfdF12kaYA2IG1dYrlovLmENQShoAqQUKJDvvIkwfiQ7gQqbq5zzHrQ6h7ey0u
-# DhNFAX9YsiwjTXpt/xQ7xfWZnO8/f2+Hp6lZRB4UVRUb4g9nZr1+kSMZpek=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFENdbrDwM5kC+4CP
+# ORzHX10s9M8gMA0GCSqGSIb3DQEBAQUABIIBAMB4Wl8watHlTsCCCJg6W45UgSjC
+# hls1sZsgwfHAD3d7YdjxE1FfJZ8Arxj2ydTvGfsRI9IhYNb7zNnyDDXktgljLTL2
+# azIC1ySD2fS92fuXUeQgI/M4y/4DyGfSdqwpmXpp0a/ULJReqttzCsm0JZdCS0l6
+# O8EUN4qyYR/yNMMPfywlcCxjZTV3Ghm8LIvFyg2MM/iEj4pvzfH/D1sOx0om3jGs
+# vysPuPQ3t5Tcq1DA22U1JsRrH+RS3K/Xtwjb0H9N5Q0mkvstl69nVKPBw3565/Ju
+# xt3W7dVKVzBC/Q95GNe0TUi57WKGbqCWZjnnCoxboPV1q9qyx1/K23CVV6k=
 # SIG # End signature block

@@ -144,7 +144,7 @@ function Mount-UncPath {
         }
     
         [pscustomobject]@{
-            IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+            IPAddressList   = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
             FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
             HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
             Domain          = if ($DomainList) {$DomainList[0]} else {$null}
@@ -236,8 +236,8 @@ function Mount-UncPath {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsxR0IAPIMBn6mhu+3pf/h/n+
-# Caqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTSMF4+f5Z7k9+Mnuem4ugdAu
+# +EKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -294,11 +294,11 @@ function Mount-UncPath {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPgivSzZZAnqRuWB
-# OdKKJ2ACyquYMA0GCSqGSIb3DQEBAQUABIIBAHvXgRD5nkkT/MfbkpTrosuZFeum
-# 1OX+PdM4JEfbkKzx7ZSWeOMri4NNFiVZGw06kgVlLyBR9N7XQqoW7JlpHAlQh6tj
-# e7zy1i7UQGyGgnVwlHxIuSkJNxWdIumWeL75haljZgVT7ckyjN/UAeBQQ3ihuqoG
-# jQ0hDiO6riEww+DaVTUVjIjY+lutEkaovDdzKW5W1HhJBbMIfPqtxJgmksb42JmF
-# uxN5Chv9EJgVEnzHY5X0YYVdR2fIKVRZIjH/9Phq6sRThr7ml/8G4sKW7JYgKGol
-# REp2PhOqEd9W6YwhtCPSJcubOYPNlo5xyhUpP6BniUsh+TbPTeOqWG+/uqs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFL6PVtZ0gkY3gXgl
+# nCM+R+qRe7+zMA0GCSqGSIb3DQEBAQUABIIBAJypqHQnUPyb/5rPoSMYPKHAmJWb
+# vgKQ3B3fXPmmUBnEiaDnBgQBwgI0AU1llr4k+RCGX3Mscv13NsJjg3e3sbi8KmiY
+# w88WEnGnae7qyQszklBWEFuAsilYA29HZX8Qf4LPHbSAAnz1ZEd5tIZPJfE0BOAU
+# SgKabrAFi+UqKXn+kO5jHM7+sPcOATV1NvGg2lpRQJjTORa6X+IZ7SdNDaw+kN6Z
+# PaGAPBKUYt76fA6i14OSWHgitKlD3Fv05jOYQcDVSJ6cc5yyAsTvKwo6oq9d0z9c
+# A08gJtlkENKInsdZmhIhNPKZUQd0KdSpRtFPO4n/genTdUHh8uqJOh8vShc=
 # SIG # End signature block

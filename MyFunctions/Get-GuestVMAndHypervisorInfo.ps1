@@ -147,7 +147,7 @@ function Get-GuestVMAndHypervisorInfo {
         }
     
         [pscustomobject]@{
-            IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+            IPAddressList   = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
             FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
             HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
             Domain          = if ($DomainList) {$DomainList[0]} else {$null}
@@ -997,8 +997,8 @@ function Get-GuestVMAndHypervisorInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhitrbTAl3EB9XdgN0fW9IZFE
-# l2Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/ozoXpJ1AVNODOgcutNTohwq
+# CKigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1055,11 +1055,11 @@ function Get-GuestVMAndHypervisorInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDEjlpw6EEEFJu+T
-# ixexYKKE6J6YMA0GCSqGSIb3DQEBAQUABIIBADy0kvXIUqVMH2CQj838huO4F4tJ
-# jerD1RLxVoMOkz2s20FvBy/cejdQH4ReDLAClc6eFnPI/vbVsv1zuh6IEzagMEUl
-# pzdJScRoUeulzyROGHECj3OVmcGf0qSrz6utmld/Pal02fKnxaE3SXp/4q6PlxTj
-# pDUShJzr8oHz5bk3TBTdbeRHLwYv4SARFNK4EHIOYMN5mIum45sV5p0FZKMunoX1
-# maMt6AnAUfmbeb+zp/P02mhREvaW6V2OU8KqbtnUu/BmlB869I7i1pLuH3my9ku6
-# kTR2XhZE13DamcwX/Dw40qqkyXEYKe00Ruj+54WZjlTnbgJF+JBbbGJILJw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJIlK17TPEU44qv5
+# /p2iAerKczQGMA0GCSqGSIb3DQEBAQUABIIBAKjitxF5CkqvYdGDDhKrOdwmTDiX
+# 7MAT9xFL6kvl3UfJC/3aNhEit4AV61/QKzcOdWRmVoI6KxC4yuRBf+iCYZPjxjpb
+# 1m1RKWy7lT8RKZIjmeg4fyAt0cj93WsG0TMtuLjROO24v0dZwedWHqEXVM9OvTVZ
+# O16cO8wF7Z9LSjRTc/XIJueSnacVQf9BqZNOhmmMbMNO4TXFY315+wA+2Y/ZnyZ2
+# Dq8yBLHSZlwvkT3aDQFANlDNam0QIvlj4yPu5vS6THgjRlykR9+stdiaxeNkLtIp
+# 7E/2gQ1CZ9s1UMeQ6xcZArM8WeM0pcEXGJZbj6HDXvmqHhqkUq1Swe32rJY=
 # SIG # End signature block

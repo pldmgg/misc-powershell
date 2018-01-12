@@ -1255,7 +1255,7 @@ function Resolve-Host {
     }
 
     [pscustomobject]@{
-        IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+        IPAddressList   = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
         FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
         HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
         Domain          = if ($DomainList) {$DomainList[0]} else {$null}
@@ -3164,7 +3164,7 @@ function New-SSHKey {
             Add-PublicKeyToRemoteHost -PublicKeyPath $PubKey.FullName -RemoteHost $RemoteHostLocation -RemoteHostUserName $RemoteHostUserName -ErrorAction Stop
         }
         catch {
-            Write-Host "Unable to add the public key to the authorized_keys file on $RemoteHost! Halting!"
+            Write-Error "Unable to add the public key to the authorized_keys file on $RemoteHost! Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -3604,8 +3604,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBaYCANMZA3JmEj2keX3IYcGo
-# 6yugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqBi38FyGE9DssIxVw4S9AhN/
+# UhWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3662,11 +3662,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDtyEWFKlfgQlVBt
-# 6HDTjT3qEEo2MA0GCSqGSIb3DQEBAQUABIIBAAyCEap1lKJpvpfXV25skn14szwA
-# dxddMEgAypU7rgKLbVsFuNl+fS7AUmfV3bU6E9rYHQbgYqLogF9j+1/mdPEE1XOB
-# OxXwHNXqcHl8UwVb5U8jZ1bNNQPu6Nhz+J+ifxHHkBliOwJjdy7CcW0rSvUJQSSN
-# 8uaFeQZKXadKFuZ8QT/12v5K3PsUnkLfQWK/pe4cAb8dK9vlGK7ojAbRAAP+IYF1
-# BNku7F52PQ1oDymBU/zLL/vwBUhJDWpf1CweTf0tI5dOuXUji/DHJX0xv7XITEQh
-# 5NFwyTF7vnqnoLpBFVCM4AkimObUISTDb4kpx8017QrxG6WALQr4sw7QCYo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNlaYcbCB85WgK9S
+# 0Yrht2O2ATZ4MA0GCSqGSIb3DQEBAQUABIIBABb+Iuv4fRjwt7JIL5vjujT6mVGO
+# 6N/T6b1gdtN0SD/1xFj8YgJUI1aPJGdw0e4pMqKtAj4CjNV+59c3t95FgMJzvfHQ
+# 2aNS/FZu1q2J6ytOKmE4dziLkp+QcRSnszCYgFCh9VBwUUdfOu0edpUkRmxl/A4m
+# OPUcmoxMOwEBsv6xmY/NHRuPhBYCzmPf7qxsx3VliuKHYEbaAFBgPb3v7qWdERB1
+# JPq+sLTu8SUgiFBvCoj9O1cOhukvuwIclFX6WNivBthBOyM7VHwbbBrWCYHsFv94
+# 3hCwyA7dBLBtACJKhsdjIWdLRihHuNtSGLznm1N4IMgi2QzMg5pwGINPNtg=
 # SIG # End signature block

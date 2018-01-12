@@ -781,7 +781,7 @@ function Bootstrap-EtcdCluster {
         }
     
         [pscustomobject]@{
-            IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+            IPAddressList   = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
             FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
             HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
             Domain          = if ($DomainList) {$DomainList[0]} else {$null}
@@ -1723,8 +1723,8 @@ force-new-cluster: false
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUrmF8QqPudz05cezRMkAgCe1a
-# GQWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULXFQiiZ5yWiS6tgVjs7HtjRN
+# 4g+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1781,11 +1781,11 @@ force-new-cluster: false
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCcPt03pHKBH+btN
-# vOnforHAFLKPMA0GCSqGSIb3DQEBAQUABIIBAJcfKR3GjnkbF5/GHDtmevMkvQG4
-# GEoUtjPPWgiujqtWluWW/1UOR31HfYu7iUeRtXY8A8vznwsClW4gvVn7IQAfAN7n
-# UnTAFeLJMf0HjORyyku5CGg528+EFcHzyFs3Wi2DjTqP7YvRfpyC15ej8QM6tIb1
-# KMrMseGbLe42wav4nqeQnrF8PDZ++elSvtNNHpt3VFGVggvZlP+v/HfDcKnj+9Re
-# bNIUcgMRhr4el30duciVkZQtZWqybqFYD5XQ+Oue/EibBqAiEO+oCx1eOQgJ6UkK
-# Ygaq714CfdcW7HNoPWMi72D0g7xPs07AbJDU9MyAl7Wq9QR9WAlkbyvWrZw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJJtdH+PVTHkG4UV
+# QbOjAqPIu7IOMA0GCSqGSIb3DQEBAQUABIIBAF3w3VwaMVwREjqAtaw7Mr8tLMj/
+# WarW6cG89C7XmqPm34jW4Lf2vsYsryjN7pTOJlOrTwsn96tclQhG8rx/grLQ9RUD
+# n2Q5FHMcqlmlrRIiFMgUx6Y/aeSeijj5TZ+xnfQ2IF5ywR0TOKSO2ajTWCJKoKtO
+# jvVgmpKLHMIbuN6eIeUGdfd/+D5OSy+wqiBhqXlSMbJdB+uVaky9D+32fTdsRdwf
+# aheZa0HJBR5ANDlW6xdiZO5iiqW6YxI+SCkk5/0GiGMRrXI0GBWFfEeW244CYl7F
+# AoK1UC1gKQWfGSf/dsDLgXe8MeBpIB0CpUo/OX7PVO0NFJw98FnbHocx/0g=
 # SIG # End signature block
