@@ -2349,6 +2349,9 @@ function Install-WinSSH {
         [switch]$ConfigureSSHDOnLocalHost,
 
         [Parameter(Mandatory=$False)]
+        [switch]$InstallSSHAgentService,
+
+        [Parameter(Mandatory=$False)]
         [switch]$RemoveHostPrivateKeys,
 
         [Parameter(Mandatory=$False)]
@@ -2563,6 +2566,78 @@ function Install-WinSSH {
     if ($ConfigureSSHDOnLocalHost) {
         New-SSHDServer
     }
+    elseif ($InstallSSHAgentService) {
+        Install-SSHAgentService
+    }
+}
+
+<#
+    .SYNOPSIS
+        The Install-SSHAgentService is, in large part, carved out of the 'install-sshd.ps1' script bundled with
+        an OpenSSH-Win64 install.
+
+        Original authors (github accounts):
+
+        @manojampalam - authored initial script
+        @friism - Fixed issue with invalid SDDL on Set-Acl
+        @manojampalam - removed ntrights.exe dependency
+        @bingbing8 - removed secedit.exe dependency
+
+#>
+function Install-SSHAgentService {
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    if (!$(Check-Elevation)) {
+        Write-Verbose "You must run PowerShell as Administrator before using this function! Halting!"
+        Write-Error "You must run PowerShell as Administrator before using this function! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
+    $sshagentpath = $(Get-ChildItem -Path $OpenSSHWinPath -Recurse -File -Filter "*ssh-agent.exe").FullName 
+    $logsdir = "$OpenSSHWinPath\logs"
+
+    if (Get-Service ssh-agent -ErrorAction SilentlyContinue) {
+        Stop-Service ssh-agent
+        sc.exe delete ssh-agent 1>$null
+    }
+
+    New-Service -Name ssh-agent -BinaryPathName "$sshagentpath" -Description "SSH Agent" -StartupType Automatic | Out-Null
+    # pldmgg NOTE: I have no idea about the below...
+    cmd.exe /c 'sc.exe sdset ssh-agent D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RP;;;AU)'
+
+    # create logs folder and set its permissions
+    if (-not $(Test-Path $logsdir -PathType Container)) {
+        $null = New-Item $logsdir -ItemType Directory -Force -ErrorAction Stop
+    }
+
+    $acl = Get-Acl -Path $logsdir
+    # following SDDL implies 
+    # - owner - built in Administrators
+    # - disabled inheritance
+    # - Full access to System
+    # - Full access to built in Administrators
+    $acl.SetSecurityDescriptorSddlForm("O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")
+    Set-Acl -Path $logsdir -AclObject $acl
+
+    # pldmgg NOTE: The NTFSSecurity Module equivalent for the above is...
+    <#
+        $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $logsdir
+        $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+        $SecurityDescriptor | Clear-NTFSAccess
+        $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
+        $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
+        $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+        $SecurityDescriptor | Set-NTFSSecurityDescriptor
+    #> 
+
+    $agentlog = Join-Path $logsdir "ssh-agent.log"
+    if(-not (Test-Path $agentlog)){ $null | Set-Content $agentlog }
+    Set-Acl -Path $agentlog -AclObject $acl
+
+    Write-Host -ForegroundColor Green "The ssh-agent service was successfully installed! Starting the service..."
+    Start-Service ssh-agent -Passthru
 }
 
 
@@ -3482,8 +3557,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlih3lwuh4CMD34pdKcMi1061
-# lvKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyMQZOh9Ub5KpBgRN/KSbN4qE
+# 5Pmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3540,11 +3615,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFELo+jTtLrxlmR7R
-# CXuRyo32ZhK/MA0GCSqGSIb3DQEBAQUABIIBAE+GVXWine+ZCUVq4Xd2mWg9DUlt
-# 8Nfl0wJTL9b05elLeaTjgWgK+G+xCzpi36fjZwosocfRbYsoEmuV9zG1CixA1pXx
-# JYMwWP8GUAEQR2PWEBtTKreenWa33v3s/JfuU9MoQuH8sQ3CYR1teegxh1ArhOlu
-# EfQpiHjfY2um3Hl1n38EodIrxbLz0/LOm8pD39nZrzw8rgls6o8JiHIOPKQhlhie
-# trJlmNJdPT1ks3GAt5zN868i+1RgGHmy7sA1VVOlnG2CrsMZ4Pg6q8U6PpgxQ93s
-# 4p/g3z4Nh3xpsA0hshqj80nscB3cv05FohW7hSOdlHr4cQLBFLXxTc7hY3I=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM737xUw0S4DrsOv
+# 6Rer6pnuY89dMA0GCSqGSIb3DQEBAQUABIIBAAD4z4d5QVd6Lp5h+xmfsgxjacS0
+# wl9xBXBZMYxUcdHSDINrMkYv4MBo6LLlIvowJ8R7nGpAhezv7A6csGtTadAjPpjK
+# ZWS7qlHLDPm+e8NLsch9R/qoYESSbqjZEqCiePawj04+N/T8Mlti859RVVhGCFiO
+# qXcjaUMW5rpmHyuwEBLCsTDd1m4GUQFF/8pJemvvX8YyaA8q6d90GEhNXsavUyJ+
+# aomEgNRGJ9PU4hjYhvuTD0yQFsrxtqsDqFzwIfhG/IuVACJrylbwzVjlWeYJ0vcc
+# 0jwwb75RZ3DC2j1CP9hog0ol2QGLwrh4dZif2mK3ta/5m25R30ye7JbOOyk=
 # SIG # End signature block
