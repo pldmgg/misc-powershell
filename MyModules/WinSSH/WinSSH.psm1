@@ -2570,10 +2570,24 @@ function Install-WinSSH {
     }
 
     if ($ConfigureSSHDOnLocalHost) {
-        New-SSHDServer
+        try {
+            New-SSHDServer -ErrorAction Stop
+        }
+        catch {
+            Write-Error "The New-SSDServer function failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
     elseif ($InstallSSHAgentService) {
-        Install-SSHAgentService
+        try {
+            Install-SSHAgentService -ErrorAction Stop
+        }
+        catch {
+            Write-Error "The Install-SSHAgentService function failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
 }
 
@@ -3146,7 +3160,14 @@ function New-SSHKey {
             $RemoteHostLocation = $RemoteHostNetworkInfo.IPAddressList[0]
         }
         
-        Add-PublicKeyToRemoteHost -PublicKeyPath $PubKey.FullName -RemoteHost $RemoteHostLocation -RemoteHostUserName $RemoteHostUserName
+        try {
+            Add-PublicKeyToRemoteHost -PublicKeyPath $PubKey.FullName -RemoteHost $RemoteHostLocation -RemoteHostUserName $RemoteHostUserName -ErrorAction Stop
+        }
+        catch {
+            Write-Host "Unable to add the public key to the authorized_keys file on $RemoteHost! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
         
         if (!$AddToSSHAgent) {
             Write-Host "You can now ssh to $RemoteHost using public key authentication using the following command:" -ForegroundColor Green
@@ -3583,8 +3604,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9a87hloR362w5m34nTjoNwAn
-# hRSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBaYCANMZA3JmEj2keX3IYcGo
+# 6yugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3641,11 +3662,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMAE9Kc5fFrDxvri
-# 6qyqcwJkduSGMA0GCSqGSIb3DQEBAQUABIIBAKB4dfXnkHiDOvF//DJrXWSC1VQw
-# 1SS1CWJH/SiOFkvb2ZAK9cuuMMphxXU7wqiD9apKYQAfM6bWNSi1P3YUzxCEZo0k
-# FKnNunWWKgO+XoANfoJ0RHj8IpT3KN+sswrKkuatm6d7LkTsZeI5DUFyxz9txvhk
-# qxGGAeDhYg14or0L6cQiUwlaVte0aCg5vYIP5c++s5H2eqCDfUV3OmdPmgXs6nZs
-# EBsh63vOTrgFxRkZPg8h6LYYuweo7ZWvc0O8e7Py3fiMn5LBVApN3VIavHFdV61t
-# CZtTIyWdGCIZ62+ztpO4+JTVtcWK1Ece0qBPmUkKx+Iy4LjH5LAgWOEhiD4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDtyEWFKlfgQlVBt
+# 6HDTjT3qEEo2MA0GCSqGSIb3DQEBAQUABIIBAAyCEap1lKJpvpfXV25skn14szwA
+# dxddMEgAypU7rgKLbVsFuNl+fS7AUmfV3bU6E9rYHQbgYqLogF9j+1/mdPEE1XOB
+# OxXwHNXqcHl8UwVb5U8jZ1bNNQPu6Nhz+J+ifxHHkBliOwJjdy7CcW0rSvUJQSSN
+# 8uaFeQZKXadKFuZ8QT/12v5K3PsUnkLfQWK/pe4cAb8dK9vlGK7ojAbRAAP+IYF1
+# BNku7F52PQ1oDymBU/zLL/vwBUhJDWpf1CweTf0tI5dOuXUji/DHJX0xv7XITEQh
+# 5NFwyTF7vnqnoLpBFVCM4AkimObUISTDb4kpx8017QrxG6WALQr4sw7QCYo=
 # SIG # End signature block
