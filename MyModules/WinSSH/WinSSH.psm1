@@ -1238,13 +1238,19 @@ function Resolve-Host {
         $null = $DomainList.Add($Domain)
     }
 
-    if (!$RemoteHostFQDNs -and !$HostNameList -and !$DomainList -and $RemoteHostArrayOfIPAddresses) {
+    if ($RemoteHostFQDNs[0] -eq $null -and $HostNameList[0] -eq $null -and $DomainList -eq "Unknown" -and $RemoteHostArrayOfIPAddresses) {
         [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
         # Test to see if we can reach the IP Addresses
         foreach ($ip in $RemoteHostArrayOfIPAddresses) {
-            if ([bool]$(Test-Connection $ip -Count 1)) {
+            if ([bool]$(Test-Connection $ip -Count 1 -ErrorAction SilentlyContinue)) {
                 $null = $SuccessfullyPingedIPs.Add($ip)
             }
+        }
+
+        if ($SuccessfullyPingedIPs.Count -eq 0) {
+            Write-Error "Unable to resolve $HostNameOrIP! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
     }
 
@@ -3130,15 +3136,25 @@ function New-SSHKey {
     }
 
     if ($AddToRemoteHostAuthKeys) {
-        Add-PublicKeyToRemoteHost -PublicKeyPath $PubKey.FullName -RemoteHost $RemoteHostNetworkInfo.FQDN -RemoteHostUserName $RemoteHostUserName
+        if ($RemoteHostNetworkInfo.FQDN) {
+            $RemoteHostLocation = $RemoteHostNetworkInfo.FQDN
+        }
+        elseif ($RemoteHostNetworkInfo.HostName) {
+            $RemoteHostLocation = $RemoteHostNetworkInfo.HostName
+        }
+        elseif ($RemoteHostNetworkInfo.IPAddressList[0]) {
+            $RemoteHostLocation = $RemoteHostNetworkInfo.IPAddressList[0]
+        }
+        
+        Add-PublicKeyToRemoteHost -PublicKeyPath $PubKey.FullName -RemoteHost $RemoteHostLocation -RemoteHostUserName $RemoteHostUserName
         
         if (!$AddToSSHAgent) {
             Write-Host "You can now ssh to $RemoteHost using public key authentication using the following command:" -ForegroundColor Green
-            Write-Host "    ssh -i $PubKey.FullName $RemoteHostUserName@$($RemoteHostNetworkInfo.FQDN)" -ForegroundColor Green
+            Write-Host "    ssh -i $PubKey.FullName $RemoteHostUserName@$RemoteHostLocation" -ForegroundColor Green
         }
         else {
             Write-Host "You can now ssh to $RemoteHost using public key authentication using the following command:" -ForegroundColor Green
-            Write-Host "    ssh $RemoteHostUserName@$($RemoteHostNetworkInfo.FQDN)" -ForegroundColor Green
+            Write-Host "    ssh $RemoteHostUserName@$RemoteHostLocation" -ForegroundColor Green
         }
     } 
 
@@ -3195,7 +3211,17 @@ function Add-PublicKeyToRemoteHost {
 
     ##### BEGIN Main Body #####
 
-    ssh $RemoteHostUserName@$($RemoteHostNetworkInfo.FQDN) "echo '$PubKeyContent' >> ~/.ssh/authorized_keys"
+    if ($RemoteHostNetworkInfo.FQDN) {
+        $RemoteHostLocation = $RemoteHostNetworkInfo.FQDN
+    }
+    elseif ($RemoteHostNetworkInfo.HostName) {
+        $RemoteHostLocation = $RemoteHostNetworkInfo.HostName
+    }
+    elseif ($RemoteHostNetworkInfo.IPAddressList[0]) {
+        $RemoteHostLocation = $RemoteHostNetworkInfo.IPAddressList[0]
+    }
+
+    ssh $RemoteHostUserName@$RemoteHostLocation "echo '$PubKeyContent' >> ~/.ssh/authorized_keys"
 
     ##### END Main Body #####
 }
@@ -3557,8 +3583,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyMQZOh9Ub5KpBgRN/KSbN4qE
-# 5Pmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9a87hloR362w5m34nTjoNwAn
+# hRSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3615,11 +3641,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM737xUw0S4DrsOv
-# 6Rer6pnuY89dMA0GCSqGSIb3DQEBAQUABIIBAAD4z4d5QVd6Lp5h+xmfsgxjacS0
-# wl9xBXBZMYxUcdHSDINrMkYv4MBo6LLlIvowJ8R7nGpAhezv7A6csGtTadAjPpjK
-# ZWS7qlHLDPm+e8NLsch9R/qoYESSbqjZEqCiePawj04+N/T8Mlti859RVVhGCFiO
-# qXcjaUMW5rpmHyuwEBLCsTDd1m4GUQFF/8pJemvvX8YyaA8q6d90GEhNXsavUyJ+
-# aomEgNRGJ9PU4hjYhvuTD0yQFsrxtqsDqFzwIfhG/IuVACJrylbwzVjlWeYJ0vcc
-# 0jwwb75RZ3DC2j1CP9hog0ol2QGLwrh4dZif2mK3ta/5m25R30ye7JbOOyk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMAE9Kc5fFrDxvri
+# 6qyqcwJkduSGMA0GCSqGSIb3DQEBAQUABIIBAKB4dfXnkHiDOvF//DJrXWSC1VQw
+# 1SS1CWJH/SiOFkvb2ZAK9cuuMMphxXU7wqiD9apKYQAfM6bWNSi1P3YUzxCEZo0k
+# FKnNunWWKgO+XoANfoJ0RHj8IpT3KN+sswrKkuatm6d7LkTsZeI5DUFyxz9txvhk
+# qxGGAeDhYg14or0L6cQiUwlaVte0aCg5vYIP5c++s5H2eqCDfUV3OmdPmgXs6nZs
+# EBsh63vOTrgFxRkZPg8h6LYYuweo7ZWvc0O8e7Py3fiMn5LBVApN3VIavHFdV61t
+# CZtTIyWdGCIZ62+ztpO4+JTVtcWK1Ece0qBPmUkKx+Iy4LjH5LAgWOEhiD4=
 # SIG # End signature block
