@@ -84,8 +84,7 @@
     Update-PowerShellCore -DownloadDirectory "$HOME\Downloads"
 
 #>
-function Update-PowerShellCore
-{
+function Update-PowerShellCore {
     [CmdletBinding(DefaultParameterSetName='PackageManagement')]
     Param(
         [Parameter(
@@ -111,7 +110,7 @@ function Update-PowerShellCore
         $ReleaseVersion,
 
         [Parameter(Mandatory=$False)]
-        [ValidateSet("beta", "rc", "stable")]
+        #[ValidateSet("beta", "rc", "stable")]
         $Channel,
 
         [Parameter(Mandatory=$False)]
@@ -732,6 +731,17 @@ function Update-PowerShellCore
         return
     }
 
+    if ($Channel) {
+        if ($Channel -notmatch "beta|rc|stable") {
+            Write-Warning "The value provided for the -Channel parameter must be eitehr 'beta', 'rc', or 'stable'"
+            $Channel = Read-Host -Prompt "Please enter the Channel you would like to use [beta/rc/stable]"
+            while ($Channel -notmatch "beta|rc|stable") {
+                Write-Warning "The value provided for the -Channel parameter must be eitehr 'beta', 'rc', or 'stable'"
+                $Channel = Read-Host -Prompt "Please enter the Channel you would like to use [beta/rc/stable]"
+            }
+        }
+    }
+
     if (!$DownloadDirectory -and $UsePackageManagement) {
         if ($UsePackageManagement -notmatch "Yes|yes|Y|y|true|No|no|N|n|false") {
             Write-Error "Valid values for the -UsePackageManagement parameter are Yes|yes|Y|y|true|No|no|N|n|false . Halting!"
@@ -1047,7 +1057,7 @@ function Update-PowerShellCore
             $DownloadDirectory = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileNameSansExt)
             $DownloadPath = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileName)
         }
-        $PSFullVersion = $($DownloadFileNameSansExtNew | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-.*?win").Matches.Value -replace "-win",""
+        $PSFullVersion = $($DownloadFileNameSansExt | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-.*?win").Matches.Value -replace "-win",""
         $PSRelease = $($PSFullVersion -split "-")[0]
         $PSChannel = $($PSFullVersion | Select-String -Pattern "[a-zA-Z]+").Matches.Value
         $PSIteration = $($($PSFullVersion -split "-") | Where-Object {$_ -match "[a-zA-Z].+[\d]"} | Select-String -Pattern "[\d]").Matches.Value
@@ -1644,8 +1654,8 @@ function Update-PowerShellCore
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUDbjGusz9tFJ7wIDFeqi4OD8U
-# F2Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhUcAQTr8qFQ0B2SeSq3X8CJ2
+# bHWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1702,11 +1712,11 @@ function Update-PowerShellCore
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFP1xvgRXW47jNZOr
-# ZUnZbg4F+jWvMA0GCSqGSIb3DQEBAQUABIIBAF2S2BY8aF6UrlypcvCp8ifrU0xP
-# pVleexEmAzn1bQrE6KYYUNbq3kHp7qjpSbJzz0keVYvR5QJT4sLWRod0QYhNd3yd
-# fzhzQvMTF/6Dlsl0BJMRFYfbVTm8QWXdfWsrrXYnB9gbaZLAng1mrC58TH6pm4kk
-# O2kUnuekQkkwoxKfbXGOzkssijw+HdVNoNG1GDz/i7oBpAywblXFGzp9LAxkE9Mh
-# AEtDAobMVPJrxN8uBnnEC3xqK1hQivxD5etCOhhs9RvrsEoRKTHpgZicuoiAMHDN
-# GNWGU7UVGb4fC3fEBUKJo2oBHyW+T9TnOxnflJ16oYsiSzUNmtwi+BRKKuQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIuX+ik1OraHLy9f
+# SGMq1yjv3SjDMA0GCSqGSIb3DQEBAQUABIIBAEu3a40Q3+Z38608nOSJDI9Igons
+# M75ZmfNLH1NKb620wDRN0ufQblZKBqU0xvKJ7sG8y+wn46oQwVrcIC/TOCls6Z7Y
+# lahtsVg/aV9Iq/AImcb6/+R8vTSE/XzHJ4rZQZt815fW83ANON0ecFwC9LUFkb0S
+# ZdxATRSf+huybTS+AXyDGW7VcAcubM1TB3mUn5w0Gb87U8DmeTnUGb30rIaQR5qs
+# aQXHL5OvThfJLUSvazWSIZnmfa5uiBdGppERMoCLBpfdQ3jcmcwDWWGmCwa+7NRR
+# WVkW87CrBNvbJabbyJwqntZjVA2fIjZq7T0rGilw2tlrVxThJXuZCOZDis0=
 # SIG # End signature block
