@@ -38,6 +38,17 @@ function Get-GuestVMAndHypervisorInfo {
             [string]$HostNameOrIP
         )
     
+        ## BEGIN Native Helper Functions ##
+    
+        function Test-IsValidIPAddress([string]$IPAddress) {
+            [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
+            [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
+            Return  ($Valid -and $Octets)
+        }
+    
+        ## END Native Helper Functions ##
+        
+    
         ##### BEGIN Main Body #####
     
         $RemoteHostNetworkInfoArray = @()
@@ -119,11 +130,27 @@ function Get-GuestVMAndHypervisorInfo {
             $null = $DomainList.Add($Domain)
         }
     
+        if ($RemoteHostFQDNs[0] -eq $null -and $HostNameList[0] -eq $null -and $DomainList -eq "Unknown" -and $RemoteHostArrayOfIPAddresses) {
+            [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
+            # Test to see if we can reach the IP Addresses
+            foreach ($ip in $RemoteHostArrayOfIPAddresses) {
+                if ([bool]$(Test-Connection $ip -Count 1 -ErrorAction SilentlyContinue)) {
+                    $null = $SuccessfullyPingedIPs.Add($ip)
+                }
+            }
+    
+            if ($SuccessfullyPingedIPs.Count -eq 0) {
+                Write-Error "Unable to resolve $HostNameOrIP! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    
         [pscustomobject]@{
-            IPAddressList   = $RemoteHostArrayOfIPAddresses
-            FQDN            = $RemoteHostFQDNs[0]
-            HostName        = $HostNameList[0].ToLowerInvariant()
-            Domain          = $DomainList[0]
+            IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
+            FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
+            HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
+            Domain          = if ($DomainList) {$DomainList[0]} else {$null}
         }
     
         ##### END Main Body #####
@@ -970,8 +997,8 @@ function Get-GuestVMAndHypervisorInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcNVVlkjIKd0FD7qy6wBWCltg
-# Raegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhitrbTAl3EB9XdgN0fW9IZFE
+# l2Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1028,11 +1055,11 @@ function Get-GuestVMAndHypervisorInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFQZMe8dxYV0Hcrm
-# 8pBaKWtdoMCUMA0GCSqGSIb3DQEBAQUABIIBAGSFv7rbP1r8CiSdwJb/NKEkwumj
-# 1uQxtmL1IpuxzOccPKIQcN2Uz+oOvZnKLRJvAcmVPS0XjKJa4AI6i5B6HYqQiIbs
-# 0ccioAB0hwM6wOp9Ow1ZLNPiw6lrg94eAMfYvt8zwMygLj/PaA17fXm6ATV6rZU3
-# ffIjq7ucBPQVHP5fTWc+Ptxb92PuHrUxvOXWTLvdiUZIFgxI7kmuiO3VqbHHZb3J
-# 0NjBowEJwtKH3uwpJpATJCjR8lDwKfaRjr7dHGpTo6xJ5BwnKDY9A9VyaMOcKU2d
-# 18pmh6hIzsWVaBABtDVzqDem7fKYzbQoUeJqsc6rm8e2I8t89SSimLVRTdo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDEjlpw6EEEFJu+T
+# ixexYKKE6J6YMA0GCSqGSIb3DQEBAQUABIIBADy0kvXIUqVMH2CQj838huO4F4tJ
+# jerD1RLxVoMOkz2s20FvBy/cejdQH4ReDLAClc6eFnPI/vbVsv1zuh6IEzagMEUl
+# pzdJScRoUeulzyROGHECj3OVmcGf0qSrz6utmld/Pal02fKnxaE3SXp/4q6PlxTj
+# pDUShJzr8oHz5bk3TBTdbeRHLwYv4SARFNK4EHIOYMN5mIum45sV5p0FZKMunoX1
+# maMt6AnAUfmbeb+zp/P02mhREvaW6V2OU8KqbtnUu/BmlB869I7i1pLuH3my9ku6
+# kTR2XhZE13DamcwX/Dw40qqkyXEYKe00Ruj+54WZjlTnbgJF+JBbbGJILJw=
 # SIG # End signature block
