@@ -1,21 +1,27 @@
 function New-UniqueString {
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [string[]]$ArrayOfStrings,
 
         [Parameter(Mandatory=$True)]
         [string]$PossibleNewUniqueString
     )
 
-    $OriginalString = $PossibleNewUniqueString
-    $Iteration = 1
-    while ($ArrayOfStrings -contains $PossibleNewUniqueString) {
-        $AppendedValue = "_$Iteration"
-        $PossibleNewUniqueString = $OriginalString + $AppendedValue
-        $Iteration++
+    if (!$ArrayOfStrings -or $ArrayOfStrings.Count -eq 0 -or $ArrayOfStrings -notcontains "[\w]") {
+        $PossibleNewUniqueString
     }
-    $PossibleNewUniqueString
+    else {
+        $OriginalString = $PossibleNewUniqueString
+        $Iteration = 1
+        while ($ArrayOfStrings -contains $PossibleNewUniqueString) {
+            $AppendedValue = "_$Iteration"
+            $PossibleNewUniqueString = $OriginalString + $AppendedValue
+            $Iteration++
+        }
+
+        $PossibleNewUniqueString
+    }
 }
 
 
@@ -30,8 +36,8 @@ function New-UniqueString {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlMBHulQjAb/NeORjDyiwUHc7
-# wRugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUPwwL/2GJplFVGG3W65POkTk7
+# F2Wgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -88,11 +94,11 @@ function New-UniqueString {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN75q30MDWZ1zfrX
-# 0w8vxgU3ic0GMA0GCSqGSIb3DQEBAQUABIIBACBgtn8OqZCZGDClTLptZ3LBWZtV
-# nfU6VVnrXO2K+7EqwFYSnmmJEojmBXNa3C2rvXXR3chx2ITuH4tEN6nrW8GVsbfK
-# qBl4B66iPiHkU2gn/Qcz4tI7k788CoOTaUfpESAUbbA1CJH4QRKlRWi40yq6+ZvT
-# 9QGIBT1OBmVNxGKxrQpHCd0kYa3iqNZ1ixUHwRuQ83yRTXmb1PopktjJC8l3Qecj
-# FgQMOEMKyAy2e0ARVLPrHtuwO+G51W1JxHODgD97klvmZuIcDcSk9QnwV+CYxvp9
-# jpSTk+wVFElKTWSdeIY98kOeCJsh1WFk8+ggtOa4mRLmkF9VGScNqqA/gS0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPr1q8JVCbj+1huV
+# C1ceXqhXFIfQMA0GCSqGSIb3DQEBAQUABIIBAHif3Sb/NlJBlq0/JKh8WTw+Fy0J
+# CU8n+kNdq3tHfMcipxJCGiqpg+Uksz9ReQ1ssWRFJe6iuQK3zYP15ZGCaxvhhbw5
+# Dpgz+GmWQ2WOjkTjjYw2C+W61ITGWvMw+/+KDC5E1J7mnwxzhEedoxUFkcHR/AoH
+# UDU5wJCogPT/CgoSAmdIiKgUvIwj/Nen+ckCr9TRA8v+XjZXz5pqmt6GIFaANnh+
+# vBzu6vaniwTDwuuXB0Wpn5n22waMADAE/vkTenWFVlE81thPeSaZIL6QBp6p3b5K
+# 500P1mBaLS9J0nVxCilqAtXFGmOLM1AGTJZMCHJGqeNHQ21U3vX/VX84RaY=
 # SIG # End signature block
