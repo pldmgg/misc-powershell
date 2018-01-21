@@ -26,8 +26,9 @@ function Install-ChocolateyCmdLine {
         }
 
         try {
+            $global:FunctionResult = "0"
             $null = Update-PackageManagement -UseChocolatey -ErrorAction SilentlyContinue -ErrorVariable UPMErr
-            if ($UPMErr) {throw}
+            if ($UPMErr -and $global:FunctionResult -eq 1) {throw}
         }
         catch {
             Write-Host "Errors from the Update-PackageManagement function are as follows:"
@@ -164,8 +165,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAMkX9kCBGchJJLRjcOWIBdcZ
-# chCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJSR8EJxNMQw2x+CoktJAVpyS
+# ioigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -222,11 +223,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMlzJAiLN/3Sh5wp
-# Qev01WdbuSxjMA0GCSqGSIb3DQEBAQUABIIBAD5HCLi3ipbjTlLkWwPjNqgDj2Nd
-# ce3hOY1THso4pta82qiu+2nZigzyW8zDacLEmlGtMVkqv3N6MLyeNOPn+Ck5rTkY
-# JmWJuJ9RbrBZ770ulSpuAoha9CmTfZ/I3gLCjPQVgaNbFarhMkpg/98MuQ4jhSz4
-# u9iKy39NYhVAt7rqRjf/nufsL9JHn1hj9vEZYA8kXLpbZ1wyexyu61aN2CSHWgpS
-# wwgVUX9aI/s3Rn75UcsikNX0pQ5wA0ZvzRZYhNpR2seoF0+u0UoQoucJKwWZg81F
-# /SGrh1Y9q5M239SFTs6YY4rAjvCGCe2u3bT4VXQxOsUNvJq026bniPtIjkg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAug9vVqyL9pHKVb
+# MTz40H7xqYq8MA0GCSqGSIb3DQEBAQUABIIBADTnmU7PvIQWMBzdOya3vPZmc4lF
+# J2Qqx+QBcUYkk3CzMaM+Vdq849jf7qgumuOj3X/fCxro8eQpmpUUicQj9N+wJsSL
+# OGmnbMWazveipKA8Jas0oebCh3BpEsZZ93Z+0hJteCLzX48bigpNGsWk4bHAe007
+# sr50i2W0Pylu6sYuAdEBR58CDB79l9nlp1olImRAELAW67b6CZyOl72uOFpRAznm
+# CXhHoapv9fUgjmHdZ7Zn6clOvYIJxCNqr3+IV4pje284njplZxiTOIeGufsIntX/
+# ZHCbwD/dpaBekEm9vxNqxiubaTvhVjL9a2qOtQECOCVmaZEXayoPo4tFi/M=
 # SIG # End signature block
