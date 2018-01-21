@@ -43,7 +43,7 @@ function Get-NetworkInfoCSharp {
     $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
 
     if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or 
-    $($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
+    $($PSVersionTable.PSVersion.Major -le 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
         $AssembliesToLoad = @(
             "Microsoft.CSharp"
             "mscorlib"

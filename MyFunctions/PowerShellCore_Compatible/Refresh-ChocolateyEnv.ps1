@@ -42,7 +42,7 @@ function Refresh-ChocolateyEnv {
                 $_.Directory.FullName
             }
         }) | Sort-Object | Get-Unique) | foreach {
-            $null = $ChocolateyPathsPrep.Add($_)
+            $null = $ChocolateyPathsPrep.Add($_.Trim("\\"))
         }
 
         foreach ($ChocoPath in $ChocolateyPathsPrep) {
@@ -53,7 +53,7 @@ function Refresh-ChocolateyEnv {
 
         foreach ($ChocoPath in $ChocolateyPathsToAddToEnvPath) {
             if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path" + $ChocolateyPath + ";"
+                $env:Path = "$env:Path" + $ChocoPath + ";"
             }
             else {
                 $env:Path = "$env:Path" + ";" + $ChocoPath
@@ -63,6 +63,9 @@ function Refresh-ChocolateyEnv {
     else {
         Write-Verbose "Unable to find Chocolatey Path $ChocolateyPath."
     }
+
+    # Remove any repeats in $env:Path
+    $env:Path = $($($env:Path -split ";").Trim("\\") | Select-Object -Unique) -join ";"
 
     ##### END Main Body #####
 
@@ -83,8 +86,8 @@ function Refresh-ChocolateyEnv {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJwph4G46um95KUd7RTJyj5pE
-# s2+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUP4N5VpjYB/INMLR/w5vZEu7r
+# bs+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -141,11 +144,11 @@ function Refresh-ChocolateyEnv {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPVDH1uxIzCRthN+
-# nRQcsEZPN3UtMA0GCSqGSIb3DQEBAQUABIIBAKcfJ8mbkiRIaMJSHn8JqVlf4STQ
-# CmoL5sMmjsYuUDl3V0mRGdyLHdlvRI6yW3qtyuB5UAs+PVSPTUryeFPKJenhCBeQ
-# ZjTM7SqPDiLwCkDhAiikgmtrs90W3c6QcDIavbDllAkIhmYR0NiRVu2XqToP727L
-# /tuQDwvdJMjjVqv8edxJ8+1N7VEbzXfFn91fsnRjMpo+YpFcSQ7wbHip4b4pR6in
-# WttR9hyMPf98zZSmME45VzjxAH5kmdkYvSqUWw82Twr97LHA9AoRnfDpK497h748
-# rtXSoxA4tkR4rs6ky+eLZ+In9Ewi3JKNXBFfzEQQR4p4whTzJoInC6Zs9/k=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNfLs6MbGHOLwWth
+# 0EpVsCi268DdMA0GCSqGSIb3DQEBAQUABIIBALp4UtZcdwcSt1vaMhrso7RxCBPw
+# gey0rHt3g8JaP+Tgr7+DruhQrnEnzngP/31N5HA5eAW2FwxTkalQxqLMvSTWn8YL
+# x7QzMS2MMibZkyHX06KgoGQcCltgaoeuB/LHKD9EPjvxSUQwyZDi601jboOaPXKa
+# MhkKmlcXBNSd4GlSh2m5gKSjsveogGpeDb+d6m6woRm614U6+K1zFN+inlmm1aXp
+# 8qqTpg0MmnQNCdKFhpPLG/dI0glNsyEtCRmLIA4nTcOeUW7Mn/tqBkoZc3azbLBH
+# ZQ6CZpZUyWUHYDfddYYjaf5EcWsaPo+g7TVCP2nAD3rjEKITlviiSfBJk8s=
 # SIG # End signature block

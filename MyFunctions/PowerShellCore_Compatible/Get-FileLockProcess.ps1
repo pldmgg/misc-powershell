@@ -61,10 +61,10 @@ function Get-FileLockProcess {
     ##### BEGIN Main Body #####
 
     if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or 
-    $($PSVersionTable.PSVersion.Major -lt 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
+    $($PSVersionTable.PSVersion.Major -le 5 -and $PSVersionTable.PSVersion.Major -ge 3)) {
         $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
     
-        $AssembiesFullInfo = $CurrentlyLoadedAssemblies | Where-Object {
+        $AssembliesFullInfo = $CurrentlyLoadedAssemblies | Where-Object {
             $_.GetName().Name -eq "Microsoft.CSharp" -or
             $_.GetName().Name -eq "mscorlib" -or
             $_.GetName().Name -eq "System" -or
@@ -76,9 +76,9 @@ function Get-FileLockProcess {
             $_.GetName().Name -eq "System.Runtime.Extensions" -or
             $_.GetName().Name -eq "System.Runtime.InteropServices"
         }
-        $AssembiesFullInfo = $AssembiesFullInfo | Where-Object {$_.IsDynamic -eq $False}
+        $AssembliesFullInfo = $AssembliesFullInfo | Where-Object {$_.IsDynamic -eq $False}
   
-        $ReferencedAssemblies = $AssembiesFullInfo.FullName | Sort-Object | Get-Unique
+        $ReferencedAssemblies = $AssembliesFullInfo.FullName | Sort-Object | Get-Unique
 
         $usingStatementsAsString = @"
         using Microsoft.CSharp;
