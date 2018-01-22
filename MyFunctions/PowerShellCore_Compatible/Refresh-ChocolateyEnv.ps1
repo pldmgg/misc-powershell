@@ -16,7 +16,7 @@ function Refresh-ChocolateyEnv {
 
     ##### BEGIN Main Body #####
 
-    if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+    if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
         if ($ChocolateyDirectory) {
             $ChocolateyPath = $ChocolateyDirectory
         }
