@@ -193,11 +193,15 @@ function Install-Program {
             $null = Install-Package $ProgramName -Force -ErrorVariable InstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
             if ($InstallError.Count -gt 0) {
                 Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                Write-Warning "There was a problem installing $ProgramName via PackageManagement/PowerShellGet!"
                 
                 if ($UsePackageManagement) {
                     Write-Error "One or more errors occurred during the installation of $ProgramName via the the PackageManagement/PowerShellGet Modules failed! Installation has been rolled back! Halting!"
                     $global:FunctionResult = "1"
                     return
+                }
+                else {
+                    Write-Host "Trying install via Chocolatey CmdLine..."
                 }
             }
             else {
@@ -344,8 +348,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUO05pbDIktBfqHk7RBChiH+an
-# OCmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNdcBftPxOXIBTKA1hqg4BoAw
+# Ojmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -402,11 +406,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKqYmre6ovEhOt4C
-# 6y6UL8JEE66sMA0GCSqGSIb3DQEBAQUABIIBAGQCtaRVX/efJvpiKv0MiAhbxdLS
-# bpqGon8Kfpu6BOD5yiYJIrtQrSJmNd0QQG1R81oeYvQzkcUasEZIgF26QpSNEdny
-# o8Lec5GbpgIN4s6scT3AxwcebLwmAt2h7B0C65LamlrRG56f2ZCe/9JCDwCVsnHp
-# fdccyfw4+XkuUv9DlNhzd4hOtvOR1Lw4cXJrDj5BxPejuhKj/y0Ujr/Gg5RXndiq
-# G3qB0IliN1m8Kn74VbzaATr1ElIPapFtZbFSyv8KogczXxrwti+IPyCNdLog7GhL
-# YRYUGIsCfxuXrs6ndRfL96KvSsifjSGHc6zxQPF6/zU/CnySMMZPJ/xpjvE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMT8sI+4LyB3bD1N
+# g+cz6K4mraA1MA0GCSqGSIb3DQEBAQUABIIBABObYu155rBVdl6oCPEEfoDFeThU
+# 6M7dkU82hf1NerGN7BAKfEo4UUQYWlzl9ZussNVEmUIqZahXZATRfpHuBTILhOi2
+# nWo1syXXpX1a5v8sN0rG+USTgGMkME//SMEawVHfsdFgtD56dYg6XOeMmB6QlGkQ
+# MpdjxNQ7QlOS+S5YVOx70NpPwdOIOiO5iiVITss0d2brLgGaX3Fp5nd7Tqv6+eBo
+# Gf2XmSySo1dJMbftDMQbnHoMyRN7OVZx2qpRCk8yQOG+fQ0jVJeQ2DA7ijCMVjH5
+# l+dr1UiCfm5i9oLkPUyfBYwAbljWpDVFPKNUvoeeIiBz53lSsCJXbeOgJg4=
 # SIG # End signature block
