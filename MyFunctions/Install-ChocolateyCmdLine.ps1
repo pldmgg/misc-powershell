@@ -84,7 +84,7 @@ function Install-ChocolateyCmdLine {
         }
         
         # Chocolatey cmdline install potentially messes up $env:Path...
-        if ($env:Path -split ";" -notmatch "chocolatey\\bin") {
+        if (![bool]$($env:Path -split ";" -match "chocolatey\\bin")) {
             # so reset it...
             $env:Path = $OriginalEnvPath
 
@@ -165,8 +165,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwBZVfgYGKPXHVMvGzjqKKdDi
-# Njigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4+Zrt1ntLCtZ4329a+9L1CIJ
+# sDygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -223,11 +223,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIQnqy/lP+AEw4Fu
-# ZgIhW+/dVXj1MA0GCSqGSIb3DQEBAQUABIIBAK58hukYLXu84GsyVA7yYdVdfCjZ
-# xJa5UCp0U39TLOvkWAWt0MpetHIfVRzV4Zu2QSR1WI18Os+FvgguG15Hew2tH4kB
-# WtSbfFZc7f2+j55WdeB6CcNnnkX8J1uujknMh6jOCjymQ6BbdweWivHW657b738E
-# eW/dYlfZ2VLuLYc2kljyz9fPTnFrsCv23OoNnd4OyL9G1tSdCvhpYUpyA4MK9wqt
-# YVSh11D17bR2LPc44aUydI3Udan/2Vv7MvtVL0JvEMyJiFz8HMT9ykU5ffoG7yO2
-# 5VEv5XPGS4lt8hK5HGFvzF0WpHJuqyzizSP0aLItKztQ+nboD+dMFXCwvYQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNZcMCb/EFb/TK3c
+# PqQkibNrwFjZMA0GCSqGSIb3DQEBAQUABIIBAJcrL+h6Fe4Ldf97imwvCGlfZQMH
+# sHWpVT8ye6NxEYFq9iY9Pgm9XV1oWaQrUg5Gtho3xf7NtJ5pYHaa2jT+QeDv/LO2
+# xpWbz2+vSVBC9Os9jCianrtPePRKjxfKmcPKHW8erH5y6hhX5QIQjvTAYDPp6Q/c
+# YP39T63xYXnGV4/+wIAuFkRBd3AHwcjP/9xWfIQd0WMTLPyFGlo30utmETHue8yZ
+# GhOYMuy5Bq/zm4QVLQ3ytGA8WfmV1e8FeHhr5td7655c8iw69O4zXVzUafSqYMAf
+# zNRDsfUPZj+VQIjQRXaShON7SnWBmF0M9ubRGdLAp06cWTKq96CI8j+1yNA=
 # SIG # End signature block
