@@ -69,7 +69,7 @@ function Install-ChocolateyCmdLine {
             Write-Host "Refreshing `$env:Path..."
             $global:FunctionResult = "0"
             $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-            if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+            if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
         }
         catch {
             Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
@@ -98,7 +98,7 @@ function Install-ChocolateyCmdLine {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
             }
             catch {
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
@@ -139,7 +139,7 @@ function Install-ChocolateyCmdLine {
                     Write-Host "Refreshing `$env:Path..."
                     $global:FunctionResult = "0"
                     $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                    if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+                    if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
                 }
                 catch {
                     Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
@@ -174,7 +174,7 @@ function Install-ChocolateyCmdLine {
                     Write-Host "Refreshing `$env:Path..."
                     $global:FunctionResult = "0"
                     $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                    if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+                    if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
                 }
                 catch {
                     Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
@@ -249,8 +249,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUuREfIOVz7tkEJIoPfxe3+VBx
-# m3mgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbqfSnC9Ct3Srzeh/3JOlYp9m
+# B8ygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -307,11 +307,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPCWIlKSsJf7o5NA
-# VuRBZeM+/UHzMA0GCSqGSIb3DQEBAQUABIIBALTUA/6DNqbscpG3LRZtJ5SN0CRF
-# iGxn8PgTywKhmoOkSj9vFXMuTjf6YoeQlBjwXHQzK/1rde8znulzqDqrRGZgtQ0h
-# SA1EH8OuZa8tMw347t+8Di9Gi7HYn2rCQsxS9vPz2/R7m1OK5BsqdEKwSoEM48R+
-# AAEudIvU3UyrSNAEONaoH1WerwQc52po+gUD24ft9nghcuxIakChx4tA8C22nfBp
-# krP3M+tUz7kAwwqNQ820iSr2Pl9VKOBAJsc4MNCo/sMo+XY63bh8zLVMhHmqN3HN
-# CkkdzF5r7QTOFQPj0K/7R7Qs4mU0YL1QiinLQEOcpPDR5H5Xv5NZXmcvLQo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGMEPv/v2N/QkaH/
+# cSYIxmg9lUZdMA0GCSqGSIb3DQEBAQUABIIBAJ3u2sbhRrQ8NYEgisjc86IRWEC+
+# d3HM0XZwOh/oueij7vbBl8YBUgUZGlXP4yo72IR+P4eXuHvFPGlXQHe/ALPQ6lQe
+# nAK6cRlt1GNmmZzS4Itk5w3RyjH8n3GrzD14ZDFGTmFd0o83rs/0v3dGAP9KxG+D
+# pZ0EFZYNKnxVDeYYgU82OoyH+xT8aQGfNW7jxSSg+VXp8+fqkhmLHzFXRvvBTIfY
+# fq4o+qPy0rk7ll3C4zY3DVvnF0GtLXFRXiJ1jejIN7rYwIOlWRsCJiNJwiOrntaw
+# HFk3HF30c3tauFFLFPaRyVdciCIeb35okGPeAvZUEdAsEl53QLLZBbobMEs=
 # SIG # End signature block
