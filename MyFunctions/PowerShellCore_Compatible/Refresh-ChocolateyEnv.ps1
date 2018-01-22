@@ -67,6 +67,25 @@ function Refresh-ChocolateyEnv {
     # Remove any repeats in $env:Path
     $env:Path = $($($env:Path -split ";").Trim("\\") | Select-Object -Unique) -join ";"
 
+    # Next, find chocolatey-core.psm1, chocolateysetup.psm1, chocolateyInstaller.psm1, and chocolateyProfile.psm1
+    # and import them
+    $ChocoCoreModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolatey-core.psm1").FullName
+    $ChocoSetupModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolateysetup.psm1").FullName
+    $ChocoInstallerModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolateyInstaller.psm1").FullName
+    $ChocoProfileModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolateyProfile.psm1").FullName
+
+    $ChocoModulesToImportPrep = @($ChocoCoreModule, $ChocoSetupModule, $ChocoInstallerModule, $ChocoProfileModule)
+    [System.Collections.ArrayList]$ChocoModulesToImport = @()
+    foreach ($ModulePath in $ChocoModulesToImportPrep) {
+        if ($ModulePath -ne $null) {
+            $null = $ChocoModulesToImport.Add($ModulePath)
+        }
+    }
+
+    foreach ($ModulePath in $ChocoModulesToImport) {
+        Import-Module -Path $ModulePath
+    }
+
     ##### END Main Body #####
 
 }
