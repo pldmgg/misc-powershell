@@ -20,78 +20,15 @@ function Install-Vim {
     $global:FunctionResult = "0"
     $MyFunctionsUrl = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions"
 
-    if (!$NoUpdatePackageManagement) {
-        if (![bool]$(Get-Command Update-PackageManagement -ErrorAction SilentlyContinue)) {
-            $UpdatePMFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Update-PackageManagement.ps1"
-            try {
-                Invoke-Expression $([System.Net.WebClient]::new().DownloadString($UpdatePMFunctionUrl))
-            }
-            catch {
-                Write-Error $_
-                Write-Error "Unable to load the Update-PackageManagement function! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        try {
-            $global:FunctionResult = "0"
-            $null = Update-PackageManagement -UseChocolatey -ErrorAction SilentlyContinue -ErrorVariable UPMErr
-            if ($UPMErr -and $global:FunctionResult-eq "1") {throw}
-        }
-        catch {
-            Write-Host "Errors from the Update-PackageManagement function are as follows:"
-            foreach ($error in $UPMErr) {Write-Error $($error | Out-String)}
-            Write-Error "The Update-PackageManagement function failed! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
+    $InstallProgramFunctionUrl = "$MyFunctionsUrl/Install-Program.ps1"
+    try {
+        Invoke-Expression $([System.Net.WebClient]::new().DownloadString($InstallProgramFunctionUrl))
     }
-
-    if ($UseChocolateyCmdLine -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine)) {
-        if (![bool]$(Get-Command Install-ChocolateyCmdLine -ErrorAction SilentlyContinue)) {
-            $InstallCCFunctionUrl = "$MyFunctionsUrl/Install-ChocolateyCmdLine.ps1"
-            try {
-                Invoke-Expression $([System.Net.WebClient]::new().DownloadString($InstallCCFunctionUrl))
-            }
-            catch {
-                Write-Error $_
-                Write-Error "Unable to load the Install-ChocolateyCmdLine function! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-    }
-
-    if (![bool]$(Get-Command Refresh-ChocolateyEnv -ErrorAction SilentlyContinue)) {
-        $RefreshCEFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Refresh-ChocolateyEnv.ps1"
-        try {
-            Invoke-Expression $([System.Net.WebClient]::new().DownloadString($RefreshCEFunctionUrl))
-        }
-        catch {
-            Write-Error $_
-            Write-Error "Unable to load the Refresh-ChocolateyEnv function! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    # If the Chocolatey CmdLine is installed, get a list of programs installed via Chocolatey
-    if ([bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
-        $ChocolateyInstalledProgramsPrep = clist --local-only
-        $ChocolateyInstalledProgramsPrep = $ChocolateyInstalledProgramsPrep[1..$($ChocolateyInstalledProgramsPrep.Count-2)]
-
-        [System.Collections.ArrayList]$ChocolateyInstalledProgramsPSObjects = @()
-
-        foreach ($program in $ChocolateyInstalledProgramsPrep) {
-            $programParsed = $program -split " "
-            $PSCustomObject = [pscustomobject]@{
-                ProgramName     = $programParsed[0]
-                Version         = $programParsed[1]
-            }
-
-            $null = $ChocolateyInstalledProgramsPSObjects.Add($PSCustomObject)
-        }
+    catch {
+        Write-Error $_
+        Write-Error "Unable to load the Install-Program function! Halting!"
+        $global:FunctionResult = "1"
+        return
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -99,121 +36,33 @@ function Install-Vim {
 
     ##### BEGIN Main Body #####
 
-    # Install Vim if it's not already...
-    if (![bool]$(Get-Package vim -ErrorAction SilentlyContinue) -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains "vim") {
-        # Alternate Download/Install method...
-        <#
-        $LatestVimForWin32 = $($(Invoke-WebRequest -Uri "http://www.vim.org/download.php").Links | Where-Object {$_.href -like "*w32*.zip"}).href
-        $LatestVimForWin32ZipFileName = $LatestVimForWin32 | Split-Path -Leaf
-        Invoke-WebRequest -Uri "$LatestVimForWin32" -OutFile "$HOME\Downloads\$LatestVimForWin32ZipFileName"
-        Unzip-File -PathToZip "$HOME\Downloads\$LatestVimForWin32ZipFileName" -TargetDir "$HOME\Downloads"
-        $FullPathToVimExe = $(Get-ChildItem "$HOME\Downloads\vim" -Recurse | Where-Object {$_.Name -like "*vim*.exe"}).FullName
-        Copy-Item -Path "$FullPathToVimExe" -Destination "C:\Windows\System32\vim.exe"
-        #>
-
-        if ($UsePackageManagement -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine)) {
-            # NOTE: The PackageManagement install of vim is unreliable, so just in case, fallback to the Chocolatey cmdline for install
-            Install-Package vim -Force -ErrorVariable VimInstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
-            if ($VimInstallError) {
-                Uninstall-Package vim -Force -ErrorAction SilentlyContinue
-            }
-
-            if ($UsePackageManagement) {
-                Write-Error "Installing Vim via the the PackageManagement and PowerShellGet Modules failed! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        if ($(!$UsePackageManagement -and !$UseChocolateyCmdLine -and $VimInstallError) -or $UseChocolateyCmdLine) {
-            try {
-                Write-Host "Refreshing `$env:Path..."
-                $global:FunctionResult = "0"
-                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
-            }
-            catch {
-                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-
-            # Make sure Chocolatey CmdLine is installed...if not, install it
-            if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
-                try {
-                    $global:FunctionResult = "0"
-                    $null = Install-ChocolateyCmdLine -NoUpdatePackageManagement -ErrorAction SilentlyContinue -ErrorVariable ICCErr
-                    if ($ICCErr -and $global:FunctionResult -eq "1") {throw}
-                }
-                catch {
-                    Write-Host "Errors from the Install-ChocolateyCmdline function are as follows:"
-                    foreach ($error in $ICCErr) {Write-Error $($error | Out-String)}
-                    Write-Error "The Install-ChocolateyCmdLine function failed! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-
-            try {
-                cup vim -y
-            }
-            catch {
-                Write-Error "There was a problem installing Vim using the Chocolatey cmdline! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-
-            # Now "C:\Program Files (x86)\vim" should be part of the SYSTEM Path (and therefore part of $env:Path)
-            if (![bool]$(Get-Command vim -ErrorAction SilentlyContinue)) {
-                try {
-                    Write-Host "Refreshing `$env:Path..."
-                    $global:FunctionResult = "0"
-                    $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                    if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
-                }
-                catch {
-                    Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                    foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                    Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-            if (![bool]$(Get-Command vim -ErrorAction SilentlyContinue)) {
-                $VimDir = "C:\Program Files (x86)\vim"
-
-                $VimPath = $(Get-ChildItem -Path $VimDir -File -Recurse -Filter "vim.exe").FullName
-
-                if (!$(Test-Path $VimPath)) {
-                    Write-Error "Unable to find the path to vim.exe! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-
-                $VimParentDir = [System.IO.Path]::GetDirectoryName($VimPath)
-
-                if ($($env:Path -split ";") -notcontains $VimParentDir) {
-                    if ($env:Path[-1] -eq ";") {
-                        $env:Path = "$env:Path$VimParentDir"
-                    }
-                    else {
-                        $env:Path = "$env:Path;$VimParentDir"
-                    }
-                }
-                else {
-                    Write-Error "$VimParentDir is already part of `$env:Path, but we are still unable to call vim.exe! Please check your Vim install! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-        }
+    $ExpectedInstallLocation = "C:\Program Files (x86)\vim"
+    $InstallProgramSplatParams = @{
+        ProgramName                 = "vim"
+        ExpectedInstallLocation     = $ExpectedInstallLocation
     }
 
-        #Set-Content -Path "$HOME\.vimrc" -Value "set viminfo+=n$HOME\_viminfo`nset backspace=2`nset backspace=indent,eol,start`nset shortmess=at`nset cmdheight=2`nsilent!"
-        $HomeDoubleSlashes = $HOME -replace "\\","\\"
-        $HomeVimrc = @'
+    $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
+    foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
+        $key = $kvpair.Key
+        $value = $BoundParametersDictionary[$key]
+        $InstallProgramSplatParams.Add($key,$value)
+    }
+    Install-Program @InstallProgramSplatParams
+
+    # Alternate Download/Install method...
+    <#
+    $LatestVimForWin32 = $($(Invoke-WebRequest -Uri "http://www.vim.org/download.php").Links | Where-Object {$_.href -like "*w32*.zip"}).href
+    $LatestVimForWin32ZipFileName = $LatestVimForWin32 | Split-Path -Leaf
+    Invoke-WebRequest -Uri "$LatestVimForWin32" -OutFile "$HOME\Downloads\$LatestVimForWin32ZipFileName"
+    Unzip-File -PathToZip "$HOME\Downloads\$LatestVimForWin32ZipFileName" -TargetDir "$HOME\Downloads"
+    $FullPathToVimExe = $(Get-ChildItem "$HOME\Downloads\vim" -Recurse | Where-Object {$_.Name -like "*vim*.exe"}).FullName
+    Copy-Item -Path "$FullPathToVimExe" -Destination "C:\Windows\System32\vim.exe"
+    #>
+
+    # Set vim default configuration settings...
+    $HomeDoubleSlashes = $HOME -replace "\\","\\"
+    $HomeVimrc = @'
 let $HOME = '{0}'
 let $MYVIMRC = '$HOME\\_vimrc'
 set viminfo+=n$HOME\\_viminfo
@@ -224,20 +73,20 @@ set cmdheight=2
 silent!
 '@ -f $HomeDoubleSlashes
 
-        $ProgramFiles86Vimrc = @'
+    $ProgramFiles86Vimrc = @'
 let $HOME = '{0}'
 let $MYVIMRC = '$HOME\\_vimrc'        
 '@ -f $HomeDoubleSlashes
 
-        if (Test-Path "${env:ProgramFiles(x86)}\vim\_vimrc") {
-            Move-Item "${env:ProgramFiles(x86)}\vim\_vimrc" "${env:ProgramFiles(x86)}\vim\_vimrc_original"
-        }
-        if (Test-Path "$HOME\_vimrc") {
-            Move-Item "$HOME\_vimrc" "$HOME\_vimrc_original"
-        }
+    if (Test-Path "$ExpectedInstallLocation\_vimrc") {
+        Move-Item "$ExpectedInstallLocation\_vimrc" "$ExpectedInstallLocation\_vimrc_original" -Force
+    }
+    if (Test-Path "$HOME\_vimrc") {
+        Move-Item "$HOME\_vimrc" "$HOME\_vimrc_original" -Force
+    }
 
-        Set-Content -Path "${env:ProgramFiles(x86)}\vim\_vimrc" -Value $ProgramFiles86Vimrc
-        Set-Content -Path "$HOME\_vimrc" -Value $HomeVimrc
+    Set-Content -Path "$ExpectedInstallLocation\_vimrc" -Value $ProgramFiles86Vimrc
+    Set-Content -Path "$HOME\_vimrc" -Value $HomeVimrc
 
     ##### END Main Body #####
 }
@@ -260,8 +109,8 @@ let $MYVIMRC = '$HOME\\_vimrc'
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKm+Wpngm9SrU7wOsZKxguNnq
-# 3UGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUtIPCgWC2m1TbE+rmBVAgAWLr
+# 2augggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -318,11 +167,11 @@ let $MYVIMRC = '$HOME\\_vimrc'
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIuuv4ylMT4WmC5x
-# +NDfHXZgtyepMA0GCSqGSIb3DQEBAQUABIIBAH0FJEHyfiPww3ArqK5gSQH7m78D
-# EhtmIsreoowJue4QeLumhp1AJ84GGf1DlBiT9K6i1mCcWjOMPjfjG6WikLCs1Jv+
-# 4KePqhinEwUV+9G3seKMmA/He8k4CuEDF/z7dbByk57Fk1qmQgvjppmcP9Q0Dv7e
-# iYFePwJS/63picSPE5aRz1dmL8tJU22xTG1P6SDwDerUz7VyLlBAwZYu8nCI8++b
-# catLpNgJD0xNax97KmZYr+6LqmbSsIYxtyKuzqBZjyDib1OuX43dXQSqZYyqq5Jj
-# khc8GaE1SqqzkWWcUrBMx3FEnQ1FT3OA+CNwIw3c6/24Xo4eZFv8clVG6i0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAXgNS3tHxXj5EWl
+# NNIqfBE9NfJKMA0GCSqGSIb3DQEBAQUABIIBADlm1srjDNUU0G/SR1EORb0BOGFr
+# k5KfxXNFePTEoVwx5fjNcojG+vyVJB4d6nnkePioKdTukWfmJhZkcT5VYO3FTPAF
+# IU+Q6g+tCc071Em6u9xlQQ2qqOXp2xrY84ktm6OSvWV6JqX7tVQ921Ylpn3jKCH8
+# YcUI9PoPfKxGu3FLnk87lo9X3SQRnPIzlhJtEp1zkMGc/wPPNACgowsvpFaXH/v8
+# XNtp3f84R1P3z8A1kpWR37e4y39q67Gz6uF5X/61kEyl/xaTPTlDLyIfpTVVQRyd
+# d9suDr1p191eDsV0ye63fzINR42AMpxVsYSKPOcii9ealq9Y8kDGXzVJnpA=
 # SIG # End signature block
