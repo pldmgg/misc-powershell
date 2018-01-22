@@ -72,6 +72,7 @@ function Install-ChocolateyCmdLine {
             if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
         }
         catch {
+            Write-Host "1"
             Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
             foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
             Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
@@ -90,9 +91,13 @@ function Install-ChocolateyCmdLine {
             if ($CExtInstallError.Count -gt 0) {
                 Uninstall-Package chocolatey-core.extension -Force -ErrorAction SilentlyContinue
             }
+
+            if ($ChocoInstallError.Count -eq 0 -and $CExtInstallError.Count -eq 0) {
+                $PMPGetInstall = $True
+            }
         }
 
-        if ($ChocoInstallError.Count -eq 0 -and $CExtInstallError.Count -eq 0) {
+        if ($PMPGetInstall) {
             # Try and find choco.exe again...
             try {
                 Write-Host "Refreshing `$env:Path..."
@@ -101,14 +106,13 @@ function Install-ChocolateyCmdLine {
                 if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
             }
             catch {
+                Write-Host "2"
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
                 foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
                 Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
                 $global:FunctionResult = "1"
                 return
             }
-
-            $PMPGetInstall = $True
         }
 
         # If we still can't find choco.exe, then use the Chocolatey install script from chocolatey.org
@@ -142,6 +146,7 @@ function Install-ChocolateyCmdLine {
                     if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
                 }
                 catch {
+                    Write-Host "3"
                     Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
                     foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
                     Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
@@ -177,24 +182,25 @@ function Install-ChocolateyCmdLine {
                     if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
                 }
                 catch {
+                    Write-Host "4"
                     Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
                     foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
                     Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
                     $global:FunctionResult = "1"
                     return
                 }
+            }
 
-                $ChocoModulesThatRefreshEnvShouldHaveLoaded = @(
-                    "chocolatey-core"
-                    "chocolateyInstaller"
-                    "chocolateyProfile"
-                    "chocolateysetup"
-                )
+            $ChocoModulesThatRefreshEnvShouldHaveLoaded = @(
+                "chocolatey-core"
+                "chocolateyInstaller"
+                "chocolateyProfile"
+                "chocolateysetup"
+            )
 
-                foreach ($ModName in $ChocoModulesThatRefreshEnvShouldHaveLoaded) {
-                    if ($(Get-Module).Name -contains $ModName) {
-                        Write-Host "$ModName from $($(Get-Module -name $ModName).Path) has been loaded into the current session!" -ForegroundColor Green
-                    }
+            foreach ($ModName in $ChocoModulesThatRefreshEnvShouldHaveLoaded) {
+                if ($(Get-Module).Name -contains $ModName) {
+                    Write-Host "The $ModName Module has been loaded from $($(Get-Module -Name $ModName).Path) !" -ForegroundColor Green
                 }
             }
         }
@@ -249,8 +255,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbqfSnC9Ct3Srzeh/3JOlYp9m
-# B8ygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv0763eScWdE3sO/W2Fk0SPXV
+# Qk6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -307,11 +313,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGMEPv/v2N/QkaH/
-# cSYIxmg9lUZdMA0GCSqGSIb3DQEBAQUABIIBAJ3u2sbhRrQ8NYEgisjc86IRWEC+
-# d3HM0XZwOh/oueij7vbBl8YBUgUZGlXP4yo72IR+P4eXuHvFPGlXQHe/ALPQ6lQe
-# nAK6cRlt1GNmmZzS4Itk5w3RyjH8n3GrzD14ZDFGTmFd0o83rs/0v3dGAP9KxG+D
-# pZ0EFZYNKnxVDeYYgU82OoyH+xT8aQGfNW7jxSSg+VXp8+fqkhmLHzFXRvvBTIfY
-# fq4o+qPy0rk7ll3C4zY3DVvnF0GtLXFRXiJ1jejIN7rYwIOlWRsCJiNJwiOrntaw
-# HFk3HF30c3tauFFLFPaRyVdciCIeb35okGPeAvZUEdAsEl53QLLZBbobMEs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBa2C6H1AKWynyPM
+# sv/OfIYYw55TMA0GCSqGSIb3DQEBAQUABIIBAEeEzL+KifL0RhL25fL0tVGHMJNV
+# eQZZqiwlVLbt1kN5JcElXFyhTMX7XiZ/IY/v1nO0SlDygQwXY0n+We4OXOfO68J/
+# Xmt0fMmYPqi/btxEimwYQw3rN42xjuWaguR6qMsL97YBgn5tb5aQ8aG8tWVoobfF
+# EA566E/TgKvlkHckvoGT4v4SEvhgRuIT8wtt1cb1PpmCDwG9i0C9xZfkwCTSsec4
+# vT+es6qgAS1ltWf3bwOqpzgDlxfl1jbHLezuy6O5QttQQJj67SelxTKbgMdNxidz
+# GcpzzMlHwfrW2N4speX7bIaiADFvEFA7iaAylWQTGWosMr+uGWzW5+bRcwY=
 # SIG # End signature block

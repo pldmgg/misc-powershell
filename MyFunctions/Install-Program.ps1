@@ -214,7 +214,7 @@ function Install-Program {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
             }
             catch {
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
@@ -258,7 +258,7 @@ function Install-Program {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
             }
             catch {
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
@@ -269,6 +269,42 @@ function Install-Program {
             }
         }
         if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+            # Search for the main executable...
+            if ($ExpectedInstallLocation) {
+                $ExePath = $(Get-ChildItem -Path $ExpectedInstallLocation -File -Recurse -Filter "*$FinalCommandName.exe").FullName
+            }
+            else {
+                Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
+                $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
+                foreach ($dir in $DirectoriesToSearchRecursively) {
+                    $ExePath = $(Get-ChildItem -Path $dir -Recurse -File -Filter "*$FinalCommandName.exe").FullName
+                    if ($ExePath) {break}
+                }
+            }
+
+            if ($ExePath) {
+                if ($ExePath.Count -gt 1) {
+                    $ExePath = $ExePath -match "\\$FinalCommandName.exe$"
+                }
+            }
+            else {
+                $ChocolateyPath = $($(Get-Command choco -ErrorAction SilentlyContinue).Source -split "\\")[0..2] -join "\"
+                $ChocolateyInstallScript = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyinstall.ps1").FullName | Where-Object {
+                    $_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"
+                }
+
+                try {
+                    & $ChocolateyInstallScript
+                }
+                catch {
+                    Write-Error $_
+                    Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+
+            # Search for the main executable again now that the chocolateyinstall.ps1 script has finished...
             if ($ExpectedInstallLocation) {
                 $ExePath = $(Get-ChildItem -Path $ExpectedInstallLocation -File -Recurse -Filter "*$FinalCommandName.exe").FullName
             }
@@ -348,8 +384,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNdcBftPxOXIBTKA1hqg4BoAw
-# Ojmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUMipD2uNdfgCQd1EZEPr4Usty
+# SzSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -406,11 +442,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMT8sI+4LyB3bD1N
-# g+cz6K4mraA1MA0GCSqGSIb3DQEBAQUABIIBABObYu155rBVdl6oCPEEfoDFeThU
-# 6M7dkU82hf1NerGN7BAKfEo4UUQYWlzl9ZussNVEmUIqZahXZATRfpHuBTILhOi2
-# nWo1syXXpX1a5v8sN0rG+USTgGMkME//SMEawVHfsdFgtD56dYg6XOeMmB6QlGkQ
-# MpdjxNQ7QlOS+S5YVOx70NpPwdOIOiO5iiVITss0d2brLgGaX3Fp5nd7Tqv6+eBo
-# Gf2XmSySo1dJMbftDMQbnHoMyRN7OVZx2qpRCk8yQOG+fQ0jVJeQ2DA7ijCMVjH5
-# l+dr1UiCfm5i9oLkPUyfBYwAbljWpDVFPKNUvoeeIiBz53lSsCJXbeOgJg4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLPmLr0uXPQFKttt
+# +zYIFz5vq9hyMA0GCSqGSIb3DQEBAQUABIIBADOFIwyflDBKFPY+D/OmScsCzjx7
+# UR+ns7pcpWYKhIlKqnEnnPtKCWsltagFM9WotieQQgvC6QthtNTItajklymLVZ82
+# p5thpD/zTxVOOiPpYwadg+nnvqbukbqt7GxmfdKiluzLjQI6QSG6TlQ+XeH2Z0FS
+# 4QHEbxE23NKMtuQAe26wgp7mXaOLKHgLqNbRAzOolZBwNgBMM699GNGjRywVkrPZ
+# 8aBaMB31kQbmW+yll7JsfWauLCTqSvC4Vk0eii2cEh72xDLbdTLeyGrZpG0x4X2Q
+# HC2HndLh9lzpZNAvsYuWqu5fNVIJKq1b67PZJhDzJPxmaUHvC57PE4Oi+xQ=
 # SIG # End signature block
