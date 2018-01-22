@@ -275,7 +275,13 @@ function Install-Program {
                 foreach ($dir in $DirectoriesToSearchRecursively) {
                     $ExePath = $(Get-ChildItem -Path $dir -Recurse -File -Filter "*$FinalCommandName.exe").FullName
                     if ($ExePath) {
-                        break
+                        if ($ExePath.Count -eq 1) {
+                            break
+                        }
+                        if ($ExePath.Count -gt 1) {
+                            $ExePath = $ExePath -match "\\$FinalCommandName.exe$"
+                            break
+                        }
                     }
                 }
             }
@@ -332,8 +338,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUld2KuP2w1vSdBz+PUyFdnAD5
-# Wzqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsbYrtvyDVW//JOFwZUkzVg+G
+# 4uKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -390,11 +396,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKe3SlggoxOoJB9q
-# IrwRuYbWTLuFMA0GCSqGSIb3DQEBAQUABIIBABW9qcsAt82LWXuPXX3Qmd818Gd+
-# pENJJWzx3VCftLkzWwVslIkmvKVXHP2bq/vWOgKJJ4KAIuywjhPsrs+Qne28EZfi
-# yeiH/XACvMcLXWVwwoMhhiNFzwvpDD3IVWoOy/KcDQDRqdii72j6EDWm7TDkxRxC
-# oR+uz45Hy9shZ0+Arg6Ed6WQrYxB3cTdQfuFXGkVtxuzdrpsehLfFarfY4J9GQlw
-# TVNmM3WnvUXMGlFfM5am8fJnuakeTGZ+tizjY9FoIzJw7VS7iKEtN+XhgF3Q+h5d
-# QuOazooDbbqOp07XGtQiYbAL3adcBvqOe0PqfAF9vrq4YCVtUqrLpe08JM4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN8uML9/1tfUmCIL
+# PWb0SFkTK8bpMA0GCSqGSIb3DQEBAQUABIIBAHdvbFMVsnmLhGMYwGQgCZ+SeaiU
+# oGAcoID4qSySE5LQFOkaWXO8Hm9wr6cYYn1ULoacMm10DSsG3Kp8ruH6qnroH5DQ
+# 2IH2X39HMLqwXtL+eEYoyF59PeVd12aTUS1elOjzS3X/mXaKEkFhMS8r+2ExHpe2
+# /XUgaM7seH+uHVFi2aD9mR4LgSlcNSl9YHmrWmGhSFG3ncf+SMv6WqfSnFhbXUBd
+# YiZs5vAj3k+PhY6s1TD32CTD2UKM6BV1G1eRPvVqnKtBjaK8VkPZGtD4bnFACjYe
+# cN7rtL663RxgWM6Hjus470FJwZlzHe6/W8PQqWx6KluGHAbjbaX5K6a346Y=
 # SIG # End signature block
