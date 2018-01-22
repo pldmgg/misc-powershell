@@ -69,10 +69,10 @@ function Refresh-ChocolateyEnv {
 
     # Next, find chocolatey-core.psm1, chocolateysetup.psm1, chocolateyInstaller.psm1, and chocolateyProfile.psm1
     # and import them
-    $ChocoCoreModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolatey-core.psm1").FullName
-    $ChocoSetupModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolateysetup.psm1").FullName
-    $ChocoInstallerModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolateyInstaller.psm1").FullName
-    $ChocoProfileModule = $(Get-ChildItem -Path $ChocolateyPath -File -Filter "*chocolateyProfile.psm1").FullName
+    $ChocoCoreModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolatey-core.psm1").FullName
+    $ChocoSetupModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateysetup.psm1").FullName
+    $ChocoInstallerModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyInstaller.psm1").FullName
+    $ChocoProfileModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyProfile.psm1").FullName
 
     $ChocoModulesToImportPrep = @($ChocoCoreModule, $ChocoSetupModule, $ChocoInstallerModule, $ChocoProfileModule)
     [System.Collections.ArrayList]$ChocoModulesToImport = @()
