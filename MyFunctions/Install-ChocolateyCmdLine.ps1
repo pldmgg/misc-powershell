@@ -63,29 +63,66 @@ function Install-ChocolateyCmdLine {
         if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
             Install-PackageProvider -Name Chocolatey -Force -Confirm:$false
         }
+
+        # Try and find choco.exe...
+        try {
+            Write-Host "Refreshing `$env:Path..."
+            $global:FunctionResult = "0"
+            $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+            if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+        }
+        catch {
+            Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+            foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
+            Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
         if (![bool]$(Get-Package -Name Chocolatey -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
             # NOTE: The PackageManagement install of choco is unreliable, so just in case, fallback to the Chocolatey cmdline for install
             $null = Install-Package Chocolatey -Provider Chocolatey -Force -Confirm:$false -ErrorVariable ChocoInstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
             
             if ($ChocoInstallError.Count -gt 0) {
                 Uninstall-Package Chocolatey -Force -ErrorAction SilentlyContinue
+            }
+        }
 
-                $ChocolateyInstallScriptUrl = "https://chocolatey.org/install.ps1"
-                try {
-                    Invoke-Expression $([System.Net.WebClient]::new().DownloadString($ChocolateyInstallScriptUrl))
-                }
-                catch {
-                    Write-Error $_
-                    Write-Error "Unable to load the Refresh-ChocolateyEnv function! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
+        if ($ChocoInstallError.Count -eq 0) {
+            # Try and find choco.exe again...
+            try {
+                Write-Host "Refreshing `$env:Path..."
+                $global:FunctionResult = "0"
+                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+                if ($RCEErr -and $global:FunctionResult -eq "1") {throw}
+            }
+            catch {
+                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
+                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        # If we still can't find choco.exe, then use the Chocolatey install script from chocolatey.org
+        if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+            $ChocolateyInstallScriptUrl = "https://chocolatey.org/install.ps1"
+            try {
+                Invoke-Expression $([System.Net.WebClient]::new().DownloadString($ChocolateyInstallScriptUrl))
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Unable to load the Refresh-ChocolateyEnv function! Halting!"
+                $global:FunctionResult = "1"
+                return
             }
         }
         
-        # Chocolatey cmdline install potentially messes up $env:Path...
-        if (![bool]$($env:Path -split ";" -match "chocolatey\\bin")) {
-            # so reset it...
+        # If we STILL can't find choco.exe, then Refresh-ChocolateyEnv a third time...
+        #if (![bool]$($env:Path -split ";" -match "chocolatey\\bin")) {
+        if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+            # # Chocolatey cmdline install potentially messes up $env:Patt so reset it...
             $env:Path = $OriginalEnvPath
 
             # ...and then find it again and add it to $env:Path via Refresh-ChocolateyEnv function
@@ -106,6 +143,7 @@ function Install-ChocolateyCmdLine {
             }
         }
 
+        # If we STILL can't find choco.exe, then give up...
         if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
             Write-Error "Unable to find choco.exe after install! Check your `$env:Path! Halting!"
             $global:FunctionResult = "1"
@@ -165,8 +203,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4+Zrt1ntLCtZ4329a+9L1CIJ
-# sDygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxjtUhPSDkrb1DxbYIgOGgoa+
+# viegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -223,11 +261,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNZcMCb/EFb/TK3c
-# PqQkibNrwFjZMA0GCSqGSIb3DQEBAQUABIIBAJcrL+h6Fe4Ldf97imwvCGlfZQMH
-# sHWpVT8ye6NxEYFq9iY9Pgm9XV1oWaQrUg5Gtho3xf7NtJ5pYHaa2jT+QeDv/LO2
-# xpWbz2+vSVBC9Os9jCianrtPePRKjxfKmcPKHW8erH5y6hhX5QIQjvTAYDPp6Q/c
-# YP39T63xYXnGV4/+wIAuFkRBd3AHwcjP/9xWfIQd0WMTLPyFGlo30utmETHue8yZ
-# GhOYMuy5Bq/zm4QVLQ3ytGA8WfmV1e8FeHhr5td7655c8iw69O4zXVzUafSqYMAf
-# zNRDsfUPZj+VQIjQRXaShON7SnWBmF0M9ubRGdLAp06cWTKq96CI8j+1yNA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBF0E9jWhzMy2FL0
+# EQpzu/hBOmGBMA0GCSqGSIb3DQEBAQUABIIBABI+RMK6BNnSgemx3aV6taFiQzkb
+# fpFuDyldtufZ31VXEvGOybd2M7qeYr9kVzvrCVc5/O7IYi49qxduFjIoOQomt4I9
+# n040FnqC8DYyZmWRD34wGQNcTVxH/JJ6171I+XQM2qMisJKPr+wOJK8qpSFOv5Ml
+# PhzKvvdY/jbxLFyaT/yz9KApKNK8JPu3RSjkueFMzGE4TS/xngvBAaaSlO5u1SeD
+# Iu+Z/MnYbgYD218RvFYi4oJiHeoNVcCVnwLX+4nE8O284wTRKCr7ObWZ+9Z97MBr
+# 3hirxYLw6eRURxkiGsXfp5AouUGQ5dVEKnws+YzYlqyOsQWdbF8lPUpQw8Y=
 # SIG # End signature block
