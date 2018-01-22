@@ -288,7 +288,18 @@ function Install-Program {
                 }
             }
             else {
-                $ChocolateyPath = $($(Get-Command choco -ErrorAction SilentlyContinue).Source -split "\\")[0..2] -join "\"
+                if ([bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                    $ChocolateyPath = $($(Get-Command choco -ErrorAction SilentlyContinue).Source -split "\\")[0..2] -join "\"
+                }
+                elseif (Test-Path "C:\Chocolatey") {
+                    $ChocolateyPath = "C:\Chocolatey"
+                }
+                else {
+                    Write-Error "Unable to find Chocolatey directory! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                
                 $ChocolateyInstallScript = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyinstall.ps1").FullName | Where-Object {
                     $_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"
                 }
@@ -384,8 +395,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUMipD2uNdfgCQd1EZEPr4Usty
-# SzSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXs7oefdgQjRYy+2Ffe3bSTPN
+# QeSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -442,11 +453,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLPmLr0uXPQFKttt
-# +zYIFz5vq9hyMA0GCSqGSIb3DQEBAQUABIIBADOFIwyflDBKFPY+D/OmScsCzjx7
-# UR+ns7pcpWYKhIlKqnEnnPtKCWsltagFM9WotieQQgvC6QthtNTItajklymLVZ82
-# p5thpD/zTxVOOiPpYwadg+nnvqbukbqt7GxmfdKiluzLjQI6QSG6TlQ+XeH2Z0FS
-# 4QHEbxE23NKMtuQAe26wgp7mXaOLKHgLqNbRAzOolZBwNgBMM699GNGjRywVkrPZ
-# 8aBaMB31kQbmW+yll7JsfWauLCTqSvC4Vk0eii2cEh72xDLbdTLeyGrZpG0x4X2Q
-# HC2HndLh9lzpZNAvsYuWqu5fNVIJKq1b67PZJhDzJPxmaUHvC57PE4Oi+xQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIenhHLw0uirCdad
+# lHUr1vyPDN2KMA0GCSqGSIb3DQEBAQUABIIBAJGjhMdooPVr3MLNS6Hb5QvG6BDb
+# QKskn88IfBnT5GlHWsm5M3fQrN2zs0fnuIOkALL+OtICTwQdMCo4InxeRlR6j2SR
+# rB53ppIK9ckptKPGljbbmdHlzqWWVhePvsNbScpuOe0gUUDgyCbK7vbdUQTsP6Im
+# sbHIbODWW+ZjwusQM2MKbBlUY49g+c6PpsSTEG1ARjglt+owsdTWuXrP3RXG0zOw
+# d6HSttEA9bePPn39OwpMFfQIj8kaDPvJmHPobCNVMt9CbnUNBy0GBkt97PRiX/v0
+# tCj5+3BcnbQDNc0Tukq2mute72YzsDEh50fcAdHVqiEOMSyOTjGondWQkUU=
 # SIG # End signature block
