@@ -278,12 +278,8 @@ function Install-Program {
             }
 
             if ($ExePath) {
-                if ($ExePath.Count -eq 1) {
-                    break
-                }
                 if ($ExePath.Count -gt 1) {
                     $ExePath = $ExePath -match "\\$FinalCommandName.exe$"
-                    break
                 }
             }
             else {
@@ -348,8 +344,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU54kV7bLXCHBuDvXuUbBiM/Wu
-# fZ2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUO05pbDIktBfqHk7RBChiH+an
+# OCmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -406,11 +402,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHONJ8y2ahXYVm47
-# itbRY5HR5cPuMA0GCSqGSIb3DQEBAQUABIIBACFxxh/6eJntEPcKvu5cQNQYA6u8
-# NJd5I4CM5s9xXkmvNYguMDPYDG8Jv76Ilg3fYdQPv61jzAaPsElLFXRR4HJIxWyw
-# m7EMGsc9AbdqvMd2fYVMwAtmxJ4l9Buf3+mVIwWpDLbbZzEK2amwxi2TM06721t2
-# 09gm3bzhbyuOLgO+VazS6TFlal7XoO8vnMH4zXljFBitKrcVVGELDpbIkeAodB63
-# Eh09vstCQMaoSBGvwl2u5qAalYkYsqhZyFKaI35UAOyy5X8SNkWEOcJilDbb8xfm
-# Pv0acE203gTdNXQWigk2QaCAgZENa+jjApWHL3YHLinEa3+YXtJRrJAUEVU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKqYmre6ovEhOt4C
+# 6y6UL8JEE66sMA0GCSqGSIb3DQEBAQUABIIBAGQCtaRVX/efJvpiKv0MiAhbxdLS
+# bpqGon8Kfpu6BOD5yiYJIrtQrSJmNd0QQG1R81oeYvQzkcUasEZIgF26QpSNEdny
+# o8Lec5GbpgIN4s6scT3AxwcebLwmAt2h7B0C65LamlrRG56f2ZCe/9JCDwCVsnHp
+# fdccyfw4+XkuUv9DlNhzd4hOtvOR1Lw4cXJrDj5BxPejuhKj/y0Ujr/Gg5RXndiq
+# G3qB0IliN1m8Kn74VbzaATr1ElIPapFtZbFSyv8KogczXxrwti+IPyCNdLog7GhL
+# YRYUGIsCfxuXrs6ndRfL96KvSsifjSGHc6zxQPF6/zU/CnySMMZPJ/xpjvE=
 # SIG # End signature block
