@@ -266,7 +266,6 @@ function Install-Program {
         }
         if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
             if ($ExpectedInstallLocation) {
-                $GeneralLocation = $ExpectedInstallLocation
                 $ExePath = $(Get-ChildItem -Path $ExpectedInstallLocation -File -Recurse -Filter "*$FinalCommandName.exe").FullName
             }
             else {
@@ -274,19 +273,20 @@ function Install-Program {
                 $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
                 foreach ($dir in $DirectoriesToSearchRecursively) {
                     $ExePath = $(Get-ChildItem -Path $dir -Recurse -File -Filter "*$FinalCommandName.exe").FullName
-                    if ($ExePath) {
-                        if ($ExePath.Count -eq 1) {
-                            break
-                        }
-                        if ($ExePath.Count -gt 1) {
-                            $ExePath = $ExePath -match "\\$FinalCommandName.exe$"
-                            break
-                        }
-                    }
+                    if ($ExePath) {break}
                 }
             }
 
-            if (!$(Test-Path $ExePath)) {
+            if ($ExePath) {
+                if ($ExePath.Count -eq 1) {
+                    break
+                }
+                if ($ExePath.Count -gt 1) {
+                    $ExePath = $ExePath -match "\\$FinalCommandName.exe$"
+                    break
+                }
+            }
+            else {
                 Write-Error "Unable to find the path to $FinalCommandName.exe! Halting!"
                 $global:FunctionResult = "1"
                 return
@@ -348,8 +348,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2DMCAbLH5WuqarRSrxUgeqWL
-# iFWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU54kV7bLXCHBuDvXuUbBiM/Wu
+# fZ2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -406,11 +406,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJI/VO70c1YhuVhV
-# 0/XPP3uvp76DMA0GCSqGSIb3DQEBAQUABIIBAKcorFfo0Kxhz+88oyThaIHAyA+x
-# Ry3OnZvIH57IKCbBmtUuURrVEQAW40CuwRIPk4kOh8OBC+EsewxkYxBDCvDPSRyq
-# zV/mxVYjeZD7b9CpbLQbBuEhJ9b93oQIlfBSVccRr6V/fJR5JdBlbrOarOLxqMCv
-# tzkK/2tVbi2AtUj1Zt/jYdA344EsznhJkwiPagHt2+RY5WNai0aRaG9uNutcbP2e
-# G7yLnVS4mxAvQC2dlUkpWy08IInL5/7zuL85XcoTtc0r0Hnh8YkTVQVNL4vv7tIG
-# 1piuTo9NU7U1JuVllinQ++rFoaqoPDacrDFha2w8JQv8ZO3/UmJeNLEpjwM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHONJ8y2ahXYVm47
+# itbRY5HR5cPuMA0GCSqGSIb3DQEBAQUABIIBACFxxh/6eJntEPcKvu5cQNQYA6u8
+# NJd5I4CM5s9xXkmvNYguMDPYDG8Jv76Ilg3fYdQPv61jzAaPsElLFXRR4HJIxWyw
+# m7EMGsc9AbdqvMd2fYVMwAtmxJ4l9Buf3+mVIwWpDLbbZzEK2amwxi2TM06721t2
+# 09gm3bzhbyuOLgO+VazS6TFlal7XoO8vnMH4zXljFBitKrcVVGELDpbIkeAodB63
+# Eh09vstCQMaoSBGvwl2u5qAalYkYsqhZyFKaI35UAOyy5X8SNkWEOcJilDbb8xfm
+# Pv0acE203gTdNXQWigk2QaCAgZENa+jjApWHL3YHLinEa3+YXtJRrJAUEVU=
 # SIG # End signature block
