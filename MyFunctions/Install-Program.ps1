@@ -214,7 +214,14 @@ function Install-Program {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
+
+                # The first time we attempt to Refresh-ChocolateyEnv, it legitimately might not be installed,
+                # so if the Refresh-ChocolateyEnv function throws that error, we can ignore it
+                if ($RCEErr.Count -gt 0 -and
+                $global:FunctionResult -eq "1" -and
+                ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
+                    throw
+                }
             }
             catch {
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
@@ -395,8 +402,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXs7oefdgQjRYy+2Ffe3bSTPN
-# QeSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7r/gYDUHi2y0Bo3p5xRLP31i
+# utagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -453,11 +460,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIenhHLw0uirCdad
-# lHUr1vyPDN2KMA0GCSqGSIb3DQEBAQUABIIBAJGjhMdooPVr3MLNS6Hb5QvG6BDb
-# QKskn88IfBnT5GlHWsm5M3fQrN2zs0fnuIOkALL+OtICTwQdMCo4InxeRlR6j2SR
-# rB53ppIK9ckptKPGljbbmdHlzqWWVhePvsNbScpuOe0gUUDgyCbK7vbdUQTsP6Im
-# sbHIbODWW+ZjwusQM2MKbBlUY49g+c6PpsSTEG1ARjglt+owsdTWuXrP3RXG0zOw
-# d6HSttEA9bePPn39OwpMFfQIj8kaDPvJmHPobCNVMt9CbnUNBy0GBkt97PRiX/v0
-# tCj5+3BcnbQDNc0Tukq2mute72YzsDEh50fcAdHVqiEOMSyOTjGondWQkUU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFC8vfbSGDA4r3ni6
+# vIpVyqQgxpUoMA0GCSqGSIb3DQEBAQUABIIBAMJuPIqVArll0fyOlDJJvu+rhuqP
+# 17IpYN6cphX7QYD2P6Yn3OCAicADlqPsh7tKtsPg0bpxuG190sUQKHf6Rxw2OP11
+# qhblGX4Azg8b1suze8HXJxcwyFd8xo9ZcWurta/IRBy0fDsXjc7sB2/gEByHtDm9
+# 4oqQqpwto2D4HlW/WVvD/R/mh/H7lH7BzhjL/KChckW2g6+4Kb747WoTISfxERRF
+# Ut30qKv7vBBmervlyQ/bGn5k2v7xkAGqX+t+FG6w9NtLortKK4/TkF6YFbod5Mlz
+# 2UoaiVCTrlPnLKJM9v3xJoH1jEUs+Ju8RqESub4419kX2/bhPchaq8MIb34=
 # SIG # End signature block
