@@ -27,6 +27,11 @@ function Refresh-ChocolateyEnv {
             elseif (Test-Path "C:\ProgramData\chocolatey") {
                 $ChocolateyPath = "C:\ProgramData\chocolatey"
             }
+            else {
+                Write-Error "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
         }
     }
     else {
@@ -106,8 +111,8 @@ function Refresh-ChocolateyEnv {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUn+BXVAav5tswiLXNhcSyWfvM
-# 3gigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6MP8ad4PyplbmQ0CLumVh1yb
+# 9KKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -164,11 +169,11 @@ function Refresh-ChocolateyEnv {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGaHtWAeQRP30WpQ
-# nK84DWL/M06JMA0GCSqGSIb3DQEBAQUABIIBAC55dh0QxLP9k5sbptca5iE8RSxn
-# U6UfPPFMZf/028skY3S9Qnf9C8fE28mSfg/agdAAxuupCHgFpsG4WNI1EAh1NhLW
-# QlMbVfAXqFvx/EPJ2JjyZFJfZRA2cdmyqHcyYX7a5Vves2v9fI5l2b9chiDTbE52
-# ELDEwkTdohpj+acTjnUlOzASAdB36xGPD1935eOtRmsDSqgprQymHXdFb2kbpC1w
-# qj5ifVR3Guz+yW6FZQ6I8C5cmjUOudS0V92FpZjsuoKpd6cFU5ULQfyAQWNnI/yg
-# gZFSP9XEmBA9ch+hB4TIpzpu6DMv/tYU12duIKJIfxT1AeUFAUqB66bN6uw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOrA9QbwoASWOkaX
+# o2i1T9eQVX9jMA0GCSqGSIb3DQEBAQUABIIBAKQoluTtx5vHTryscUjnm6I7xQpy
+# vLv/5W0Tw37VwYreaA2kXQ8jZ8u7qvMBo3Ln4mmXO44T2ndrSE8hw/QwVVBPPZu9
+# 89Qp0HFj48cfx3th3Izx50QWXjyhYo0QM4k9iwclOiHdKqGPdARCs6vKHItcTLcm
+# j5OGZMRPagKY86t/4+UIphpc75hRbt2urnji90eMGgnkcDme3HnRsTPWb6N7WJDy
+# yVdGzFabgrwCYEHhcpvsrxrcQeZQSdcbU7d9C+kSk1e11jD5T2cUupqiQLkbHHKx
+# Up3iCmlvBwGUk9g5FLV7g/KO92VJCGbSz+U39pF/j5GgYD+Bgpk6Y57IIrU=
 # SIG # End signature block
