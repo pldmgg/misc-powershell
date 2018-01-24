@@ -64,7 +64,7 @@ function Install-ChocolateyCmdLine {
         # Installing Package Providers is spotty sometimes...Using while loop 3 times before failing
         $Counter = 0
         while ($(Get-PackageProvider).Name -notcontains "Chocolatey" -and $Counter -lt 3) {
-            Install-PackageProvider -Name Chocolatey -Force -Confirm:$false
+            Install-PackageProvider -Name Chocolatey -Force -Confirm:$false -WarningAction SilentlyContinue
             $Counter++
             Start-Sleep -Seconds 5
         }
@@ -276,8 +276,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUX3qBdGrHg/zPVpsZn4Zn8EJu
-# 26igggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUE1ieycMh106GdIpSYN9J3+pz
+# oqKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -334,11 +334,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM5dzrSCORlcfYbq
-# DUWR6xa7+56mMA0GCSqGSIb3DQEBAQUABIIBAGXvr+Xnfls0RBY6ApXRMzsdYcO6
-# 1O98otVNgKZ3przXK1ogBL0m7NMXjHf0JSXpLGO5YZj9rPR7TJAfDJsxCRMTlhPi
-# tciEhIUsbmyzI6eYIjQvpXCk9a7tZyi8Y1DyH6RphFKCq8rzr6sgFiHfQrPn46Iq
-# YWM0S9uceYKU9yPvR7bLVgP9xuV6tXWrNq082QOvlI12Ga7EmHB4Y7nixgfbMt81
-# vY4gJHkEPv/iHjO+VQEOoS06x7zXkIvH0ZuS0wx+2/JsOBF+1G+xecZH81kGvSg8
-# IDX5V57fgcSm1GTOO9JPb9o/6chwx1ZZRFF0FyPyWNFrZuq+Sv/o6tmBYvI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPVTIIAxQ2/xCyBQ
+# IF/erdh16IASMA0GCSqGSIb3DQEBAQUABIIBAK/noprKgcsRPYAYHL2dqzAN5BUl
+# LH7mmPQIpZ5eHYqgYUmskXsqrq7QM7zZAp3BZRhsNqC3dxM7mQ/ocAk/1+SWpGPn
+# GEXBaV1f1OZL8LQRDuO8z+hTyJnY/3cv/p8o0baP+gYmD0Mf4O5ev2rIa2boIUKL
+# 303MZ/yPyHfIB1s34NbJwTV3Q4Hauc1axjgMwVqytAtdI8opZHIsc3cUH/SibBh3
+# K64sRXnMyqTGON4XwMchn1rls5QrLOfU9gdDTSBwxBCiKAISkyLL5vjik92WDrdS
+# 1gfQpHgcjr2vZi/+Chgv6c5x4IzbB/acMvV27xKu14ASXkk4qPY/SgvR7/E=
 # SIG # End signature block
