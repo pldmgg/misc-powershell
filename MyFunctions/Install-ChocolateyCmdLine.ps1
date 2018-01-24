@@ -137,7 +137,7 @@ function Install-ChocolateyCmdLine {
 
             if ($ChocolateyInstallScript) {
                 try {
-                    Write-Host "Trying PowerShellGet Chocolatey CmdLine install script from $ChocolateyInstallScript ..."
+                    Write-Host "Trying PowerShellGet Chocolatey CmdLine install script from $ChocolateyInstallScript ..." -ForegroundColor Yellow
                     & $ChocolateyInstallScript
                 }
                 catch {
@@ -289,8 +289,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW2VglO0ChCYN5dn08ePSvhHP
-# U2ugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUONLthEABzvsO97ITigaCM982
+# kOigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -347,11 +347,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAmVoqYIsuF4CV8O
-# ygxlODtaN3XBMA0GCSqGSIb3DQEBAQUABIIBALIzKnLNHbyQcvx2vqvmjNJBq/vh
-# g+MZIoSJjN57kWMMK/9FdUMejNHxgs8UGfDFqOarsvUfmd+fsZ2DWmxF/K9BqsVQ
-# ZWSAHw5LZ4APRxLp58afN0u7Ps5j+2mz+MUgTtAv7CQCkuJMpWDKRDRZYLZLZqPf
-# p7x68cPUnhY6vWDV5kIrTy8ewK+OuCGR+y9ndR72BAIr/mlM45G0F3mLyanEE0x+
-# CNC7Y/32FEOi74O6OH3KUrj+K7LvpeOXGwyXs0ozpAtc56m7ZAJ6b7wC8Sc8ha80
-# Hw6BQWTkZ9AdxwX+XQ8b4rJTYruB0G5wIS80TsM6NermXXTFHsOypZ89c/E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLVqGENm5ZxK9kkJ
+# Fivcf49c11eqMA0GCSqGSIb3DQEBAQUABIIBAJs7RQjxYgxV+q/qA7VhQ7ZcrPbl
+# pE7rNqkrg6HuwJNCpBXc6ePGzf0iw4cxSM4T96xp3JL13+RwtIZklxicsIdIS1Jv
+# S9Rd/UKrkRFfgzGkxF91SQWnNk0nvXSoKJmsIMGIprXPkI50kOhPaSZZLpzRjz/n
+# pHuvhU0TiruyEMXuwjTaZtGJ/VS/DtPaTyLltSTBpz6QrERklAWcwX7hvpgFdV11
+# 8Dw3EtCabcTOvu17Es8O1HfqnmB8/n3dVFK/Bp1bcWbcS5AkASoyrTONHbquRO6j
+# pk2IJvyW52YZdsV9yD16epenvbSGr7ooqF476A1gYue/Gh6KNh5CZlyiFvM=
 # SIG # End signature block
