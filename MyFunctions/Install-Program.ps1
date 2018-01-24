@@ -216,7 +216,7 @@ function Install-Program {
             }
         }
 
-        $ExePath
+        $ExePath | Sort-Object | Get-Unique
     }
 
     ##### END Native Helper Functions #####
@@ -496,7 +496,21 @@ function Install-Program {
                             if ([bool]$(Get-Package $ProgramName)) {
                                 Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
                             }
-                            $global:FunctionResult = "1"
+
+                            # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
+                            # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
+                            $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
+                            $InstallProgramSplatParams = @{}
+                            foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
+                                $key = $kvpair.Key
+                                $value = $BoundParametersDictionary[$key]
+                                if ($key -notmatch "UsePackageManagement") {
+                                    $InstallProgramSplatParams.Add($key,$value)
+                                }
+                            }
+                            $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+                            Install-Program @InstallProgramSplatParams
+
                             return
                         }
                     }
@@ -544,6 +558,23 @@ function Install-Program {
     if ($ExePath.Count -gt 1) {
         Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
     }
+    # Try to determine Main Executable
+    if ($MainExecutableFail) {
+        $MainExecutable = "NotFound"
+    }
+    elseif ($ExePath.Count -eq 1) {
+        $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
+
+        try {
+            $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName).Source
+        }
+        catch {
+            $FinalExeLocation = $ExePath
+        }
+    }
+    elseif ($ExePath.Count -gt 1) {
+        $FinalExeLocation = $ExePath
+    }
 
     if ($ChocoInstall) {
         $InstallCheck = $(clist --local-only $ProgramName)[1]
@@ -555,7 +586,7 @@ function Install-Program {
     [pscustomobject]@{
         InstallManager      = if ($ChocoInstall) {"choco.exe"} else {"PowerShellGet"}
         InstallCheck        = $InstallCheck
-        MainExecutable      = if ($MainExeSearchFail) {"NotFound"} else {$ExePath}
+        MainExecutable      = $FinalExeLocation
         OriginalSystemPath  = $OriginalSystemPath
         CurrentSystemPath   = $(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
         OriginalEnvPath     = $OriginalEnvPath
@@ -583,8 +614,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU610eKWt0PVtjb56L5sWaoITz
-# NIOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlSlQTG7R5eEPHPRzE4QqrVPL
+# IV+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -641,11 +672,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHHcmkEPghkhKqu0
-# Yv7HLcbGnrvoMA0GCSqGSIb3DQEBAQUABIIBABIk5nqoBOTE5C/ro/3upR0zJOv1
-# D4OynK5Ldt+hX42zJ1+oJ1R5FFfWbh0N4tMZh85nqDxKmRCMNP6uCO5aSj56mcr/
-# 8gSUaZnndpp6HmjsehfQpvOA0ycbRBpH1YQ1EsnGrfC1hNA0lPCpmY07Gxjtr8mb
-# zgFZYpUZZHeGuNjH1iRbZ1qYj+nVeDZUNnBPOOvCoMd+o1h5Kz4K+LcTc5blkrnE
-# ERQQ+3kJpySQewjUGnroYQBF6yL2hKznbbEf+UQU45U+PXmgaOqt+EzWFsyo+hx3
-# V6jtwFQL8KZLnxibVkP4aDZgIUvZTEOeeIfGa41/lhUrQxafeZ/M8qL4tbI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEqGPsRFCp2MO2/+
+# Kr7jUICJJXkjMA0GCSqGSIb3DQEBAQUABIIBAJJN5D6iUS0Xcxq/Yz+u2q7vcYwi
+# qExqd/zM4TWV/e2/admP7FRchZ5uRq6SX6BuLsxE1E72LmQmzUvj/cmd0ANeeZ2i
+# f5tGNgW1xXssNO8vBfxfYRbVxXl/Ogr7YFzKHdBviVY7uEzcOEXxp5FS+4how5Jy
+# nGH8qHZqDxZaVAja9p3xX33r42nEc50QSXlQSjoLS7AhfN/4AcfrzaafIn3SmdHV
+# 9fk1ZVqyt3W1WshykWk+da/opSiGFbUvwgr3CCxaS7kmlQX8maEl4OSjuCw+6Qjv
+# F84/65Tg00v2Kcg10tfMCMDQp5Yjl175ta/0J5rtTqwRfU9dsnjWN2OJOH0=
 # SIG # End signature block
