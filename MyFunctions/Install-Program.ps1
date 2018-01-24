@@ -487,7 +487,7 @@ function Install-Program {
                         }
                         catch {
                             Write-Error $_
-                            Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed! Halting!"
+                            Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
 
                             # If PackageManagement/PowerShellGet is ERRONEOUSLY reporting that the program was installed
                             # use the Uninstall-Package cmdlet to wipe it out. This scenario happens when PackageManagement/
@@ -639,8 +639,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/Uirsdt5LdDL7qAkeDNbJ5Z5
-# tTagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUUIgKxWjA65s/dAxaBkBEcHH
+# 1/ygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -697,11 +697,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAFteOw7qIRlRYKY
-# cDFh3iL0xpmEMA0GCSqGSIb3DQEBAQUABIIBAAVWHqwlMTGL2tQmwXO1SKFWV0SE
-# cggySvE5XfmLUZ55LRY0FVs60aVV333VahNAoME9RdS+YJIKBcy4C3hmXPqCKckA
-# RzI/dbu6Cxp03ReK6dgi56c2EqZIxnKJMVQFha2i39jiuq8QbYX9osrYU+qcq68y
-# ZnVxmyS9eioQ7cKGoHC/YdO79o1RUWHIpqBGcYWfWfiFcqw0Dwp4NO1zk/5D5CFg
-# L0Aa9i0962Pq03iq+MUfaE/BZLPWv5Z8pE1fnjxLsUjQZ8vYAGH2IkdGOZ32gQkV
-# U9dmEERyFslLfBqd/h/icajPjeV7Z697pXG7PBndsvlEJSAQdpt86iPnnVo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJxGDaWVj73eu1al
+# /UJjojr18jQOMA0GCSqGSIb3DQEBAQUABIIBAGLYwGBKnVwHKD98+5WjVPoXnZQr
+# Fo2OsfqlGNKtp+XzqSebMRIl0gbolpFRief2vutJ381/5Dor+hUUpaTLihsFyfjf
+# yh41eovxgPe3quDZBW/NfMKtx8e5mrCUe9VhmfeHFXwluVMehQThxrIM4krmMurE
+# dnUKvj68fuYJXJ8cg3T4xCowZVSjYP4aCkY4rzS+W5FCC/eFu0k7He/Q97z41vNX
+# fw8BII4eXUBuXi99TRn0F8wLfBJm1f68YtyxttXR8oXPtDU6hl/WUdwjsYNrHbau
+# 8QUNS4+FwwyS+DHmKtg3/40RnvTrdcqGt2NM9RsPVL0QgEOY+zdz84/+VbI=
 # SIG # End signature block

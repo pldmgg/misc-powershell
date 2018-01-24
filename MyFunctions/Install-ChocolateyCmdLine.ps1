@@ -74,7 +74,20 @@ function Install-ChocolateyCmdLine {
             return
         }
 
-        # Try and find choco.exe...
+        if (![bool]$(Get-Package -Name Chocolatey -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
+            # NOTE: The PackageManagement install of choco is unreliable, so just in case, fallback to the Chocolatey cmdline for install
+            $null = Install-Package Chocolatey -Provider Chocolatey -Force -Confirm:$false -ErrorVariable ChocoInstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+            
+            if ($ChocoInstallError.Count -gt 0) {
+                Uninstall-Package Chocolatey -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($ChocoInstallError.Count -eq 0) {
+                $PMPGetInstall = $True
+            }
+        }
+
+        # Try and find choco.exe
         try {
             Write-Host "Refreshing `$env:Path..."
             $global:FunctionResult = "0"
@@ -94,47 +107,49 @@ function Install-ChocolateyCmdLine {
             return
         }
 
-        if (![bool]$(Get-Package -Name Chocolatey -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
-            # NOTE: The PackageManagement install of choco is unreliable, so just in case, fallback to the Chocolatey cmdline for install
-            $null = Install-Package Chocolatey -Provider Chocolatey -Force -Confirm:$false -ErrorVariable ChocoInstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
-            $null = Install-Package chocolatey-core.extension -Provider Chocolatey -Force -Confirm:$false -ErrorVariable CExtInstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
-            
-            if ($ChocoInstallError.Count -gt 0) {
-                Uninstall-Package Chocolatey -Force -ErrorAction SilentlyContinue
-            }
-            if ($CExtInstallError.Count -gt 0) {
-                Uninstall-Package chocolatey-core.extension -Force -ErrorAction SilentlyContinue
-            }
-
-            if ($ChocoInstallError.Count -eq 0 -and $CExtInstallError.Count -eq 0) {
-                $PMPGetInstall = $True
-            }
-        }
-
         if ($PMPGetInstall) {
-            # Try and find choco.exe again...
-            try {
-                Write-Host "Refreshing `$env:Path..."
-                $global:FunctionResult = "0"
-                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                
-                if ($RCEErr.Count -gt 0 -and
-                $global:FunctionResult -eq "1" -and
-                ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
-                    throw
+            # It's possible that PowerShellGet didn't run the chocolateyInstall.ps1 script to actually install the
+            # Chocolatey CmdLine. So do it manually.
+            if (Test-Path "C:\Chocolatey") {
+                $ChocolateyPath = "C:\Chocolatey"
+            }
+            elseif (Test-Path "C:\ProgramData\chocolatey") {
+                $ChocolateyPath = "C:\ProgramData\chocolatey"
+            }
+            else {
+                Write-Warning "Unable to find Chocolatey directory! Halting!"
+                Write-Host "Installing via official script at https://chocolatey.org/install.ps1"
+                $InstallViaOfficialScript = $True
+            }
+            
+            if ($ChocolateyPath) {
+                $ChocolateyInstallScript = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyinstall.ps1").FullName | Where-Object {
+                    $_ -match ".*?chocolatey.*?chocolateyinstall.ps1$"
+                }
+
+                if (!$ChocolateyInstallScript) {
+                    Write-Warning "Unable to find chocolateyinstall.ps1!"
+                    $InstallViaOfficialScript = $True
                 }
             }
-            catch {
-                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
-                $global:FunctionResult = "1"
-                return
+
+            if ($ChocolateyInstallScript) {
+                try {
+                    & $ChocolateyInstallScript
+                }
+                catch {
+                    Write-Error $_
+                    Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
+
+                    if ([bool]$(Get-Package $ProgramName)) {
+                        Uninstall-Package Chocolatey -Force -ErrorAction SilentlyContinue
+                    }
+                }
             }
         }
 
         # If we still can't find choco.exe, then use the Chocolatey install script from chocolatey.org
-        if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+        if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue) -or $InstallViaOfficialScript) {
             $ChocolateyInstallScriptUrl = "https://chocolatey.org/install.ps1"
             try {
                 Invoke-Expression $([System.Net.WebClient]::new().DownloadString($ChocolateyInstallScriptUrl))
@@ -152,9 +167,6 @@ function Install-ChocolateyCmdLine {
         # If we STILL can't find choco.exe, then Refresh-ChocolateyEnv a third time...
         #if (![bool]$($env:Path -split ";" -match "chocolatey\\bin")) {
         if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
-            # # Chocolatey cmdline install potentially messes up $env:Patt so reset it...
-            $env:Path = $OriginalEnvPath
-
             # ...and then find it again and add it to $env:Path via Refresh-ChocolateyEnv function
             if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
                 try {
@@ -187,29 +199,27 @@ function Install-ChocolateyCmdLine {
         else {
             Write-Host "Finished installing Chocolatey CmdLine." -ForegroundColor Green
 
-            if (!$PMPGetInstall) {
-                try {
-                    cup chocolatey-core.extension -y
-                }
-                catch {
-                    Write-Error "Installation of chocolatey-core.extension via the Chocolatey CmdLine failed! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
+            try {
+                cup chocolatey-core.extension -y
+            }
+            catch {
+                Write-Error "Installation of chocolatey-core.extension via the Chocolatey CmdLine failed! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
 
-                try {
-                    Write-Host "Refreshing `$env:Path..."
-                    $global:FunctionResult = "0"
-                    $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                    if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
-                }
-                catch {
-                    Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                    foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                    Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
+            try {
+                Write-Host "Refreshing `$env:Path..."
+                $global:FunctionResult = "0"
+                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
+            }
+            catch {
+                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
+                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                $global:FunctionResult = "1"
+                return
             }
 
             $ChocoModulesThatRefreshEnvShouldHaveLoaded = @(
@@ -276,8 +286,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUE1ieycMh106GdIpSYN9J3+pz
-# oqKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUd+LeeMHMe4nrwZGp5aOXh5Q3
+# hJWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -334,11 +344,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPVTIIAxQ2/xCyBQ
-# IF/erdh16IASMA0GCSqGSIb3DQEBAQUABIIBAK/noprKgcsRPYAYHL2dqzAN5BUl
-# LH7mmPQIpZ5eHYqgYUmskXsqrq7QM7zZAp3BZRhsNqC3dxM7mQ/ocAk/1+SWpGPn
-# GEXBaV1f1OZL8LQRDuO8z+hTyJnY/3cv/p8o0baP+gYmD0Mf4O5ev2rIa2boIUKL
-# 303MZ/yPyHfIB1s34NbJwTV3Q4Hauc1axjgMwVqytAtdI8opZHIsc3cUH/SibBh3
-# K64sRXnMyqTGON4XwMchn1rls5QrLOfU9gdDTSBwxBCiKAISkyLL5vjik92WDrdS
-# 1gfQpHgcjr2vZi/+Chgv6c5x4IzbB/acMvV27xKu14ASXkk4qPY/SgvR7/E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFD7MZT1lHVNHy697
+# CmGMUOmF8Dr0MA0GCSqGSIb3DQEBAQUABIIBAKKtLCIw38w6yuVYD2LZAlyRHp/a
+# FDUpsKQfXbCpwpyvAUpPPVUnbUSd7paWaTiUL/qPXf9ms1XecUQqfRuHXE66ZnFf
+# ZqNkpm2ejneP5idDlQ6nP40dC+hW6qG/vf2qQHUn7gYub5KhXRcTBecOCYRO7tLt
+# bCRgk579B53hi5SUts4QW2JL32hcrEg+/PJOPYrJc7hwr9/3uLU+yWgKRvuib836
+# 7zvx6KU38gHf78HgWXSq2XDXa5D0QKNC2uC3uQiKGH6km9n7tByF1sB0JLUAg1Fl
+# NzkKYjtUjxXjGzgW1yXznF6OX2QBT6Br6wmiYdaoz6qR7Mh0ER00+DYUZMY=
 # SIG # End signature block
