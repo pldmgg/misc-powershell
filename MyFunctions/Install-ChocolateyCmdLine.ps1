@@ -60,8 +60,18 @@ function Install-ChocolateyCmdLine {
     if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
         # The below Install-Package Chocolatey screws up $env:Path, so restore it afterwards
         $OriginalEnvPath = $env:Path
-        if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
+
+        # Installing Package Providers is spotty sometimes...Using while loop 3 times before failing
+        $Counter = 0
+        while ($(Get-PackageProvider).Name -notcontains "Chocolatey" -and $Counter -lt 3) {
             Install-PackageProvider -Name Chocolatey -Force -Confirm:$false
+            $Counter++
+            Start-Sleep -Seconds 5
+        }
+        if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
+            Write-Error "Unable to install the Chocolatey Package Provider / Repo for PackageManagement/PowerShellGet! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
 
         # Try and find choco.exe...
@@ -266,8 +276,8 @@ function Install-ChocolateyCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/tUc2bhyp3J7/x4ogrQQNIqb
-# +gGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUX3qBdGrHg/zPVpsZn4Zn8EJu
+# 26igggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -324,11 +334,11 @@ function Install-ChocolateyCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBaeQ+UYk5QpLJbU
-# T8kRmy/81DicMA0GCSqGSIb3DQEBAQUABIIBABofg4VV1xkhuo6LYITB2jkJIT2Q
-# 0dWYGNuLK7cZ1sDySmnSL3yro2+dGt5/m5mtjvlsFeLdkucYc/vlx9J2hkW0xYNH
-# 1bBpiMdlbQCkYoLZWmfHrgnfjYxGm90rE3moHXxxJH+rtcco6Fu5//3h7tAysTfb
-# Ygf9KjVddczfJBpeahdLq/vD/aqO/xR6YN4EPc0MK8yFzTCQ9nwgKeLsGWf4M2yK
-# Eijp1T6lN17Wl/4Jz3/FRSy0RagxfIPqaq30BGvAFwwGzQYQJZh6sBPZCQNsmg1H
-# VwUbWK5AqZPwqE4hfSB+374nLvykXDLhf8c7Zl6tILiKlqQbCHaWyAJOOuM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFM5dzrSCORlcfYbq
+# DUWR6xa7+56mMA0GCSqGSIb3DQEBAQUABIIBAGXvr+Xnfls0RBY6ApXRMzsdYcO6
+# 1O98otVNgKZ3przXK1ogBL0m7NMXjHf0JSXpLGO5YZj9rPR7TJAfDJsxCRMTlhPi
+# tciEhIUsbmyzI6eYIjQvpXCk9a7tZyi8Y1DyH6RphFKCq8rzr6sgFiHfQrPn46Iq
+# YWM0S9uceYKU9yPvR7bLVgP9xuV6tXWrNq082QOvlI12Ga7EmHB4Y7nixgfbMt81
+# vY4gJHkEPv/iHjO+VQEOoS06x7zXkIvH0ZuS0wx+2/JsOBF+1G+xecZH81kGvSg8
+# IDX5V57fgcSm1GTOO9JPb9o/6chwx1ZZRFF0FyPyWNFrZuq+Sv/o6tmBYvI=
 # SIG # End signature block
