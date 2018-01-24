@@ -324,7 +324,7 @@ function Install-Program {
             # NOTE: The PackageManagement install of $ProgramName is unreliable, so just in case, fallback to the Chocolatey cmdline for install
             $null = Install-Package $ProgramName -Force -ErrorVariable InstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
             if ($InstallError.Count -gt 0) {
-                Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
                 Write-Warning "There was a problem installing $ProgramName via PackageManagement/PowerShellGet!"
                 
                 if ($UsePackageManagement) {
@@ -555,25 +555,28 @@ function Install-Program {
     $FinalEnvPathString = $($FinalEnvPathArray | foreach {if (Test-Path $_) {$_}}) -join ";"
     $env:Path = $FinalEnvPathString
 
-    if ($ExePath.Count -gt 1) {
-        Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
-    }
-    # Try to determine Main Executable
-    if ($MainExecutableFail) {
-        $MainExecutable = "NotFound"
-    }
-    elseif ($ExePath.Count -eq 1) {
-        $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
-
-        try {
-            $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName).Source
+    if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+        # Try to determine Main Executable
+        if (!$ExePath -or $ExePath.Count -eq 0) {
+            $FinalExeLocation = "NotFound"
         }
-        catch {
+        elseif ($ExePath.Count -eq 1) {
+            $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
+
+            try {
+                $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName).Source
+            }
+            catch {
+                $FinalExeLocation = $ExePath
+            }
+        }
+        elseif ($ExePath.Count -gt 1) {
+            Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
             $FinalExeLocation = $ExePath
         }
     }
-    elseif ($ExePath.Count -gt 1) {
-        $FinalExeLocation = $ExePath
+    else {
+        $FinalExeLocation = $(Get-Command $FinalCommandName).Source
     }
 
     if ($ChocoInstall) {
@@ -611,11 +614,33 @@ function Install-Program {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlSlQTG7R5eEPHPRzE4QqrVPL
-# IV+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/Uirsdt5LdDL7qAkeDNbJ5Z5
+# tTagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -672,11 +697,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEqGPsRFCp2MO2/+
-# Kr7jUICJJXkjMA0GCSqGSIb3DQEBAQUABIIBAJJN5D6iUS0Xcxq/Yz+u2q7vcYwi
-# qExqd/zM4TWV/e2/admP7FRchZ5uRq6SX6BuLsxE1E72LmQmzUvj/cmd0ANeeZ2i
-# f5tGNgW1xXssNO8vBfxfYRbVxXl/Ogr7YFzKHdBviVY7uEzcOEXxp5FS+4how5Jy
-# nGH8qHZqDxZaVAja9p3xX33r42nEc50QSXlQSjoLS7AhfN/4AcfrzaafIn3SmdHV
-# 9fk1ZVqyt3W1WshykWk+da/opSiGFbUvwgr3CCxaS7kmlQX8maEl4OSjuCw+6Qjv
-# F84/65Tg00v2Kcg10tfMCMDQp5Yjl175ta/0J5rtTqwRfU9dsnjWN2OJOH0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAFteOw7qIRlRYKY
+# cDFh3iL0xpmEMA0GCSqGSIb3DQEBAQUABIIBAAVWHqwlMTGL2tQmwXO1SKFWV0SE
+# cggySvE5XfmLUZ55LRY0FVs60aVV333VahNAoME9RdS+YJIKBcy4C3hmXPqCKckA
+# RzI/dbu6Cxp03ReK6dgi56c2EqZIxnKJMVQFha2i39jiuq8QbYX9osrYU+qcq68y
+# ZnVxmyS9eioQ7cKGoHC/YdO79o1RUWHIpqBGcYWfWfiFcqw0Dwp4NO1zk/5D5CFg
+# L0Aa9i0962Pq03iq+MUfaE/BZLPWv5Z8pE1fnjxLsUjQZ8vYAGH2IkdGOZ32gQkV
+# U9dmEERyFslLfBqd/h/icajPjeV7Z697pXG7PBndsvlEJSAQdpt86iPnnVo=
 # SIG # End signature block
