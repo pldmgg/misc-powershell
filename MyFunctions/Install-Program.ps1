@@ -571,9 +571,11 @@ function Install-Program {
             $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
             [System.Collections.ArrayList]$ExePath = @()
             foreach ($dir in $DirectoriesToSearchRecursively) {
-                $FoundFiles = $(Get-ChildItem -Path $dir -Recurse -File -Filter "*$FinalCommandName*.exe").FullName
+                $FoundFiles = $(Get-ChildItem -Path $dir -Recurse -File).FullName
                 foreach ($FilePath in $FoundFiles) {
-                    $null = $ExePath.Add($FilePath)
+                    if ($FilePath -match ".*?$FinalCommandName.*?exe") {
+                        $null = $ExePath.Add($FilePath)
+                    }
                 }
             }
         }
@@ -683,8 +685,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUS2LWJu5kcFHSq/TGNM+7Sw3X
-# Znmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoCxNHxPzPKEH55wbsF84O7gs
+# Kvigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -741,11 +743,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLNrIFqXQnmde2G4
-# d7j1+AIFJw6SMA0GCSqGSIb3DQEBAQUABIIBAFmR7KvsmEZ6q2pwF1RwLbbXlon7
-# 9kTxLYDLJk4LBRnnwKcKVX9Uk78ldneHT0EO/XYNIx8G0gjvjEF+DEj29jg7PGpj
-# 4Y89qz8w6mhFD34MWAp0zu/rgo685ox0KhZnO23nwp/MXgPfpEggjWFQnmoAlDlW
-# kH9QCxkD+lEJ+iWMprFusY+fLcxSaB3RTZ4PDpY0xCvMjw7GZdVsb11So5+DfsOY
-# W2s0inpx15czNslvCWMS3laG9atrxc0XnDaoSBcWnm/19Sm7LD+epU4KMiJgfbgd
-# HzhbarTG9ywod5O1dj6zt8/zQ044qzEvpZyAPhbop4E/ul4pMrmyksxJLmc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBcT5v01yZlHXJ8M
+# gbqAeE7QQbjgMA0GCSqGSIb3DQEBAQUABIIBAKJobXY326V/WDk+uxDvrAnnfBbr
+# vTozzcdKNegMHkmozJyS5WDWIk99R5tqupytIZvlS/eGvYoiVcAZ8LSE5znxRNOP
+# vuYi9e7tY1uPnlJUTNfnScmJ7AnguCF3vt3qw3CfYpklSydtFduk6s8+HsenwvRY
+# MF2vRPGBDdpue0K8+K7ejkM0gjFtOxUAFZkFqpYOmxnwGecGHwnwigL5E4zTfMfR
+# uHrGhDBoAc80Ht2qeEKDIH9tE4PeawjUqO2PPV4T9dby3a3IjfCOzYFWRV6yvcFv
+# dfIsJwY4RrVO7SgGF8VS7x0b1WA3ZBPHYXficFcVpcwojQog8V1jbS2DJk0=
 # SIG # End signature block
