@@ -521,18 +521,16 @@ function Install-Program {
                             foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
                                 $key = $kvpair.Key
                                 $value = $BoundParametersDictionary[$key]
-                                if ($key -notmatch "UsePackageManagement" -and $InstallProgramSplatParams.Keys -notcontains $key) {
+                                if ($key -notmatch "UsePackageManagement|ForceChocoInstallScript" -and $InstallProgramSplatParams.Keys -notcontains $key) {
                                     $InstallProgramSplatParams.Add($key,$value)
                                 }
                             }
-                            Export-CliXml -Path "$HOME\BoundParamsPre.xml" -InputObject $InstallProgramSplatParams
                             if ($InstallProgramSplatParams.Keys -notcontains "UseChocolateyCmdLine") {
                                 $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
                             }
                             if ($InstallProgramSplatParams.Keys -notcontains "NoUpdatePackageManagement") {
                                 $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
                             }
-                            Export-CliXml -Path "$HOME\BoundParamsPost.xml" -InputObject $InstallProgramSplatParams
                             Install-Program @InstallProgramSplatParams
 
                             return
@@ -547,11 +545,9 @@ function Install-Program {
     else {
         if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
             Write-Warning "$ProgramName is already installed via PackageManagement/PowerShellGet!"
-            Get-Package $ProgramName
         }
         if ($ChocolateyInstalledProgramsPSObjects.ProgramName -contains $ProgramName) {
             Write-Warning "$ProgramName is already installed via the Chocolatey CmdLine!"
-            clist --local-only $ProgramName
         }
     }
 
@@ -621,15 +617,17 @@ function Install-Program {
         $FinalExeLocation = $(Get-Command $FinalCommandName).Source
     }
 
-    if ($ChocoInstall) {
+    if ($ChocoInstall -or $(clist --local-only) -match $ProgramName) {
+        $InstallManager = "choco.exe"
         $InstallCheck = $(clist --local-only $ProgramName)[1]
     }
-    if ($PMInstall) {
+    if ($PMInstall -or [bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
+        $InstallManager = "PowerShellGet"
         $InstallCheck = Get-Package $ProgramName -ErrorAction SilentlyContinue
     }
 
     [pscustomobject]@{
-        InstallManager      = if ($ChocoInstall) {"choco.exe"} else {"PowerShellGet"}
+        InstallManager      = $InstallManager
         InstallCheck        = $InstallCheck
         MainExecutable      = $FinalExeLocation
         OriginalSystemPath  = $OriginalSystemPath
@@ -681,8 +679,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1pn7R7WOSw2MJdg7oA3/P1Xv
-# VGmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUEYIIuRlEEn6udNT5CWgwazLb
+# uHOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -739,11 +737,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLMCMSgwMboAflSq
-# e7efc9APKv1MMA0GCSqGSIb3DQEBAQUABIIBAHgjZbxOj+O2eIFQQnL+zDe8yZce
-# NOR49z++QS+rc6rx3GWz4JK/cISNRcAL0dGTgfOiwT7C2FEnMLZeiweJmPYD9gMx
-# 6udm5WGrLsu2PjnPZZqfvDscKddtOm4auj4Wajw//ld68YMy1n8QHA9yUswOeLy8
-# X/+q3jSZvcN1f6LVRl33d0BJ5+XRZmpsXRQbaHufX+5eVIOX6pnsg1x4VUmMkdmv
-# kWw9WZZ4ahYsJobyVIPkVZZW646TYRDLX3ampfQA7MxNkcEqtaEkDaMtwXGDXuHs
-# Rmm2GV2TEwQ6TY5fnwegl5+NhfUMB8h2fGgUTqQLVNWsdkOGMjebeVOlD2I=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPFiLp0Oefwh2Ufd
+# E5znEkYsLgg7MA0GCSqGSIb3DQEBAQUABIIBAMCSglRet2OR2aToSEECjQh1alAS
+# DI+k+GVA6zE9C/z+JGSRpLB0crAUnWy0r3r7H+BfRsVIAWzbMOYk8qsaX3l/0uLU
+# gCjEcSNkHb0hXs3/QeajhoPcPiYxjQus2ZicDJZYQUoDaLemnatm1mJvgXaawefq
+# WzODP43YV9uGKcnOTADZck75RB8CsECzqDUWV3R3AF+JrxVTN2xDB45wn0iaUp/u
+# BdY6wWejEyNaMUyhiOUMh/B9+rx8h5seF7oO2l/Xt63k8uhzaD5B6JnEm3oBic+G
+# oBqjdQ3QHcWf8h8leeoimd4bvE6YTr4BeSdU5IsEuPYz896tzN4JOvKNCKc=
 # SIG # End signature block
