@@ -453,7 +453,7 @@ function Install-Program {
                     Write-Warning "Unable to find main executable for $ProgramName!"
                     $MainExeSearchFail = $True
                 }
-                if ($PMInstall -or $ForceChocoInstallScript) {
+                if ($PMInstall -or $($PMInstall -and $ForceChocoInstallScript)) {
                     [System.Collections.ArrayList]$PossibleChocolateyInstallScripts = @()
                     
                     if (Test-Path "C:\Chocolatey") {
@@ -681,8 +681,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUavzTW6vpehW4K6nf2fltYHqK
-# 9fugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1pn7R7WOSw2MJdg7oA3/P1Xv
+# VGmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -739,11 +739,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKD0/et03uMfKGTq
-# A/4KrelVf3RgMA0GCSqGSIb3DQEBAQUABIIBAJLCM3F5n6bdU2xgcs4ocxC1XJ05
-# 9vQ4AVIzrLAQQfnADGfkmjICWgo68WR3rNFk1rkoWM3PQqgR6Z6B/aXqwYPDkg3F
-# doCnC0sVoNIh75wo08bJB6wfE9BZl3LYCEwNdgPq3Mx0ZmQQqyaeUlO5s4ChexK6
-# c8Af4uGPN3cs8KBg0GgrneUwf1vxsUUvGt1BkAJtA4qEfsH0MOQe29aqnqBGpb2u
-# h7n5/acOPJm9UHNdaiGFb3hXhhBc+K229/KnDWp69OiuPLdXOpeMZv+2D2m/DigY
-# HvLZv0BOGK5bkXeYmDzpTWy4CokGpMy0FgwQKk25LLlOCKuBJKa0hvvFywo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLMCMSgwMboAflSq
+# e7efc9APKv1MMA0GCSqGSIb3DQEBAQUABIIBAHgjZbxOj+O2eIFQQnL+zDe8yZce
+# NOR49z++QS+rc6rx3GWz4JK/cISNRcAL0dGTgfOiwT7C2FEnMLZeiweJmPYD9gMx
+# 6udm5WGrLsu2PjnPZZqfvDscKddtOm4auj4Wajw//ld68YMy1n8QHA9yUswOeLy8
+# X/+q3jSZvcN1f6LVRl33d0BJ5+XRZmpsXRQbaHufX+5eVIOX6pnsg1x4VUmMkdmv
+# kWw9WZZ4ahYsJobyVIPkVZZW646TYRDLX3ampfQA7MxNkcEqtaEkDaMtwXGDXuHs
+# Rmm2GV2TEwQ6TY5fnwegl5+NhfUMB8h2fGgUTqQLVNWsdkOGMjebeVOlD2I=
 # SIG # End signature block
