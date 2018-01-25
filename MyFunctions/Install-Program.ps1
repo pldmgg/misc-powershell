@@ -424,14 +424,17 @@ function Install-Program {
         }
 
         # If we still can't find the main executable...
-        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
             if ($ExpectedInstallLocation) {
                 [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
             }
             else {
                 [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
             }
-
+        }
+        
+        # If we STILL can't find the main executable...
+        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
             # If, at this point we don't have $ExePath, if we did a $ChocoInstall, then we have to give up...
             # ...but if we did a $PMInstall, then it's possible that PackageManagement/PowerShellGet just
             # didn't run the chocolateyInstall.ps1 script that sometimes comes bundled with Packages from the
@@ -467,6 +470,7 @@ function Install-Program {
                     }
                     else {
                         try {
+                            Write-Host "Trying the Chocolatey Install script from $ChocolateyInstallScript..." -ForegroundColor Yellow
                             & $ChocolateyInstallScript
 
                             # Now that the $ChocolateyInstallScript ran, search for the main executable again
@@ -493,12 +497,13 @@ function Install-Program {
                             # use the Uninstall-Package cmdlet to wipe it out. This scenario happens when PackageManagement/
                             # PackageManagement/PowerShellGet gets a Package from the Chocolatey Package Provider/Repo but
                             # fails to run the chocolateyInstall.ps1 script for some reason.
-                            if ([bool]$(Get-Package $ProgramName)) {
+                            if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
                                 Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
                             }
 
                             # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
                             # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
+                            <#
                             $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
                             $InstallProgramSplatParams = @{}
                             foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
@@ -510,6 +515,8 @@ function Install-Program {
                             }
                             $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
                             Install-Program @InstallProgramSplatParams
+                            #>
+                            Install-Program -ProgramName $ProgramName -UseChocolateyCmdLine -NoUpdatePackageManagement
 
                             return
                         }
@@ -543,9 +550,12 @@ function Install-Program {
         if ($ScanCDriveChoice -match "Yes|yes|Y|y") {
             Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
             $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
+            [System.Collections.ArrayList]$ExePath = @()
             foreach ($dir in $DirectoriesToSearchRecursively) {
-                $ExePath = $(Get-ChildItem -Path $dir -Recurse -File -Filter "*$FinalCommandName.exe").FullName
-                if ($ExePath) {break}
+                $FoundFiles = $(Get-ChildItem -Path $dir -Recurse -File -Filter "*$FinalCommandName*.exe").FullName
+                foreach ($FilePath in $FoundFiles) {
+                    $null = $ExePath.Add($FilePath)
+                }
             }
         }
     }
@@ -564,14 +574,16 @@ function Install-Program {
             $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
 
             try {
-                $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName).Source
+                $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName -ErrorAction SilentlyContinue).Source
             }
             catch {
                 $FinalExeLocation = $ExePath
             }
         }
         elseif ($ExePath.Count -gt 1) {
-            Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
+            if (![bool]$($ExePath -match "\\cmake.exe$")) {
+                Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
+            }
             $FinalExeLocation = $ExePath
         }
     }
@@ -639,8 +651,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUUIgKxWjA65s/dAxaBkBEcHH
-# 1/ygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUCb5ipGva5vgw2C2qJUgEGDkE
+# sSqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -697,11 +709,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJxGDaWVj73eu1al
-# /UJjojr18jQOMA0GCSqGSIb3DQEBAQUABIIBAGLYwGBKnVwHKD98+5WjVPoXnZQr
-# Fo2OsfqlGNKtp+XzqSebMRIl0gbolpFRief2vutJ381/5Dor+hUUpaTLihsFyfjf
-# yh41eovxgPe3quDZBW/NfMKtx8e5mrCUe9VhmfeHFXwluVMehQThxrIM4krmMurE
-# dnUKvj68fuYJXJ8cg3T4xCowZVSjYP4aCkY4rzS+W5FCC/eFu0k7He/Q97z41vNX
-# fw8BII4eXUBuXi99TRn0F8wLfBJm1f68YtyxttXR8oXPtDU6hl/WUdwjsYNrHbau
-# 8QUNS4+FwwyS+DHmKtg3/40RnvTrdcqGt2NM9RsPVL0QgEOY+zdz84/+VbI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFi6R2CI6lhucgms
+# mlDbnRwmRCVIMA0GCSqGSIb3DQEBAQUABIIBAKS3QS0yhq04DryjhVzj/FcHZv37
+# tXMeElnDSIc+NbGpB9bJYpAFu+cWb/0ioRPnYR2dNlPImgyWBNsIirIy7kh8CIlS
+# bHlsOExDweF360AWDuLauYMsoKkjo9B2N/2yjkdPPL6rryshGx/YHWOhdroM8GmT
+# 2wMfOcdfiJlit7QDztcs2ef7ufSkZY6mCV2MzqR9g2e+WQtQ8ynqKi6h0kFYoHC5
+# duY2QOaSSQTI+2CAjw857k7v7SJGZyw1yhTXUL8MogO/YQqFoPwuOjPuPJIZFu/L
+# 1/O9RWWBmRPkj7e/5EBbqax9eLE0zHEsnn4gOqifZjb12rjAFL7Kmevhf9Y=
 # SIG # End signature block
