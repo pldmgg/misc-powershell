@@ -94,7 +94,10 @@ function Install-Program {
         [string]$CommandName,
 
         [Parameter(Mandatory=$False)]
-        [switch]$NoUpdatePackageManagement
+        [switch]$NoUpdatePackageManagement,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$ScanCDriveForMainExeIfNecessary
     )
 
     ##### BEGIN Native Helper Functions #####
@@ -498,25 +501,29 @@ function Install-Program {
                             # PackageManagement/PowerShellGet gets a Package from the Chocolatey Package Provider/Repo but
                             # fails to run the chocolateyInstall.ps1 script for some reason.
                             if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
-                                Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                                $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
                             }
 
                             # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
                             # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
-                            <#
                             $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
                             $InstallProgramSplatParams = @{}
                             foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
                                 $key = $kvpair.Key
                                 $value = $BoundParametersDictionary[$key]
-                                if ($key -notmatch "UsePackageManagement") {
+                                if ($key -notmatch "UsePackageManagement" -and $InstallProgramSplatParams.Keys -notcontains $key) {
                                     $InstallProgramSplatParams.Add($key,$value)
                                 }
                             }
-                            $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+                            Export-CliXml -Path "$HOME\BoundParamsPre.xml" -InputObject $InstallProgramSplatParams
+                            if ($InstallProgramSplatParams.Keys -notcontains "UseChocolateyCmdLine") {
+                                $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+                            }
+                            if ($InstallProgramSplatParams.Keys -notcontains "NoUpdatePackageManagement") {
+                                $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
+                            }
+                            Export-CliXml -Path "$HOME\BoundParamsPost.xml" -InputObject $InstallProgramSplatParams
                             Install-Program @InstallProgramSplatParams
-                            #>
-                            Install-Program -ProgramName $ProgramName -UseChocolateyCmdLine -NoUpdatePackageManagement
 
                             return
                         }
@@ -541,13 +548,15 @@ function Install-Program {
     # If we weren't able to find the main executable (or any potential main executables) for
     # $ProgramName, offer the option to scan the whole C:\ drive (with some obvious exceptions)
     if ($MainExeSearchFail) {
-        $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
-        while ($ScanCDriveChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
-            Write-Host "$ScanDriveChoice is not a valid input. Please enter 'Yes' or 'No'"
+        if (!$ScanCDriveForMainExeIfNecessary) {
             $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
+            while ($ScanCDriveChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
+                Write-Host "$ScanDriveChoice is not a valid input. Please enter 'Yes' or 'No'"
+                $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
+            }
         }
 
-        if ($ScanCDriveChoice -match "Yes|yes|Y|y") {
+        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary) {
             Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
             $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
             [System.Collections.ArrayList]$ExePath = @()
@@ -560,7 +569,18 @@ function Install-Program {
         }
     }
 
-    # Scrub $env:Path
+    # Finalize $env:Path
+    if ([bool]$($ExePath -match "\\cmake.exe$")) {
+        $PathToAdd = $($ExePath -match "\\cmake.exe$") | Split-Path -Parent
+        if ($($env:Path -split ";") -notcontains $PathToAdd) {
+            if ($env:Path[-1] -eq ";") {
+                $env:Path = "$env:Path" + $PathToAdd + ";"
+            }
+            else {
+                $env:Path = "$env:Path" + ";" + $PathToAdd
+            }
+        }
+    }
     $FinalEnvPathArray = $env:Path -split ";" | foreach {if($_ -match "[\w]") {$_}}
     $FinalEnvPathString = $($FinalEnvPathArray | foreach {if (Test-Path $_) {$_}}) -join ";"
     $env:Path = $FinalEnvPathString
@@ -595,7 +615,7 @@ function Install-Program {
         $InstallCheck = $(clist --local-only $ProgramName)[1]
     }
     if ($PMInstall) {
-        $InstallCheck = Get-Package $ProgramName
+        $InstallCheck = Get-Package $ProgramName -ErrorAction SilentlyContinue
     }
 
     [pscustomobject]@{
@@ -651,8 +671,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUCb5ipGva5vgw2C2qJUgEGDkE
-# sSqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAV+JcsVYaf91VvfHNqptzwI/
+# 00Cgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -709,11 +729,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFi6R2CI6lhucgms
-# mlDbnRwmRCVIMA0GCSqGSIb3DQEBAQUABIIBAKS3QS0yhq04DryjhVzj/FcHZv37
-# tXMeElnDSIc+NbGpB9bJYpAFu+cWb/0ioRPnYR2dNlPImgyWBNsIirIy7kh8CIlS
-# bHlsOExDweF360AWDuLauYMsoKkjo9B2N/2yjkdPPL6rryshGx/YHWOhdroM8GmT
-# 2wMfOcdfiJlit7QDztcs2ef7ufSkZY6mCV2MzqR9g2e+WQtQ8ynqKi6h0kFYoHC5
-# duY2QOaSSQTI+2CAjw857k7v7SJGZyw1yhTXUL8MogO/YQqFoPwuOjPuPJIZFu/L
-# 1/O9RWWBmRPkj7e/5EBbqax9eLE0zHEsnn4gOqifZjb12rjAFL7Kmevhf9Y=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNmjOx4yQYf+e9ZX
+# pWJi8ANhQzJhMA0GCSqGSIb3DQEBAQUABIIBAAO1HFmj738E94Nv6MOnMSA/7LKI
+# ZBgTJo8YBXXUEnEoQc+Q3taRxl3bpvGWPZLFiuRm8DUj0qR2XRnDr+4gKoKfrTm6
+# oU35incY54E5RyODKm51H4N5jfZQs2nUSQv4lWdAmpJQA+iHdDZf2B+RF/KAZuSR
+# SskAWVmeJk29GRItEBrvqnZySVOOKDkTDdkWHXepijI3LgRNVAq7SBEXWpq5bgmv
+# AVfg8SXkMKkkHhw/toy5LWomDUPzxJ9iDoGu4fOk6J9IxaiUhUNUU6yGQeGR6ou6
+# 8oTyeK4USaMwOZDZm6aV/vNzBfYGjgw50L2CrZrCtSqa0fZu/vN7AthJNwo=
 # SIG # End signature block
