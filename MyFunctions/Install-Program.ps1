@@ -78,20 +78,26 @@ function Install-Program {
         [Parameter(Mandatory=$True)]
         [string]$ProgramName,
 
+        [Parameter(Mandatory=$False)]
+        [string]$CommandName,
+
         [Parameter(
             Mandatory=$False,
             ParameterSetName='PackageManagement'
         )]
         [switch]$UsePackageManagement,
 
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='PackageManagement'
+        )]
+        [switch]$ForceChocoInstallScript,
+
         [Parameter(Mandatory=$False)]
         [switch]$UseChocolateyCmdLine,
 
         [Parameter(Mandatory=$False)]
         [string]$ExpectedInstallLocation,
-
-        [Parameter(Mandatory=$False)]
-        [string]$CommandName,
 
         [Parameter(Mandatory=$False)]
         [switch]$NoUpdatePackageManagement,
@@ -437,41 +443,45 @@ function Install-Program {
         }
         
         # If we STILL can't find the main executable...
-        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
+        if ($(![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) -or $ForceChocoInstallScript) {
             # If, at this point we don't have $ExePath, if we did a $ChocoInstall, then we have to give up...
             # ...but if we did a $PMInstall, then it's possible that PackageManagement/PowerShellGet just
             # didn't run the chocolateyInstall.ps1 script that sometimes comes bundled with Packages from the
             # Chocolatey Package Provider/Repo. So try running that...
-            if (!$ExePath -or $ExePath.Count -eq 0) {
+            if (!$ExePath -or $ExePath.Count -eq 0 -or $ForceChocoInstallScript) {
                 if ($ChocoInstall) {
                     Write-Warning "Unable to find main executable for $ProgramName!"
                     $MainExeSearchFail = $True
                 }
-                if ($PMInstall) {
-                    if ([bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
-                        $ChocolateyPath = $($(Get-Command choco -ErrorAction SilentlyContinue).Source -split "\\")[0..2] -join "\"
-                    }
-                    elseif (Test-Path "C:\Chocolatey") {
-                        $ChocolateyPath = "C:\Chocolatey"
-                    }
-                    elseif (Test-Path "C:\ProgramData\chocolatey") {
-                        $ChocolateyPath = "C:\ProgramData\chocolatey"
-                    }
-                    else {
-                        Write-Error "Unable to find Chocolatey directory! Halting!"
-                        $global:FunctionResult = "1"
-                        return
-                    }
+                if ($PMInstall -or $ForceChocoInstallScript) {
+                    [System.Collections.ArrayList]$PossibleChocolateyInstallScripts = @()
                     
-                    $ChocolateyInstallScript = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyinstall.ps1").FullName | Where-Object {
-                        $_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"
+                    if (Test-Path "C:\Chocolatey") {
+                        $ChocoScriptsA = Get-ChildItem -Path "C:\Chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1"
+                        foreach ($Script in $ChocoScriptsA) {
+                            $null = $PossibleChocolateyInstallScripts.Add($Script)
+                        }
+                    }
+                    if (Test-Path "C:\ProgramData\chocolatey") {
+                        $ChocoScriptsB = Get-ChildItem -Path "C:\ProgramData\chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1"
+                        foreach ($Script in $ChocoScriptsB) {
+                            $null = $PossibleChocolateyInstallScripts.Add($Script)
+                        }
                     }
 
-                    if (!$ChocolateyInstallScript) {
-                        Write-Warning "Unable to find main executable for $ProgramName!"
+                    [System.Collections.ArrayList][Array]$ChocolateyInstallScriptSearch = $PossibleChocolateyInstallScripts | Where-Object {$_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"}
+                    if ($ChocolateyInstallScriptSearch.Count -eq 0) {
+                        Write-Warning "Unable to find main the Chocolatey Install Script for $ProgramName PowerShellGet install!"
                         $MainExeSearchFail = $True
                     }
-                    else {
+                    if ($ChocolateyInstallScriptSearch.Count -eq 1) {
+                        $ChocolateyInstallScript = $ChocolateyInstallScriptSearch[0].FullName
+                    }
+                    if ($ChocolateyInstallScriptSearch.Count -gt 1) {
+                        $ChocolateyInstallScript = $($ChocolateyInstallScriptSearch | Sort-Object LastWriteTime)[-1].FullName
+                    }
+                    
+                    if ($ChocolateyInstallScript) {
                         try {
                             Write-Host "Trying the Chocolatey Install script from $ChocolateyInstallScript..." -ForegroundColor Yellow
                             & $ChocolateyInstallScript
@@ -671,8 +681,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAV+JcsVYaf91VvfHNqptzwI/
-# 00Cgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcRm8mK4+4sI693jH3Gbifpbw
+# EW6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -729,11 +739,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNmjOx4yQYf+e9ZX
-# pWJi8ANhQzJhMA0GCSqGSIb3DQEBAQUABIIBAAO1HFmj738E94Nv6MOnMSA/7LKI
-# ZBgTJo8YBXXUEnEoQc+Q3taRxl3bpvGWPZLFiuRm8DUj0qR2XRnDr+4gKoKfrTm6
-# oU35incY54E5RyODKm51H4N5jfZQs2nUSQv4lWdAmpJQA+iHdDZf2B+RF/KAZuSR
-# SskAWVmeJk29GRItEBrvqnZySVOOKDkTDdkWHXepijI3LgRNVAq7SBEXWpq5bgmv
-# AVfg8SXkMKkkHhw/toy5LWomDUPzxJ9iDoGu4fOk6J9IxaiUhUNUU6yGQeGR6ou6
-# 8oTyeK4USaMwOZDZm6aV/vNzBfYGjgw50L2CrZrCtSqa0fZu/vN7AthJNwo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNKuMKFlqoYlx3NM
+# dRC97IJZL8cxMA0GCSqGSIb3DQEBAQUABIIBAMCUJ/m4kUsqZg8L15+gBb1J/z9S
+# C9wqJa2b0uruPKUvJF9FPE9P6uUnaXT9t+PUs6Fo6Ldo8owpzD6X9kvXv6Al6KOg
+# l1zDWvUtzlQJyxdJpJXMhMWTaRvr+qyzVIKvVUGWaMM71KxHt6j6UoXoLhh5nIcZ
+# aBV6Y4bd4yTdKf729Ecqx/zgsfua8yLkZOKcrX8ZIqbAT7c1R9g1JUwIvu8z0j8b
+# gao3GT/csgB8h8Ea5EBLOakWZzpDXrCQiveu3ynqR3zSKRpkvjNkkbTQFwWSBvsM
+# FMqZYxVs8AaeAR6hROe/ZFE8uSZ89ffhzfYd+6NrcVRIyck5DhVlBQVzLuU=
 # SIG # End signature block
