@@ -621,7 +621,7 @@ function Install-Program {
         $InstallManager = "choco.exe"
         $InstallCheck = $(clist --local-only $ProgramName)[1]
     }
-    if ($PMInstall -or [bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
+    if ($PMInstall -or [bool]$(Get-Package $ProgramName -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
         $InstallManager = "PowerShellGet"
         $InstallCheck = Get-Package $ProgramName -ErrorAction SilentlyContinue
     }
@@ -679,8 +679,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUEYIIuRlEEn6udNT5CWgwazLb
-# uHOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGtJ4F8UeLO4lUonEl3SQkjFD
+# /jmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -737,11 +737,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPFiLp0Oefwh2Ufd
-# E5znEkYsLgg7MA0GCSqGSIb3DQEBAQUABIIBAMCSglRet2OR2aToSEECjQh1alAS
-# DI+k+GVA6zE9C/z+JGSRpLB0crAUnWy0r3r7H+BfRsVIAWzbMOYk8qsaX3l/0uLU
-# gCjEcSNkHb0hXs3/QeajhoPcPiYxjQus2ZicDJZYQUoDaLemnatm1mJvgXaawefq
-# WzODP43YV9uGKcnOTADZck75RB8CsECzqDUWV3R3AF+JrxVTN2xDB45wn0iaUp/u
-# BdY6wWejEyNaMUyhiOUMh/B9+rx8h5seF7oO2l/Xt63k8uhzaD5B6JnEm3oBic+G
-# oBqjdQ3QHcWf8h8leeoimd4bvE6YTr4BeSdU5IsEuPYz896tzN4JOvKNCKc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDsvZl4Z+9ep36Lc
+# 2jgWASNszu8BMA0GCSqGSIb3DQEBAQUABIIBAMAsI4oeCJf7BPEQjcphHL5BQiK5
+# 2elLqs7tApXvsYHmtu/qi7yixPWne9yeu0SGfTmjcZo77RrCSC3mQznnbyA3zIX8
+# Q2BHwSJ1gA8z48WzpIr3lnAtuXa2s2YOX8VzdNtzRQrwMlYUBILONB2gFv9hXUXb
+# onUDYqsbyuX1l/kSVXlAlNFM+ytZyn2XVLyXbv1Ok5Q3sCBTsGHiWSUsvpqgdFnb
+# BaDIs5lhgKoWCFOaz15kgNX7VDpJZn5vfRYDR7ELnFsWkAcLsEHMY4ZsEobXJOfx
+# hkJFt9sMveviU0PD9RFQCtKOLV35g6d/O9Wx6djiKfqB318xvlFcMjBYlEQ=
 # SIG # End signature block
