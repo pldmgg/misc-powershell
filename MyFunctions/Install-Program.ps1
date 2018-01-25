@@ -232,6 +232,10 @@ function Install-Program {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
+    if ($UseChocolateyCmdLine) {
+        $NoUpdatePackageManagement = $True
+    }
+
     Write-Host "Please wait..."
     $global:FunctionResult = "0"
     $MyFunctionsUrl = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions"
@@ -679,8 +683,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGtJ4F8UeLO4lUonEl3SQkjFD
-# /jmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUS2LWJu5kcFHSq/TGNM+7Sw3X
+# Znmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -737,11 +741,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDsvZl4Z+9ep36Lc
-# 2jgWASNszu8BMA0GCSqGSIb3DQEBAQUABIIBAMAsI4oeCJf7BPEQjcphHL5BQiK5
-# 2elLqs7tApXvsYHmtu/qi7yixPWne9yeu0SGfTmjcZo77RrCSC3mQznnbyA3zIX8
-# Q2BHwSJ1gA8z48WzpIr3lnAtuXa2s2YOX8VzdNtzRQrwMlYUBILONB2gFv9hXUXb
-# onUDYqsbyuX1l/kSVXlAlNFM+ytZyn2XVLyXbv1Ok5Q3sCBTsGHiWSUsvpqgdFnb
-# BaDIs5lhgKoWCFOaz15kgNX7VDpJZn5vfRYDR7ELnFsWkAcLsEHMY4ZsEobXJOfx
-# hkJFt9sMveviU0PD9RFQCtKOLV35g6d/O9Wx6djiKfqB318xvlFcMjBYlEQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLNrIFqXQnmde2G4
+# d7j1+AIFJw6SMA0GCSqGSIb3DQEBAQUABIIBAFmR7KvsmEZ6q2pwF1RwLbbXlon7
+# 9kTxLYDLJk4LBRnnwKcKVX9Uk78ldneHT0EO/XYNIx8G0gjvjEF+DEj29jg7PGpj
+# 4Y89qz8w6mhFD34MWAp0zu/rgo685ox0KhZnO23nwp/MXgPfpEggjWFQnmoAlDlW
+# kH9QCxkD+lEJ+iWMprFusY+fLcxSaB3RTZ4PDpY0xCvMjw7GZdVsb11So5+DfsOY
+# W2s0inpx15czNslvCWMS3laG9atrxc0XnDaoSBcWnm/19Sm7LD+epU4KMiJgfbgd
+# HzhbarTG9ywod5O1dj6zt8/zQ044qzEvpZyAPhbop4E/ul4pMrmyksxJLmc=
 # SIG # End signature block
