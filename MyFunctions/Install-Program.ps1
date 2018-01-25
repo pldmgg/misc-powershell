@@ -573,7 +573,7 @@ function Install-Program {
             foreach ($dir in $DirectoriesToSearchRecursively) {
                 $FoundFiles = $(Get-ChildItem -Path $dir -Recurse -File).FullName
                 foreach ($FilePath in $FoundFiles) {
-                    if ($FilePath -match ".*?$FinalCommandName.*?exe") {
+                    if ($FilePath -match "(.*?)$FinalCommandName([^\\]+)") {
                         $null = $ExePath.Add($FilePath)
                     }
                 }
@@ -685,8 +685,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoCxNHxPzPKEH55wbsF84O7gs
-# Kvigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqh1xT9Jf6QZOsR+nrDFnmpCO
+# H/Ogggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -743,11 +743,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBcT5v01yZlHXJ8M
-# gbqAeE7QQbjgMA0GCSqGSIb3DQEBAQUABIIBAKJobXY326V/WDk+uxDvrAnnfBbr
-# vTozzcdKNegMHkmozJyS5WDWIk99R5tqupytIZvlS/eGvYoiVcAZ8LSE5znxRNOP
-# vuYi9e7tY1uPnlJUTNfnScmJ7AnguCF3vt3qw3CfYpklSydtFduk6s8+HsenwvRY
-# MF2vRPGBDdpue0K8+K7ejkM0gjFtOxUAFZkFqpYOmxnwGecGHwnwigL5E4zTfMfR
-# uHrGhDBoAc80Ht2qeEKDIH9tE4PeawjUqO2PPV4T9dby3a3IjfCOzYFWRV6yvcFv
-# dfIsJwY4RrVO7SgGF8VS7x0b1WA3ZBPHYXficFcVpcwojQog8V1jbS2DJk0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN0PTYzSBudMrJjK
+# htcVeEKAdLhJMA0GCSqGSIb3DQEBAQUABIIBAHqNDaBpFMoEmkZtmb24pdHPCywK
+# nAoz19wrRxTRhSevc7kxd5b5TI8Kqx7/byUv/t3yNhWkiP3vkf3ogG3wx1QaVyGH
+# w2nhgxPDDz0mqrrzzeRtkUZn/ENRF1FnHt9Ee4wTHS8KUMRVJkYYEtDoOF61XqvC
+# i3HfwsXjeNYGZymgSoaN3l2lrREq8XZklMWpgVeFjCrdVfE4HnJpTTdF5zh+RqG8
+# TmUmLXh5W19olgurMg4wPBkaBrIovgpVIYpiqxGZIOjpTQXNVWGmbACukgy6RGVL
+# lFeiEPH5lCSzSrroFH7y3t3TqZzcngx1zoz4FW7CBG9hAHiKb5TEej44gFo=
 # SIG # End signature block
