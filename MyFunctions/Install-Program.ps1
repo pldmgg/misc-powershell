@@ -549,9 +549,11 @@ function Install-Program {
     else {
         if ($ChocolateyInstalledProgramsPSObjects.ProgramName -contains $ProgramName) {
             Write-Warning "$ProgramName is already installed via the Chocolatey CmdLine!"
+            $AlreadyInstalled = $True
         }
         elseif ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
             Write-Warning "$ProgramName is already installed via PackageManagement/PowerShellGet!"
+            $AlreadyInstalled = $True
         }
     }
 
@@ -634,6 +636,7 @@ function Install-Program {
 
     [pscustomobject]@{
         InstallManager      = $InstallManager
+        AlreadyInstalled    = if ($AlreadyInstalled) {$True} else {$False}
         InstallCheck        = $InstallCheck
         MainExecutable      = $FinalExeLocation
         OriginalSystemPath  = $OriginalSystemPath
@@ -685,8 +688,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUn4bFa+nfWYzUnhw1riDHBQCQ
-# 2r+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxSFid0WPL+oQb3CU/jJfzMyR
+# pjCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -743,11 +746,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOFBJ1AHqfT9Qh5L
-# 7eykZWjlVfYCMA0GCSqGSIb3DQEBAQUABIIBAG4vgAtoaS6GFGP9AGvzD6zxFYWA
-# XI7RFhnQCtTbfmr5HjZ7iZBVdQn1rQe6ImhUAG6fBYodbAGOF+rrsP2U0ZR8RE/r
-# cGd7SjW9CxT4FO/JOvcnfhD6raaGFWcAga9lbCYkHHh4MJ8gyIqNjTDXd0O+tvuu
-# ea/cmfcD2nh/3H9Zf3UVRi7I5NwP+D/0IFKM8k1IlHQCMyO+7uh+0RE8kDiQOVyR
-# H4QcKaOEE94hUvTDj+ljdbW+2i40bUJa+YwL4I1G+F/e1NcF1Kk3YcGwL1jQEsSo
-# C8j9NILYq8H26zt1aHrU0N6ApXSZJElwczomoxO+iq4aQzXt5jq+AqsCGr4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBpTrmTIstF7VITi
+# idxefKQ0Wd+dMA0GCSqGSIb3DQEBAQUABIIBABcle4t8vLu05tXfzmZZRwFxIRsn
+# S2Vpmz8/yRsfBHVThZcYiZyw1XF4s87iC8cqmmwKvjzSq8mBc+vpy7z6/2Jz+htt
+# zDQsalkejcB5nbmUv+hZ4bwPm7pG+ZiKgewwfgUVPSXE98xBiqkvXMhwalEd9tJ0
+# PDZ/6K6+6qBIAXMrzYlE34lc2PkUZPNZB+S468i2Kf/sKAhTpj0V+rN49v2Mt5yX
+# c7KnC92t5qwBkDcZQI6AOhBYkROIIlx17VVu00vqMRJ0UoZCtmAc4EylRgAtEn7n
+# aZxDz9JKD86oKBohJ2zsyvC/+5dBKRvkEW/4Cw6TU3P4bgTEqgwtx5TfX9M=
 # SIG # End signature block
