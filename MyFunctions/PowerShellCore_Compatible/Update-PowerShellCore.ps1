@@ -319,6 +319,103 @@ function Update-PowerShellCore {
             [switch]$InstallNuGetCmdLine
         )
     
+        ##### BEGIN Helper Functions #####
+    
+        function Check-Elevation {
+            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+                [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                    [System.Security.Principal.WindowsIdentity]::GetCurrent()
+                )
+        
+                [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+        
+                if($currentPrincipal.IsInRole($administratorsRole)) {
+                    return $true
+                }
+                else {
+                    return $false
+                }
+            }
+            
+            if ($PSVersionTable.Platform -eq "Unix") {
+                if ($(whoami) -eq "root") {
+                    return $true
+                }
+                else {
+                    return $false
+                }
+            }
+        }
+    
+        function Get-NativePath {
+            [CmdletBinding()]
+            Param( 
+                [Parameter(Mandatory=$True)]
+                [string[]]$PathAsStringArray
+            )
+        
+            $PathAsStringArray = foreach ($pathPart in $PathAsStringArray) {
+                $SplitAttempt = $pathPart -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)
+                
+                if ($SplitAttempt.Count -gt 1) {
+                    foreach ($obj in $SplitAttempt) {
+                        $obj
+                    }
+                }
+                else {
+                    $pathPart
+                }
+            }
+            $PathAsStringArray = $PathAsStringArray -join [IO.Path]::DirectorySeparatorChar
+        
+            $PathAsStringArray
+        
+        }
+    
+        function Pause-ForWarning {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$True)]
+                [int]$PauseTimeInSeconds,
+        
+                [Parameter(Mandatory=$True)]
+                $Message
+            )
+        
+            Write-Warning $Message
+            Write-Host "To answer in the affirmative, press 'y' on your keyboard."
+            Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
+        
+            $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
+            $stopwatch = [diagnostics.stopwatch]::StartNew()
+            while ($stopwatch.elapsed -lt $timeout){
+                if ([Console]::KeyAvailable) {
+                    $keypressed = [Console]::ReadKey("NoEcho").Key
+                    Write-Host "You pressed the `"$keypressed`" key"
+                    if ($keypressed -eq "y") {
+                        $Result = $true
+                        break
+                    }
+                    if ($keypressed -ne "y") {
+                        $Result = $false
+                        break
+                    }
+                }
+        
+                # Check once every 1 second to see if the above "if" condition is satisfied
+                Start-Sleep 1
+            }
+        
+            if (!$Result) {
+                $Result = $false
+            }
+            
+            $Result
+        }
+    
+        ##### END Helper Functions #####
+    
+    
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     
         # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
@@ -341,23 +438,33 @@ function Update-PowerShellCore {
         }
     
         if ($InstallNuGetCmdLine -and !$UseChocolatey) {
-            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {                
-                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
-                [bool]$WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
-                if ($WarningResponse) {
+            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
+                if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
+                    $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
+                    $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                    if ($WarningResponse) {
+                        $UseChocolatey = $true
+                    }
+                }
+                else {
                     $UseChocolatey = $true
                 }
             }
             elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
-                $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
-                [bool]$WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
-                if ($WarningResponse) {
+                if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                    $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
+                    $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                    if ($WarningResponse) {
+                        $UseChocolatey = $true
+                    }
+                }
+                else {
                     $UseChocolatey = $true
                 }
             }
             elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
                 $WarningMessage = "The NuGet Command Line Tools binary nuget.exe can be downloaded, but will not be able to be run without Mono. Do you want to download the latest stable nuget.exe?"
-                [bool]$WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
+                $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                 if ($WarningResponse) {
                     Write-Host "Downloading latest stable nuget.exe..."
                     $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
@@ -401,7 +508,6 @@ function Update-PowerShellCore {
                     "/L*v"
                     $logFile
                 )
-                # Install PowerShell Core
                 Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
             }
             while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
@@ -411,15 +517,39 @@ function Update-PowerShellCore {
             Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
         }
     
+        # We need to load whatever versions of PackageManagement/PowerShellGet are available on the Local Host in order
+        # to use the Find-Module cmdlet to find out what the latest versions of each Module are...
+    
+        # ...but because there are sometimes issues with version compatibility between PackageManagement/PowerShellGet,
+        # after loading the latest PackageManagement Module we need to try/catch available versions of PowerShellGet until
+        # one of them actually loads
+        
         # Set LatestLocallyAvailable variables...
         $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-        $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+        #$PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+        $PSGetLocallyAvailableVersions = $(Get-Module -Name PowerShellGet -ListAvailable -All).Version | Sort-Object -Property Version | Get-Unique
+        $PSGetLocallyAvailableVersions = $PSGetLocallyAvailableVersions | Sort-Object -Descending
     
         if ($(Get-Module).Name -notcontains "PackageManagement") {
-            Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+            if ($PSVersionTable.PSVersion.Major -ge 5) {
+                Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+            }
+            else {
+                Import-Module "PackageManagement"
+            }
         }
         if ($(Get-Module).Name -notcontains "PowerShellGet") {
-            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+            foreach ($version in $PSGetLocallyAvailableVersions) {
+                try {
+                    $ImportedPSGetModule = Import-Module "PowerShellGet" -RequiredVersion $version -PassThru -ErrorAction SilentlyContinue
+                    if (!$ImportedPSGetModule) {throw}
+    
+                    break
+                }
+                catch {
+                    continue
+                }
+            }
         }
     
         if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0 -or
@@ -512,8 +642,6 @@ function Update-PowerShellCore {
                         }
                     }
     
-                    Write-Host "Updated `$env:Path is:`n$env:Path"
-    
                     if ($InstallNuGetCmdLine) {
                         # Next, install the NuGet CLI using the Chocolatey Repo
                         try {
@@ -561,8 +689,21 @@ function Update-PowerShellCore {
                         return
                     }
                     else {
-                        # 'choco update' aka 'cup' will update if already installed or install if not installed 
-                        Start-Process "cup" -ArgumentList "nuget.commandline -y" -Wait -NoNewWindow
+                        # 'choco update' aka 'cup' will update if already installed or install if not installed
+                        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.WorkingDirectory = $NuGetPackagesPath
+                        $ProcessInfo.FileName = "cup"
+                        $ProcessInfo.RedirectStandardError = $true
+                        $ProcessInfo.RedirectStandardOutput = $true
+                        $ProcessInfo.UseShellExecute = $false
+                        $ProcessInfo.Arguments = "nuget.commandline -y"
+                        $Process = New-Object System.Diagnostics.Process
+                        $Process.StartInfo = $ProcessInfo
+                        $Process.Start() | Out-Null
+                        $stdout = $($Process.StandardOutput.ReadToEnd()).Trim()
+                        $stderr = $($Process.StandardError.ReadToEnd()).Trim()
+                        $AllOutput = $stdout + $stderr
+                        $AllOutput = $AllOutput -split "`n"
                     }
                     # NOTE: The chocolatey install should take care of setting $env:Path and System PATH so that
                     # choco binaries and packages installed via chocolatey can be found here:
@@ -579,8 +720,8 @@ function Update-PowerShellCore {
         [version]$MinimumVer = "1.0.0.1"
         $PackageManagementLatestVersion = $(Find-Module PackageManagement).Version
         $PowerShellGetLatestVersion = $(Find-Module PowerShellGet).Version
-        Write-Host "PackageManagement Latest Version is: $PackageManagementLatestVersion"
-        Write-Host "PowerShellGetLatestVersion Latest Version is: $PowerShellGetLatestVersion"
+        Write-Verbose "PackageManagement Latest Version is: $PackageManagementLatestVersion"
+        Write-Verbose "PowerShellGetLatestVersion Latest Version is: $PowerShellGetLatestVersion"
     
         if ($PackageManagementLatestVersion -gt $PackageManagementLatestLocallyAvailableVersion -and $PackageManagementLatestVersion -gt $MinimumVer) {
             if ($PSVersionTable.PSVersion.Major -lt 5) {
@@ -607,13 +748,13 @@ function Update-PowerShellCore {
         # Reset the LatestLocallyAvailable variables, and then load them into the current session
         $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
         $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
-        Write-Host "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
-        Write-Host "Latest locally available PowerShellGet version is $PowerShellGetLatestLocallyAvailableVersion"
+        Write-Verbose "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
+        Write-Verbose "Latest locally available PowerShellGet version is $PowerShellGetLatestLocallyAvailableVersion"
     
         $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
         $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-        Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-        Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+        Write-Verbose "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+        Write-Verbose "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
     
         if ($CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestLocallyAvailableVersion) {
             # Need to remove PowerShellGet first since it depends on PackageManagement
@@ -623,7 +764,7 @@ function Update-PowerShellCore {
             Remove-Module -Name "PackageManagement"
         
             if ($(Get-Host).Name -ne "Package Manager Host") {
-                Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
+                Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
                 
                 # Need to Import PackageManagement first since it's a dependency for PowerShellGet
                 # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
@@ -633,7 +774,7 @@ function Update-PowerShellCore {
                 $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -ErrorVariable ImportPSGetProblems 2>&1 6>&1
             }
             if ($(Get-Host).Name -eq "Package Manager Host") {
-                Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
+                Write-Verbose "We ARE in the Visual Studio Package Management Console. Continuing..."
         
                 # Need to Import PackageManagement first since it's a dependency for PowerShellGet
                 # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
@@ -647,8 +788,8 @@ function Update-PowerShellCore {
         # Reset CurrentlyLoaded Variables
         $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
         $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-        Write-Host "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-        Write-Host "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+        Write-Verbose "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+        Write-Verbose "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
         
         if ($CurrentlyLoadedPowerShellGetVersion -lt $PowerShellGetLatestLocallyAvailableVersion) {
             if (!$ImportPSGetProblems) {
@@ -657,7 +798,7 @@ function Update-PowerShellCore {
             Remove-Module -Name "PowerShellGet"
         
             if ($(Get-Host).Name -ne "Package Manager Host") {
-                Write-Host "We are NOT in the Visual Studio Package Management Console. Continuing..."
+                Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
                 
                 # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
                 Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
@@ -692,8 +833,8 @@ function Update-PowerShellCore {
         # Reset CurrentlyLoaded Variables
         $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
         $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-        Write-Host "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-        Write-Host "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+        Write-Verbose "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+        Write-Verbose "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
     
         #$ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
         #$CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}

@@ -438,6 +438,103 @@ function Download-NuGetPackage {
             [switch]$InstallNuGetCmdLine
         )
     
+        ##### BEGIN Helper Functions #####
+    
+        function Check-Elevation {
+            if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+                [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                    [System.Security.Principal.WindowsIdentity]::GetCurrent()
+                )
+        
+                [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+        
+                if($currentPrincipal.IsInRole($administratorsRole)) {
+                    return $true
+                }
+                else {
+                    return $false
+                }
+            }
+            
+            if ($PSVersionTable.Platform -eq "Unix") {
+                if ($(whoami) -eq "root") {
+                    return $true
+                }
+                else {
+                    return $false
+                }
+            }
+        }
+    
+        function Get-NativePath {
+            [CmdletBinding()]
+            Param( 
+                [Parameter(Mandatory=$True)]
+                [string[]]$PathAsStringArray
+            )
+        
+            $PathAsStringArray = foreach ($pathPart in $PathAsStringArray) {
+                $SplitAttempt = $pathPart -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)
+                
+                if ($SplitAttempt.Count -gt 1) {
+                    foreach ($obj in $SplitAttempt) {
+                        $obj
+                    }
+                }
+                else {
+                    $pathPart
+                }
+            }
+            $PathAsStringArray = $PathAsStringArray -join [IO.Path]::DirectorySeparatorChar
+        
+            $PathAsStringArray
+        
+        }
+    
+        function Pause-ForWarning {
+            [CmdletBinding()]
+            Param(
+                [Parameter(Mandatory=$True)]
+                [int]$PauseTimeInSeconds,
+        
+                [Parameter(Mandatory=$True)]
+                $Message
+            )
+        
+            Write-Warning $Message
+            Write-Host "To answer in the affirmative, press 'y' on your keyboard."
+            Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
+        
+            $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
+            $stopwatch = [diagnostics.stopwatch]::StartNew()
+            while ($stopwatch.elapsed -lt $timeout){
+                if ([Console]::KeyAvailable) {
+                    $keypressed = [Console]::ReadKey("NoEcho").Key
+                    Write-Host "You pressed the `"$keypressed`" key"
+                    if ($keypressed -eq "y") {
+                        $Result = $true
+                        break
+                    }
+                    if ($keypressed -ne "y") {
+                        $Result = $false
+                        break
+                    }
+                }
+        
+                # Check once every 1 second to see if the above "if" condition is satisfied
+                Start-Sleep 1
+            }
+        
+            if (!$Result) {
+                $Result = $false
+            }
+            
+            $Result
+        }
+    
+        ##### END Helper Functions #####
+    
+    
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
     
         # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
@@ -530,7 +627,6 @@ function Download-NuGetPackage {
                     "/L*v"
                     $logFile
                 )
-                # Install PowerShell Core
                 Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
             }
             while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
@@ -540,15 +636,39 @@ function Download-NuGetPackage {
             Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
         }
     
+        # We need to load whatever versions of PackageManagement/PowerShellGet are available on the Local Host in order
+        # to use the Find-Module cmdlet to find out what the latest versions of each Module are...
+    
+        # ...but because there are sometimes issues with version compatibility between PackageManagement/PowerShellGet,
+        # after loading the latest PackageManagement Module we need to try/catch available versions of PowerShellGet until
+        # one of them actually loads
+        
         # Set LatestLocallyAvailable variables...
         $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-        $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+        #$PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+        $PSGetLocallyAvailableVersions = $(Get-Module -Name PowerShellGet -ListAvailable -All).Version | Sort-Object -Property Version | Get-Unique
+        $PSGetLocallyAvailableVersions = $PSGetLocallyAvailableVersions | Sort-Object -Descending
     
         if ($(Get-Module).Name -notcontains "PackageManagement") {
-            Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+            if ($PSVersionTable.PSVersion.Major -ge 5) {
+                Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+            }
+            else {
+                Import-Module "PackageManagement"
+            }
         }
         if ($(Get-Module).Name -notcontains "PowerShellGet") {
-            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+            foreach ($version in $PSGetLocallyAvailableVersions) {
+                try {
+                    $ImportedPSGetModule = Import-Module "PowerShellGet" -RequiredVersion $version -PassThru -ErrorAction SilentlyContinue
+                    if (!$ImportedPSGetModule) {throw}
+    
+                    break
+                }
+                catch {
+                    continue
+                }
+            }
         }
     
         if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0 -or
@@ -640,8 +760,6 @@ function Download-NuGetPackage {
                             }
                         }
                     }
-    
-                    Write-Host "Updated `$env:Path is:`n$env:Path"
     
                     if ($InstallNuGetCmdLine) {
                         # Next, install the NuGet CLI using the Chocolatey Repo

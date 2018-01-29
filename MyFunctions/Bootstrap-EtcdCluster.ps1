@@ -256,7 +256,6 @@ function Bootstrap-EtcdCluster {
                     "/L*v"
                     $logFile
                 )
-                # Install PowerShell Core
                 Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
             }
             while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
@@ -266,15 +265,39 @@ function Bootstrap-EtcdCluster {
             Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
         }
     
+        # We need to load whatever versions of PackageManagement/PowerShellGet are available on the Local Host in order
+        # to use the Find-Module cmdlet to find out what the latest versions of each Module are...
+    
+        # ...but because there are sometimes issues with version compatibility between PackageManagement/PowerShellGet,
+        # after loading the latest PackageManagement Module we need to try/catch available versions of PowerShellGet until
+        # one of them actually loads
+        
         # Set LatestLocallyAvailable variables...
         $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-        $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+        #$PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+        $PSGetLocallyAvailableVersions = $(Get-Module -Name PowerShellGet -ListAvailable -All).Version | Sort-Object -Property Version | Get-Unique
+        $PSGetLocallyAvailableVersions = $PSGetLocallyAvailableVersions | Sort-Object -Descending
     
         if ($(Get-Module).Name -notcontains "PackageManagement") {
-            Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+            if ($PSVersionTable.PSVersion.Major -ge 5) {
+                Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion
+            }
+            else {
+                Import-Module "PackageManagement"
+            }
         }
         if ($(Get-Module).Name -notcontains "PowerShellGet") {
-            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+            foreach ($version in $PSGetLocallyAvailableVersions) {
+                try {
+                    $ImportedPSGetModule = Import-Module "PowerShellGet" -RequiredVersion $version -PassThru -ErrorAction SilentlyContinue
+                    if (!$ImportedPSGetModule) {throw}
+    
+                    break
+                }
+                catch {
+                    continue
+                }
+            }
         }
     
         if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0 -or
@@ -367,8 +390,6 @@ function Bootstrap-EtcdCluster {
                         }
                     }
     
-                    Write-Host "Updated `$env:Path is:`n$env:Path"
-    
                     if ($InstallNuGetCmdLine) {
                         # Next, install the NuGet CLI using the Chocolatey Repo
                         try {
@@ -378,7 +399,10 @@ function Bootstrap-EtcdCluster {
                                 Start-Sleep -Seconds 2
                             }
                             
-                            Get-Package NuGet.CommandLine -ErrorAction Stop
+                            Get-Package NuGet.CommandLine -ErrorAction SilentlyContinue
+                            if (!$?) {
+                                throw
+                            }
                         } 
                         catch {
                             Install-Package Nuget.CommandLine -Source chocolatey -Force
@@ -559,7 +583,9 @@ function Bootstrap-EtcdCluster {
         $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
         Write-Verbose "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
         Write-Verbose "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
-        
+    
+        #$ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
+        #$CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
         if ($($ImportPackManProblems | Out-String) -match "Assembly with same name is already loaded" -or 
             $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
             $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
