@@ -1,54 +1,54 @@
 <#
-.SYNOPSIS
-    Install and/or Update the PackageManagement PowerShell Module and/or the PowerShellGet PowerShell Module.
+    .SYNOPSIS
+        Install and/or Update the PackageManagement PowerShell Module and/or the PowerShellGet PowerShell Module.
 
-    IMPORTANT: This script can be used on systems with PowerShell Version 3 and higher
+        IMPORTANT: This script can be used on systems with PowerShell Version 3 and higher
 
-.DESCRIPTION
-    PowerShell versions 3 and 4 do NOT have the PackageManagement and PowerShellGet Modules installed by default.
-    If you are running PowerShell 3 or 4 and these modules are NOT installed, it will download PackageMangement_x64.msi
-    from Microsoft and install it (thereby installing the Modules) and upgrade the Modules the latest version available
-    in the PSGallery PackageProvider Source repo (NOTE: The PackageManagement module is not able to be upgraded beyond
-    version 1.0.0.1 on PowerShell 3 or 4, unless you upgrade PowerShell itself to version 5 or higher).
+    .DESCRIPTION
+        PowerShell versions 3 and 4 do NOT have the PackageManagement and PowerShellGet Modules installed by default.
+        If you are running PowerShell 3 or 4 and these modules are NOT installed, it will download PackageMangement_x64.msi
+        from Microsoft and install it (thereby installing the Modules) and upgrade the Modules the latest version available
+        in the PSGallery PackageProvider Source repo (NOTE: The PackageManagement module is not able to be upgraded beyond
+        version 1.0.0.1 on PowerShell 3 or 4, unless you upgrade PowerShell itself to version 5 or higher).
 
-    PowerShell version 5 and higher DOES come with PackageManagement and PowerShellGet Modules (both version
-    1.0.0.1) by default. This script will install the latest versions of these Modules ALONGSIDE
-    (i.e. SIDE-BY-SIDE MODE) the older versions...because that's apparently how Microsoft wants to
-    handle this for the time being.
+        PowerShell version 5 and higher DOES come with PackageManagement and PowerShellGet Modules (both version
+        1.0.0.1) by default. This script will install the latest versions of these Modules ALONGSIDE
+        (i.e. SIDE-BY-SIDE MODE) the older versions...because that's apparently how Microsoft wants to
+        handle this for the time being.
 
-    At the conclusion of this script, the PowerShell Sessionw will have the latest versions of the PackageManagement and 
-    PowerShellGet Modules loaded via Import-Module. (Verify with Get-Module).
+        At the conclusion of this script, the PowerShell Sessionw will have the latest versions of the PackageManagement and 
+        PowerShellGet Modules loaded via Import-Module. (Verify with Get-Module).
 
-.NOTES
-    ##### Regarding PowerShell Versions Lower than 5 #####
+    .NOTES
+        ##### Regarding PowerShell Versions Lower than 5 #####
 
-    Installation of the PackageManagement_x64.msi is necessary. Installing this .msi gives us version 1.0.0.1 of the 
-    PackageManagement Module and version 1.0.0.1 of PowerShellGet Module (as well as the PowerShellGet PackageProvider 
-    and the PowerShellGet PackageProvider Source called PSGallery).
+        Installation of the PackageManagement_x64.msi is necessary. Installing this .msi gives us version 1.0.0.1 of the 
+        PackageManagement Module and version 1.0.0.1 of PowerShellGet Module (as well as the PowerShellGet PackageProvider 
+        and the PowerShellGet PackageProvider Source called PSGallery).
 
-    However, these are NOT the latest versions of these Modules. You can update the PowerShellGet Module from 1.0.0.1 to
-    the latest version by using Install-Module -Force. Unfortunately, it is not possible to update the PackageManagement
-    Module itself using this method, because it will complain about it being in use (which it is, since the Install-Module
-    cmdlet belongs to the PackageManagement Module).
+        However, these are NOT the latest versions of these Modules. You can update the PowerShellGet Module from 1.0.0.1 to
+        the latest version by using Install-Module -Force. Unfortunately, it is not possible to update the PackageManagement
+        Module itself using this method, because it will complain about it being in use (which it is, since the Install-Module
+        cmdlet belongs to the PackageManagement Module).
 
-    It is important to note that updating PowerShellGet using Install-Module -Force in PowerShell versions lower than 5
-    actually REMOVES 1.0.0.1 and REPLACES it with the latest version. (In PowerShell version 5 and higher, it installs
-    the new version of the Module ALONGSIDE the old version.)
+        It is important to note that updating PowerShellGet using Install-Module -Force in PowerShell versions lower than 5
+        actually REMOVES 1.0.0.1 and REPLACES it with the latest version. (In PowerShell version 5 and higher, it installs
+        the new version of the Module ALONGSIDE the old version.)
 
-    There is currently no way to update the PackageManagement Module to a version newer than 1.0.0.1 without actually updating
-    PowerShell itself to version 5 or higher.
+        There is currently no way to update the PackageManagement Module to a version newer than 1.0.0.1 without actually updating
+        PowerShell itself to version 5 or higher.
 
 
-    ##### Regarding PowerShell Versions 5 And Higher #####
+        ##### Regarding PowerShell Versions 5 And Higher #####
 
-    The PackageManagement Module version 1.0.0.1 and PowerShellGet Module version 1.0.0.1 are already installed.
+        The PackageManagement Module version 1.0.0.1 and PowerShellGet Module version 1.0.0.1 are already installed.
 
-    It is possible to update both Modules using Install-Module -Force, HOWEVER, the newer versions will be installed
-    ALONGSIDE (aka SIDE-BY-SIDE mode) the older versions. In future PowerShell Sessions, you need to specify which version
-    you want to use when you import the module(s) using Import-Module -RequiredVersion
+        It is possible to update both Modules using Install-Module -Force, HOWEVER, the newer versions will be installed
+        ALONGSIDE (aka SIDE-BY-SIDE mode) the older versions. In future PowerShell Sessions, you need to specify which version
+        you want to use when you import the module(s) using Import-Module -RequiredVersion
 
-.EXAMPLE
-    Update-PackageManagement -UseChocolatey
+    .EXAMPLE
+        Update-PackageManagement -UseChocolatey
 
 #>
 
@@ -251,7 +251,6 @@ function Update-PackageManagement {
                 "/L*v"
                 $logFile
             )
-            # Install PowerShell Core
             Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow
         }
         while ($($(Get-Module -ListAvailable).Name -notcontains "PackageManagement") -and $($(Get-Module -ListAvailable).Name -notcontains "PowerShellGet")) {
@@ -261,9 +260,18 @@ function Update-PackageManagement {
         Write-Host "PackageManagement and PowerShellGet Modules are ready. Continuing..."
     }
 
+    # We need to load whatever versions of PackageManagement/PowerShellGet are available on the Local Host in order
+    # to use the Find-Module cmdlet to find out what the latest versions of each Module are...
+
+    # ...but because there are sometimes issues with version compatibility between PackageManagement/PowerShellGet,
+    # after loading the latest PackageManagement Module we need to try/catch available versions of PowerShellGet until
+    # one of them actually loads
+    
     # Set LatestLocallyAvailable variables...
     $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+    #$PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+    $PSGetLocallyAvailableVersions = $(Get-Module -Name PowerShellGet -ListAvailable -All).Version | Sort-Object -Property Version | Get-Unique
+    $PSGetLocallyAvailableVersions = $PSGetLocallyAvailableVersions | Sort-Object -Descending
 
     if ($(Get-Module).Name -notcontains "PackageManagement") {
         if ($PSVersionTable.PSVersion.Major -ge 5) {
@@ -274,11 +282,16 @@ function Update-PackageManagement {
         }
     }
     if ($(Get-Module).Name -notcontains "PowerShellGet") {
-        if ($PSVersionTable.PSVersion.Major -ge 5) {
-            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
-        }
-        else {
-            Import-Module "PowerShellGet"
+        foreach ($version in $PSGetLocallyAvailableVersions) {
+            try {
+                $ImportedPSGetModule = Import-Module "PowerShellGet" -RequiredVersion $version -PassThru -ErrorAction SilentlyContinue
+                if (!$ImportedPSGetModule) {throw}
+
+                break
+            }
+            catch {
+                continue
+            }
         }
     }
 
@@ -371,8 +384,6 @@ function Update-PackageManagement {
                         }
                     }
                 }
-
-                Write-Host "Updated `$env:Path is:`n$env:Path"
 
                 if ($InstallNuGetCmdLine) {
                     # Next, install the NuGet CLI using the Chocolatey Repo
@@ -590,15 +601,11 @@ function Update-PackageManagement {
 
 
 
-
-
-
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmG+L95iiQ1OvEPSwiw07d3XV
-# 4Mugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUSIzUNLmyvdC3pouczk6Qmk+9
+# TBGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -655,11 +662,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCcLiS3HS8nPHazT
-# WGvFJeZPifZPMA0GCSqGSIb3DQEBAQUABIIBAJm2WpTIuPcKnrNc54N/6ePt6QLY
-# 6sVWrhCLES9YtUlYPiFA740sarK/f18a/esv9KFCaVcqO5oVKZom8JkWbs6c5HEZ
-# JXABcdW5/Dn6AJExy9eKXgBJKEXZ2MpjrxDiieq7aml65giD+dqKOzKa/JqGGK4B
-# 0kwmoToAmlmQgMYNOzjaRMt86o7cX1sWYaxD+1x35UoGtkOJQEkByD+nfpnc2bFK
-# 5DPU7WWCr14GtvvfuFTSK0sxgcPTkk0zjnNmQThT6FyE9rMkaSJddXnb7uHUAwt7
-# jxADil8BrXi7YOkMtGLr/Sr5yC0/fXWVaV9EhfxOXnvkuYUuUg5Rgn3xkBM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDHRksPwQmSR8lNq
+# kDIWTyDhDpDxMA0GCSqGSIb3DQEBAQUABIIBAB0OjrSiFT9o2Gb0oipNTf/Wzkko
+# IVtvYBWXyHMsJPGaOFU38zuO8uF7U0Wq4GTrZb7kgKKXan5daCIcYGBNf0qyXSdq
+# n0RF4k7BYF411DicySNhbuMSVVhRjbBgNK45zBj0UPrBTTGxilVsuxj+23kfHepY
+# LV50aN4wtDBYDZD3rGY/X056uxGuy3wA4HqZWI5Ffbek0jO2qut2b3lZ03XIjYOc
+# aX5fwafuJtD9WlSG9Yqm0BXOKuJuRBfNerXT7upzrR4mm7NdaP7k7JKJAew8DwXC
+# fRHSQ3xr8Itx95K7N7KrwWPp1kxXJrXmnrpQKVAluyU0wjYBkiUOT1IJx/g=
 # SIG # End signature block
