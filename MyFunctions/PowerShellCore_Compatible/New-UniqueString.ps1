@@ -8,7 +8,7 @@ function New-UniqueString {
         [string]$PossibleNewUniqueString
     )
 
-    if (!$ArrayOfStrings -or $ArrayOfStrings.Count -eq 0 -or $ArrayOfStrings -notcontains "[\w]") {
+    if (!$ArrayOfStrings -or $ArrayOfStrings.Count -eq 0 -or ![bool]$($ArrayOfStrings -match "[\w]")) {
         $PossibleNewUniqueString
     }
     else {
