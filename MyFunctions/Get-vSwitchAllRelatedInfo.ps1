@@ -209,43 +209,45 @@ function Get-vSwitchAllRelatedInfo {
     $GroupByMacAddress = $DetailedvSwitchInfoPSObjects.DetailedvSwitchInfo | Group-Object -Property MacAddress
     # It's possible that the number of parameters referencing one device equal the number of parameters that
     # reference another device. If that happens, we need to ask the user which one they want.
-    if ($($GroupByMacAddress | Select-Object -ExpandProperty Count | Sort-Object | Get-Unique).Count -eq 1) {
-        Write-Warning "Unable to get consensus on which Device should be targeted!"
-        
-        [System.Collections.ArrayList]$DeviceOptionsPSObjects = @()
-        foreach ($item in $($GroupByMacAddress.Group | Sort-Object | Get-Unique)) {
-            $SwitchName = $item.SwitchName
-            $NetAdapterInfo = Get-NetAdapter | Where-Object {$($_.MacAddress -replace '-','') -eq $item.MacAddress}
-            $IPInfo = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetAdapterInfo.InterfaceAlias
+    if ($GroupByMacAddress.Count -gt 1) {
+        if ($($GroupByMacAddress | Select-Object -ExpandProperty Count | Sort-Object | Get-Unique).Count -eq 1) {
+            Write-Warning "Unable to get consensus on which Device should be targeted!"
+            
+            [System.Collections.ArrayList]$DeviceOptionsPSObjects = @()
+            foreach ($item in $($GroupByMacAddress.Group | Sort-Object | Get-Unique)) {
+                $SwitchName = $item.SwitchName
+                $NetAdapterInfo = Get-NetAdapter | Where-Object {$($_.MacAddress -replace '-','') -eq $item.MacAddress}
+                $IPInfo = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetAdapterInfo.InterfaceAlias
 
-            $OptionPSObject = [pscustomobject]@{
-                SwitchName         = $SwitchName
-                InterfaceAlias     = $NetAdapterInfo.InterfaceAlias
-                IPAddress          = $IPInfo.IPAddress
-                MacAddress         = $item.MacAddress
+                $OptionPSObject = [pscustomobject]@{
+                    SwitchName         = $SwitchName
+                    InterfaceAlias     = $NetAdapterInfo.InterfaceAlias
+                    IPAddress          = $IPInfo.IPAddress
+                    MacAddress         = $item.MacAddress
+                }
+
+                $null = $DeviceOptionsPSObjects.Add($OptionPSObject)
             }
 
-            $null = $DeviceOptionsPSObjects.Add($OptionPSObject)
-        }
-
-        Write-Host "`nPotential matching Devices are as follows:`n"
-        for ($i=0; $i -lt $DeviceOptionsPSObjects.Count; $i++) {
-            $WriteHostString = "$i) vSwitchName: $($DeviceOptionsPSObjects[$i].SwitchName); " +
-            "NetworkAdapterAlias: $($DeviceOptionsPSObjects[$i].InterfaceAlias); " +
-            "IPAddress: $($DeviceOptionsPSObjects[$i].IPAddress); " +
-            "MacAddress: $($DeviceOptionsPSObjects[$i].MacAddress)"
-            Write-Host $WriteHostString
-        }
-        
-        $ValidChoiceNumbers = 0..$($DeviceOptionsPSObjects.Count-1)
-        Write-Host ""
-        $ChoiceNumber = Read-Host -Prompt "Please enter the number that corresponds to the Device you would like to gather information about. [$($ValidChoiceNumbers -join '|')]"
-        while ($ValidChoiceNumbers -notcontains $ChoiceNumber) {
-            Write-Host "$ChoiceNumber is NOT a valid choice number! Valid options are: $($ValidChoiceNumbers -join ', ')"
+            Write-Host "`nPotential matching Devices are as follows:`n"
+            for ($i=0; $i -lt $DeviceOptionsPSObjects.Count; $i++) {
+                $WriteHostString = "$i) vSwitchName: $($DeviceOptionsPSObjects[$i].SwitchName); " +
+                "NetworkAdapterAlias: $($DeviceOptionsPSObjects[$i].InterfaceAlias); " +
+                "IPAddress: $($DeviceOptionsPSObjects[$i].IPAddress); " +
+                "MacAddress: $($DeviceOptionsPSObjects[$i].MacAddress)"
+                Write-Host $WriteHostString
+            }
+            
+            $ValidChoiceNumbers = 0..$($DeviceOptionsPSObjects.Count-1)
+            Write-Host ""
             $ChoiceNumber = Read-Host -Prompt "Please enter the number that corresponds to the Device you would like to gather information about. [$($ValidChoiceNumbers -join '|')]"
-        }
+            while ($ValidChoiceNumbers -notcontains $ChoiceNumber) {
+                Write-Host "$ChoiceNumber is NOT a valid choice number! Valid options are: $($ValidChoiceNumbers -join ', ')"
+                $ChoiceNumber = Read-Host -Prompt "Please enter the number that corresponds to the Device you would like to gather information about. [$($ValidChoiceNumbers -join '|')]"
+            }
 
-        $MacAddressThatAppearsMostOften = $DeviceOptionsPSObjects[$ChoiceNumber].MacAddress
+            $MacAddressThatAppearsMostOften = $DeviceOptionsPSObjects[$ChoiceNumber].MacAddress
+        }
     }
     else {
         $MacAddressThatAppearsMostOften = $($GroupByMacAddress | Sort-Object -Property Count)[-1].Name
@@ -313,8 +315,8 @@ function Get-vSwitchAllRelatedInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQKCbzecotX7XuFCSYCYq3PJr
-# xiqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcF41/l6lPfr2iiCbIs7iOoNj
+# iQagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -371,11 +373,11 @@ function Get-vSwitchAllRelatedInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEqQbMsJBH4ytZPK
-# 0DWQwnzKdMlzMA0GCSqGSIb3DQEBAQUABIIBAC/Rk2soll4qf/zSrmYM8FVSFmts
-# z1TgBR8EAY/9m1EGmsBaoWaFrduIX6liXskOrU/0pQXy7dU3/cjpw/ox/ukzFkHr
-# pkplgfJAUG35h7VHyputMKqvXalP18LD33689gf/3fJQd9H2My/5ye4Tef3tSSHL
-# oMPdWCi+rK6xFkj/ZIVe9BR/JpfWpw+xTPcnS1TnmXM0kzt+Udn0cgFsipjYsApX
-# ZgL56+QB1xsLx+o1Xx2z3pti/CpDGt2xDv9CP1BxOoyDIDriGTS8jk8udIm1UVcu
-# s2hZite8WNIsxC5LXuZZmhG0mCSNz3aM3VlAWRXJnsGmnwPkRE1ilBSitmo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPrYhkDCissqrnhL
+# EV6UToiqaIInMA0GCSqGSIb3DQEBAQUABIIBALQoXu9EnrLqu5EK4JiiBTDk7uIg
+# kVU7GQVxMVShbVCdqs49YqL9SIK2u47YX4FeUwhA3wcbSXDfu5bpqFHM9eGSMRqn
+# AS4EqYtL2nhY0PUWL8bkZ+FJWvLEqnGHhwnC24PjV0q/wW/8mvtE7voSag5CAmWQ
+# rxWesWqTmYCYary5i3qFjbPCpl8XlIZl9V0wUVI6e0oDzpRY+KbFdTNdR88itLF9
+# v6+9Vvot3MZsEg/CuBQ4I9NUqqSv9Limh/IyK/gCz/1k/1t0q7GTDHDfv5iZR6XS
+# 6WTC4ZUbwa0Yrl1D9zu4+5tySoNNPCUGw236itf+RcTGgOrW0ZnwMU9A3Ek=
 # SIG # End signature block
