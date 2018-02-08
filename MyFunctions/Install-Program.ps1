@@ -296,6 +296,17 @@ function Install-Program {
         }
     }
 
+    # If PackageManagement/PowerShellGet is installed, determine if $ProgramName is installed
+    if ([bool]$(Get-Command Get-Package -ErrorAction SilentlyContinue)) {
+        $PackageManagementInstalledPrograms = Get-Package
+
+        # If teh Current Installed Version is not equal to the Latest Version available, then it's outdated
+        if ($PackageManagementInstalledPrograms.Name -contains $ProgramName) {
+            $PackageManagementCurrentInstalledPackage = $PackageManagementInstalledPrograms | Where-Object {$_.Name -eq $ProgramName}
+            $PackageManagementLatestVersion = $(Find-Package -Name $ProgramName -Source chocolatey -AllVersions | Sort-Object -Property Version)[-1]
+        }
+    }
+
     # If the Chocolatey CmdLine is installed, get a list of programs installed via Chocolatey
     if ([bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
         $ChocolateyInstalledProgramsPrep = clist --local-only
@@ -312,18 +323,40 @@ function Install-Program {
 
             $null = $ChocolateyInstalledProgramsPSObjects.Add($PSCustomObject)
         }
+
+        # Also get a list of outdated packages in case this Install-Program function is used to update a package
+        $ChocolateyOutdatedProgramsPrep = choco outdated
+        $UpperLineMatch = $ChocolateyOutdatedProgramsPrep -match "Output is package name"
+        $LowerLineMatch = $ChocolateyOutdatedProgramsPrep -match "Chocolatey has determined"
+        $UpperIndex = $ChocolateyOutdatedProgramsPrep.IndexOf($UpperLineMatch) + 2
+        $LowerIndex = $ChocolateyOutdatedProgramsPrep.IndexOf($LowerLineMatch) - 2
+        $ChocolateyOutdatedPrograms = $ChocolateyOutdatedProgramsPrep[$UpperIndex..$LowerIndex]
+
+        [System.Collections.ArrayList]$ChocolateyOutdatedProgramsPSObjects = @()
+        foreach ($line in $ChocolateyOutdatedPrograms) {
+            $ParsedLine = $line -split "\|"
+            $Program = $ParsedLine[0]
+            $CurrentInstalledVersion = $ParsedLine[1]
+            $LatestAvailableVersion = $ParsedLine[2]
+
+            $PSObject = [pscustomobject]@{
+                ProgramName                 = $Program
+                CurrentInstalledVersion     = $CurrentInstalledVersion
+                LatestAvailableVersion      = $LatestAvailableVersion
+            }
+
+            $null = $ChocolateyOutdatedProgramsPSObjects.Add($PSObject)
+        }
     }
 
     if ($CommandName -match "\.exe") {
         $CommandName = $CommandName -replace "\.exe",""
     }
-
     $FinalCommandName = if ($CommandName) {$CommandName} else {$ProgramName}
 
     # Save the original System PATH and $env:Path before we do anything, just in case
     $OriginalSystemPath = $(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
     $OriginalEnvPath = $env:Path
-
     Synchronize-SystemPathEnvPath
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -331,9 +364,15 @@ function Install-Program {
 
     ##### BEGIN Main Body #####
 
-    # Install $ProgramName if it's not already...
-    if (![bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue) -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName) {
-        if ($UsePackageManagement -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine)) {
+    # Install $ProgramName if it's not already or if it's outdated...
+    if ($($PackageManagementInstalledPrograms.Name -notcontains $ProgramName  -and
+    $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName) -or
+    $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion -or
+    $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
+    ) {
+        if ($UsePackageManagement -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine) -or 
+        $PackageManagementInstalledPrograms.Name -contains $ProgramName -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName
+        ) {
             # NOTE: The PackageManagement install of $ProgramName is unreliable, so just in case, fallback to the Chocolatey cmdline for install
             $null = Install-Package $ProgramName -Force -ErrorVariable InstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
             if ($InstallError.Count -gt 0) {
@@ -359,7 +398,9 @@ function Install-Program {
             }
         }
 
-        if (!$PMInstall -or $UseChocolateyCmdLine) {
+        if (!$PMInstall -or $UseChocolateyCmdLine -or
+        $ChocolateyInstalledProgramsPSObjects.ProgramName -contains $ProgramName
+        ) {
             try {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
@@ -625,7 +666,7 @@ function Install-Program {
         $FinalExeLocation = $(Get-Command $FinalCommandName).Source
     }
 
-    if ($ChocoInstall -or $(clist --local-only) -match $ProgramName) {
+    if ($ChocoInstall) {
         $InstallManager = "choco.exe"
         $InstallCheck = $(clist --local-only $ProgramName)[1]
     }
@@ -634,9 +675,22 @@ function Install-Program {
         $InstallCheck = Get-Package $ProgramName -ErrorAction SilentlyContinue
     }
 
+    if ($AlreadyInstalled) {
+        $InstallAction = "AlreadyInstalled"
+    }
+    elseif ($PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion -or
+    $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
+    ) {
+        $InstallAction = "Updated"
+    }
+    else {
+        $InstallAction = "FreshInstall"
+    }
+
+
     [pscustomobject]@{
         InstallManager      = $InstallManager
-        AlreadyInstalled    = if ($AlreadyInstalled) {$True} else {$False}
+        InstallAction       = $InstallAction
         InstallCheck        = $InstallCheck
         MainExecutable      = $FinalExeLocation
         OriginalSystemPath  = $OriginalSystemPath
@@ -688,8 +742,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGsU9pSOKZ0eNwzds/5O9pc8r
-# ERWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQ0j96oSR1NbLzOOxa//ozpjv
+# nSWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -746,11 +800,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLFd1C5FqbteTkK2
-# W056uzbYC57AMA0GCSqGSIb3DQEBAQUABIIBABjOa/XWjJVOsgtY9v/KL1L5JID3
-# gnZ9gsW/ghljU9zUUcTxKHdSE5ma9jzH2COUt4jNiI/Tz07Vx4+4SG3LTz/QeLlw
-# 74wMvwRvNqezBbLyNjntcHYGCXN5+094rqBpRoazlPfKE0V8/aie7FKxUEmWUWW5
-# CJ6cjUeNVi0VmfQZOWtnRCP/WbLNfJBP9yy91qcWUGMQUJcsSzmomLtI2ZfAuYcz
-# pjEzyDbQIdMrDn5jUAXf0Tlr7MM/LnCW+91WtPTXHOAuxithrAE49gtzOQrsCCn2
-# DsPwqqi6j7WF5XVZ2Ymem49D3G8DYG0/zSbNhP4ueOpjwOTnoG1wy1K/9a4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE6NJtuC+mzaCTuF
+# qUqQBWFsIqAEMA0GCSqGSIb3DQEBAQUABIIBAH9L4IvmhyM3C/mlA9rTKG2YdneL
+# SZdUjk0LhtkQqcLSjISUXAUPkLpFPeLX7ptygOPk5LjM58+cvO1amEXravoo1ttA
+# W7hQW8xWVkM7ptCyhNezKPbddPQ5eQilKjS8wbf3Yx0ZXUOSxHO9SWML8KZboSKK
+# 5D2ZaTeUaHj3+VxQnvxdsT/hGX5aJXCW0eh0eDaP6YMKYmf6hbhYghhsbefOj5HM
+# y7WEXSFxSvJQ0HeIlDMsqxUOH46fiCf7v99T8Uhm2Lz9bKDEbO0mJpbAmy2apkTQ
+# jc5OVQMslnrFbXDIzjwnEJNI9AWcRqavwv5tClhoeIvu4IvnrrPgiqQz6Kw=
 # SIG # End signature block
