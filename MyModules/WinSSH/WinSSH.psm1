@@ -3847,6 +3847,7 @@ function New-SSHKey {
         [System.Security.SecureString]$NewSSHKeyPwd,
 
         [Parameter(Mandatory=$False)]
+        [ValidatePattern("^\w*$")] # No spaces allowed
         [string]$NewSSHKeyPurpose,
 
         [Parameter(Mandatory=$False)]
@@ -4603,8 +4604,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUppXKhNRvyQRKLEeXHK+/bJ8W
-# ylSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6VDaC3aUR1/Sy8xzJSy+HzLR
+# zPigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4661,11 +4662,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFH+94i57oELWzllQ
-# MFuPrf0mxEZUMA0GCSqGSIb3DQEBAQUABIIBAK2CzXYcypypvDTOHcA3iJVERkNC
-# cEmbeuz42DRuojlLaFr0gzUc0BTpHOwoB9Anw80ic6L69+U2pvPApO0vU7ee9Uwm
-# zBbqKW/tOR2s5ILk9jIc7X5fahkNL5+8d/+5Db70xnaESqdfttsGFNAUUtSyJNo2
-# aqh0iBICAoJuRocNKWm6S/F9eF1T2ZyKDxnMHz87Syrp4euUtP3g3PxvzEX6lha3
-# 51ZfqAiPKZMG5hQ9AAwyobgDjLnPVxY9n9ajnRJFjc63XJu5CeKlRyu02i+hukDV
-# HEGB3lDfBpY/SfnKGNHKvsINHtNIigjnjMvZ3d0R64fPJlY9YhLIpxJwI70=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFElSxsjzscoUGWiW
+# 0Fh1oSvNYMNHMA0GCSqGSIb3DQEBAQUABIIBAKBuF3obzPjLXCTxICQGTygicSco
+# GgMkh/PWV4/qj8WqkEmadpPHtNUD+wfUvBQA2lgAR90E5dSe7MF89qKwvkRD0f0r
+# ipLY2alnzMuK+sfiUjF7y+RmWrey7EsFtWyi6h1b90QoGgQZezjGwAfq26TCo8QF
+# WZGiUFzpx2XNMLYKdrl1pb8xpEQJe34vWrafZfZHR/Bi3R1gPf9bvYUYdhalGr2h
+# S82nVDtIE0eh2DDPlLlOgYgmKuLEIqHbuOlLSQTlhOq6AnMuGymyWL9lr59gc5pn
+# s7jfFgY5DMWTyUD1iUOEokM/6sOywIxuiNgImlMwlxj1nZC5JCxmZwMpDJM=
 # SIG # End signature block
