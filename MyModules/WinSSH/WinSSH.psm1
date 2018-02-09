@@ -3541,6 +3541,29 @@ function Install-SSHAgentService {
         return
     }
 
+    if ($(Get-Module -ListAvailable).Name -notcontains "NTFSSecurity") {
+        try {
+            Install-Module -Name NTFSSecurity -ErrorAction SilentlyContinue -ErrorVariable NTFSSecInstallErr
+            if ($NTFSSecInstallErr) {throw "Problem installing the NTFSSecurity Module!"}
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    if ($(Get-Module).Name -notcontains "NTFSSecurity") {
+        try {
+            $NTFSSecImport = Import-Module NTFSSecurity -ErrorAction SilentlyContinue -PassThru
+            if (!$NTFSSecImport) {throw "Problem importing module NTFSSecurity!"}
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
     $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
     $sshagentpath = $(Get-ChildItem -Path $OpenSSHWinPath -Recurse -File -Filter "*ssh-agent.exe").FullName 
     $logsdir = "$OpenSSHWinPath\logs"
@@ -3551,14 +3574,19 @@ function Install-SSHAgentService {
     }
 
     New-Service -Name ssh-agent -BinaryPathName "$sshagentpath" -Description "SSH Agent" -StartupType Automatic | Out-Null
-    # pldmgg NOTE: I have no idea about the below...
+    # pldmgg NOTE: I have no idea about the below...ask the original authors...
     cmd.exe /c 'sc.exe sdset ssh-agent D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RP;;;AU)'
 
     # create logs folder and set its permissions
     if (-not $(Test-Path $logsdir -PathType Container)) {
         $null = New-Item $logsdir -ItemType Directory -Force -ErrorAction Stop
     }
+    $agentlog = Join-Path $logsdir "ssh-agent.log"
+    if(-not (Test-Path $agentlog)){ $null | Set-Content $agentlog }
 
+    # pldmgg NOTE: The below commented code from the original authors is not reliable or readable
+    # Using NTFSSecurity Module instead...
+    <#
     $acl = Get-Acl -Path $logsdir
     # following SDDL implies 
     # - owner - built in Administrators
@@ -3567,21 +3595,37 @@ function Install-SSHAgentService {
     # - Full access to built in Administrators
     $acl.SetSecurityDescriptorSddlForm("O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")
     Set-Acl -Path $logsdir -AclObject $acl
+    #Set-Acl -Path $agentlog -AclObject $acl
+    #>
 
-    # pldmgg NOTE: The NTFSSecurity Module equivalent for the above is...
-    <#
-        $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $logsdir
+    # Special Permissions for the logs directory
+    $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $logsdir
+    $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+    $SecurityDescriptor | Clear-NTFSAccess
+    $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
+    $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
+    #$SecurityDescriptor | Add-NTFSAccess -Account Users -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
+    if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+        $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+    }
+    $SecurityDescriptor | Set-NTFSSecurityDescriptor
+    Remove-Variable -Name "SecurityDescriptor"
+
+    # Finally, log files inherit from C:\Program Files\OpenSSH-Win64\logs
+    [System.Collections.ArrayList][Array]$OpenSSHWin64LogFiles = $(Get-ChildItem $logsdir).FullName
+    foreach ($item in $OpenSSHWin64LogFiles) {
+        $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $item
         $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
         $SecurityDescriptor | Clear-NTFSAccess
         $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
         $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
-        $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+        #$SecurityDescriptor | Add-NTFSAccess -Account Users -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
+        if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+            $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+        }
         $SecurityDescriptor | Set-NTFSSecurityDescriptor
-    #> 
-
-    $agentlog = Join-Path $logsdir "ssh-agent.log"
-    if(-not (Test-Path $agentlog)){ $null | Set-Content $agentlog }
-    Set-Acl -Path $agentlog -AclObject $acl
+        Remove-Variable -Name "SecurityDescriptor"
+    }
 
     Write-Host -ForegroundColor Green "The ssh-agent service was successfully installed! Starting the service..."
     Start-Service ssh-agent -Passthru
@@ -4201,9 +4245,11 @@ function Fix-SSHPermissions {
         }
     }
 
+    $OpenSSHWin64InstallDir = "$env:ProgramFiles\OpenSSH-Win64"
+
     if (!$HomeFolderAndSubItemsOnly) {
         # Fix Permissions on C:\Program Files\OpenSSH-Win64 Directory ...
-        $OpenSSHWin64DirSecurityDescriptor = Get-NTFSSecurityDescriptor -Path "$env:ProgramFiles\OpenSSH-Win64"
+        $OpenSSHWin64DirSecurityDescriptor = Get-NTFSSecurityDescriptor -Path $OpenSSHWin64InstallDir
         $OpenSSHWin64DirSecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
         $OpenSSHWin64DirSecurityDescriptor | Clear-NTFSAccess
         $OpenSSHWin64DirSecurityDescriptor | Enable-NTFSAccessInheritance
@@ -4211,24 +4257,24 @@ function Fix-SSHPermissions {
 
         # Fix Permissions on files that have their Permissions Inherited from C:\Program Files ...
         [System.Collections.ArrayList]$InheritedFromPF = @(
-            "C:\Program Files\OpenSSH-Win64\FixHostFilePermissions.ps1"
-            "C:\Program Files\OpenSSH-Win64\FixUserFilePermissions.ps1"
-            "C:\Program Files\OpenSSH-Win64\install-sshd.ps1"
-            "C:\Program Files\OpenSSH-Win64\libcrypto.dll"
-            "C:\Program Files\OpenSSH-Win64\OpenSSHUtils.psd1"
-            "C:\Program Files\OpenSSH-Win64\OpenSSHUtils.psm1"
-            "C:\Program Files\OpenSSH-Win64\scp.exe"
-            "C:\Program Files\OpenSSH-Win64\Set-SSHDefaultShell.ps1"
-            "C:\Program Files\OpenSSH-Win64\sftp.exe"
-            "C:\Program Files\OpenSSH-Win64\sftp-server.exe"
-            "C:\Program Files\OpenSSH-Win64\ssh.exe"
-            "C:\Program Files\OpenSSH-Win64\ssh-add.exe"
-            "C:\Program Files\OpenSSH-Win64\ssh-agent.exe"
-            "C:\Program Files\OpenSSH-Win64\sshd.exe"
-            "C:\Program Files\OpenSSH-Win64\ssh-keygen.exe"
-            "C:\Program Files\OpenSSH-Win64\ssh-keyscan.exe"
-            "C:\Program Files\OpenSSH-Win64\ssh-shellhost.exe"
-            "C:\Program Files\OpenSSH-Win64\uninstall-sshd.ps1"
+            "$OpenSSHWin64InstallDir\FixHostFilePermissions.ps1"
+            "$OpenSSHWin64InstallDir\FixUserFilePermissions.ps1"
+            "$OpenSSHWin64InstallDir\install-sshd.ps1"
+            "$OpenSSHWin64InstallDir\libcrypto.dll"
+            "$OpenSSHWin64InstallDir\OpenSSHUtils.psd1"
+            "$OpenSSHWin64InstallDir\OpenSSHUtils.psm1"
+            "$OpenSSHWin64InstallDir\scp.exe"
+            "$OpenSSHWin64InstallDir\Set-SSHDefaultShell.ps1"
+            "$OpenSSHWin64InstallDir\sftp.exe"
+            "$OpenSSHWin64InstallDir\sftp-server.exe"
+            "$OpenSSHWin64InstallDir\ssh.exe"
+            "$OpenSSHWin64InstallDir\ssh-add.exe"
+            "$OpenSSHWin64InstallDir\ssh-agent.exe"
+            "$OpenSSHWin64InstallDir\sshd.exe"
+            "$OpenSSHWin64InstallDir\ssh-keygen.exe"
+            "$OpenSSHWin64InstallDir\ssh-keyscan.exe"
+            "$OpenSSHWin64InstallDir\ssh-shellhost.exe"
+            "$OpenSSHWin64InstallDir\uninstall-sshd.ps1"
         )
 
         foreach ($file in $InheritedFromPF) {
@@ -4246,16 +4292,15 @@ function Fix-SSHPermissions {
         # Fix Permissions on files and directory with explicit permissions
         # These files DO NOT inherit any permissions...
         [System.Collections.ArrayList]$ItemsWithPermsExplicitlyDefined = @(
-            "C:\Program Files\OpenSSH-Win64\logs"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_dsa_key"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_dsa_key.pub"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_ecdsa_key"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_ecdsa_key.pub"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_ed25519_key"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_ed25519_key.pub"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_rsa_key"
-            "C:\Program Files\OpenSSH-Win64\ssh_host_rsa_key.pub"
-            "C:\Program Files\OpenSSH-Win64\sshd_config"
+            "$OpenSSHWin64InstallDir\ssh_host_dsa_key"
+            "$OpenSSHWin64InstallDir\ssh_host_dsa_key.pub"
+            "$OpenSSHWin64InstallDir\ssh_host_ecdsa_key"
+            "$OpenSSHWin64InstallDir\ssh_host_ecdsa_key.pub"
+            "$OpenSSHWin64InstallDir\ssh_host_ed25519_key"
+            "$OpenSSHWin64InstallDir\ssh_host_ed25519_key.pub"
+            "$OpenSSHWin64InstallDir\ssh_host_rsa_key"
+            "$OpenSSHWin64InstallDir\ssh_host_rsa_key.pub"
+            "$OpenSSHWin64InstallDir\sshd_config"
         )
 
         foreach ($item in $ItemsWithPermsExplicitlyDefined) {
@@ -4265,50 +4310,71 @@ function Fix-SSHPermissions {
                 $SecurityDescriptor | Clear-NTFSAccess
                 $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
                 $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
-                $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+                if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+                    $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+                }
                 $SecurityDescriptor | Set-NTFSSecurityDescriptor
 
                 Remove-Variable -Name "SecurityDescriptor"
             }
         }
 
+        # Special Permissions for the logs directory
+        $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path "$OpenSSHWin64InstallDir\logs"
+        $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+        $SecurityDescriptor | Clear-NTFSAccess
+        $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
+        $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
+        #$SecurityDescriptor | Add-NTFSAccess -Account Users -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
+        if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+            $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+        }
+        $SecurityDescriptor | Set-NTFSSecurityDescriptor
+        Remove-Variable -Name "SecurityDescriptor"
+
         # Finally, log files inherit from C:\Program Files\OpenSSH-Win64\logs
-        $OpenSSHWin64LogFiles = $(Get-ChildItem "$env:ProgramFiles\OpenSSH-Win64\logs").FullName
+        [System.Collections.ArrayList][Array]$OpenSSHWin64LogFiles = $(Get-ChildItem "$OpenSSHWin64InstallDir\logs").FullName
         foreach ($item in $OpenSSHWin64LogFiles) {
             $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $item
             $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
             $SecurityDescriptor | Clear-NTFSAccess
-            $SecurityDescriptor | Enable-NTFSAccessInheritance
+            $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
+            $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
+            #$SecurityDescriptor | Add-NTFSAccess -Account Users -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
+            if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+                $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+            }
             $SecurityDescriptor | Set-NTFSSecurityDescriptor
-
             Remove-Variable -Name "SecurityDescriptor"
         }
     }
 
     if (!$OpenSSHWin64FolderAndSubItemsOnly) {
         # Now, fix permissions on $HOME, $HOME/.ssh, and all files within $HOME/.ssh
-        $HomePermissions = Get-NTFSAccess $HOME
-        if ($HomePermissions.Account -notcontains "NT SERVICE\sshd" -or
-        $($HomePermissions | Where-Object {$_.Account -eq "NT SERVICE\sshd"}).AccessRights -ne "ReadAndExecute, Synchronize"
-        ) {
-            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $HOME
-            #$SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
-            $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
-            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+        if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+            $HomePermissions = Get-NTFSAccess $HOME
+            if ($HomePermissions.Account -notcontains "NT SERVICE\sshd" -or
+            $($HomePermissions | Where-Object {$_.Account -eq "NT SERVICE\sshd"}).AccessRights -ne "ReadAndExecute, Synchronize"
+            ) {
+                $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $HOME
+                #$SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+                $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
+                $SecurityDescriptor | Set-NTFSSecurityDescriptor
 
-            Remove-Variable -Name "SecurityDescriptor"
-        }
+                Remove-Variable -Name "SecurityDescriptor"
+            }
 
-        $HOMEDotSSHPermissions = Get-NTFSAccess "$HOME\.ssh"
-        if ($HOMEDotSSHPermissions.Account -notcontains "NT SERVICE\sshd" -or
-        $($HOMEDotSSHPermissions | Where-Object {$_.Account -eq "NT SERVICE\sshd"}).AccessRights -ne "ReadAndExecute, Synchronize"
-        ) {
-            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path "$HOME\.ssh"
-            #$SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
-            $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderSubfoldersAndFiles
-            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+            $HOMEDotSSHPermissions = Get-NTFSAccess "$HOME\.ssh"
+            if ($HOMEDotSSHPermissions.Account -notcontains "NT SERVICE\sshd" -or
+            $($HOMEDotSSHPermissions | Where-Object {$_.Account -eq "NT SERVICE\sshd"}).AccessRights -ne "ReadAndExecute, Synchronize"
+            ) {
+                $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path "$HOME\.ssh"
+                #$SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+                $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderSubfoldersAndFiles
+                $SecurityDescriptor | Set-NTFSSecurityDescriptor
 
-            Remove-Variable -Name "SecurityDescriptor"
+                Remove-Variable -Name "SecurityDescriptor"
+            }
         }
 
         $DotSSHFilesThatShouldInheritFromDotSSH = @("$HOME\.ssh\known_hosts","$HOME\.ssh\authorized_keys")
@@ -4324,39 +4390,45 @@ function Fix-SSHPermissions {
             }
         }
 
-        $PossiblePublicAndPrivateKeys = $(Get-ChildItem "$HOME\.ssh" -File | Where-Object {$_.Name -notmatch "known_hosts|authorized_keys"}).FullName
-        [System.Collections.ArrayList]$PublicKeys = @()
-        [System.collections.ArrayList]$PrivateKeys = @()
-        foreach ($file in $PossiblePublicAndPrivateKeys) {
-            $FileContent = Get-Content $file
-            if ($FileContent.Count -eq 1 -and $FileContent.Length -gt 300) {
-                $null = $PublicKeys.Add($file)
+        if (Test-Path "$HOME\.ssh") {
+            $PossiblePublicAndPrivateKeys = $(Get-ChildItem "$HOME\.ssh" -File | Where-Object {$_.Name -notmatch "known_hosts|authorized_keys"}).FullName
+            [System.Collections.ArrayList]$PublicKeys = @()
+            [System.collections.ArrayList]$PrivateKeys = @()
+            foreach ($file in $PossiblePublicAndPrivateKeys) {
+                $FileContent = Get-Content $file
+                if ($FileContent.Count -eq 1 -and $FileContent.Length -gt 300) {
+                    $null = $PublicKeys.Add($file)
+                }
+                else {
+                    $null = $PrivateKeys.Add($file)
+                }
             }
-            else {
-                $null = $PrivateKeys.Add($file)
+
+            foreach ($PubKey in $PublicKeys) {
+                $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $PubKey
+                $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+                $SecurityDescriptor | Clear-NTFSAccess
+                if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+                    $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read" -AppliesTo ThisFolderOnly
+                }
+                $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
+                $SecurityDescriptor | Set-NTFSSecurityDescriptor
+
+                Remove-Variable -Name "SecurityDescriptor"
             }
-        }
 
-        foreach ($PubKey in $PublicKeys) {
-            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $PubKey
-            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
-            $SecurityDescriptor | Clear-NTFSAccess
-            $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read" -AppliesTo ThisFolderOnly
-            $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
-            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+            foreach ($PrivKey in $PrivateKeys) {
+                $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $PrivKey
+                $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+                $SecurityDescriptor | Clear-NTFSAccess
+                if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
+                    $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read" -AppliesTo ThisFolderOnly
+                }
+                $SecurityDescriptor | Add-NTFSAccess -Account "$(whoami)" -AccessRights FullControl -AppliesTo ThisFolderOnly
+                $SecurityDescriptor | Set-NTFSSecurityDescriptor
 
-            Remove-Variable -Name "SecurityDescriptor"
-        }
-
-        foreach ($PrivKey in $PrivateKeys) {
-            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $PrivKey
-            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
-            $SecurityDescriptor | Clear-NTFSAccess
-            $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read" -AppliesTo ThisFolderOnly
-            $SecurityDescriptor | Add-NTFSAccess -Account "$(whoami)" -AccessRights FullControl -AppliesTo ThisFolderOnly
-            $SecurityDescriptor | Set-NTFSSecurityDescriptor
-
-            Remove-Variable -Name "SecurityDescriptor"
+                Remove-Variable -Name "SecurityDescriptor"
+            }
         }
     }
 }
@@ -4531,8 +4603,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUow3U4taV4DHfaoqwybfFYDqY
-# rsagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUppXKhNRvyQRKLEeXHK+/bJ8W
+# ylSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4589,11 +4661,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOap7Vodfq/BAT1Z
-# z3H0vki0zwErMA0GCSqGSIb3DQEBAQUABIIBADszUCsp4xOIhx4aL0ltdZWih/hy
-# 4F8N6fsMb7EOyKKOGAGp6N0JlNZI5KOEJBmCTNGHNojt1E5wDGUHRKbZbEYBLeGx
-# lUWX5nutGRMVd6fdpM8F2txRAIjanprWey69oVwNA+Nb/gK1JSPZsRqUmiz5nte9
-# lmjBaLI1+bDh/FCn1mL6PhXnr3iZOTobXmXng/1Syup5WDL0w63w3nzx5SO4sifn
-# mj0DXR/jmkZQRbeVUmuSwN/GZm/L6CiybjMyo9NGeGxM0VK0TJpX9An6W9HWS/Wr
-# oVMn5tkQ4AObvef0RdKggqRj3twYH30FDYLvr66JXhHfQewURrG4D78MbEM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFH+94i57oELWzllQ
+# MFuPrf0mxEZUMA0GCSqGSIb3DQEBAQUABIIBAK2CzXYcypypvDTOHcA3iJVERkNC
+# cEmbeuz42DRuojlLaFr0gzUc0BTpHOwoB9Anw80ic6L69+U2pvPApO0vU7ee9Uwm
+# zBbqKW/tOR2s5ILk9jIc7X5fahkNL5+8d/+5Db70xnaESqdfttsGFNAUUtSyJNo2
+# aqh0iBICAoJuRocNKWm6S/F9eF1T2ZyKDxnMHz87Syrp4euUtP3g3PxvzEX6lha3
+# 51ZfqAiPKZMG5hQ9AAwyobgDjLnPVxY9n9ajnRJFjc63XJu5CeKlRyu02i+hukDV
+# HEGB3lDfBpY/SfnKGNHKvsINHtNIigjnjMvZ3d0R64fPJlY9YhLIpxJwI70=
 # SIG # End signature block
