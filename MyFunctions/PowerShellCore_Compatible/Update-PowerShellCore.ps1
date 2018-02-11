@@ -975,7 +975,7 @@ function Update-PowerShellCore {
                     $DebianVersion = "9"
                 }
 
-                {$_ -match 'CentOS'} {
+                {$_ -match 'CentOS|\.el[0-9]\.'} {
                     $OS = "centos"
                 }
 
@@ -1197,11 +1197,29 @@ function Update-PowerShellCore {
         if ($DownloadDirectory) {
             $DownloadDirectory = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileNameSansExt)
             $DownloadPath = Get-NativePath -PathAsStringArray @($DownloadDirectory, $DownloadFileName)
+
+            if (!$(Test-Path $DownloadPath)) {
+                $null = New-Item -ItemType Directory $DownloadDirectory
+            }
         }
-        $PSFullVersion = $($DownloadFileNameSansExt | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-.*?win").Matches.Value -replace "-win",""
+        $PSFullVersion = $($DownloadFileNameSansExt | Select-String -Pattern "[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}-.*?\.").Matches.Value.TrimEnd("\.")
         $PSRelease = $($PSFullVersion -split "-")[0]
         $PSChannel = $($PSFullVersion | Select-String -Pattern "[a-zA-Z]+").Matches.Value
         $PSIteration = $($($PSFullVersion -split "-") | Where-Object {$_ -match "[a-zA-Z].+[\d]"} | Select-String -Pattern "[\d]").Matches.Value
+
+        <#
+        $hrefMatch
+        $PowerShellCoreVersionhref
+        $PowerShellCoreVersionURL
+        $DownloadFileName
+        $DownloadFileNameSansExt
+        $DownloadDirectory
+        $DownloadPath
+        $PSFullVersion
+        $PSRelease
+        $PSChannel
+        $PSIteration
+        #>
     }
     catch {
         Write-Error $_
@@ -1659,6 +1677,15 @@ function Update-PowerShellCore {
                 }
             }
             else {
+                try {
+                    Invoke-WebRequest -Uri $PowerShellCoreVersionURL -OutFile $DownloadPath
+                }
+                catch {
+                    Write-Error $_
+                    $global:FunctionResult = "1"
+                    return
+                }
+                
                 $OSStringUpperCase = $OS.substring(0,1).toupper()+$OS.substring(1).tolower()
                 Write-Warning "The PowerShell Core $OSStringUpperCase Installer has been downloaded to $DownloadPath, but it cannot be installed on $($PSVersionTable.OS) ."
                 return
@@ -1666,7 +1693,7 @@ function Update-PowerShellCore {
         }
 
         {$_ -match "centos|redhat"} {
-            if ($PSVersionTable.OS -match "CentOS|RedHat") {
+            if ($PSVersionTable.OS -match "CentOS|RedHat|\.el[0-9]\.") {
                 [System.Collections.ArrayList]$CurrentInstalledPSVersions = [array]$(rpm -qa | grep powershell)
 
                 if ($UsePackageManagement) {
@@ -1687,7 +1714,7 @@ function Update-PowerShellCore {
                     }
                 }
                 else {
-                    if ($CurrentInstalledPSVersions) {
+                    if ($CurrentInstalledPSVersions.Count -gt 0) {
                         if (!$($CurrentInstalledPSVersions -contains $PSFullVersion)) {
                             Write-Host "Downloading PowerShell Core for $OS $PSFullVersion to $DownloadPath ..."
                             
@@ -1759,6 +1786,15 @@ function Update-PowerShellCore {
                 }
             }
             else {
+                try {
+                    Invoke-WebRequest -Uri $PowerShellCoreVersionURL -OutFile $DownloadPath
+                }
+                catch {
+                    Write-Error $_
+                    $global:FunctionResult = "1"
+                    return
+                }
+
                 Write-Warning "The PowerShell Core CentOS/RedHat Installer has been downloaded to $DownloadPath, but it cannot be installed on $($PSVersionTable.OS) ."
                 return
             }
@@ -1795,8 +1831,8 @@ function Update-PowerShellCore {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhUcAQTr8qFQ0B2SeSq3X8CJ2
-# bHWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUzedWxIFOeRQDzZo5d5ZabH/s
+# Yxagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1853,11 +1889,11 @@ function Update-PowerShellCore {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIuX+ik1OraHLy9f
-# SGMq1yjv3SjDMA0GCSqGSIb3DQEBAQUABIIBAEu3a40Q3+Z38608nOSJDI9Igons
-# M75ZmfNLH1NKb620wDRN0ufQblZKBqU0xvKJ7sG8y+wn46oQwVrcIC/TOCls6Z7Y
-# lahtsVg/aV9Iq/AImcb6/+R8vTSE/XzHJ4rZQZt815fW83ANON0ecFwC9LUFkb0S
-# ZdxATRSf+huybTS+AXyDGW7VcAcubM1TB3mUn5w0Gb87U8DmeTnUGb30rIaQR5qs
-# aQXHL5OvThfJLUSvazWSIZnmfa5uiBdGppERMoCLBpfdQ3jcmcwDWWGmCwa+7NRR
-# WVkW87CrBNvbJabbyJwqntZjVA2fIjZq7T0rGilw2tlrVxThJXuZCOZDis0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHYXUPHvLQ/LuSSc
+# XEDpOlzWyxZ0MA0GCSqGSIb3DQEBAQUABIIBAFsD9dD3sZerV83Iz7fWqkxCIFJx
+# 3WORlH2NzqYSwBg/XY89kD7KcpgLSDWclAlFWeshJITxEtFWUs2c8GEeUl+Ls2bF
+# bnObEPIXK8ZtJcS2kMqJhkVT9SnqD66OAQ+pqtnATAiqoYDAA4BogJT/96x30QMl
+# Rq7qz9eQLMoGDk3/GImynrLmIaXlVDkhQltKBF4gN1vDYDddibDIarkvuDp9mqj5
+# ZTi6finH1lryE5Eygn7AD9pAeGvHo0s+rz8dt8o9IQnixpA7aIyv10zrQKtx05lY
+# yFnjttF2FlJYeAlN4OUXHRlVJrOvGLvy+iUd88jvLLjKX44H286IfBhBU5w=
 # SIG # End signature block
