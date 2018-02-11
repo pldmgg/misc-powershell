@@ -8,7 +8,18 @@ function Get-DomainController {
 
     ##### BEGIN Helper Functions #####
 
-    function Parse-NLTest ([String]$Domain) {
+    function Parse-NLTest {
+        [CmdletBinding()]
+        Param (
+            [Parameter(Mandatory=$True)]
+            [string]$Domain
+        )
+
+        while ($Domain -notmatch "\.") {
+            Write-Warning "The provided value for the -Domain parameter is not in the correct format. Please use the entire domain name (including periods)."
+            $Domain = Read-Host -Prompt "Please enter the full domain name (including periods)"
+        }
+
         if (![bool]$(Get-Command nltest -ErrorAction SilentlyContinue)) {
             Write-Error "Unable to find nltest.exe! Halting!"
             $global:FunctionResult = "1"
@@ -62,27 +73,39 @@ function Get-DomainController {
         }
 
         if ($ThisMachinesDomain -eq $Domain -and $Forest.Domains -contains $Domain) {
-            $Output = $Forest.Domains | Where-Object {$_.Name -eq $Domain} | foreach {$_.DomainControllers} | foreach {$_.Name}
+            [System.Collections.ArrayList]$FoundDomainControllers = $Forest.Domains | Where-Object {$_.Name -eq $Domain} | foreach {$_.DomainControllers} | foreach {$_.Name}
+            $PrimaryDomainController = $Forest.Domains.PdcRoleOwner.Name
         }
         if ($ThisMachinesDomain -eq $Domain -and $Forest.Domains -notcontains $Domain) {
             try {
-                $Output = [system.directoryservices.activedirectory.domain]::GetCurrentDomain() | 
-                    foreach {$_.DomainControllers} | foreach {$_.Name}
+                $GetCurrentDomain = [system.directoryservices.activedirectory.domain]::GetCurrentDomain()
+                [System.Collections.ArrayList]$FoundDomainControllers = $GetCurrentDomain | foreach {$_.DomainControllers} | foreach {$_.Name}
+                $PrimaryDomainController = $GetCurrentDomain.PdcRoleOwner.Name
             }
             catch {
-                Write-Error $_
-                $global:FunctionResult = "1"
-                return
+                try {
+                    Write-Warning "Only able to report the Primary Domain Controller for $Domain! Other Domain Controllers most likely exist!"
+                    Write-Warning "For a more complete list, try running this function on a machine that is part of the domain $Domain!"
+                    $PrimaryDomainController = Parse-NLTest -Domain $Domain
+                    [System.Collections.ArrayList]$FoundDomainControllers = @($PrimaryDomainController)
+                }
+                catch {
+                    Write-Error $_
+                    $global:FunctionResult = "1"
+                    return
+                }
             }
         }
         if ($ThisMachinesDomain -ne $Domain -and $Forest.Domains -contains $Domain) {
-            $Output = $Forest.Domains | foreach {$_.DomainControllers} | foreach {$_.Name}
+            [System.Collections.ArrayList]$FoundDomainControllers = $Forest.Domains | foreach {$_.DomainControllers} | foreach {$_.Name}
+            $PrimaryDomainController = $Forest.Domains.PdcRoleOwner.Name
         }
         if ($ThisMachinesDomain -ne $Domain -and $Forest.Domains -notcontains $Domain) {
             try {
                 Write-Warning "Only able to report the Primary Domain Controller for $Domain! Other Domain Controllers most likely exist!"
                 Write-Warning "For a more complete list, try running this function on a machine that is part of the domain $Domain!"
-                $Output = Parse-NLTest -Domain $Domain
+                $PrimaryDomainController = Parse-NLTest -Domain $Domain
+                [System.Collections.ArrayList]$FoundDomainControllers = @($PrimaryDomainController)
             }
             catch {
                 Write-Error $_
@@ -94,15 +117,16 @@ function Get-DomainController {
     else {
         try {
             $Forest = [system.directoryservices.activedirectory.Forest]::GetCurrentForest()
-
-            $Output = $Forest.Domains | foreach {$_.DomainControllers} | foreach {$_.Name}
+            [System.Collections.ArrayList]$FoundDomainControllers = $Forest.Domains | foreach {$_.DomainControllers} | foreach {$_.Name}
+            $PrimaryDomainController = $Forest.Domains.PdcRoleOwner.Name
         }
         catch {
             Write-Verbose "Cannot connect to current forest."
 
             try {
-                $Output = [system.directoryservices.activedirectory.domain]::GetCurrentDomain() | 
-                    foreach {$_.DomainControllers} | foreach {$_.Name}
+                $GetCurrentDomain = [system.directoryservices.activedirectory.domain]::GetCurrentDomain()
+                [System.Collections.ArrayList]$FoundDomainControllers = $GetCurrentDomain | foreach {$_.DomainControllers} | foreach {$_.Name}
+                $PrimaryDomainController = $GetCurrentDomain.PdcRoleOwner.Name
             }
             catch {
                 $Domain = $ThisMachinesDomain
@@ -116,7 +140,8 @@ function Get-DomainController {
                     }
                     Write-Host "- Try using the -Domain parameter" -ForegroundColor Yellow
                     Write-Host "- Run this function on a computer that is joined to the Domain you are interested in" -ForegroundColor Yellow
-                    $Output = Parse-NLTest -Domain $Domain
+                    $PrimaryDomainController = Parse-NLTest -Domain $Domain
+                    [System.Collections.ArrayList]$FoundDomainControllers = @($PrimaryDomainController)
                 }
                 catch {
                     Write-Error $_
@@ -127,7 +152,10 @@ function Get-DomainController {
         }
     }
 
-    $Output
+    [pscustomobject]@{
+        FoundDomainControllers      = $FoundDomainControllers
+        PrimaryDomainController     = $PrimaryDomainController
+    }
 
     ##### END Main Body #####
 }
@@ -154,8 +182,8 @@ function Get-DomainController {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpi/CYvpEsXe/uJdByBzPrkDH
-# 7kegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7HMbcD47aYe6msGqtl+6RkWn
+# +a+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -212,11 +240,11 @@ function Get-DomainController {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDWVeC2NNmKvMxYW
-# ZGXr7oSI2Sl7MA0GCSqGSIb3DQEBAQUABIIBAIbWL8DD0udf0ytX7Ydyapcfed4U
-# w3Gs2RZkEruKmk6AwUMUICJSqtjS+ChNwYMXE546LJAIKi4mYJcSpCRlWEvWkiYr
-# DQbEd46qgzSnXWRvjwUhpPm6yVfrmxhoYMUzGSzZv5aWXInk3FLkJIHuSzM2r6zh
-# V67W/ADqbqsTKkfZjmYgvI/E4eGWrQ4lJDmLyj1DhyAjdsyt6edjD61pMGXqQ9pW
-# vXEoRmAX4qQMzYlTDCcexnjgoLdXxveHJqLlP3ExV4WCdnsQlQSEAaCg6RuvrZ94
-# /W6PcB8HDmaR69LR33Bj2xHdpM2NdlwWz1YcM9QT0xGZtKjR7ioamb8PDTM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJrmwTI3p58nIB4c
+# zYPIM9JEh6+sMA0GCSqGSIb3DQEBAQUABIIBAKhqmfzcu20TxBiNecAxwoIuyJUc
+# 15EqIC5PwCx+lKXSwlWgUVaEvgs9pw+OEXEC/FDmDl671nASXQDh4y/ConUTWTTX
+# /PPsYGBS/HzqhJfT8bXo4qD1LNOJKVgJFSgPKxLhkWn7GigD50VpPE0cIcknIXdi
+# WMr0q4LgcaKNklb5V896SnElT2ApyLlLP14Ri+B3GNcuxcN8OckyfDHVzEBwaWmB
+# aRbi2Uy9YA/qmX/7oLLwbxmWkwALCVLeT3COHZQBs1oC2skp3+04YvwUDm3WKe3T
+# fM/aTGkdC5O5iF9f2SVvMh/9Rdmk530O3C9j5Pfv35ZzCOp5kZtdfte8tYs=
 # SIG # End signature block
