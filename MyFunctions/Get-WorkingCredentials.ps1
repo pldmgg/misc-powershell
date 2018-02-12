@@ -368,9 +368,18 @@ function Get-WorkingCredentials {
                 $DomainLDAPContainers = "DC=" + $($SimpleDomain -split "\.")[0] + "," + "DC=" + $($SimpleDomain -split "\.")[1]
 
                 try {
-                    $DS = [System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain, "$SimpleDomainWLDAPPort", "$DomainLDAPContainers")
-
                     $SimpleUserName = $($AltCredentials.UserName -split "\\")[1]
+                    $DS = [System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain, "$SimpleDomainWLDAPPort", "$DomainLDAPContainers")
+                    # Determine if the User Account is locked
+                    $UserPrincipal = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($DS, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, "$SimpleUserName")
+                    $AccountLocked = $UserPrincipal.IsAccountLockedOut()
+
+                    if ($AccountLocked -eq $True) {
+                        Write-Error "The provided UserName $($AltCredentials.Username) is locked! Please unlock it before additional attempts at getting working credentials!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                    
                     $AltCredentialsAreValid = $DS.ValidateCredentials("$SimpleUserName", "$([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AltCredentials.Password)))")
                 }
                 catch {
@@ -426,9 +435,18 @@ function Get-WorkingCredentials {
                         $DomainLDAPContainers = "DC=" + $($SimpleDomain -split "\.")[0] + "," + "DC=" + $($SimpleDomain -split "\.")[1]
     
                         try {
-                            $DS = [System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain, "$SimpleDomainWLDAPPort", "$DomainLDAPContainers")
-            
                             $SimpleUserName = $($AltCredentials.UserName -split "\\")[1]
+                            $DS = [System.DirectoryServices.AccountManagement.PrincipalContext]::new([System.DirectoryServices.AccountManagement.ContextType]::Domain, "$SimpleDomainWLDAPPort", "$DomainLDAPContainers")
+                            # Determine if the User Account is locked
+                            $UserPrincipal = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($DS, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, "$SimpleUserName")
+                            $AccountLocked = $UserPrincipal.IsAccountLockedOut()
+
+                            if ($AccountLocked -eq $True) {
+                                Write-Error "The provided UserName $($AltCredentials.Username) is locked! Please unlock it before additional attempts at getting working credentials!"
+                                $global:FunctionResult = "1"
+                                return
+                            }
+                            
                             $AltCredentialsAreValid = $DS.ValidateCredentials("$SimpleUserName", "$([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AltCredentials.Password)))")
                         }
                         catch {
@@ -603,8 +621,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUilRxhQVmMNs8jQTRsbzQlJjk
-# ijigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZt0aiQFKM8ZR687OLzeedzKh
+# SeSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -661,11 +679,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFaviubHSfGfM8ry
-# +djIIy5GiYtBMA0GCSqGSIb3DQEBAQUABIIBAL/n1rY8/YZU7fnUzi1wUm4uwwVl
-# rTgIAFuRECRVl/zaQuWBdnK0T/Yr8qhrGdnkRUvwnH94R+vh4uIfFO6BnzwRux8N
-# wnS0oHxWxokWyfU/nbzz1TEpdSgOPBVmhMYzcFVKPn0yRknwVogtlfAAevSg+Mp4
-# 3K8tQeOEtnBZfaixewEJ8A9vJDM0jF6oRyGWTXy0jxSrEHH8q+n/NJLXXk9untev
-# 7A1ohERhFGcm0FMUSM/7u+1TbYYalFMlcluMR7o1tbJKoEGUJr3eIzd0axn0isw3
-# C/lE4NCrt2g1ZpCX4U8yu6mPDNhjBVFLzcgRN3OWOcr8rwVVoZL9nZyAe8E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCXyWZathKy6taNh
+# 1ntSEUvTd4A9MA0GCSqGSIb3DQEBAQUABIIBAIli6aWK/qzzYLQ8oX1xhLLwHyl8
+# 63x7iHHMw/KUczHAruENpPMqNGooUGZUHQY5BFO73/1/nU2E5tllSfcDfdVKFUcD
+# 3+C7pE+mzNC65SYjJma25vN+aSZnJD9QuVpOGuaPgRmYKowvQnI3pobwyon/B/MG
+# bsj4Lr2d/74/LH0MhwF+giu1u+oFZGVSvXQp+GpQhQ1pVqXK704WD8A/q6qA63dI
+# +z8eN5bkBPso9/WQtJsC4IaGp6FEuCiOqhMJRtrWbJRB8XjC6ZkkBV2XIrCrz4/r
+# gk+mm9tr8g+34Mv//ccGzxzFRzEAin9XcI5z3JhteAHfqZc510xKxmM6k2Q=
 # SIG # End signature block
