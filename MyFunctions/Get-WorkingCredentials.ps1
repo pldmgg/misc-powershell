@@ -436,11 +436,11 @@ function Get-WorkingCredentials {
                             $global:FunctionResult = "1"
                             return
                         }   
-                    }
-                }
-            }
-        }
-    }
+                    } # end Different Domain 'if' block
+                } # end Domain Creds 'if' block
+            } # end $AltCredentials.Username -ne $(whoami) 'if block'
+        } # end !$LoggedInAsLocalUser 'if' block
+    } # end $AltCredentials 'if' block
     if (!$AltCredentials) {
         # $AltCredentialsAreValid -eq $False because they are not provided...
         $AltCredentialsAreValid = $False
@@ -449,7 +449,7 @@ function Get-WorkingCredentials {
             $CurrentUserCredentialsMightWork = $False
         }
         else {
-            if ($RemoteHostNetworkInfo.Domain -eq $EnvironmentInfo.UserDNSDomain ) {
+            if ($RemoteHostNetworkInfo.Domain -eq $EnvironmentInfo.UserDNSDomain) {
                 $LogonType = "DomainAccount"
                 $CurrentUserCredentialsMightWork = $True
             }
@@ -603,8 +603,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1WHyf4mkNFXMIO/aAb/Pt2jp
-# Cx+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUilRxhQVmMNs8jQTRsbzQlJjk
+# ijigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -661,11 +661,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFF8WCNqhQx1L2c46
-# NisJwwoNxtPBMA0GCSqGSIb3DQEBAQUABIIBAA/Z/IbxszMlDUJkEWK/ySqMnaCC
-# wJpE+gjP33PGBWc6WrF4wdCZKGkVaQ/83R6OKGRcuSeLCXDhUHzlddRm9l5SdALG
-# j0BQvlAC+Ln/yyaFKW0JgmJYpg9g+krefQPuL8uiEgKzGtOYNnBHYZ9t6otansJT
-# MpQ3qO769jYw7Sgpjqc2698Ae/ofOAfVx/voHO2tbBFk41dKD8JIOvbqrvVbQZXC
-# YRrcqzpTjg7vsQFdbIWVxu2zgZ/0sH8sNtSwfVfBN7QI7KzdduGmjbAZR6U9D1SB
-# 8ZXClVv0X2xi4Z3GdDSTYSWtWVcyJPKr/ueM0WArdV6DeB3XUZmWVcQ0/io=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFaviubHSfGfM8ry
+# +djIIy5GiYtBMA0GCSqGSIb3DQEBAQUABIIBAL/n1rY8/YZU7fnUzi1wUm4uwwVl
+# rTgIAFuRECRVl/zaQuWBdnK0T/Yr8qhrGdnkRUvwnH94R+vh4uIfFO6BnzwRux8N
+# wnS0oHxWxokWyfU/nbzz1TEpdSgOPBVmhMYzcFVKPn0yRknwVogtlfAAevSg+Mp4
+# 3K8tQeOEtnBZfaixewEJ8A9vJDM0jF6oRyGWTXy0jxSrEHH8q+n/NJLXXk9untev
+# 7A1ohERhFGcm0FMUSM/7u+1TbYYalFMlcluMR7o1tbJKoEGUJr3eIzd0axn0isw3
+# C/lE4NCrt2g1ZpCX4U8yu6mPDNhjBVFLzcgRN3OWOcr8rwVVoZL9nZyAe8E=
 # SIG # End signature block
