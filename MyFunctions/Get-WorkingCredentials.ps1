@@ -163,7 +163,13 @@ function Get-WorkingCredentials {
         [System.Security.SecureString]$Password
     )
 
-    ##### BEGIN Helper Functions #####
+    #region >> Helper Functions
+
+    function Test-IsValidIPAddress([string]$IPAddress) {
+        [boolean]$Octets = (($IPAddress.Split(".")).Count -eq 4) 
+        [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
+        Return  ($Valid -and $Octets)
+    }
 
     function Resolve-Host {
         [CmdletBinding()]
@@ -172,18 +178,7 @@ function Get-WorkingCredentials {
             [string]$HostNameOrIP
         )
     
-        ## BEGIN Native Helper Functions ##
-    
-        function Test-IsValidIPAddress([string]$IPAddress) {
-            [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
-            [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
-            Return  ($Valid -and $Octets)
-        }
-    
-        ## END Native Helper Functions ##
-        
-    
-        ##### BEGIN Main Body #####
+        #region >> Helper Function Main Body
     
         $RemoteHostNetworkInfoArray = @()
         if (!$(Test-IsValidIPAddress -IPAddress $HostNameOrIP)) {
@@ -287,14 +282,14 @@ function Get-WorkingCredentials {
             Domain          = if ($DomainList) {$DomainList[0]} else {$null}
         }
     
-        ##### END Main Body #####
+        #endregion >> Helper Function Main Body
     
     }
 
-    ##### END Helper Functions #####
+    #endregion >> Helper Functions
 
 
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    #region >> Variable/Parameter Transforms and PreRun Prep
 
     $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
 
@@ -330,9 +325,9 @@ function Get-WorkingCredentials {
         $AltCredentials = [System.Management.Automation.PSCredential]::new($UserName,$Password)
     }
 
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
+    #endregion >> Variable/Parameter Transforms and PreRun Prep
 
-    ##### BEGIN Main Body #####
+    #region >> Main Body
 
     if ($AltCredentials) {
         while ($AltCredentials.UserName -notmatch "\\") {
@@ -515,70 +510,68 @@ function Get-WorkingCredentials {
     }
 
     # Create Output
-    $Output = [pscustomobject]@{
+    $Output = [ordered]@{
         LogonType       = $LogonType
     }
 
     $CredentialsWorked = if ($CredentialsWorked) {$True} else {$False}
-    $Output | Add-Member -MemberType NoteProperty -Name "DeterminedCredsThatWorkedOnRemoteHost" -Value $CredentialsWorked
+    $Output.Add("DeterminedCredsThatWorkedOnRemoteHost",$CredentialsWorked)
 
     if ($CredentialsWorked) {
         if ($LogonType -eq "LocalAccount") {
-            $Output | Add-Member -MemberType NoteProperty -Name "WorkingCredsAreValidOnDomain" -Value $False
+            $Output.Add("WorkingCredsAreValidOnDomain",$False)
         }
         else {
-            $Output | Add-Member -MemberType NoteProperty -Name "WorkingCredsAreValidOnDomain" -Value $True
+            $Output.Add("WorkingCredsAreValidOnDomain",$True)
         }
 
-        if ($AltCredentials) {
+        if ($AltCredentials -and $ProvidedCredsWorked) {
             $WorkingCredentials = $AltCredentials
         }
         else {
             $WorkingCredentials = "$(whoami)"
         }
 
-        $Output | Add-Member -MemberType NoteProperty -Name "WorkingCredentials" -Value $WorkingCredentials
-        $Output | Add-Member -MemberType NoteProperty -Name "RemoteHostWorkingLocation" -Value $TargetHostLocation
+        $Output.Add("WorkingCredentials",$WorkingCredentials)
+        $Output.Add("RemoteHostWorkingLocation",$TargetHostLocation)
     }
     
     if ($WorkingCredentials.UserName -eq "$(whoami)" -or $WorkingCredentials -eq "$(whoami)") {
-        $Output | Add-Member -MemberType NoteProperty -Name "CurrentLoggedInUserCredsWorked" -Value $True
+        $Output.Add("CurrentLoggedInUserCredsWorked",$True)
     }
     else {
-        if ($AltCredentials) {
-            $Output | Add-Member -MemberType NoteProperty -Name "CurrentLoggedInUserCredsWorked" -Value "NotTested"
+        if (!$TriedCurrentlyLoggedInUser) {
+            $Output.Add("CurrentLoggedInUserCredsWorked","NotTested")
         }
-        else {
-            if ($TriedCurrentlyLoggedInUser -and $CredentialsWorked) {
-                $Output | Add-Member -MemberType NoteProperty -Name "CurrentLoggedInUserCredsWorked" -Value $True
-            }
-            elseif ($TriedCurrentlyLoggedInUser -and !$CredentialsWorked) {
-                $Output | Add-Member -MemberType NoteProperty -Name "CurrentLoggedInUserCredsWorked" -Value $False
-            }
+        elseif ($TriedCurrentlyLoggedInUser -and $CredentialsWorked) {
+            $Output.Add("CurrentLoggedInUserCredsWorked",$True)
+        }
+        elseif ($TriedCurrentlyLoggedInUser -and !$CredentialsWorked) {
+            $Output.Add("CurrentLoggedInUserCredsWorked",$False)
         }
     }
 
     if ($AltCredentials) {
         if ($LogonType -eq "LocalAccount" -or $AltCredentialsAreValid -eq $False) {
-            $Output | Add-Member -MemberType NoteProperty -Name "ProvidedCredsAreValidOnDomain" -Value $False
+            $Output.Add("ProvidedCredsAreValidOnDomain",$False)
         }
         elseif ($ProvidedCredsWorked) {
-            $Output | Add-Member -MemberType NoteProperty -Name "ProvidedCredsAreValidOnDomain" -Value $True
+            $Output.Add("ProvidedCredsAreValidOnDomain",$True)
         }
         elseif ($ProvidedCredsWorked -eq $null) {
-            $Output | Add-Member -MemberType NoteProperty -Name "ProvidedCredsAreValidOnDomain" -Value "NotTested"
+            $Output.Add("ProvidedCredsAreValidOnDomain","NotTested")
         }
         elseif ($ProvidedCredsWorked -eq $False) {
-            $Output | Add-Member -MemberType NoteProperty -Name "ProvidedCredsAreValidOnDomain" -Value $False
+            $Output.Add("ProvidedCredsAreValidOnDomain",$False)
         }
         else {
-            $Output | Add-Member -MemberType NoteProperty -Name "ProvidedCredsAreValidOnDomain" -Value $AltCredentialsAreValid
+            $Output.Add("ProvidedCredsAreValidOnDomain",$AltCredentialsAreValid)
         }
     }
 
-    $Output
+    [pscustomobject]$Output
 
-    ##### END Main Body #####
+    #endregion >> Main Body
 }
 
 
@@ -610,8 +603,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUc1yI9oTabrGNvBOs+AlfEmDt
-# v92gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU1WHyf4mkNFXMIO/aAb/Pt2jp
+# Cx+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -668,11 +661,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBhjvh9sR1CwoNGU
-# W5fEIFCLFOWIMA0GCSqGSIb3DQEBAQUABIIBAE8dRzO+ck7lENa9ZpS6jxB9Vp1I
-# ICc7dZqR6vwQ07cev3dAAkxF6n8abs5KVwlNyqW5xKoiKGcPLcAEpfPeOb40dK9L
-# A1dU9+xFfCRwo6vx2iF3MpcHVPfFncg+7uVOz7d5IGZL8FJwIPcCx1joUsGk2oZI
-# vNb5Zaqdxu13/K5heXbY63w8gcn3UgxAGXFrGD/zGrgTGWGIRjYuBr1oOHjiPN9e
-# DVtL6aPeHoBDBQlKpbAWe6ec77L68XeYlp0l/35o3Dtdv6DJz/tcuciuw92jZFtH
-# xWRe9iN5cdeSSiss0ME/Pc5MV94z+mbEpWqUXoazLI/14SI0eeHJJden7Z8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFF8WCNqhQx1L2c46
+# NisJwwoNxtPBMA0GCSqGSIb3DQEBAQUABIIBAA/Z/IbxszMlDUJkEWK/ySqMnaCC
+# wJpE+gjP33PGBWc6WrF4wdCZKGkVaQ/83R6OKGRcuSeLCXDhUHzlddRm9l5SdALG
+# j0BQvlAC+Ln/yyaFKW0JgmJYpg9g+krefQPuL8uiEgKzGtOYNnBHYZ9t6otansJT
+# MpQ3qO769jYw7Sgpjqc2698Ae/ofOAfVx/voHO2tbBFk41dKD8JIOvbqrvVbQZXC
+# YRrcqzpTjg7vsQFdbIWVxu2zgZ/0sH8sNtSwfVfBN7QI7KzdduGmjbAZR6U9D1SB
+# 8ZXClVv0X2xi4Z3GdDSTYSWtWVcyJPKr/ueM0WArdV6DeB3XUZmWVcQ0/io=
 # SIG # End signature block
