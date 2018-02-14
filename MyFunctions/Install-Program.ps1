@@ -257,12 +257,12 @@ function Install-Program {
         try {
             $global:FunctionResult = "0"
             $null = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
-            if ($UPMErr -and $global:FunctionResult -eq "1") {throw}
+            if ($UPMErr -and $global:FunctionResult -eq "1") {throw "The Update-PackageManagement function failed! Halting!"}
         }
         catch {
+            Write-Error $_
             Write-Host "Errors from the Update-PackageManagement function are as follows:"
-            foreach ($error in $UPMErr) {Write-Error $($error | Out-String)}
-            Write-Error "The Update-PackageManagement function failed! Halting!"
+            Write-Error $($UPMErr | Out-String)
             $global:FunctionResult = "1"
             return
         }
@@ -309,7 +309,6 @@ function Install-Program {
 
     # If the Chocolatey CmdLine is installed, get a list of programs installed via Chocolatey
     if ([bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-Host "1Trying clist..."
         $ChocolateyInstalledProgramsPrep = clist --local-only
         $ChocolateyInstalledProgramsPrep = $ChocolateyInstalledProgramsPrep[1..$($ChocolateyInstalledProgramsPrep.Count-2)]
 
@@ -413,13 +412,13 @@ function Install-Program {
                 if ($RCEErr.Count -gt 0 -and
                 $global:FunctionResult -eq "1" -and
                 ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
-                    throw
+                    throw "The Refresh-ChocolateyEnv function failed! Halting!"
                 }
             }
             catch {
+                Write-Error $_
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                Write-Error $($RCEErr | Out-String)
                 $global:FunctionResult = "1"
                 return
             }
@@ -429,12 +428,12 @@ function Install-Program {
                 try {
                     $global:FunctionResult = "0"
                     $null = Install-ChocolateyCmdLine -NoUpdatePackageManagement -ErrorAction SilentlyContinue -ErrorVariable ICCErr
-                    if ($ICCErr -and $global:FunctionResult -eq "1") {throw}
+                    if ($ICCErr -and $global:FunctionResult -eq "1") {throw "The Install-ChocolateyCmdLine function failed! Halting!"}
                 }
                 catch {
+                    Write-Error $_
                     Write-Host "Errors from the Install-ChocolateyCmdline function are as follows:"
-                    foreach ($error in $ICCErr) {Write-Error $($error | Out-String)}
-                    Write-Error "The Install-ChocolateyCmdLine function failed! Halting!"
+                    Write-Error $($ICCErr | Out-String)
                     $global:FunctionResult = "1"
                     return
                 }
@@ -467,12 +466,12 @@ function Install-Program {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw "The Refresh-ChocolateyEnv function failed! Halting!"}
             }
             catch {
+                Write-Error $_
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                Write-Error $($RCEErr | Out-String)
                 $global:FunctionResult = "1"
                 return
             }
@@ -626,8 +625,8 @@ function Install-Program {
     }
 
     # Finalize $env:Path
-    if ([bool]$($ExePath -match "\\cmake.exe$")) {
-        $PathToAdd = $($ExePath -match "\\cmake.exe$") | Split-Path -Parent
+    if ([bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+        $PathToAdd = $($ExePath -match "\\$FinalCommandName.exe$") | Split-Path -Parent
         if ($($env:Path -split ";") -notcontains $PathToAdd) {
             if ($env:Path[-1] -eq ";") {
                 $env:Path = "$env:Path" + $PathToAdd + ";"
@@ -657,7 +656,7 @@ function Install-Program {
             }
         }
         elseif ($ExePath.Count -gt 1) {
-            if (![bool]$($ExePath -match "\\cmake.exe$")) {
+            if (![bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
                 Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
             }
             $FinalExeLocation = $ExePath
@@ -669,7 +668,6 @@ function Install-Program {
 
     if ($ChocoInstall) {
         $InstallManager = "choco.exe"
-        Write-Host "2Trying clist..."
         $InstallCheck = $(clist --local-only $ProgramName)[1]
     }
     if ($PMInstall -or [bool]$(Get-Package $ProgramName -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
@@ -744,8 +742,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULRzjAzNPy4E9SALiVxiU6TIm
-# g/Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4UPucISBUdU5recAv9b/XYBt
+# FWGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -802,11 +800,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEvsbo9HZfMRk6yX
-# 3dp9hEcqOcm+MA0GCSqGSIb3DQEBAQUABIIBAD8QkA5ju36d7RmRbQDs+/oMm2I1
-# MccsmC7q1/nG6laiCPgoBOKAn871nCha32A9vFEB8zso31+bu3yKr/PInimxs5rJ
-# a42Lsfq2TxC3Tk9luuP3pDYBmYOzS0taN/JSK2J5y22ME3e+Q6wTR5pWJgzEVpyQ
-# nUo61siRFjtQDRNUdGGTn+69v8Ps2uHFoHF1aYaJplygYCGvuNnElRjIi+7qSVjE
-# QBM+I38QTDjCaPR4mIK6qJcgdC539P9FDtk8+fkXwBK/8BQAe1FXQqqE7gIHGpID
-# JKRD12Pt+/+iWpOFsgHO8jNw3GaRWTHWvhPYNBTurt+uaCo7g6rR82Jm1WE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA27jqRH1AxOIyDD
+# 7SDK1iNvw4K8MA0GCSqGSIb3DQEBAQUABIIBAAYHvOmP+Y8ss6CnAuSwIqdeAj3n
+# vlygJkr/qJJmiIHK1CjaFIBJNoch72uM12FN+Myl+j5E99t6CN6qgXSfWtS8cXku
+# nzFB3fVzYl4L7KqYqiPkg58eYNavS48y+Kjzm+zRQWPz6wJcD8J2x4xycoCeO7Oy
+# YrF6sXf7McYxF32mg5Zv6ZOVOU4hDLu2g5t3MB/MRe/8oPC/Us3b55KAPnNYsGzi
+# 0PSXnJFqcrJSZXTiWn4cpEffe0vlgN0+vHSG7njFrl17Yw3elXSOWtDiDhXpeP6j
+# ZYjP0ZUx6wdkggcbTdtU/T4KjTLEf/GIIvkT+M6GdOpjZyLsxZFAmTi2KAg=
 # SIG # End signature block
