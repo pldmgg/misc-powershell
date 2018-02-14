@@ -27,7 +27,7 @@ function Install-ChocolateyCmdLine {
 
         try {
             $global:FunctionResult = "0"
-            $null = Update-PackageManagement -UseChocolatey -ErrorAction SilentlyContinue -ErrorVariable UPMErr
+            $null = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
             if ($UPMErr -and $global:FunctionResult -eq 1) {throw}
         }
         catch {

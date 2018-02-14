@@ -256,7 +256,7 @@ function Install-Program {
 
         try {
             $global:FunctionResult = "0"
-            $null = Update-PackageManagement -UseChocolatey -ErrorAction SilentlyContinue -ErrorVariable UPMErr
+            $null = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
             if ($UPMErr -and $global:FunctionResult -eq "1") {throw}
         }
         catch {
@@ -309,6 +309,7 @@ function Install-Program {
 
     # If the Chocolatey CmdLine is installed, get a list of programs installed via Chocolatey
     if ([bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+        Write-Host "1Trying clist..."
         $ChocolateyInstalledProgramsPrep = clist --local-only
         $ChocolateyInstalledProgramsPrep = $ChocolateyInstalledProgramsPrep[1..$($ChocolateyInstalledProgramsPrep.Count-2)]
 
@@ -668,6 +669,7 @@ function Install-Program {
 
     if ($ChocoInstall) {
         $InstallManager = "choco.exe"
+        Write-Host "2Trying clist..."
         $InstallCheck = $(clist --local-only $ProgramName)[1]
     }
     if ($PMInstall -or [bool]$(Get-Package $ProgramName -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
@@ -742,8 +744,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQ0j96oSR1NbLzOOxa//ozpjv
-# nSWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULRzjAzNPy4E9SALiVxiU6TIm
+# g/Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -800,11 +802,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE6NJtuC+mzaCTuF
-# qUqQBWFsIqAEMA0GCSqGSIb3DQEBAQUABIIBAH9L4IvmhyM3C/mlA9rTKG2YdneL
-# SZdUjk0LhtkQqcLSjISUXAUPkLpFPeLX7ptygOPk5LjM58+cvO1amEXravoo1ttA
-# W7hQW8xWVkM7ptCyhNezKPbddPQ5eQilKjS8wbf3Yx0ZXUOSxHO9SWML8KZboSKK
-# 5D2ZaTeUaHj3+VxQnvxdsT/hGX5aJXCW0eh0eDaP6YMKYmf6hbhYghhsbefOj5HM
-# y7WEXSFxSvJQ0HeIlDMsqxUOH46fiCf7v99T8Uhm2Lz9bKDEbO0mJpbAmy2apkTQ
-# jc5OVQMslnrFbXDIzjwnEJNI9AWcRqavwv5tClhoeIvu4IvnrrPgiqQz6Kw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEvsbo9HZfMRk6yX
+# 3dp9hEcqOcm+MA0GCSqGSIb3DQEBAQUABIIBAD8QkA5ju36d7RmRbQDs+/oMm2I1
+# MccsmC7q1/nG6laiCPgoBOKAn871nCha32A9vFEB8zso31+bu3yKr/PInimxs5rJ
+# a42Lsfq2TxC3Tk9luuP3pDYBmYOzS0taN/JSK2J5y22ME3e+Q6wTR5pWJgzEVpyQ
+# nUo61siRFjtQDRNUdGGTn+69v8Ps2uHFoHF1aYaJplygYCGvuNnElRjIi+7qSVjE
+# QBM+I38QTDjCaPR4mIK6qJcgdC539P9FDtk8+fkXwBK/8BQAe1FXQqqE7gIHGpID
+# JKRD12Pt+/+iWpOFsgHO8jNw3GaRWTHWvhPYNBTurt+uaCo7g6rR82Jm1WE=
 # SIG # End signature block
