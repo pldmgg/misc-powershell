@@ -48,7 +48,7 @@
         you want to use when you import the module(s) using Import-Module -RequiredVersion
 
     .EXAMPLE
-        Update-PackageManagement -UseChocolatey
+        Update-PackageManagement -AddChocolateyPackageProvider
 
 #>
 
@@ -56,14 +56,17 @@ function Update-PackageManagement {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
-        [switch]$UseChocolatey,
+        [switch]$AddChocolateyPackageProvider,
 
         [Parameter(Mandatory=$False)]
-        [switch]$InstallNuGetCmdLine
+        [switch]$InstallNuGetCmdLine,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$LoadUpdatedModulesInSameSession
     )
 
     ##### BEGIN Helper Functions #####
-
+    
     function Check-Elevation {
         if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
             [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
@@ -157,7 +160,7 @@ function Update-PackageManagement {
     }
 
     ##### END Helper Functions #####
-
+    
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
@@ -174,23 +177,23 @@ function Update-PackageManagement {
         return
     }
 
-    if ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -ne "Win32NT" -and $UseChocolatey) {
+    if ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -ne "Win32NT" -and $AddChocolateyPackageProvider) {
         Write-Error "The Chocolatey Repo should only be added on a Windows OS! Halting!"
         $global:FunctionResult = "1"
         return
     }
 
-    if ($InstallNuGetCmdLine -and !$UseChocolatey) {
+    if ($InstallNuGetCmdLine -and !$AddChocolateyPackageProvider) {
         if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
             if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
                 $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to use the Chocolatey Package Provider (NOTE: This is NOT an installation of the chocolatey command line)?"
                 $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                 if ($WarningResponse) {
-                    $UseChocolatey = $true
+                    $AddChocolateyPackageProvider = $true
                 }
             }
             else {
-                $UseChocolatey = $true
+                $AddChocolateyPackageProvider = $true
             }
         }
         elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Win32NT") {
@@ -198,11 +201,11 @@ function Update-PackageManagement {
                 $WarningMessage = "NuGet Command Line Tool cannot be installed without using Chocolatey. Would you like to install Chocolatey Command Line Tools in order to install NuGet Command Line Tools?"
                 $WarningResponse = Pause-ForWarning -PauseTimeInSeconds 15 -Message $WarningMessage
                 if ($WarningResponse) {
-                    $UseChocolatey = $true
+                    $AddChocolateyPackageProvider = $true
                 }
             }
             else {
-                $UseChocolatey = $true
+                $AddChocolateyPackageProvider = $true
             }
         }
         elseif ($PSVersionTable.PSEdition -eq "Core" -and $PSVersionTable.Platform -eq "Unix") {
@@ -213,7 +216,7 @@ function Update-PackageManagement {
                 $OutFilePath = Get-NativePath -PathAsStringArray @($HOME, "Downloads", "nuget.exe")
                 Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $OutFilePath
             }
-            $UseChocolatey = $false
+            $AddChocolateyPackageProvider = $false
         }
     }
 
@@ -268,10 +271,13 @@ function Update-PackageManagement {
     # one of them actually loads
     
     # Set LatestLocallyAvailable variables...
-    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-    #$PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
-    $PSGetLocallyAvailableVersions = $(Get-Module -Name PowerShellGet -ListAvailable -All).Version | Sort-Object -Property Version | Get-Unique
+    $PackageManagementLatestLocallyAvailableVersionItem = $(Get-Module -ListAvailable -All | Where-Object {$_.Name -eq "PackageManagement"} | Sort-Object -Property Version)[-1]
+    $PowerShellGetLatestLocallyAvailableVersionItem = $(Get-Module -ListAvailable -All | Where-Object {$_.Name -eq "PowerShellGet"} | Sort-Object -Property Version)[-1]
+    $PackageManagementLatestLocallyAvailableVersion = $PackageManagementLatestLocallyAvailableVersionItem.Version
+    $PowerShellGetLatestLocallyAvailableVersion = $PowerShellGetLatestLocallyAvailableVersionItem.Version
+    $PSGetLocallyAvailableVersions = $(Get-Module -ListAvailable -All | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Sort-Object -Property Version | Get-Unique
     $PSGetLocallyAvailableVersions = $PSGetLocallyAvailableVersions | Sort-Object -Descending
+    
 
     if ($(Get-Module).Name -notcontains "PackageManagement") {
         if ($PSVersionTable.PSVersion.Major -ge 5) {
@@ -318,7 +324,7 @@ function Update-PackageManagement {
         Register-PackageSource -Name 'nuget.org' -Location 'https://api.nuget.org/v3/index.json' -ProviderName NuGet -Trusted -Force -ForceBootstrap
     }
 
-    if ($UseChocolatey) {
+    if ($AddChocolateyPackageProvider) {
         if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5) {
             # Install the Chocolatey Package Provider to be used with PowerShellGet
             if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
@@ -461,8 +467,18 @@ function Update-PackageManagement {
 
     # Next, update PackageManagement and PowerShellGet where possible
     [version]$MinimumVer = "1.0.0.1"
-    $PackageManagementLatestVersion = $(Find-Module PackageManagement).Version
-    $PowerShellGetLatestVersion = $(Find-Module PowerShellGet).Version
+    try {
+        $PackageManagementLatestVersion = $(Find-Module PackageManagement).Version
+    }
+    catch {
+        $PackageManagementLatestVersion = $PackageManagementLatestLocallyAvailableVersion
+    }
+    try {
+        $PowerShellGetLatestVersion = $(Find-Module PowerShellGet).Version
+    }
+    catch {
+        $PowerShellGetLatestVersion = $PowerShellGetLatestLocallyAvailableVersion
+    }
     Write-Verbose "PackageManagement Latest Version is: $PackageManagementLatestVersion"
     Write-Verbose "PowerShellGetLatestVersion Latest Version is: $PowerShellGetLatestVersion"
 
@@ -474,7 +490,7 @@ function Update-PackageManagement {
             #Install-Module -Name "PackageManagement" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
             #Install-Module -Name "PackageManagement" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PackageManagementLatestVersion -Force
             Write-Host "Installing latest version of PackageManagement..."
-            Install-Module -Name "PackageManagement" -Force
+            Install-Module -Name "PackageManagement" -Force -WarningAction SilentlyContinue
             $PackageManagementUpdated = $True
         }
     }
@@ -484,13 +500,15 @@ function Update-PackageManagement {
         Write-Host "Installing latest version of PowerShellGet..."
         #Install-Module -Name "PowerShellGet" -Scope CurrentUser -Repository PSGallery -RequiredVersion $PowerShellGetLatestVersion -Force -WarningAction "SilentlyContinue"
         #Install-Module -Name "PowerShellGet" -RequiredVersion $PowerShellGetLatestVersion -Force
-        Install-Module -Name "PowerShellGet" -Force
+        Install-Module -Name "PowerShellGet" -Force -WarningAction SilentlyContinue
         $PowerShellGetUpdated = $True
     }
 
     # Reset the LatestLocallyAvailable variables, and then load them into the current session
-    $PackageManagementLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PackageManagement"}).Version | Measure-Object -Maximum).Maximum
-    $PowerShellGetLatestLocallyAvailableVersion = $($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "PowerShellGet"}).Version | Measure-Object -Maximum).Maximum
+    $PackageManagementLatestLocallyAvailableVersionItem = $(Get-Module -ListAvailable -All | Where-Object {$_.Name -eq "PackageManagement"} | Sort-Object -Property Version)[-1]
+    $PowerShellGetLatestLocallyAvailableVersionItem = $(Get-Module -ListAvailable -All | Where-Object {$_.Name -eq "PowerShellGet"} | Sort-Object -Property Version)[-1]
+    $PackageManagementLatestLocallyAvailableVersion = $PackageManagementLatestLocallyAvailableVersionItem.Version
+    $PowerShellGetLatestLocallyAvailableVersion = $PowerShellGetLatestLocallyAvailableVersionItem.Version
     Write-Verbose "Latest locally available PackageManagement version is $PackageManagementLatestLocallyAvailableVersion"
     Write-Verbose "Latest locally available PowerShellGet version is $PowerShellGetLatestLocallyAvailableVersion"
 
@@ -499,100 +517,124 @@ function Update-PackageManagement {
     Write-Verbose "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
     Write-Verbose "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
 
-    if ($CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestLocallyAvailableVersion) {
-        # Need to remove PowerShellGet first since it depends on PackageManagement
-        Write-Host "Removing Module PowerShellGet $CurrentlyLoadedPowerShellGetVersion ..."
-        Remove-Module -Name "PowerShellGet"
-        Write-Host "Removing Module PackageManagement $CurrentlyLoadedPackageManagementVersion ..."
-        Remove-Module -Name "PackageManagement"
-    
-        if ($(Get-Host).Name -ne "Package Manager Host") {
-            Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
-            
-            # Need to Import PackageManagement first since it's a dependency for PowerShellGet
-            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
-            Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion ..."
-            $null = Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -ErrorVariable ImportPackManProblems 2>&1 6>&1
-            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
-            $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -ErrorVariable ImportPSGetProblems 2>&1 6>&1
-        }
-        if ($(Get-Host).Name -eq "Package Manager Host") {
-            Write-Verbose "We ARE in the Visual Studio Package Management Console. Continuing..."
-    
-            # Need to Import PackageManagement first since it's a dependency for PowerShellGet
-            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
-            Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PackMan' - Example: Get-PackManPackage"
-            $null = Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -Prefix PackMan -ErrorVariable ImportPackManProblems 2>&1 6>&1
-            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
-            $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet -ErrorVariable ImportPSGetProblems 2>&1 6>&1
-        }
-    }
-    
-    # Reset CurrentlyLoaded Variables
-    $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
-    $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Verbose "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Verbose "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
-    
-    if ($CurrentlyLoadedPowerShellGetVersion -lt $PowerShellGetLatestLocallyAvailableVersion) {
-        if (!$ImportPSGetProblems) {
-            Write-Host "Removing Module PowerShellGet $CurrentlyLoadedPowerShellGetVersion ..."
-        }
-        Remove-Module -Name "PowerShellGet"
-    
-        if ($(Get-Host).Name -ne "Package Manager Host") {
-            Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
-            
-            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
-            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
-            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
-        }
-        if ($(Get-Host).Name -eq "Package Manager Host") {
-            Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
-    
-            # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
-            Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
-            Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet
-        }
-    }
-
-    # Make sure all Repos Are Trusted
-    if ($UseChocolatey -and $($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5)) {
-        $BaselineRepoNames = @("Chocolatey","nuget.org","PSGallery")
-    }
-    else {
-        $BaselineRepoNames = @("nuget.org","PSGallery")
-    }
-    if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -gt 0) {
-        $RepoObjectsForTrustCheck = Get-PackageSource | Where-Object {$_.Name -match "$($BaselineRepoNames -join "|")"}
-    
-        foreach ($RepoObject in $RepoObjectsForTrustCheck) {
-            if ($RepoObject.IsTrusted -ne $true) {
-                Set-PackageSource -Name $RepoObject.Name -Trusted
+    if ($PackageManagementUpdated -eq $True -or $PowerShellGetUpdated -eq $True) {
+        $NewPSSessionRequired = $True
+        if ($LoadUpdatedModulesInSameSession) {
+            if ($PowerShellGetUpdated -eq $True) {
+                $PSGetWarningMsg = "Loading the latest installed version of PowerShellGet " +
+                "(i.e. PowerShellGet $($PowerShellGetLatestLocallyAvailableVersion.ToString()) " +
+                "in the current PowerShell session will break some PowerShellGet Cmdlets!"
+                Write-Warning $PSGetWarningMsg
+            }
+            if ($PackageManagementUpdated -eq $True) {
+                $PMWarningMsg = "Loading the latest installed version of PackageManagement " +
+                "(i.e. PackageManagement $($PackageManagementLatestLocallyAvailableVersion.ToString()) " +
+                "in the current PowerShell session will break some PackageManagement Cmdlets!"
+                Write-Warning $PMWarningMsg
             }
         }
     }
 
-    # Reset CurrentlyLoaded Variables
-    $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
-    $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
-    Write-Verbose "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
-    Write-Verbose "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+    if ($LoadUpdatedModulesInSameSession) {
+        if ($CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestLocallyAvailableVersion) {
+            # Need to remove PowerShellGet first since it depends on PackageManagement
+            Write-Host "Removing Module PowerShellGet $CurrentlyLoadedPowerShellGetVersion ..."
+            Remove-Module -Name "PowerShellGet"
+            Write-Host "Removing Module PackageManagement $CurrentlyLoadedPackageManagementVersion ..."
+            Remove-Module -Name "PackageManagement"
+        
+            if ($(Get-Host).Name -ne "Package Manager Host") {
+                Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
+                
+                # Need to Import PackageManagement first since it's a dependency for PowerShellGet
+                # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+                Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion ..."
+                $null = Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -ErrorVariable ImportPackManProblems 2>&1 6>&1
+                Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
+                $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -ErrorVariable ImportPSGetProblems 2>&1 6>&1
+            }
+            if ($(Get-Host).Name -eq "Package Manager Host") {
+                Write-Verbose "We ARE in the Visual Studio Package Management Console. Continuing..."
+        
+                # Need to Import PackageManagement first since it's a dependency for PowerShellGet
+                # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+                Write-Host "Importing PackageManagement Version $PackageManagementLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PackMan' - Example: Get-PackManPackage"
+                $null = Import-Module "PackageManagement" -RequiredVersion $PackageManagementLatestLocallyAvailableVersion -Prefix PackMan -ErrorVariable ImportPackManProblems 2>&1 6>&1
+                Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
+                $null = Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet -ErrorVariable ImportPSGetProblems 2>&1 6>&1
+            }
+        }
+        
+        # Reset CurrentlyLoaded Variables
+        $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
+        $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
+        Write-Verbose "Currently loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+        Write-Verbose "Currently loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+        
+        if ($CurrentlyLoadedPowerShellGetVersion -lt $PowerShellGetLatestLocallyAvailableVersion) {
+            if (!$ImportPSGetProblems) {
+                Write-Host "Removing Module PowerShellGet $CurrentlyLoadedPowerShellGetVersion ..."
+            }
+            Remove-Module -Name "PowerShellGet"
+        
+            if ($(Get-Host).Name -ne "Package Manager Host") {
+                Write-Verbose "We are NOT in the Visual Studio Package Management Console. Continuing..."
+                
+                # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+                Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion ..."
+                Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion
+            }
+            if ($(Get-Host).Name -eq "Package Manager Host") {
+                Write-Host "We ARE in the Visual Studio Package Management Console. Continuing..."
+        
+                # Need to use -RequiredVersion parameter because older versions are still intalled side-by-side with new
+                Write-Host "Importing PowerShellGet Version $PowerShellGetLatestLocallyAvailableVersion`nNOTE: Module Members will have with Prefix 'PSGet' - Example: Find-PSGetModule"
+                Import-Module "PowerShellGet" -RequiredVersion $PowerShellGetLatestLocallyAvailableVersion -Prefix PSGet
+            }
+        }
 
-    #$ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
-    #$CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
-    if ($($ImportPackManProblems | Out-String) -match "Assembly with same name is already loaded" -or 
-        $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
-        $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
-    ) {
-        Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
-        $NewPSSessionRequired = $true
+        # Make sure all Repos Are Trusted
+        if ($AddChocolateyPackageProvider -and $($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.PSVersion.Major -le 5)) {
+            $BaselineRepoNames = @("Chocolatey","nuget.org","PSGallery")
+        }
+        else {
+            $BaselineRepoNames = @("nuget.org","PSGallery")
+        }
+        if ($(Get-Module -Name PackageManagement).ExportedCommands.Count -gt 0) {
+            $RepoObjectsForTrustCheck = Get-PackageSource | Where-Object {$_.Name -match "$($BaselineRepoNames -join "|")"}
+        
+            foreach ($RepoObject in $RepoObjectsForTrustCheck) {
+                if ($RepoObject.IsTrusted -ne $true) {
+                    Set-PackageSource -Name $RepoObject.Name -Trusted
+                }
+            }
+        }
+
+        # Reset CurrentlyLoaded Variables
+        $CurrentlyLoadedPackageManagementVersion = $(Get-Module | Where-Object {$_.Name -eq 'PackageManagement'}).Version
+        $CurrentlyLoadedPowerShellGetVersion = $(Get-Module | Where-Object {$_.Name -eq 'PowerShellGet'}).Version
+        Write-Verbose "The FINAL loaded PackageManagement version is $CurrentlyLoadedPackageManagementVersion"
+        Write-Verbose "The FINAL loaded PowerShellGet version is $CurrentlyLoadedPowerShellGetVersion"
+
+        #$ErrorsArrayReversed = $($Error.Count-1)..$($Error.Count-4) | foreach {$Error[$_]}
+        #$CheckForError = try {$ErrorsArrayReversed[0].ToString()} catch {$null}
+        if ($($ImportPackManProblems | Out-String) -match "Assembly with same name is already loaded" -or 
+            $CurrentlyLoadedPackageManagementVersion -lt $PackageManagementLatestVersion -or
+            $(Get-Module -Name PackageManagement).ExportedCommands.Count -eq 0
+        ) {
+            Write-Warning "The PackageManagement Module has been updated and requires and brand new PowerShell Session. Please close this session, start a new one, and run the function again."
+            $NewPSSessionRequired = $true
+        }
     }
 
     $Result = [pscustomobject][ordered]@{
-        PackageManagementUpdated  = if ($PackageManagementUpdated) {$true} else {$false}
-        PowerShellGetUpdated      = if ($PowerShellGetUpdated) {$true} else {$false}
-        NewPSSessionRequired      = if ($NewPSSessionRequired) {$true} else {$false}
+        PackageManagementUpdated                     = if ($PackageManagementUpdated) {$true} else {$false}
+        PowerShellGetUpdated                         = if ($PowerShellGetUpdated) {$true} else {$false}
+        NewPSSessionRequired                         = if ($NewPSSessionRequired) {$true} else {$false}
+        PackageManagementCurrentlyLoaded             = Get-Module -Name PackageManagement
+        PowerShellGetCurrentlyLoaded                 = Get-Module -Name PowerShellGet
+        PackageManagementLatesLocallyAvailable       = $PackageManagementLatestLocallyAvailableVersionItem
+        PowerShellGetLatestLocallyAvailable          = $PowerShellGetLatestLocallyAvailableVersionItem
     }
 
     $Result
@@ -601,11 +643,16 @@ function Update-PackageManagement {
 
 
 
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUSIzUNLmyvdC3pouczk6Qmk+9
-# TBGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUR9QXY95a0FDONs3nFe3XNTnb
+# 2Bigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -662,11 +709,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDHRksPwQmSR8lNq
-# kDIWTyDhDpDxMA0GCSqGSIb3DQEBAQUABIIBAB0OjrSiFT9o2Gb0oipNTf/Wzkko
-# IVtvYBWXyHMsJPGaOFU38zuO8uF7U0Wq4GTrZb7kgKKXan5daCIcYGBNf0qyXSdq
-# n0RF4k7BYF411DicySNhbuMSVVhRjbBgNK45zBj0UPrBTTGxilVsuxj+23kfHepY
-# LV50aN4wtDBYDZD3rGY/X056uxGuy3wA4HqZWI5Ffbek0jO2qut2b3lZ03XIjYOc
-# aX5fwafuJtD9WlSG9Yqm0BXOKuJuRBfNerXT7upzrR4mm7NdaP7k7JKJAew8DwXC
-# fRHSQ3xr8Itx95K7N7KrwWPp1kxXJrXmnrpQKVAluyU0wjYBkiUOT1IJx/g=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAue+FBHEOc18zKd
+# ScdptzHGZJylMA0GCSqGSIb3DQEBAQUABIIBAHgFQ6qcgwyBg4njZE5Ht7JwNfyW
+# DUdzwJ1j/F7WqbyHZpANita7HS+X0B9K5t5s3SpZ66HMHgQggKzZcg9gIk5dx2k5
+# 1m0mjeFPtbu1WfouJTCv85zbMWXXZsnpO6w5NL8P7SC/Q47bN4REf1vJmN2rv9OQ
+# pdCpbAnnAaONR5Ndn06A+5ty7CFdvo9jpIj4yl2qHvcV11BYucjSnSsr3hwvvor9
+# 10PPhV84Xu+UUoRi11HqI5V7y54BwtUQ5RATgoPk25dSCVV+mdoNG/oXRP04BnAX
+# EGV5VALgf1EMDB6utoCH+4iiDsIwjpYNa2bClW9dC+hwXj0fk6IPO4Y4/do=
 # SIG # End signature block
