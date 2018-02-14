@@ -27,13 +27,13 @@ function Install-ChocolateyCmdLine {
 
         try {
             $global:FunctionResult = "0"
-            $null = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
-            if ($UPMErr -and $global:FunctionResult -eq 1) {throw}
+            $UPMResult = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
+            if ($global:FunctionResult -eq "1" -or $UPMResult -eq $null) {throw "The Update-PackageManagement function failed!"}
         }
         catch {
+            Write-Error $_
             Write-Host "Errors from the Update-PackageManagement function are as follows:"
-            foreach ($error in $UPMErr) {Write-Error $($error | Out-String)}
-            Write-Error "The Update-PackageManagement function failed! Halting!"
+            Write-Error $($UPMErr | Out-String)}
             $global:FunctionResult = "1"
             return
         }
@@ -98,13 +98,13 @@ function Install-ChocolateyCmdLine {
             if ($RCEErr.Count -gt 0 -and
             $global:FunctionResult -eq "1" -and
             ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
-                throw
+                throw "The Refresh-ChocolateyEnv function failed! Halting!"
             }
         }
         catch {
+            Write-Error $_
             Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-            foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-            Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+            Write-Error $($RCEErr | Out-String)
             $global:FunctionResult = "1"
             return
         }
@@ -180,13 +180,13 @@ function Install-ChocolateyCmdLine {
                     if ($RCEErr.Count -gt 0 -and
                     $global:FunctionResult -eq "1" -and
                     ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
-                        throw
+                        throw "The Refresh-ChocolateyEnv function failed! Halting!"
                     }
                 }
                 catch {
+                    Write-Error $_
                     Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                    foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                    Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                    Write-Error $($RCEErr | Out-String)
                     $global:FunctionResult = "1"
                     return
                 }
@@ -215,12 +215,14 @@ function Install-ChocolateyCmdLine {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {
+                    throw "The Refresh-ChocolateyEnv function failed! Halting!"
+                }
             }
             catch {
+                Write-Error $_
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                Write-Error $($RCEErr | Out-String)
                 $global:FunctionResult = "1"
                 return
             }
