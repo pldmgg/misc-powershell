@@ -1550,7 +1550,10 @@ function Install-Program {
         [switch]$NoUpdatePackageManagement,
 
         [Parameter(Mandatory=$False)]
-        [switch]$ScanCDriveForMainExeIfNecessary
+        [switch]$ScanCDriveForMainExeIfNecessary,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SkipExeCheck
     )
 
     ##### BEGIN Native Helper Functions #####
@@ -1704,12 +1707,12 @@ function Install-Program {
         try {
             $global:FunctionResult = "0"
             $null = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
-            if ($UPMErr -and $global:FunctionResult -eq "1") {throw}
+            if ($UPMErr -and $global:FunctionResult -eq "1") {throw "The Update-PackageManagement function failed! Halting!"}
         }
         catch {
+            Write-Error $_
             Write-Host "Errors from the Update-PackageManagement function are as follows:"
-            foreach ($error in $UPMErr) {Write-Error $($error | Out-String)}
-            Write-Error "The Update-PackageManagement function failed! Halting!"
+            Write-Error $($UPMErr | Out-String)
             $global:FunctionResult = "1"
             return
         }
@@ -1859,13 +1862,13 @@ function Install-Program {
                 if ($RCEErr.Count -gt 0 -and
                 $global:FunctionResult -eq "1" -and
                 ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
-                    throw
+                    throw "The Refresh-ChocolateyEnv function failed! Halting!"
                 }
             }
             catch {
+                Write-Error $_
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                Write-Error $($RCEErr | Out-String)
                 $global:FunctionResult = "1"
                 return
             }
@@ -1875,12 +1878,12 @@ function Install-Program {
                 try {
                     $global:FunctionResult = "0"
                     $null = Install-ChocolateyCmdLine -NoUpdatePackageManagement -ErrorAction SilentlyContinue -ErrorVariable ICCErr
-                    if ($ICCErr -and $global:FunctionResult -eq "1") {throw}
+                    if ($ICCErr -and $global:FunctionResult -eq "1") {throw "The Install-ChocolateyCmdLine function failed! Halting!"}
                 }
                 catch {
+                    Write-Error $_
                     Write-Host "Errors from the Install-ChocolateyCmdline function are as follows:"
-                    foreach ($error in $ICCErr) {Write-Error $($error | Out-String)}
-                    Write-Error "The Install-ChocolateyCmdLine function failed! Halting!"
+                    Write-Error $($ICCErr | Out-String)
                     $global:FunctionResult = "1"
                     return
                 }
@@ -1913,12 +1916,12 @@ function Install-Program {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw "The Refresh-ChocolateyEnv function failed! Halting!"}
             }
             catch {
+                Write-Error $_
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                Write-Error $($RCEErr | Out-String)
                 $global:FunctionResult = "1"
                 return
             }
@@ -2048,7 +2051,7 @@ function Install-Program {
     # If we weren't able to find the main executable (or any potential main executables) for
     # $ProgramName, offer the option to scan the whole C:\ drive (with some obvious exceptions)
     if ($MainExeSearchFail) {
-        if (!$ScanCDriveForMainExeIfNecessary) {
+        if (!$ScanCDriveForMainExeIfNecessary -and !$SkipExeCheck) {
             $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
             while ($ScanCDriveChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
                 Write-Host "$ScanDriveChoice is not a valid input. Please enter 'Yes' or 'No'"
@@ -2056,8 +2059,10 @@ function Install-Program {
             }
         }
 
-        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary) {
-            Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
+        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary -or $SkipExeCheck) {
+            if (!$SkipExeCheck) {
+                Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
+            }
             $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
             [System.Collections.ArrayList]$ExePath = @()
             foreach ($dir in $DirectoriesToSearchRecursively) {
@@ -2072,8 +2077,8 @@ function Install-Program {
     }
 
     # Finalize $env:Path
-    if ([bool]$($ExePath -match "\\cmake.exe$")) {
-        $PathToAdd = $($ExePath -match "\\cmake.exe$") | Split-Path -Parent
+    if ([bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+        $PathToAdd = $($ExePath -match "\\$FinalCommandName.exe$") | Split-Path -Parent
         if ($($env:Path -split ";") -notcontains $PathToAdd) {
             if ($env:Path[-1] -eq ";") {
                 $env:Path = "$env:Path" + $PathToAdd + ";"
@@ -2103,7 +2108,7 @@ function Install-Program {
             }
         }
         elseif ($ExePath.Count -gt 1) {
-            if (![bool]$($ExePath -match "\\cmake.exe$")) {
+            if (![bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
                 Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
             }
             $FinalExeLocation = $ExePath
@@ -4646,8 +4651,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6VDaC3aUR1/Sy8xzJSy+HzLR
-# zPigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVITPMfyZProsFIBJKD717EEb
+# AWygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4704,11 +4709,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFElSxsjzscoUGWiW
-# 0Fh1oSvNYMNHMA0GCSqGSIb3DQEBAQUABIIBAKBuF3obzPjLXCTxICQGTygicSco
-# GgMkh/PWV4/qj8WqkEmadpPHtNUD+wfUvBQA2lgAR90E5dSe7MF89qKwvkRD0f0r
-# ipLY2alnzMuK+sfiUjF7y+RmWrey7EsFtWyi6h1b90QoGgQZezjGwAfq26TCo8QF
-# WZGiUFzpx2XNMLYKdrl1pb8xpEQJe34vWrafZfZHR/Bi3R1gPf9bvYUYdhalGr2h
-# S82nVDtIE0eh2DDPlLlOgYgmKuLEIqHbuOlLSQTlhOq6AnMuGymyWL9lr59gc5pn
-# s7jfFgY5DMWTyUD1iUOEokM/6sOywIxuiNgImlMwlxj1nZC5JCxmZwMpDJM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFP1PhtyqapR79ulL
+# zXp5TxvxBUJEMA0GCSqGSIb3DQEBAQUABIIBAA0pVsBVSyncLEZqHelP/dKkEm3x
+# NB0TOFKwbpnyTWMX0paHXFyH+ZfMk881KtphDNO3kCeD5Yyl2P8S1V6k7vgapAxN
+# S4XUZ4ODMHRuE7ov6PEifmbt5e4AESWyFID3qF7rLBlRaljnQ/U1VPVg3S6PII2l
+# C5ABqc8WI8DDPsRahnATBK4ETKF0wqNfScDeE0yjUrUHfy6TSpayA7GWVH2c5PLD
+# phubOcEdsxK1RaHitg5M3ofkpo5E5XITH46o/K7OlQ8UnAKvBQ2Kbe+X/hV/XG1E
+# 8aYINkDCS/kVE065o/mWEhzKlBle5cOLfATgvCvGUmYmZBfxJzN4Yxe61pA=
 # SIG # End signature block
