@@ -340,8 +340,8 @@ function Get-WorkingCredentials {
         $($AltCredentials.UserName -split "\\")[0] -ne $($RemoteHostNetworkInfo.Domain -split "\.")[0]
         ) {
             $ErrMsg = "Using the credentials provided we will not be able to find a Logon Server. The credentials do not " +
-            "indicate a Local Logon (i.e. $RemoteHostNetworkInfo.HostName\$($($AltCredentials.UserName -split "\\")[1]) " +
-            "or a Domain Logon (i.e. $($($RemoteHostNetworkInfo.Domain -split "\.")[0])\$($($AltCredentials.UserName -split "\\")[1])! " +
+            "indicate a Local Logon (i.e. $($RemoteHostNetworkInfo.HostName)\$($($AltCredentials.UserName -split "\\")[1]) " +
+            "or a Domain Logon (i.e. $($($($RemoteHostNetworkInfo.Domain) -split "\.")[0])\$($($AltCredentials.UserName -split "\\")[1])! " +
             "Halting!"
             Write-Error $ErrMsg
             $global:FunctionResult = "1"
@@ -651,8 +651,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfCbFogX2ARBwAvBK1oqdvAke
-# xOWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyfboVCxyhnFdYPnpuocSiLNj
+# 1JOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -709,11 +709,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHtxiUPOqDkPrcGQ
-# KeKQTW17U8qTMA0GCSqGSIb3DQEBAQUABIIBAGtyWpqPfmJh9doMY4P6KBrKZUIP
-# y7WyNbCeftXb+DNnbJbycEopWDTxr9TYW51Qf/YEwJ6Yr0Lrw12FI3raqaoEmcy0
-# r0Hid+rmYjmv+iGdDaX6An1umJHowOfgBR8Yccqj+Z8pqkM3BTQ3fCNMrhRWK62U
-# f+yLAnzk2+VVbNJC12aPkXwGh40Vo3E+TfSa2FWkjEL8o648ooy0V0eL02JNZ9U/
-# kKSNP8mj1XgJ3BjW4UodanDngU730XCJka5mRCBlVaZKaDZyMyozIt/We+5kXse9
-# dNabvugo9NX0GkAcPNf60ESl3H4k2ptZHY9afdi8rEhRn6XzmxAW5Ow3Q48=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI+WuOBgRNf01ZvM
+# zlKhIjO+ar14MA0GCSqGSIb3DQEBAQUABIIBAGq5kFqelGkKwwzFusz1LUKxvRzy
+# zfZ/hxkLXc64ypfH1FeaWNT0i5K8EsMEby6DJbrgTrRwU1HvvL0WjuUNCpcOyBAJ
+# jrX+i37XWSapJ1ShmP8OcJvAyi365bXQMaoPjQlD5ikJ+ddQyHOenbvMDMeizBI/
+# ahIp9to+z/9lBbDgxqu7R9sWzDPqpGtRR2nlB0wDNeJLLSw90tOaq/elOsBRt6KW
+# IxMkTi9mt/G6k8Ew16E7VAGc2GDbSA/IpEZdd5Z70Zh/cLl7tk8QEv7ShkEErrMR
+# Vsm+gsUc6roR0eFG9jTrydEqQKFj/GdSDwzQNmdlbiZ+WU85T0MCs/+iUFw=
 # SIG # End signature block
