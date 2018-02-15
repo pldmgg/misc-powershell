@@ -97,6 +97,34 @@ Function Get-HVEventLog {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
+    $MyFunctionsUrl = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions"
+
+    if (![bool]$(Get-Command Resolve-Host -ErrorAction SilentlyContinue)) {
+        $ResolveHostFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Resolve-Host.ps1"
+        try {
+            Invoke-Expression $([System.Net.WebClient]::new().DownloadString($ResolveHostFunctionUrl))
+        }
+        catch {
+            Write-Error $_
+            Write-Error "Unable to load the Resolve-Host function! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    if (![bool]$(Get-Command Resolve-Host -ErrorAction SilentlyContinue)) {
+        $GetWorkingCredentialsFunctionUrl = "$MyFunctionsUrl/Get-WorkingCredentials.ps1"
+        try {
+            Invoke-Expression $([System.Net.WebClient]::new().DownloadString($GetWorkingCredentialsFunctionUrl))
+        }
+        catch {
+            Write-Error $_
+            Write-Error "Unable to load the Get-WorkingCredentials function! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
     if ($HypervisorNameOrIP) {
         try {
             $HypervisorNetworkInfo = Resolve-Host -HostNameOrIP $HypervisorNameOrIP -ErrorAction Stop
@@ -283,8 +311,8 @@ Function Get-HVEventLog {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV8dIRjDqCx9JvSMsEmUw60RR
-# F0+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnRrX+DpWGczztJdRzMDSCz3X
+# Sl+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -341,11 +369,11 @@ Function Get-HVEventLog {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNgTETU7WNc07RBQ
-# Arxn1hFpDlBrMA0GCSqGSIb3DQEBAQUABIIBAHj7rfp1O858RnDqCPzFQ1EZG2S3
-# Kjc5GtoUVOtEqP2MblsH4Dgc5AE/Or/jSzjJexERRYyFfNQVuZrQWOxXZXcGQG/x
-# uQUzmw/aRhIgFmktWw2VyHkZW8I5OEzyHRjZZ2M5MeLDCuq/JjYLJFiVBm/m98mJ
-# 7Ao03jU9Lb+6vhggfSWWuro8Lze/4nR/UKPcGa3M7EvbvsPRp4F7+yPRDktWdP0u
-# saaFrzbLps4rWBIBpKPfGj+5sFXHxm7Ro7RgasRe6jAvij6tJ60+YYKgoLV8W7V2
-# GBRdxz0zQJ+XzGyB0GqawNYtR01KU7SynaRB7lUcPg6am7XjvEWmD4EEBI0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEbiiBVJn3eTpDe8
+# HqMMtqsuDO0zMA0GCSqGSIb3DQEBAQUABIIBALXvNHGsZZ/NmaZ0ysJuiqt2l0hR
+# JO3YX4HzQvOJ0xvioa6klJhyNzr1qmfyEMVBNr41mEyL8oelX0XFdA/FE8iC2lZn
+# /4tj6qzi0u0DEPaitNZfDODOQV3uCDohIgWEjNLtpEcAc0nwZyT/HBfa/nr2sd2i
+# RMjsnd11WUb7ewB28jJsta9YtKYMnSsrWxx20JLP26gqGXnHTlZpGP7MMV7obUUQ
+# akqfpD4SCh7uij3N0FfAg8Ma8eHdZdYX01iWeVRs9fd9zSjQOLMY3nh1GHWPl23f
+# a1NYPXB0tbgLgQ7X0+jv2y7tPXCMMCdUxpUk5r/ThppbVkblTglDN134JIo=
 # SIG # End signature block
