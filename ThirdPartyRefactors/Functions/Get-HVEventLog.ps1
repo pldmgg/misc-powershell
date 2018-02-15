@@ -197,10 +197,11 @@ Function Get-HVEventLog {
             # so we have to reset the object type specifically here
             $GWESplatParams.FilterHashTable.Level = [array]$args[2]
             
+            # Using the $this special variable: http://mctexpert.blogspot.com/2015/09/this-psitem-whatever.html
             Get-WinEvent @GWESplatParams | Add-Member -MemberType ScriptProperty -Name Username -Value {
                 try {
                     #resolve the SID 
-                    $GWSMANSplatParams.SelectorSet=@{SID="$($_.userID)"}
+                    $GWSMANSplatParams.SelectorSet=@{SID="$($this.userID)"}
                     $Resolved = Get-WSManInstance @GWSMANSplatParams
                 }
                 catch {
@@ -213,7 +214,7 @@ Function Get-HVEventLog {
                 }
                 else {
                     #re-use the SID
-                    $_.userID
+                    $this.userID
                 }
             } -PassThru
         }
@@ -282,8 +283,8 @@ Function Get-HVEventLog {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBfXzhL+in6BDhy552Wio6hyv
-# aFCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV8dIRjDqCx9JvSMsEmUw60RR
+# F0+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -340,11 +341,11 @@ Function Get-HVEventLog {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOaPU+sSgLJItW4/
-# NqV8IP/1jDBCMA0GCSqGSIb3DQEBAQUABIIBAE8oZ1gQ4fDK9K7/5ockngTPHAj/
-# b79QzmTSPBZnGf+KvjPZ5n1SJYQJQ+B75L/TYv2gwJX/kRX0I6gicIOpLVfzi+SS
-# GA7kmc3NDzzNYTMiNf+TITBQud9oTQhBfWox+z0haebIi7+V73clUSOHoZ51avxD
-# FxpT7gtz1KvQWuX6EcmtnfwSfHcc55Tw1EPCzvpQlJCq/qLgsaQGQ9OhqVhsoPP7
-# ecXQ+WCBYHvZ4tEL55/yT4X4J/sx9G0BqZ5XoFp8TMNa2v3h1eSfpZct6IGK39XZ
-# 7wIRNTUsnJKo7c9FZQ83/WYmzDg7pcBO0BqLoi/zrIartSq7peH1lDAJzWk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNgTETU7WNc07RBQ
+# Arxn1hFpDlBrMA0GCSqGSIb3DQEBAQUABIIBAHj7rfp1O858RnDqCPzFQ1EZG2S3
+# Kjc5GtoUVOtEqP2MblsH4Dgc5AE/Or/jSzjJexERRYyFfNQVuZrQWOxXZXcGQG/x
+# uQUzmw/aRhIgFmktWw2VyHkZW8I5OEzyHRjZZ2M5MeLDCuq/JjYLJFiVBm/m98mJ
+# 7Ao03jU9Lb+6vhggfSWWuro8Lze/4nR/UKPcGa3M7EvbvsPRp4F7+yPRDktWdP0u
+# saaFrzbLps4rWBIBpKPfGj+5sFXHxm7Ro7RgasRe6jAvij6tJ60+YYKgoLV8W7V2
+# GBRdxz0zQJ+XzGyB0GqawNYtR01KU7SynaRB7lUcPg6am7XjvEWmD4EEBI0=
 # SIG # End signature block
