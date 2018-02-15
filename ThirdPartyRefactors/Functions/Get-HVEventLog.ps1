@@ -72,57 +72,57 @@
     
 #>
 Function Get-HVEventLog {
-    [cmdletbinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Days')]
     Param(
         [Parameter(
-            Mandatory=$True,
-            HelpMessage="Enter the IP, FQDN, or DNS-Resolvable HostName of a Hyper-V host"
+            Mandatory = $True,
+            HelpMessage = "Enter the IP, FQDN, or DNS-Resolvable HostName of a Hyper-V host"
         )]
         [ValidateNotNullorEmpty()]
         [string]$HypervisorNameOrIP,
         
         [Parameter(
-            Mandatory=$True
+            Mandatory = $False,
+            ParameterSetName = 'Days'
         )]
         [ValidateScript({$_ -ge 1})]
         [int]$NumberOfDays,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName = 'Hours'
+        )]
+        [ValidateScript({$_ -ge 1})]
+        [int]$NumberOfHours,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName = 'Minutes'
+        )]
+        [ValidateScript({$_ -ge 1})]
+        [int]$NumberOfMinutes,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName = 'Seconds'
+        )]
+        [ValidateScript({$_ -ge 1})]
+        [int]$NumberOfSeconds,
         
         [Parameter(Mandatory=$False)]
         [System.Management.Automation.PSCredential]$HypervisorCreds,
 
         [Parameter(Mandatory=$False)]
         [ValidateSet(0,1,2,3,4,5)]
-        [int[]]$LogLevels = 5
+        [int[]]$LogLevels = 4
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
-    $MyFunctionsUrl = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions"
-
-    if (![bool]$(Get-Command Resolve-Host -ErrorAction SilentlyContinue)) {
-        $ResolveHostFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Resolve-Host.ps1"
-        try {
-            Invoke-Expression $([System.Net.WebClient]::new().DownloadString($ResolveHostFunctionUrl))
-        }
-        catch {
-            Write-Error $_
-            Write-Error "Unable to load the Resolve-Host function! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    if (![bool]$(Get-Command Resolve-Host -ErrorAction SilentlyContinue)) {
-        $GetWorkingCredentialsFunctionUrl = "$MyFunctionsUrl/Get-WorkingCredentials.ps1"
-        try {
-            Invoke-Expression $([System.Net.WebClient]::new().DownloadString($GetWorkingCredentialsFunctionUrl))
-        }
-        catch {
-            Write-Error $_
-            Write-Error "Unable to load the Get-WorkingCredentials function! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
+    if (!$NumberOfDays -and !$NumberOfHours -and !$NumberOfMinutes -and !$NumberOfSeconds) {
+        $TimeSpanErr = "You must use one of the following parameters to specify how far back in time " +
+        "you would like to collect Hyper-V logs:`n-NumberofDays`n-NumberOfHours`n-NumberOfMinutes`n-NumberOfSeconds"
+        Write-Error $TimeSpanErr
     }
 
     if ($HypervisorNameOrIP) {
@@ -188,7 +188,18 @@ Function Get-HVEventLog {
     }
 
     #calculate the cutoff date
-    $start = (Get-Date).AddDays(-$NumberOfDays)
+    if ($NumberOfDays) {
+        $start = $(Get-Date).AddDays(-$NumberOfDays)
+    }
+    elseif ($NumberOfHours) {
+        $start = $(Get-Date).AddHours(-$NumberOfHours)
+    }
+    elseif ($NumberOfMinutes) {
+        $start = $(Get-Date).AddMinutes(-$NumberOfMinutes)
+    }
+    elseif ($NumberOfSeconds) {
+        $start = $(Get-Date).AddSeconds(-$NumberOfSeconds)
+    }
 
     #construct a hash table for the -FilterHashTable parameter in Get-WinEvent
     $filter = @{
@@ -311,8 +322,8 @@ Function Get-HVEventLog {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnRrX+DpWGczztJdRzMDSCz3X
-# Sl+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUptB6Gk7Y1lMNbOF20oAm2+nK
+# wkagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -369,11 +380,11 @@ Function Get-HVEventLog {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEbiiBVJn3eTpDe8
-# HqMMtqsuDO0zMA0GCSqGSIb3DQEBAQUABIIBALXvNHGsZZ/NmaZ0ysJuiqt2l0hR
-# JO3YX4HzQvOJ0xvioa6klJhyNzr1qmfyEMVBNr41mEyL8oelX0XFdA/FE8iC2lZn
-# /4tj6qzi0u0DEPaitNZfDODOQV3uCDohIgWEjNLtpEcAc0nwZyT/HBfa/nr2sd2i
-# RMjsnd11WUb7ewB28jJsta9YtKYMnSsrWxx20JLP26gqGXnHTlZpGP7MMV7obUUQ
-# akqfpD4SCh7uij3N0FfAg8Ma8eHdZdYX01iWeVRs9fd9zSjQOLMY3nh1GHWPl23f
-# a1NYPXB0tbgLgQ7X0+jv2y7tPXCMMCdUxpUk5r/ThppbVkblTglDN134JIo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKxeEXW4OFM2hhMW
+# t0EUcAGjP5IJMA0GCSqGSIb3DQEBAQUABIIBAC2AXA9MFtMOEEKngPXUiQEspUWE
+# CALoAIDH62/nRed68DMN3Kt2o+seUbesW+mTyiKM07H9gl34SRQkcbpuV+ExAU23
+# zb+MihJr//oJAqddB2YD2eNGxLsR+kxULnFfJK/qhXA7M4ZQLQmUlZc9iW6NfnBq
+# AlYdebyk+jqgvSiGHER/RdeJF2+dp3h4KAS6eBIO3WtB2mvIvDqQ0wk2dhxznyBx
+# oKzzQC16FY9TDk79Pk9R69z4wN+PP15RDG05O3MDCe4W/ZQ4TihUwDKw8CRnR0kF
+# NM2+zTrNohcBezmR9ngbwS01MMa/CwRASyKrs7AdQ5e4SgdhRplABNuIFFU=
 # SIG # End signature block
