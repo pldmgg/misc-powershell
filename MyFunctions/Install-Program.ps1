@@ -103,7 +103,10 @@ function Install-Program {
         [switch]$NoUpdatePackageManagement,
 
         [Parameter(Mandatory=$False)]
-        [switch]$ScanCDriveForMainExeIfNecessary
+        [switch]$ScanCDriveForMainExeIfNecessary,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SkipExeCheck
     )
 
     ##### BEGIN Native Helper Functions #####
@@ -601,7 +604,7 @@ function Install-Program {
     # If we weren't able to find the main executable (or any potential main executables) for
     # $ProgramName, offer the option to scan the whole C:\ drive (with some obvious exceptions)
     if ($MainExeSearchFail) {
-        if (!$ScanCDriveForMainExeIfNecessary) {
+        if (!$ScanCDriveForMainExeIfNecessary -and !$SkipExeCheck) {
             $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
             while ($ScanCDriveChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
                 Write-Host "$ScanDriveChoice is not a valid input. Please enter 'Yes' or 'No'"
@@ -609,8 +612,10 @@ function Install-Program {
             }
         }
 
-        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary) {
-            Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
+        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary -or $SkipExeCheck) {
+            if (!$SkipExeCheck) {
+                Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
+            }
             $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
             [System.Collections.ArrayList]$ExePath = @()
             foreach ($dir in $DirectoriesToSearchRecursively) {
@@ -742,8 +747,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4UPucISBUdU5recAv9b/XYBt
-# FWGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeOFTdtVte2MbZWTcFpWQpI5/
+# 8tegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -800,11 +805,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFA27jqRH1AxOIyDD
-# 7SDK1iNvw4K8MA0GCSqGSIb3DQEBAQUABIIBAAYHvOmP+Y8ss6CnAuSwIqdeAj3n
-# vlygJkr/qJJmiIHK1CjaFIBJNoch72uM12FN+Myl+j5E99t6CN6qgXSfWtS8cXku
-# nzFB3fVzYl4L7KqYqiPkg58eYNavS48y+Kjzm+zRQWPz6wJcD8J2x4xycoCeO7Oy
-# YrF6sXf7McYxF32mg5Zv6ZOVOU4hDLu2g5t3MB/MRe/8oPC/Us3b55KAPnNYsGzi
-# 0PSXnJFqcrJSZXTiWn4cpEffe0vlgN0+vHSG7njFrl17Yw3elXSOWtDiDhXpeP6j
-# ZYjP0ZUx6wdkggcbTdtU/T4KjTLEf/GIIvkT+M6GdOpjZyLsxZFAmTi2KAg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGU//6UDTw3S/1YZ
+# MI4fif15CKiAMA0GCSqGSIb3DQEBAQUABIIBAEXy5je0UtIPdwy/qmk/qcIW2qwo
+# /lfbk2PZY81nfzXp7Di/4x2t844ndCDwJQZQjezx6OhBNqH4HTZIaZs7WJ1gFeQA
+# uzbtIlcI+So1HUlfdsRMhAUbn7gPDYwxWNhfZKzi9scleVO1jChXsIY7nrhWE0Yw
+# /y+Vl5PoTBWwJZ5/EiohyMW+QNId5t+F+k6ZHs9uZdMr/qzlCvwkfkcBqptz+zcx
+# vWwZlnci+ErqfTDwnEnjZgKe45Iqi/EFcZx1iwxRrwtPd8/KNmuYxsQLCU17/l3A
+# JY9GOBZyh8DpHMBvwxOdraBQ998NpIV/00OqDFcFuBksuNLGtcMFzNv90vc=
 # SIG # End signature block
