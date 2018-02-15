@@ -92,139 +92,8 @@ Function Get-HVEventLog {
 
         [Parameter(Mandatory=$False)]
         [ValidateSet(0,1,2,3,4,5)]
-        [int[]]$LogLevels
+        [int[]]$LogLevels = 5
     )
-
-    ##### BEGIN Helper Functions #####
-
-    function Resolve-Host {
-        [CmdletBinding()]
-        Param(
-            [Parameter(Mandatory=$True)]
-            [string]$HostNameOrIP
-        )
-    
-        ## BEGIN Native Helper Functions ##
-    
-        function Test-IsValidIPAddress([string]$IPAddress) {
-            [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
-            [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
-            Return  ($Valid -and $Octets)
-        }
-    
-        ## END Native Helper Functions ##
-        
-    
-        ##### BEGIN Main Body #####
-    
-        $RemoteHostNetworkInfoArray = @()
-        if (!$(Test-IsValidIPAddress -IPAddress $HostNameOrIP)) {
-            try {
-                $HostNamePrep = $HostNameOrIP
-                [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
-                $IPv4AddressFamily = "InterNetwork"
-                $IPv6AddressFamily = "InterNetworkV6"
-    
-                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
-                $ResolutionInfo.AddressList | Where-Object {
-                    $_.AddressFamily -eq $IPv4AddressFamily
-                } | foreach {
-                    if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
-                        $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
-                    }
-                }
-            }
-            catch {
-                Write-Verbose "Unable to resolve $HostNameOrIP when treated as a Host Name (as opposed to IP Address)!"
-            }
-        }
-        if (Test-IsValidIPAddress -IPAddress $HostNameOrIP) {
-            try {
-                $HostIPPrep = $HostNameOrIP
-                [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
-                $null = $RemoteHostArrayOfIPAddresses.Add($HostIPPrep)
-    
-                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostIPPrep)
-    
-                [System.Collections.ArrayList]$RemoteHostFQDNs = @() 
-                $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
-            }
-            catch {
-                Write-Verbose "Unable to resolve $HostNameOrIP when treated as an IP Address (as opposed to Host Name)!"
-            }
-        }
-    
-        if ($RemoteHostArrayOfIPAddresses.Count -eq 0) {
-            Write-Error "Unable to determine IP Address of $HostNameOrIP! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    
-        # At this point, we have $RemoteHostArrayOfIPAddresses...
-        [System.Collections.ArrayList]$RemoteHostFQDNs = @()
-        foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
-            try {
-                $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
-            }
-            catch {
-                Write-Verbose "Unable to resolve $HostIP. No PTR Record? Please check your DNS config."
-                continue
-            }
-            if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
-                $null = $RemoteHostFQDNs.Add($FQDNPrep)
-            }
-        }
-    
-        if ($RemoteHostFQDNs.Count -eq 0) {
-            $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
-        }
-    
-        [System.Collections.ArrayList]$HostNameList = @()
-        [System.Collections.ArrayList]$DomainList = @()
-        foreach ($fqdn in $RemoteHostFQDNs) {
-            $PeriodCheck = $($fqdn | Select-String -Pattern "\.").Matches.Success
-            if ($PeriodCheck) {
-                $HostName = $($fqdn -split "\.")[0]
-                $Domain = $($fqdn -split "\.")[1..$($($fqdn -split "\.").Count-1)] -join '.'
-            }
-            else {
-                $HostName = $fqdn
-                $Domain = "Unknown"
-            }
-    
-            $null = $HostNameList.Add($HostName)
-            $null = $DomainList.Add($Domain)
-        }
-    
-        if ($RemoteHostFQDNs[0] -eq $null -and $HostNameList[0] -eq $null -and $DomainList -eq "Unknown" -and $RemoteHostArrayOfIPAddresses) {
-            [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
-            # Test to see if we can reach the IP Addresses
-            foreach ($ip in $RemoteHostArrayOfIPAddresses) {
-                if ([bool]$(Test-Connection $ip -Count 1 -ErrorAction SilentlyContinue)) {
-                    $null = $SuccessfullyPingedIPs.Add($ip)
-                }
-            }
-    
-            if ($SuccessfullyPingedIPs.Count -eq 0) {
-                Write-Error "Unable to resolve $HostNameOrIP! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-    
-        [pscustomobject]@{
-            IPAddressList   = if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}
-            FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
-            HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
-            Domain          = if ($DomainList) {$DomainList[0]} else {$null}
-        }
-    
-        ##### END Main Body #####
-    
-    }
-
-    ##### END Helper Functions #####
-
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
@@ -239,88 +108,40 @@ Function Get-HVEventLog {
         }
     }
 
-    # Test to see if we need to explicitly provide Credentials to get into the Hypervisor host
+    if ($HypervisorCreds) {
+        $GetWorkingCredsSplatParams = @{
+            RemoteHostNameOrIP          = $HypervisorNetworkInfo.FQDN
+            AltCredentials              = $HypervisorCreds
+            ErrorAction                 = "Stop"
+        }
+    }
+    else {
+        $GetWorkingCredsSplatParams = @{
+            RemoteHostNameOrIP          = $HypervisorNetworkInfo.FQDN
+            ErrorAction                 = "Stop"
+        }
+    }
+
     try {
-        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.FQDN -ScriptBlock {"Success"} -ErrorAction Stop
-        $CredsNeeded = $False
-        $HypervisorLocation = $HypervisorNetworkInfo.FQDN
+        $GetHypervisorCredsInfo = Get-WorkingCredentials @GetWorkingCredsSplatParams
+        if (!$GetHypervisorCredsInfo.DeterminedCredsThatWorkedOnRemoteHost) {throw "Can't determine working credentials for $($HypervisorNetworkInfo.FQDN)!"}
+        
+        if ($GetHypervisorCredsInfo.CurrentLoggedInUserCredsWorked -eq $True) {
+            $HypervisorCreds = $null
+        }
+
+        $HypervisorLocation = $GetHypervisorCredsInfo.RemoteHostWorkingLocation
     }
     catch {
-        if ($_ -match "Cannot find the computer") {
-            try {
-                if (!$HypervisorCreds) {
-                    Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
-                    $UserName = Read-Host -Prompt "Please enter a user name with access to $($HypervisorNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
-                    $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-
-                    $HypervisorCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
-                }
-                $Creds = $HypervisorCreds
-
-                $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.FQDN -Credential $Creds -ScriptBlock {"Success"} -ErrorAction Stop
-                $CredsNeeded = $True
-                $HypervisorLocation = $HypervisorNetworkInfo.FQDN
-            }
-            catch {
-                if ($_ -match "no logon servers") {
-                    try {
-                        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -Credential $Creds -ScriptBlock {"Success"} -ErrorAction Stop
-                        $CredsNeeded = $True
-                        $HypervisorLocation = $HypervisorNetworkInfo.HostName
-                    }
-                    catch {
-                        Write-Error $_
-                        $global:FunctionResult = "1"
-                        return
-                    }
-                }
-                else {
-                    Write-Error $_
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-        }
-        elseif ($_ -match "no logon servers") {
-            try {
-                $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -ScriptBlock {"Success"} -ErrorAction Stop
-                $CredsNeeded = $False
-                $HypervisorLocation = $HypervisorNetworkInfo.HostName
-            }
-            catch {
-                if ($_ -match "Cannot find the computer") {
-                    try {
-                        if (!$HypervisorCreds) {
-                            Write-Warning "Connecting to remote server $($HypervisorNetworkInfo.FQDN) failed using credentials of the current user."
-                            $UserName = Read-Host -Prompt "Please enter a user name with access to $($HypervisorNetworkInfo.FQDN) using format <DomainPrefix>\<User>"
-                            $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-    
-                            $HypervisorCreds = [System.Management.Automation.PSCredential]::new($UserName,$Password)
-                        }
-                        $Creds = $HypervisorCreds
-
-                        $InvokeCommandOutput = Invoke-Command -ComputerName $HypervisorNetworkInfo.HostName -Credential $Creds -ScriptBlock {"Success"} -ErrorAction Stop
-                        $CredsNeeded = $True
-                        $HypervisorLocation = $HypervisorNetworkInfo.HostName
-                    }
-                    catch {
-                        Write-Error $_
-                        $global:FunctionResult = "1"
-                        return
-                    }
-                }
-                else {
-                    Write-Error $_
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
+        Write-Error $_
+        if ($PSBoundParameters['HypervisorCreds']) {
+            Write-Error "The Get-WorkingCredentials function failed! Check the credentials provided to the -HypervisorCreds parameter! Halting!"
         }
         else {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
+            Write-Error "The Get-WorkingCredentials function failed! Try using the -HypervisorCreds parameter! Halting!"
         }
+        $global:FunctionResult = "1"
+        return
     }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -332,9 +153,9 @@ Function Get-HVEventLog {
     $GetWinEventSplatParams = @{
         ErrorAction     = "Stop"
         ErrorVariable   = "MyErr"
-        Computername    = $HypervisorLocation
+        Computername    = $HypervisorNetworkInfo.HostName
     }
-    if ($CredsNeeded) {
+    if ($HypervisorCreds) {
         $GetWinEventSplatParams.Add("Credential",$HypervisorCreds)
     }
 
@@ -351,49 +172,75 @@ Function Get-HVEventLog {
     #add it to the parameter hash table
     $GetWinEventSplatParams.Add("FilterHashTable", $filter)
 
+    #add a property for each entry that translates the SID into the account name
+    #hash table of parameters for Get-WSManInstance
+    $GetWSManInstanceSplatParams = @{
+        ResourceURI     = "wmicimv2/win32_SID"
+        SelectorSet     = $null
+        Computername    = $HypervisorNetworkInfo.HostName
+        ErrorAction     = "Stop"
+        ErrorVariable   = "myErr"
+    }
+    if ($HypervisorCreds) {
+        $GetWSManInstanceSplatParams.Add("Credential",$HypervisorCreds)
+    }
+
     #search logs for errors and warnings 
     try {
         $InvokeCommandSB = {
-            #add a property for each entry that translates the SID into the account name
-            #hash table of parameters for Get-WSManInstance
-            $script:NewHash = @{
-                ResourceURI     = "wmicimv2/win32_SID"
-                SelectorSet     = $null
-                Computername    = $using:HypervisorLocation
-                ErrorAction     = "Stop"
-                ErrorVariable   = "myErr"
-            }
-            if ($using:CredsNeeded) {
-                $script:NewHash.Add("Credential",$using:HypervisorCreds)
-            }
-
-            # Using the $this special variable: http://mctexpert.blogspot.com/2015/09/this-psitem-whatever.html
-            Get-WinEvent @using:GetWinEventSplatParams | Add-Member -MemberType ScriptProperty -Name Username -Value {
+            $GWESplatParams = $args[0]
+            $GWSMANSplatParams = $args[1]
+            # IMPORTANT NOTE: The -FilterHashTable "Level" key ONLY accepts System.Object[] arrays.
+            # It specifically does NOT accept System.Collections.ArrayList or [int[]] or [string[]]
+            # Eventhough we may pass $GWESplatParams.FilterHashTable.Level to the script block as
+            # an [array], at some point, it is converted to System.Collections.ArrayList automatically,
+            # so we have to reset the object type specifically here
+            $GWESplatParams.FilterHashTable.Level = [array]$args[2]
+            
+            Get-WinEvent @GWESplatParams | Add-Member -MemberType ScriptProperty -Name Username -Value {
                 try {
                     #resolve the SID 
-                    $script:NewHash.SelectorSet=@{SID="$($this.userID)"}
-                    $Resolved = Get-WSManInstance @using:NewHash
+                    $GWSMANSplatParams.SelectorSet=@{SID="$($_.userID)"}
+                    $Resolved = Get-WSManInstance @GWSMANSplatParams
                 }
                 catch {
                     Write-Verbose $myerr.ErrorRecord
                 }
 
-                if ($Resolved.accountname) {
+                if ($Resolved.Accountname) {
                     #write the resolved name to the pipeline
                     "$($Resolved.ReferencedDomainName)\$($Resolved.Accountname)"
                 }
                 else {
                     #re-use the SID
-                    $this.userID
+                    $_.userID
                 }
             } -PassThru
         }
 
-        if ($CredsNeeded) {
-            Invoke-Command -ComputerName $HypervisorLocation -Credential $HypervisorCreds -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+        if ($HypervisorCreds) {
+            $InvCmdSplatParams = @{
+                ComputerName        = $HypervisorLocation
+                Credential          = $HypervisorCreds
+                ScriptBlock         = $InvokeCommandSB
+                ErrorAction         = "Stop"
+            }
         }
         else {
-            Invoke-Command -ComputerName $HypervisorLocation -ScriptBlock $InvokeCommandSB -ErrorAction Stop
+            $InvCmdSplatParams = @{
+                ComputerName        = $HypervisorLocation
+                ScriptBlock         = $InvokeCommandSB
+                ErrorAction         = "Stop"
+            }
+        }
+        
+        try {
+            Invoke-Command @InvCmdSplatParams -ArgumentList $GetWinEventSplatParams,$GetWSManInstanceSplatParams,$LogLevels 
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
         }
     }
     catch {
@@ -435,8 +282,8 @@ Function Get-HVEventLog {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAqHCz64mWAJXpRdbwZ3FAGlG
-# 1Nqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBfXzhL+in6BDhy552Wio6hyv
+# aFCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -493,11 +340,11 @@ Function Get-HVEventLog {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHhWMEDYFsFJD7uI
-# gDDzhmI5V2ccMA0GCSqGSIb3DQEBAQUABIIBAEe4WDGbKrT/KLGLLnoE5OtJ9JM6
-# uzmHvkkF3RJHT8qzI07uQwnfJCNAAYn587abvqwyb/JwaGE7yel9o4a8+zyhZHzb
-# 06jwoZAVXHR9oV9kIWJMl25xjP/4nUtKjk7wHidHM7mWIX81erLx7qm+Fx3ltRv9
-# JV2NZcMEpsyO9P8LrvLJCXmSMmy+MjiO33KTIidptdRquJyBQ23bbt/TSfUQfCpN
-# dbcWkSfzHqgI06c+zh8t8aYKZkIZRuS8U0pqHZOkMfNfrJHwK3a79UYHgDkaVncW
-# xO6NL/n5BIlg9CyBeNruwdYXWi9gSvwj4q+WspxLHO/m9l9TH+OrPRL5JWA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOaPU+sSgLJItW4/
+# NqV8IP/1jDBCMA0GCSqGSIb3DQEBAQUABIIBAE8oZ1gQ4fDK9K7/5ockngTPHAj/
+# b79QzmTSPBZnGf+KvjPZ5n1SJYQJQ+B75L/TYv2gwJX/kRX0I6gicIOpLVfzi+SS
+# GA7kmc3NDzzNYTMiNf+TITBQud9oTQhBfWox+z0haebIi7+V73clUSOHoZ51avxD
+# FxpT7gtz1KvQWuX6EcmtnfwSfHcc55Tw1EPCzvpQlJCq/qLgsaQGQ9OhqVhsoPP7
+# ecXQ+WCBYHvZ4tEL55/yT4X4J/sx9G0BqZ5XoFp8TMNa2v3h1eSfpZct6IGK39XZ
+# 7wIRNTUsnJKo7c9FZQ83/WYmzDg7pcBO0BqLoi/zrIartSq7peH1lDAJzWk=
 # SIG # End signature block
