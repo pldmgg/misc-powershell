@@ -7,9 +7,11 @@
     See SYNOPSIS
 
 .PARAMETER RemoteHostNameOrIP
-    This parameter is MANDATORY.
+    This parameter is OPTIONAL.
 
     This parameter takes a string that represents an IP, FQDN, or DNS-Resolvable HostName of a remote host.
+
+    If not provided, $RemoteHostNameOrIP will be the Local Host (i.e. $env:ComputerName).
 
 .PARAMETER AltCredentials
     This parameter is OPTIONAL.
@@ -141,7 +143,7 @@
 function Get-WorkingCredentials {
     [CmdletBinding(DefaultParameterSetName='PSCredential')]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [string]$RemoteHostNameOrIP,
 
         [Parameter(
@@ -347,15 +349,40 @@ function Get-WorkingCredentials {
 
     $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
 
+    $ResolveHostSplatParams = @{
+        ErrorAction         = "Stop"
+    }
+
     if ($RemoteHostNameOrIP) {
-        try {
-            $RemoteHostNetworkInfo = Resolve-Host -HostNameOrIP $RemoteHostNameOrIP -ErrorAction Stop
+        $ResolveHostSplatParams.Add("HostNameOrIP",$RemoteHostNameOrIP)
+    }
+    else {
+        $ResolveHostSplatParams.Add("HostNameOrIP",$env:ComputerName)
+    }
+
+    try {
+        $RemoteHostNetworkInfo = Resolve-Host @ResolveHostSplatParams
+    }
+    catch {
+        Write-Error "Unable to resolve $RemoteHostNameOrIP! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if (!$Username -and !$AltCredentials -and $RemoteHostNetworkInfo.HostName -eq $env:ComputerName) {
+        Write-Warning "The Remote Host is actually the Local Host (i.e. $env:ComputerName)!"
+
+        $Output = [ordered]@{
+            LogonType                               = "LocalAccount"
+            DeterminedCredsThatWorkedOnRemoteHost   = $True
+            WorkingCredsAreValidOnDomain            = $False
+            WorkingCredentials                      = "$(whoami)"
+            RemoteHostWorkingLocation               = $RemoteHostNetworkInfo.FQDN
+            CurrentLoggedInUserCredsWorked          = $True
         }
-        catch {
-            Write-Error "Unable to resolve $RemoteHostNameOrIP! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
+
+        [pscustomobject]$Output
+        return
     }
 
     $EnvironmentInfo = Get-ItemProperty 'Microsoft.PowerShell.Core\Registry::HKEY_CURRENT_USER\Volatile Environment\'
@@ -633,8 +660,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwauzGVFtIImyB3iuG5uU9O3I
-# NFWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU/mbozHJdiNqFg8oHPc2/DAH
+# dL6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -691,11 +718,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMSajhjWlJoIub0v
-# 3oTirK/TAvBNMA0GCSqGSIb3DQEBAQUABIIBADSlOql9KHjXR4gAzXvkR39ZTfIK
-# PVMUjJGTHfba1OxyDH1+dO5LTD8/IQoI+AVXy1BrpeC7bEZKL1/QnD/h/iiZuQIN
-# bmT14mb3N9TYwNRjp7VEnnz28thCB/WazG/qJK/bkhaEJFU8aGUpOjaAyyCVwnJ6
-# JWQapvp/rCmWUf4xqEiF8mIuIvjfEliXkLR6uSHQ86PxCy/QvJofLFob/ijzNEUq
-# ni98ISdV+9AhCJ36Mg+HjD3eVMQ7UYZCRbipGfiiHjYz/82zTSeS3lzYAP0eJ+3/
-# jBjqRd5YDRpFeaSOPoM9lRRXX2M97MlX26w2ex4vSXzaTfVXQHTSNe5K7ec=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI2xM5GR1vhxxT+8
+# LhyD+/81rqoyMA0GCSqGSIb3DQEBAQUABIIBAIsR3z22oB6JDSAg5vXCpRfHokwZ
+# xbvEMR0pcCvcniSOOyS+iHa5dMUyfGcV8R++XtFjpEwA5DPzNQSL0RGNb7iQeU87
+# P+QTtrt+reEgdO54qN+EaCXJ58GSRVLnyVDWGPfDMiVEV1qiJOjr9Vf0tX36ywKh
+# vBUmm669beFfjDAk/YRDI9+k2ULjg7zA15nJHyiLppL+UAQW2c3EJ4S2jtqD0tFg
+# G3w8C6BVDk/gpcPAS/BAfek9lU7hp8GmivJB7dNdUS7/1raV7531FQ+3wLRDD8g8
+# LNn/lmxiQxplEdsavOPipNmqroOHNjpwLpw6vpQgd+WVusguHMnE2eJGvHw=
 # SIG # End signature block
