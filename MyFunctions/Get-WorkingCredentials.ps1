@@ -286,6 +286,60 @@ function Get-WorkingCredentials {
     
     }
 
+    function Check-CredsAndLockStatus {
+        if (![bool]$($CurrentlyLoadedAssemblies -match "System.DirectoryServices.AccountManagement")) {
+            Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+        }
+        $SimpleDomain = $RemoteHostNetworkInfo.Domain
+        $SimpleDomainWLDAPPort = $SimpleDomain + ":3268"
+        $DomainLDAPContainers = "DC=" + $($SimpleDomain -split "\.")[0] + "," + "DC=" + $($SimpleDomain -split "\.")[1]
+
+        try {
+            $SimpleUserName = $($AltCredentials.UserName -split "\\")[1]
+            $PrincipleContext = [System.DirectoryServices.AccountManagement.PrincipalContext]::new(
+                [System.DirectoryServices.AccountManagement.ContextType]::Domain,
+                "$SimpleDomainWLDAPPort",
+                "$DomainLDAPContainers",
+                [System.DirectoryServices.AccountManagement.ContextOptions]::SimpleBind,
+                "$($AltCredentials.UserName)",
+                "$([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AltCredentials.Password)))"
+            )
+
+            try {
+                $UserPrincipal = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($PrincipleContext, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, "$SimpleUserName")
+                $AltCredentialsAreValid = $True
+            }
+            catch {
+                $AltCredentialsAreValid = $False
+            }
+
+            if ($AltCredentialsAreValid) {
+                # Determine if the User Account is locked
+                $AccountLocked = $UserPrincipal.IsAccountLockedOut()
+
+                if ($AccountLocked -eq $True) {
+                    Write-Error "The provided UserName $($AltCredentials.Username) is locked! Please unlock it before additional attempts at getting working credentials!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $Output = [ordered]@{
+            AltCredentialsAreValid = $AltCredentialsAreValid
+        }
+        if ($AccountLocked) {
+            $Output.Add("AccountLocked",$AccountLocked)
+        }
+
+        [pscustomobject]$Output
+    }
+
     #endregion >> Helper Functions
 
 
@@ -360,47 +414,11 @@ function Get-WorkingCredentials {
                 $LogonType = "DomainAccount"
                 $CurrentUserCredentialsMightWork = $False
 
-                if (![bool]$($CurrentlyLoadedAssemblies -match "System.DirectoryServices.AccountManagement")) {
-                    Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-                }
-                $SimpleDomain = $RemoteHostNetworkInfo.Domain
-                $SimpleDomainWLDAPPort = $SimpleDomain + ":3268"
-                $DomainLDAPContainers = "DC=" + $($SimpleDomain -split "\.")[0] + "," + "DC=" + $($SimpleDomain -split "\.")[1]
+                $CredsAndLockStatus = Check-CredsAndLockStatus
 
-                try {
-                    $SimpleUserName = $($AltCredentials.UserName -split "\\")[1]
-                    $PrincipleContext = [System.DirectoryServices.AccountManagement.PrincipalContext]::new(
-                        [System.DirectoryServices.AccountManagement.ContextType]::Domain,
-                        "$SimpleDomainWLDAPPort",
-                        "$DomainLDAPContainers",
-                        [System.DirectoryServices.AccountManagement.ContextOptions]::SimpleBind,
-                        "$($AltCredentials.UserName)",
-                        "$([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AltCredentials.Password)))"
-                    )
-
-                    try {
-                        $UserPrincipal = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($PrincipleContext, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, "$SimpleUserName")
-                        $AltCredentialsAreValid = $True
-                    }
-                    catch {
-                        $AltCredentialsAreValid = $False
-                    }
-
-                    if ($AltCredentialsAreValid) {
-                        # Determine if the User Account is locked
-                        $AccountLocked = $UserPrincipal.IsAccountLockedOut()
-
-                        if ($AccountLocked -eq $True) {
-                            Write-Error "The provided UserName $($AltCredentials.Username) is locked! Please unlock it before additional attempts at getting working credentials!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                    }
-                }
-                catch {
-                    Write-Error $_
-                    $global:FunctionResult = "1"
-                    return
+                $AltCredentialsAreValid = $CredsAndLockStatus.AltCredentialsAreValid
+                if ($AltCredentialsAreValid) {
+                    $AccountLocked = $CredsAndLockStatus.AccountLocked
                 }
             }
         }
@@ -442,48 +460,12 @@ function Get-WorkingCredentials {
 
                     # If we're trying a machine on a different Domain...
                     if ($EnvironmentInfo.UserDNSDomain -ne $RemoteHostNetworkInfo.Domain) {
-                        if (![bool]$($CurrentlyLoadedAssemblies -match "System.DirectoryServices.AccountManagement")) {
-                            Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+                        $CredsAndLockStatus = Check-CredsAndLockStatus
+
+                        $AltCredentialsAreValid = $CredsAndLockStatus.AltCredentialsAreValid
+                        if ($AltCredentialsAreValid) {
+                            $AccountLocked = $CredsAndLockStatus.AccountLocked
                         }
-                        $SimpleDomain = $RemoteHostNetworkInfo.Domain
-                        $SimpleDomainWLDAPPort = $SimpleDomain + ":3268"
-                        $DomainLDAPContainers = "DC=" + $($SimpleDomain -split "\.")[0] + "," + "DC=" + $($SimpleDomain -split "\.")[1]
-    
-                        try {
-                            $SimpleUserName = $($AltCredentials.UserName -split "\\")[1]
-                            $PrincipleContext = [System.DirectoryServices.AccountManagement.PrincipalContext]::new(
-                                [System.DirectoryServices.AccountManagement.ContextType]::Domain,
-                                "$SimpleDomainWLDAPPort",
-                                "$DomainLDAPContainers",
-                                [System.DirectoryServices.AccountManagement.ContextOptions]::SimpleBind,
-                                "$($AltCredentials.UserName)",
-                                "$([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AltCredentials.Password)))"
-                            )
-
-                            try {
-                                $UserPrincipal = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($PrincipleContext, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, "$SimpleUserName")
-                                $AltCredentialsAreValid = $True
-                            }
-                            catch {
-                                $AltCredentialsAreValid = $False
-                            }
-
-                            if ($AltCredentialsAreValid) {
-                                # Determine if the User Account is locked
-                                $AccountLocked = $UserPrincipal.IsAccountLockedOut()
-
-                                if ($AccountLocked -eq $True) {
-                                    Write-Error "The provided UserName $($AltCredentials.Username) is locked! Please unlock it before additional attempts at getting working credentials!"
-                                    $global:FunctionResult = "1"
-                                    return
-                                }
-                            }
-                        }
-                        catch {
-                            Write-Error $_
-                            $global:FunctionResult = "1"
-                            return
-                        }   
                     } # end Different Domain 'if' block
                 } # end Domain Creds 'if' block
             } # end $AltCredentials.Username -ne $(whoami) 'if block'
@@ -651,8 +633,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyfboVCxyhnFdYPnpuocSiLNj
-# 1JOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwauzGVFtIImyB3iuG5uU9O3I
+# NFWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -709,11 +691,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI+WuOBgRNf01ZvM
-# zlKhIjO+ar14MA0GCSqGSIb3DQEBAQUABIIBAGq5kFqelGkKwwzFusz1LUKxvRzy
-# zfZ/hxkLXc64ypfH1FeaWNT0i5K8EsMEby6DJbrgTrRwU1HvvL0WjuUNCpcOyBAJ
-# jrX+i37XWSapJ1ShmP8OcJvAyi365bXQMaoPjQlD5ikJ+ddQyHOenbvMDMeizBI/
-# ahIp9to+z/9lBbDgxqu7R9sWzDPqpGtRR2nlB0wDNeJLLSw90tOaq/elOsBRt6KW
-# IxMkTi9mt/G6k8Ew16E7VAGc2GDbSA/IpEZdd5Z70Zh/cLl7tk8QEv7ShkEErrMR
-# Vsm+gsUc6roR0eFG9jTrydEqQKFj/GdSDwzQNmdlbiZ+WU85T0MCs/+iUFw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMSajhjWlJoIub0v
+# 3oTirK/TAvBNMA0GCSqGSIb3DQEBAQUABIIBADSlOql9KHjXR4gAzXvkR39ZTfIK
+# PVMUjJGTHfba1OxyDH1+dO5LTD8/IQoI+AVXy1BrpeC7bEZKL1/QnD/h/iiZuQIN
+# bmT14mb3N9TYwNRjp7VEnnz28thCB/WazG/qJK/bkhaEJFU8aGUpOjaAyyCVwnJ6
+# JWQapvp/rCmWUf4xqEiF8mIuIvjfEliXkLR6uSHQ86PxCy/QvJofLFob/ijzNEUq
+# ni98ISdV+9AhCJ36Mg+HjD3eVMQ7UYZCRbipGfiiHjYz/82zTSeS3lzYAP0eJ+3/
+# jBjqRd5YDRpFeaSOPoM9lRRXX2M97MlX26w2ex4vSXzaTfVXQHTSNe5K7ec=
 # SIG # End signature block
