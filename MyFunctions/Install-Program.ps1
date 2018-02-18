@@ -370,7 +370,7 @@ function Install-Program {
     # Install $ProgramName if it's not already or if it's outdated...
     if ($($PackageManagementInstalledPrograms.Name -notcontains $ProgramName  -and
     $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName) -or
-    $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion -or
+    $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
     $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
     ) {
         if ($UsePackageManagement -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine) -or 
@@ -683,7 +683,7 @@ function Install-Program {
     if ($AlreadyInstalled) {
         $InstallAction = "AlreadyInstalled"
     }
-    elseif ($PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion -or
+    elseif ($PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
     $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
     ) {
         $InstallAction = "Updated"
@@ -747,8 +747,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeOFTdtVte2MbZWTcFpWQpI5/
-# 8tegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv8U6eAOYtFQ4RQDjfaEd91vU
+# c8agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -805,11 +805,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGU//6UDTw3S/1YZ
-# MI4fif15CKiAMA0GCSqGSIb3DQEBAQUABIIBAEXy5je0UtIPdwy/qmk/qcIW2qwo
-# /lfbk2PZY81nfzXp7Di/4x2t844ndCDwJQZQjezx6OhBNqH4HTZIaZs7WJ1gFeQA
-# uzbtIlcI+So1HUlfdsRMhAUbn7gPDYwxWNhfZKzi9scleVO1jChXsIY7nrhWE0Yw
-# /y+Vl5PoTBWwJZ5/EiohyMW+QNId5t+F+k6ZHs9uZdMr/qzlCvwkfkcBqptz+zcx
-# vWwZlnci+ErqfTDwnEnjZgKe45Iqi/EFcZx1iwxRrwtPd8/KNmuYxsQLCU17/l3A
-# JY9GOBZyh8DpHMBvwxOdraBQ998NpIV/00OqDFcFuBksuNLGtcMFzNv90vc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMiYBmBrRwL85M+6
+# 2j2zRH+1URD/MA0GCSqGSIb3DQEBAQUABIIBAH8GwzbUvPFISl9WTy2UNRuiIVoB
+# aUtt7C0Svlx6JNPtptYRi8WUv0Vt0aTXYWBy4WziV8HFKF90tZLdMp/jt1RSaGBE
+# GDvlT9EoaEB9eEG6GfqujLwA02RW9WoWPyBk8llqwupfUVlbI3ZOjGu89+YaN2TC
+# mPA1x12hOvrJZh9PuE2gu7DiAbpi2XLaJu0o2lPUjaFDLUbxfs+DLXylSW80L+Hl
+# Ndi7+iqRLZx4SvPdZXRSveS+uPCBGGEE4hDkcB3LYY4py+moc0XGfMIomUiewuFf
+# nWUa1/m9IEuvWh14TO+FTlD6n5ikAftmckLd63PQ3b6cRnhgmWiHToI+mqY=
 # SIG # End signature block
