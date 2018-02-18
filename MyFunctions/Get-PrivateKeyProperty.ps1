@@ -167,7 +167,7 @@ function Get-PrivateKeyProperty {
                     $NewAssemblyDir = "$HOME\Downloads\$assembly"
                     $NewAssemblyDllPath = "$NewAssemblyDir\$assembly.dll"
                     if (!$(Test-Path $NewAssemblyDir)) {
-                        New-Item -ItemType Directory -Path $NewAssemblyDir
+                        $null = New-Item -ItemType Directory -Path $NewAssemblyDir
                     }
                     if (Test-Path "$NewAssemblyDir\$assembly*.zip") {
                         Remove-Item "$NewAssemblyDir\$assembly*.zip" -Force
@@ -464,7 +464,7 @@ function Get-PrivateKeyProperty {
                 Invoke-WebRequest -Uri "https://indy.fulgan.com/SSL/$LatestWin64OpenSSLVer" -OutFile "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer"
                 $SSLDownloadUnzipDir = $(Get-ChildItem "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer").BaseName
                 if (! $(Test-Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir")) {
-                    New-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" -ItemType Directory
+                    $null = New-Item -Path "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir" -ItemType Directory
                 }
                 Unzip-File -PathToZip "$env:USERPROFILE\Downloads\$LatestWin64OpenSSLVer" -TargetDir "$env:USERPROFILE\Downloads\$SSLDownloadUnzipDir"
                 # Add OpenSSL to $env:Path
@@ -817,7 +817,7 @@ function Get-PrivateKeyProperty {
             $CertPwd = Read-Host -Prompt "Please enter the password for the private key in the certificate $CertName" -AsSecureString
         }
 
-        Export-PfxCertificate -FilePath "$TempOutputDirectory\$CertName.pfx" -Cert "Cert:\LocalMachine\My\$($CertObject.Thumbprint)" -Password $CertPwd
+        $null = Export-PfxCertificate -FilePath "$TempOutputDirectory\$CertName.pfx" -Cert "Cert:\LocalMachine\My\$($CertObject.Thumbprint)" -Password $CertPwd
 
     }
 
@@ -842,7 +842,7 @@ function Get-PrivateKeyProperty {
     }
 
     #Write-Host "Loading opensslkey.cs from https://github.com/sushihangover/SushiHangover-PowerShell/blob/master/modules/SushiHangover-RSACrypto/opensslkey.cs"
-    #$opensslkeysource = $(Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sushihangover/SushiHangover-PowerShell/master/modules/SushiHangover-RSACrypto/opensslkey.cs").Content
+    $opensslkeysource = $(Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sushihangover/SushiHangover-PowerShell/master/modules/SushiHangover-RSACrypto/opensslkey.cs").Content
     try {
         Add-Type -TypeDefinition $opensslkeysource
     }
@@ -874,11 +874,24 @@ function Get-PrivateKeyProperty {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbEWJbKEfB9NeoxsawxOelxQF
-# F/egggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUg/JucKJb+ygVzX9awn4y07gv
+# w7ugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -935,11 +948,11 @@ function Get-PrivateKeyProperty {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFODrL25P4w6wNf0x
-# jSAWOYIhcHyWMA0GCSqGSIb3DQEBAQUABIIBAJ1wmtuFxn/858jf3xmkqpy4y4Jl
-# spD0FdDbtDzYIL05XyKJV1dlGWbAErEifZWxYJsuGAZNBhrA4y3gYoOjSUxIrkVF
-# OBowkPtF2X131mfDuNAqlcLpx7LBE9QCQBKK1OgSZJ1LagAO6lvXOI2ey7PtbAQM
-# pmAs3c35a/8JhisLBoHlAUAmElmxhTaD7GjLULld96CEKMTyYxadinbhIfDmsTcH
-# uv5v5e8jFWOil6SzYdptzB0o5XB5SXX+yQEcY7OEVcdH0xQ2IOGWYvPawuIZoXg6
-# 442ctpV27KTWafLPAfF3C6pCfiHKgTGXMqPhHNjNq6/5KQ8mPhJ3ZAyjofg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFK22zF2YXtcEeccT
+# F9ojsRsDJY80MA0GCSqGSIb3DQEBAQUABIIBAL0uvlsxvlBqw91/RYwh5lZ6/fpu
+# eZsG3aUu3uLvTpmsoQiLNXNJIqr3a3NmAR3Gt15OzBWAT3Vc9bdxk/nkhOlJOGn9
+# Weefmqygde8Hh0o+J77tFbYhKWoZ+vpVP8FVMYd9E+WF7AFIS/Lkejwa14fJyv5e
+# TQEBzkvVjh5UL8nEAwEny60sdJHNNQhM/3qeQrSfH+Pwn9hTzBlBhsc+iAg5U1q4
+# Sn1ZodONW/K6lLedzUHGXuTRBZZz/lqkZI4uIrMCnLQYcUpg2O3y5l+EO9kVE3xg
+# QArWky6uFzccKy9bBAAV6YfjUgOnrBTppOb7OmF8QnBFDDg5uEJLSKjZ9V4=
 # SIG # End signature block
