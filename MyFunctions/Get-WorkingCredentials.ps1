@@ -642,7 +642,7 @@ function Get-WorkingCredentials {
 
     if ($AltCredentialsAreValid -and !$CredentialsWorked) {
         $FinalWarnMsg = "Either $($RemoteHostNetworkInfo.FQDN) and/or $($RemoteHostNetworkInfo.HostName) " +
-        "and/or $($RemoteHostNetworkInfo.IPAddessList[0]) is not part of the WinRM Trusted Hosts list " +
+        "and/or $($RemoteHostNetworkInfo.IPAddressList[0]) is not part of the WinRM Trusted Hosts list " +
         "(see '`$(Get-ChildItem WSMan:\localhost\Client\TrustedHosts).Value'), or " +
         "$($AltCredentials.UserName) specifically does not have access to $($RemoteHostNetworkInfo.FQDN)!"
         Write-Warning $FinalWarnMsg
@@ -682,8 +682,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmfM6rPi6bHY+E21r0/IltCBm
-# 5jKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZFLhP+QdlGrG/JNphmkgkGyx
+# ExOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -740,11 +740,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN5DzFnBVQZZePgS
-# 5ooQbUn2s6n5MA0GCSqGSIb3DQEBAQUABIIBAD2nZulBmOILO2sN/r522evIkBR9
-# i934F6q2Vdx1G9yNmxztO7iOlPOBmvP1uT6yUtqe1GQrH15pfFTkx+dlkeOTe2Vz
-# jnXhSyFotfEuBuYlGEL2bAHDbnSxu+XaunVdwTW18LoT8mnFMbOySig+TzRNkHCE
-# Kf4xvyQugR/u2eMsxbSo1eKGvSeHmhCRtFCOH2argQhvut2vG+OKLzJtuxMB/ikp
-# A/j8qqy3sE8k1OxPQ8t7aNW3rJV2cisi8hQR0iJ9oDeLvWtopPh2Hdg3ZIG4I9T5
-# T8ReO0nOJKZwXzMJmvqIByqvjpyNXktGBClmHw2+LSp987cThzUk/bnBLHg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLvrgOGCKuWo0SMc
+# WdhYfxoeiyvvMA0GCSqGSIb3DQEBAQUABIIBAHvlZ++My+I3xapkg29RUbOA6Ubr
+# RKMSFQAVn0r5oWd5GzoiXirf0sJJAXOINhMGPCqH1MRxIzSHI68W1SBWiLbCz/SI
+# 8Gh0pySerulVJC0bBvuotyRyGhn5TIgkUOEmqKZEWPGfJUVoEAgN6W7q2oka5H9Q
+# ffqqxePEgz2BZmxoFA5wAU/yxmmfImZvu5Tx4U6H687+o15wsite2lyT7OGmsraa
+# 4+0Z22t7Xg5u4bKoD3sSyMamvm6gCzCnuKDvR0dutLo6F9wcN3E9BZVS6WqDPPbo
+# 3Yig7+WNJAQiRanWOrM8uONR1A0i+f6GVcOatwHfaZ+J46yC2LzAJbXgst4=
 # SIG # End signature block
