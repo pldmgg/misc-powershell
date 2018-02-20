@@ -551,7 +551,7 @@ function Get-WorkingCredentials {
                     $TryCurrentUserCreds = $True
                 }
                 else {
-                    Write-Warning "Unable to determine working credentials for $RemoteHostNameOrIP! Try providing different credentials."
+                    Write-Warning "Unable to determine working credentials for $RemoteHostNameOrIP!"
                 }
             }
         }
@@ -575,7 +575,7 @@ function Get-WorkingCredentials {
                 $TriedCurrentlyLoggedInUser = $True
             }
             catch {
-                Write-Warning "Unable to determine working credentials for $RemoteHostNameOrIP! Try providing different credentials."
+                Write-Warning "Unable to determine working credentials for $RemoteHostNameOrIP!"
             }
         }
     }
@@ -682,8 +682,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUZFLhP+QdlGrG/JNphmkgkGyx
-# ExOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU7VKVA0inkpjU6hV6GXObQwk
+# fv+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -740,11 +740,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLvrgOGCKuWo0SMc
-# WdhYfxoeiyvvMA0GCSqGSIb3DQEBAQUABIIBAHvlZ++My+I3xapkg29RUbOA6Ubr
-# RKMSFQAVn0r5oWd5GzoiXirf0sJJAXOINhMGPCqH1MRxIzSHI68W1SBWiLbCz/SI
-# 8Gh0pySerulVJC0bBvuotyRyGhn5TIgkUOEmqKZEWPGfJUVoEAgN6W7q2oka5H9Q
-# ffqqxePEgz2BZmxoFA5wAU/yxmmfImZvu5Tx4U6H687+o15wsite2lyT7OGmsraa
-# 4+0Z22t7Xg5u4bKoD3sSyMamvm6gCzCnuKDvR0dutLo6F9wcN3E9BZVS6WqDPPbo
-# 3Yig7+WNJAQiRanWOrM8uONR1A0i+f6GVcOatwHfaZ+J46yC2LzAJbXgst4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOfs/0vi3fUzGWI3
+# N9G1Ja8d9QvSMA0GCSqGSIb3DQEBAQUABIIBABjwdy0s1oIyILDcPpc6npgBeEXl
+# FoiuZqkSBpQJr81tUmyKnvs8wafc1cHBbq8foIcQj++q5OhP+dZYDZHNSK2FYI41
+# KQZ+zU+sm7+r6iNI5iMZYhVFxuL4DpCtr+5s8CcSwuwUrYI3ivBQ3Ntp8Aef5MRd
+# bLgQpP3L+erCOqn9DHpGIZhr0coIkEEVDHGN+R9eMFisJQiBxvaWnQTcNmPXynGx
+# trvTxKqyXTWkNGGp2zy73Dco5rejTxfdLe65pxH/fdfINe2f4B1fS+2fHwxeQ4KW
+# YVsc6/6b3aIc2yQ9N5evpcNHv6IyYj+5f7ApsEZR5TvX1hck7UA/h5ZZzNg=
 # SIG # End signature block
