@@ -643,8 +643,9 @@ function Get-WorkingCredentials {
     if ($AltCredentialsAreValid -and !$CredentialsWorked) {
         $FinalWarnMsg = "Either $($RemoteHostNetworkInfo.FQDN) and/or $($RemoteHostNetworkInfo.HostName) " +
         "and/or $($RemoteHostNetworkInfo.IPAddressList[0]) is not part of the WinRM Trusted Hosts list " +
-        "(see '`$(Get-ChildItem WSMan:\localhost\Client\TrustedHosts).Value'), or " +
-        "$($AltCredentials.UserName) specifically does not have access to $($RemoteHostNetworkInfo.FQDN)!"
+        "(see '`$(Get-ChildItem WSMan:\localhost\Client\TrustedHosts).Value'), or the WinRM Service on " +
+        "$($RemoteHostNetworkInfo.FQDN) is not running, or $($AltCredentials.UserName) specifically " +
+        "does not have access to $($RemoteHostNetworkInfo.FQDN)!"
         Write-Warning $FinalWarnMsg
     }
 
@@ -682,8 +683,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU7VKVA0inkpjU6hV6GXObQwk
-# fv+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOxcQoxBIfm8lJ3ToPS1CfvS5
+# Z3Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -740,11 +741,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOfs/0vi3fUzGWI3
-# N9G1Ja8d9QvSMA0GCSqGSIb3DQEBAQUABIIBABjwdy0s1oIyILDcPpc6npgBeEXl
-# FoiuZqkSBpQJr81tUmyKnvs8wafc1cHBbq8foIcQj++q5OhP+dZYDZHNSK2FYI41
-# KQZ+zU+sm7+r6iNI5iMZYhVFxuL4DpCtr+5s8CcSwuwUrYI3ivBQ3Ntp8Aef5MRd
-# bLgQpP3L+erCOqn9DHpGIZhr0coIkEEVDHGN+R9eMFisJQiBxvaWnQTcNmPXynGx
-# trvTxKqyXTWkNGGp2zy73Dco5rejTxfdLe65pxH/fdfINe2f4B1fS+2fHwxeQ4KW
-# YVsc6/6b3aIc2yQ9N5evpcNHv6IyYj+5f7ApsEZR5TvX1hck7UA/h5ZZzNg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFC4bWMDC6mPajU7/
+# DdnL6oq/iKvzMA0GCSqGSIb3DQEBAQUABIIBAG3nkmYgAPlgJQHQPhfcbIaCi/O9
+# SlEXexyZ4+FekEBPGgHiyaYWjtMuZ1qqs1p5ox1meH5OpoOBjMFg4PCPZMwcjDV6
+# 27T67w77KlfB4RKOduKtn3ykYz3F1u+eOZDd/7ClUuUvAsNlO5BezsQqwxnooeoV
+# 9uhKFULS9GKiF1U3OX3PyLUJ9LB3TQz5NB6L6kaOG6GECtXuUFeOGqkuOxkA772U
+# speUtqB3xBYqRmIrkDXrPScEvaXBssNchmbwamy7JfdBuSm7NKpXn4ivDFx+3+ry
+# oR5UFHOak39gYZZGWJ7kxdNMFpYiuJU9aWKrI8VOoyCAij2RNOwv86wPc78=
 # SIG # End signature block
