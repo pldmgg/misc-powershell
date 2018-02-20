@@ -106,7 +106,7 @@
         -For more information about WinRM configuration, run the following command: winrm help config. For more information, see the about_Remote_Troubleshooting
         Help topic.
         At line:1 char:1
-        + Get-WorkingCredentials -RemoteHostNameOrIP ZeroTesting -AltCredential ...
+        + Get-WorkingCredentials -RemoteHostNameOrIP ZeroTesting -AltCredentials AltCredentials ...
         + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
             + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Get-WorkingCredentials
@@ -289,6 +289,20 @@ function Get-WorkingCredentials {
     }
 
     function Check-CredsAndLockStatus {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$True)]
+            $RemoteHostNetworkInfo,
+
+            [Parameter(
+                Mandatory=$True,
+                ParameterSetName='PSCredential'
+            )]
+            [System.Management.Automation.PSCredential]$AltCredentials
+        )
+
+        $CurrentlyLoadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
+
         if (![bool]$($CurrentlyLoadedAssemblies -match "System.DirectoryServices.AccountManagement")) {
             Add-Type -AssemblyName System.DirectoryServices.AccountManagement
         }
@@ -441,7 +455,7 @@ function Get-WorkingCredentials {
                 $LogonType = "DomainAccount"
                 $CurrentUserCredentialsMightWork = $False
 
-                $CredsAndLockStatus = Check-CredsAndLockStatus
+                $CredsAndLockStatus = Check-CredsAndLockStatus -RemoteHostNetworkInfo $RemoteHostNetworkInfo -AltCredentials $AltCredentials
 
                 $AltCredentialsAreValid = $CredsAndLockStatus.AltCredentialsAreValid
                 if ($AltCredentialsAreValid) {
@@ -487,9 +501,10 @@ function Get-WorkingCredentials {
 
                     # If we're trying a machine on a different Domain...
                     if ($EnvironmentInfo.UserDNSDomain -ne $RemoteHostNetworkInfo.Domain) {
-                        $CredsAndLockStatus = Check-CredsAndLockStatus
+                        $CredsAndLockStatus = Check-CredsAndLockStatus -RemoteHostNetworkInfo $RemoteHostNetworkInfo -AltCredentials $AltCredentials
 
                         $AltCredentialsAreValid = $CredsAndLockStatus.AltCredentialsAreValid
+                        $AltCredentialsAreValid
                         if ($AltCredentialsAreValid) {
                             $AccountLocked = $CredsAndLockStatus.AccountLocked
                         }
@@ -660,8 +675,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUU/mbozHJdiNqFg8oHPc2/DAH
-# dL6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbtm8IJ17Tsa+FeKd2WBMr8SW
+# qz+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -718,11 +733,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI2xM5GR1vhxxT+8
-# LhyD+/81rqoyMA0GCSqGSIb3DQEBAQUABIIBAIsR3z22oB6JDSAg5vXCpRfHokwZ
-# xbvEMR0pcCvcniSOOyS+iHa5dMUyfGcV8R++XtFjpEwA5DPzNQSL0RGNb7iQeU87
-# P+QTtrt+reEgdO54qN+EaCXJ58GSRVLnyVDWGPfDMiVEV1qiJOjr9Vf0tX36ywKh
-# vBUmm669beFfjDAk/YRDI9+k2ULjg7zA15nJHyiLppL+UAQW2c3EJ4S2jtqD0tFg
-# G3w8C6BVDk/gpcPAS/BAfek9lU7hp8GmivJB7dNdUS7/1raV7531FQ+3wLRDD8g8
-# LNn/lmxiQxplEdsavOPipNmqroOHNjpwLpw6vpQgd+WVusguHMnE2eJGvHw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGILCA3cKoecIf93
+# 9L35xGHJkfgLMA0GCSqGSIb3DQEBAQUABIIBAEBT9cTyNvaVA1DyOhYAYv1EvwHM
+# hPfjScTpxxXJmSzMwfBApf+D2rQEealFO7N/p+X9e7xRHHoO907vbyZUjrqtttmT
+# NxcqoYXXHeLzamTF00fIjU022V01DbMoB0oRZPzqeMd4/TenGsmMsyANG8V2IScj
+# e84Musay6mCTt2CHPTN4vwYSnA49PaVte6wJS6C00vZqKO22Y0EbCGeeDiOWLOcH
+# NSC4Ehw+kpUz/kOoMd38u2PjHM1hBeqMaNLibXqPNEOuUGtNBJhCRIlb++QZp0b6
+# knbyBIVaicZXJ355SxGsXFJyTTMqXhLqHXbADFLE1pktEmqiuFhCbaJqvoE=
 # SIG # End signature block
