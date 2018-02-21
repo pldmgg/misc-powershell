@@ -645,7 +645,12 @@ function Get-WorkingCredentials {
         "and/or $($RemoteHostNetworkInfo.IPAddressList[0]) is not part of the WinRM Trusted Hosts list " +
         "(see '`$(Get-ChildItem WSMan:\localhost\Client\TrustedHosts).Value'), or the WinRM Service on " +
         "$($RemoteHostNetworkInfo.FQDN) is not running, or $($AltCredentials.UserName) specifically " +
-        "does not have access to $($RemoteHostNetworkInfo.FQDN)!"
+        "does not have access to $($RemoteHostNetworkInfo.FQDN)! If $($RemoteHostNetworkInfo.FQDN) is " +
+        "not part of a Domain, then you may also need to add this regsitry setting on $($RemoteHostNetworkInfo.FQDN):`n" +
+        "    reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f" +
+        "Lastly, use the 'Get-NetConnectionProfile' cmdlet on $($RemoteHostNetworkInfo.FQDN) to determine if any " +
+        "network adapters have a 'NetworkCategory' of 'Public'. If so you must change them to 'Private' via:`n" +
+        "    Get-NetConnectionProfile | Where-Object {`$_.NetworkCategory -eq 'Public'} | Set-NetConnectionProfile -NetworkCategory 'Private'"
         Write-Warning $FinalWarnMsg
     }
 
@@ -683,8 +688,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOxcQoxBIfm8lJ3ToPS1CfvS5
-# Z3Sgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW9F4vFBWtRa6axJs6chcN6d2
+# h2Cgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -741,11 +746,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFC4bWMDC6mPajU7/
-# DdnL6oq/iKvzMA0GCSqGSIb3DQEBAQUABIIBAG3nkmYgAPlgJQHQPhfcbIaCi/O9
-# SlEXexyZ4+FekEBPGgHiyaYWjtMuZ1qqs1p5ox1meH5OpoOBjMFg4PCPZMwcjDV6
-# 27T67w77KlfB4RKOduKtn3ykYz3F1u+eOZDd/7ClUuUvAsNlO5BezsQqwxnooeoV
-# 9uhKFULS9GKiF1U3OX3PyLUJ9LB3TQz5NB6L6kaOG6GECtXuUFeOGqkuOxkA772U
-# speUtqB3xBYqRmIrkDXrPScEvaXBssNchmbwamy7JfdBuSm7NKpXn4ivDFx+3+ry
-# oR5UFHOak39gYZZGWJ7kxdNMFpYiuJU9aWKrI8VOoyCAij2RNOwv86wPc78=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGZD72ti4T6g9k9a
+# D6ieJSKjn+WRMA0GCSqGSIb3DQEBAQUABIIBAIUDnKMyc0mF5oYShT+QTLkY2SHW
+# 7vBGCG3GJPeL/GJWXWf/jDi/lEu5Ux1EBCH1/xHV6BgHoUF+ZqjQy0a5fxHmKIwH
+# Pn9MWKKtEDBMNpnjg8aAQELvOJrbQByQm5RM44f3SDbw9LlmdmSvngXHGUNwRt/y
+# Hcjz+qUrRvNFO1DZtzQ3HyynPmmwtKmrs3M2dskOaDSy8BTziNsQY1SLG9vmtQPI
+# uZRw520rxAERE0n0dqFAetCg2Vjz3ak5ZAJUn1PxTzJflXoZlJ9In+99bmwir8l8
+# 9soNN7KsJhVexOwzmoNkDeqYXu+dAl7jKPsudrLnGiBJK9EAhw3wXwDlpFU=
 # SIG # End signature block
