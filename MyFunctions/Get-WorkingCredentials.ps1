@@ -384,7 +384,7 @@ function Get-WorkingCredentials {
     }
 
     if (!$Username -and !$AltCredentials -and $RemoteHostNetworkInfo.HostName -eq $env:ComputerName) {
-        Write-Warning "The Remote Host is actually the Local Host (i.e. $env:ComputerName)!"
+        #Write-Warning "The Remote Host is actually the Local Host (i.e. $env:ComputerName)!"
 
         $Output = [ordered]@{
             LogonType                               = "LocalAccount"
@@ -688,8 +688,8 @@ function Get-WorkingCredentials {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUW9F4vFBWtRa6axJs6chcN6d2
-# h2Cgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWx43QdV7ESJh95nuCnSPVDAH
+# frqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -746,11 +746,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGZD72ti4T6g9k9a
-# D6ieJSKjn+WRMA0GCSqGSIb3DQEBAQUABIIBAIUDnKMyc0mF5oYShT+QTLkY2SHW
-# 7vBGCG3GJPeL/GJWXWf/jDi/lEu5Ux1EBCH1/xHV6BgHoUF+ZqjQy0a5fxHmKIwH
-# Pn9MWKKtEDBMNpnjg8aAQELvOJrbQByQm5RM44f3SDbw9LlmdmSvngXHGUNwRt/y
-# Hcjz+qUrRvNFO1DZtzQ3HyynPmmwtKmrs3M2dskOaDSy8BTziNsQY1SLG9vmtQPI
-# uZRw520rxAERE0n0dqFAetCg2Vjz3ak5ZAJUn1PxTzJflXoZlJ9In+99bmwir8l8
-# 9soNN7KsJhVexOwzmoNkDeqYXu+dAl7jKPsudrLnGiBJK9EAhw3wXwDlpFU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCl0IbyNjnTU9vYX
+# fZKmRhE6qV0NMA0GCSqGSIb3DQEBAQUABIIBAIqcFUyZNCJcujVeAL1gdx2Z0aXs
+# WEKI9kRo0oetnnc6hT7J82SW6RmKkE61yT645OPieQoKFdL1/fZCyPF8f2p/xCNJ
+# voiTSPgyHW4EcN7Xr/wN3MvoMWGy7HWd0YbEZtuyorwz0HHFfTxmU+kekaR1UD+b
+# r6qcOnjFT7pJfyt1lCzzhTT3nOtGEnRSVsFFfHOojVCPo2pRMXOZEfMhzSZIhT1L
+# gZsIOku+udOQ6NaPjEuIWBc4HQ7BUpQxhgmcnWLW/UaEUgFAG6AU8gIUVh3koLRw
+# Z9ciFhUAsQjpRaqWRgUTO9P2dru2Hg7hjvseN+2pSG3aEEGYZ4EU4iqoEso=
 # SIG # End signature block
