@@ -38,7 +38,7 @@ Function Test-LDAP {
     } 
     catch {
         if ($_.Exception.ToString() -match "The server is not operational") {
-            Write-Warning "Either can't find LDAP Server or SSL on Global Catalog is not operational!"
+            Write-Warning "Either can't find LDAP Server or SSL on Global Catalog (3269) is not operational!"
         }
         elseif ($_.Exception.ToString() -match "The user name or password is incorrect") {
             Write-Warning "The current user $(whoami) does not have access!"
@@ -56,7 +56,7 @@ Function Test-LDAP {
     } 
     catch {
         if ($_.Exception.ToString() -match "The server is not operational") {
-            Write-Warning "Either can't find LDAP Server or Global Catalog is not operational!"
+            Write-Warning "Either can't find LDAP Server or Global Catalog (3268) is not operational!"
         }
         elseif ($_.Exception.ToString() -match "The user name or password is incorrect") {
             Write-Warning "The current user $(whoami) does not have access!"
@@ -77,7 +77,7 @@ Function Test-LDAP {
     } 
     catch {
         if ($_.Exception.ToString() -match "The server is not operational") {
-            Write-Warning "Can't find LDAP Server! Check the value provided to the -ADServer parameter!"
+            Write-Warning "Can't find LDAP Server or SSL (636) is NOT configured! Check the value provided to the -ADServer parameter!"
         }
         elseif ($_.Exception.ToString() -match "The user name or password is incorrect") {
             Write-Warning "The current user $(whoami) does not have access! Halting!"
@@ -95,7 +95,7 @@ Function Test-LDAP {
     }
     catch {
         if ($_.Exception.ToString() -match "The server is not operational") {
-            Write-Warning "Can't find LDAP Server! Check the value provided to the -ADServer parameter!"
+            Write-Warning "Can't find LDAP Server (389)! Check the value provided to the -ADServer parameter!"
         }
         elseif ($_.Exception.ToString() -match "The user name or password is incorrect") {
             Write-Warning "The current user $(whoami) does not have access!"
@@ -149,8 +149,8 @@ Function Test-LDAP {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4khFhQqky+TzT/9nvpEck6UT
-# 77agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUy7gAHmbAM/PrlNPd64TxeDIS
+# dKagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -207,11 +207,11 @@ Function Test-LDAP {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHZYiIndvoX+zPAJ
-# S+lRd6r7ZPPPMA0GCSqGSIb3DQEBAQUABIIBAEonbTBIJ4IM+oUydjw8k+pRw4aB
-# 5ItKAVW/UCwVWIhEM9jBMXDaVik3LWMwspdqpVYiYRmjz2nxzY5nuc+fqeWhpSVS
-# sVecPQRs5Skii2SpCYX1J8gC6l0djHjHL+X1VlJ6eMykn0Wt//oekT8tlGl+J7Be
-# EWrjZD8l3g13KVx9vGmfvDdE6EidwfJcxl4cERZg+GbkTAN4JnjvoWm1vmSQp3io
-# Wv5ESVeNc0VKiGJsIWrg/Ig0EiRGkMQdDEnGMppSd88T7Vvgf/LNLmG9E+SRs5bn
-# W4Crn4rW9SzDHk7xSbZP6jUwdcHHoEs+cBqRvOzOGtZCui3gJVHmg8p6bRI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFemKIrvFs0JZwkN
+# eacRxZO4xEIKMA0GCSqGSIb3DQEBAQUABIIBAEf3Ymw+2YOvlWG7us0GOjjCoNAR
+# nYMMzsgObORI+FZU2DcU1KiIDS+Fw9ymxqTjSJNUXwuCIP1VGV9LrCQdPM2ZZ+u3
+# cFuwvGdenb3Lq1/HNYIpNL/fxTNCg442xJQlJ7QJSXzn8qGlf8kSEDRhdRp2IK92
+# c1ByY4cVmOfqZyU1KL6mrnc2arlsr8oh9l0IlYypUkhCngKnwmge93VFKoLLJpG3
+# O7e+/0fIJ+buFIWhdjsk5J7MoMz3OASfDMU8ykeFjMTIbQ090jpQZVTB+xeHRX8E
+# L/a+SKToOz4MqaXFyEt3rCTfmuLlAV7lvRBWvb18R41pyPfG2IfmwpgK2pM=
 # SIG # End signature block
