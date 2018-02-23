@@ -77,7 +77,7 @@ Function Test-LDAP {
     } 
     catch {
         if ($_.Exception.ToString() -match "The server is not operational") {
-            Write-Warning "Can't find LDAP Server or SSL (636) is NOT configured! Check the value provided to the -ADServer parameter!"
+            Write-Warning "Can't find LDAP Server or SSL (636) is NOT configured! Check the value provided to the -ADServerHostNameOrIP parameter!"
         }
         elseif ($_.Exception.ToString() -match "The user name or password is incorrect") {
             Write-Warning "The current user $(whoami) does not have access! Halting!"
@@ -95,7 +95,7 @@ Function Test-LDAP {
     }
     catch {
         if ($_.Exception.ToString() -match "The server is not operational") {
-            Write-Warning "Can't find LDAP Server (389)! Check the value provided to the -ADServer parameter!"
+            Write-Warning "Can't find LDAP Server (389)! Check the value provided to the -ADServerHostNameOrIP parameter!"
         }
         elseif ($_.Exception.ToString() -match "The user name or password is incorrect") {
             Write-Warning "The current user $(whoami) does not have access!"
@@ -149,8 +149,8 @@ Function Test-LDAP {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUy7gAHmbAM/PrlNPd64TxeDIS
-# dKagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0nvj+L9O6QVV/Jt0hEp7huxK
+# CjWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -207,11 +207,11 @@ Function Test-LDAP {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFemKIrvFs0JZwkN
-# eacRxZO4xEIKMA0GCSqGSIb3DQEBAQUABIIBAEf3Ymw+2YOvlWG7us0GOjjCoNAR
-# nYMMzsgObORI+FZU2DcU1KiIDS+Fw9ymxqTjSJNUXwuCIP1VGV9LrCQdPM2ZZ+u3
-# cFuwvGdenb3Lq1/HNYIpNL/fxTNCg442xJQlJ7QJSXzn8qGlf8kSEDRhdRp2IK92
-# c1ByY4cVmOfqZyU1KL6mrnc2arlsr8oh9l0IlYypUkhCngKnwmge93VFKoLLJpG3
-# O7e+/0fIJ+buFIWhdjsk5J7MoMz3OASfDMU8ykeFjMTIbQ090jpQZVTB+xeHRX8E
-# L/a+SKToOz4MqaXFyEt3rCTfmuLlAV7lvRBWvb18R41pyPfG2IfmwpgK2pM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDDbiLvrwLyTS1Qi
+# lf1k5moDCVKTMA0GCSqGSIb3DQEBAQUABIIBACJm7bOhWNnl8SeQhjtxjpSZJ6Q+
+# I0T6WqXBAbipH0wsaqjUwYH0VDJpp8MjX16Yhw21e+QiAeILaSRv0yOBjNH9D9nN
+# GkPbmnfQSgoNSJCTUFeZbADA0whLfAXgVsZuT9nR4ls619hDAfK8/ikkulKzIk0+
+# UpBLckSjwSxU2D8xgtWg1kgzDl86cQmxbFajgeyrLJdu5yoM07/gIh+CC3BOCCos
+# 0sPlFAcqPYk0p3v3Nwe0CXnXirlzksPe/3F7B6qNiT2Cce03DpCYualD6lMVfVT0
+# l/z8OJqOO2FPPht7LdSqHo1PAXrJFc8nq2hAFkV9Y7ri0MMNgluOhW6fu98=
 # SIG # End signature block
