@@ -464,6 +464,10 @@ function Install-Program {
 
         # Now the parent directory of $ProgramName's main executable should be part of the SYSTEM Path
         # (and therefore part of $env:Path). If not, try to find it in Chocolatey directories...
+        if ($(Get-Command $FinalCommandName -ErrorAction SilentlyContinue).CommandType -eq "Alias") {
+            Remove-Item Alias:\$FinalCommandName
+        }
+
         if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
             try {
                 Write-Host "Refreshing `$env:Path..."
@@ -479,7 +483,7 @@ function Install-Program {
                 return
             }
         }
-
+        
         # If we still can't find the main executable...
         if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
             if ($ExpectedInstallLocation) {
@@ -747,8 +751,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv8U6eAOYtFQ4RQDjfaEd91vU
-# c8agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7EoNuS1IqPjVxUn5AiUCRuRJ
+# BiGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -805,11 +809,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMiYBmBrRwL85M+6
-# 2j2zRH+1URD/MA0GCSqGSIb3DQEBAQUABIIBAH8GwzbUvPFISl9WTy2UNRuiIVoB
-# aUtt7C0Svlx6JNPtptYRi8WUv0Vt0aTXYWBy4WziV8HFKF90tZLdMp/jt1RSaGBE
-# GDvlT9EoaEB9eEG6GfqujLwA02RW9WoWPyBk8llqwupfUVlbI3ZOjGu89+YaN2TC
-# mPA1x12hOvrJZh9PuE2gu7DiAbpi2XLaJu0o2lPUjaFDLUbxfs+DLXylSW80L+Hl
-# Ndi7+iqRLZx4SvPdZXRSveS+uPCBGGEE4hDkcB3LYY4py+moc0XGfMIomUiewuFf
-# nWUa1/m9IEuvWh14TO+FTlD6n5ikAftmckLd63PQ3b6cRnhgmWiHToI+mqY=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCRzLO4ugCHPQ4lR
+# rN7BpSaHrcnXMA0GCSqGSIb3DQEBAQUABIIBAHUL5UTA2yKmHuX2AX1ZMtsSZWJU
+# cPB286dk321HY5PRnnNqdeLuQUmsEhmb0nc+IJV2rn9OxWV3xFU0wUYqhqCiNpYz
+# QlLdtHMIT7kslh0MRInNLBqBM/0KliedBib/UxRoSaJ5u3sNI4Yu17cJfLUj54+q
+# /VtFwbvrosMtg69cYouCN87ZpnMj2FacAy0AwxtGeV6jNcz/LjRQQF3vOS0o9dIJ
+# +R8qE+CC0uX3dE7XZM30moELgcau6W8ZPre+HZhrZ7QZdN8ww9ScwWxDvzpKbEP8
+# fm+mgAxw4sbROzgDCASdEU3NP0EfEkaucQ3mTozRyNANTAAabNFNfoq2VTA=
 # SIG # End signature block
