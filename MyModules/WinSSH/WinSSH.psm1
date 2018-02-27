@@ -1232,7 +1232,7 @@ function Install-ChocolateyCmdLine {
         }
         catch {
             Write-Host "Errors from the Update-PackageManagement function are as follows:"
-            foreach ($error in $UPMErr) {Write-Error $($error | Out-String)
+            foreach ($error in $UPMErr) {Write-Error $($error | Out-String)}
             Write-Error "The Update-PackageManagement function failed! Halting!"
             $global:FunctionResult = "1"
             return
@@ -1303,7 +1303,7 @@ function Install-ChocolateyCmdLine {
         }
         catch {
             Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-            foreach ($error in $RCEErr) {Write-Error $($error | Out-String)
+            foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
             Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
             $global:FunctionResult = "1"
             return
@@ -1385,7 +1385,7 @@ function Install-ChocolateyCmdLine {
                 }
                 catch {
                     Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                    foreach ($error in $RCEErr) {Write-Error $($error | Out-String)
+                    foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
                     Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
                     $global:FunctionResult = "1"
                     return
@@ -1419,7 +1419,7 @@ function Install-ChocolateyCmdLine {
             }
             catch {
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)
+                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
                 Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
                 $global:FunctionResult = "1"
                 return
@@ -4651,8 +4651,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUw0Bh88AzYxCfNqgwAR+6xCzd
-# pI+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVITPMfyZProsFIBJKD717EEb
+# AWygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4709,11 +4709,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFE2q/XEYqvf+upVs
-# ILF44wt+euUhMA0GCSqGSIb3DQEBAQUABIIBAF1F2ejLa3FQyAf3tQEjOYDyxPxn
-# 2t4zmoW/5zIH3sEinY9jsObZz7YXYQW6Gr2k0wQ5NqI3MuXhZ7WFvkvryaM6wikt
-# 1L/60XpTtO6FK/HkprYDZd3gMDqniJW8kVICOu6S6U4XBCvW7tvFPbo2swxgVnax
-# WPPa7mfkNWTflRn1fF5xipA5bAH1ZtRl2Sdc+5gF7DDhXvrsqjuVCihLd92bDt3p
-# yXqhsPQGnyEnT325cXzfHP+kqESKGXLAlX0Lj3+sMIiprorhSJ+wr/xNK+2RFCFm
-# 4IFQhgkuCXZh56t4+6Ym98yPu8ykBZi5XpbdSNxSzabxZRLgUjVy77/ePek=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFP1PhtyqapR79ulL
+# zXp5TxvxBUJEMA0GCSqGSIb3DQEBAQUABIIBAA0pVsBVSyncLEZqHelP/dKkEm3x
+# NB0TOFKwbpnyTWMX0paHXFyH+ZfMk881KtphDNO3kCeD5Yyl2P8S1V6k7vgapAxN
+# S4XUZ4ODMHRuE7ov6PEifmbt5e4AESWyFID3qF7rLBlRaljnQ/U1VPVg3S6PII2l
+# C5ABqc8WI8DDPsRahnATBK4ETKF0wqNfScDeE0yjUrUHfy6TSpayA7GWVH2c5PLD
+# phubOcEdsxK1RaHitg5M3ofkpo5E5XITH46o/K7OlQ8UnAKvBQ2Kbe+X/hV/XG1E
+# 8aYINkDCS/kVE065o/mWEhzKlBle5cOLfATgvCvGUmYmZBfxJzN4Yxe61pA=
 # SIG # End signature block
