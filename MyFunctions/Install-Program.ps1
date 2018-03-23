@@ -106,7 +106,10 @@ function Install-Program {
         [switch]$ScanCDriveForMainExeIfNecessary,
 
         [Parameter(Mandatory=$False)]
-        [switch]$SkipExeCheck
+        [switch]$SkipExeCheck,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$PreRelease
     )
 
     ##### BEGIN Native Helper Functions #####
@@ -376,8 +379,19 @@ function Install-Program {
         if ($UsePackageManagement -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine) -or 
         $PackageManagementInstalledPrograms.Name -contains $ProgramName -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName
         ) {
+            $InstallPackageSplatParams = @{
+                Name            = $ProgramName
+                Force           = $True
+                ErrorAction     = "SilentlyContinue"
+                ErrorVariable   = "InstallError"
+                WarningAction   = "SilentlyContinue"
+            }
+            if ($PreRelease) {
+                $LatestVersion = $(Find-Package $ProgramName -AllVersions)[-1].Version
+                $InstallPackageSplatParams.Add("MinimumVersion",$LatestVersion)
+            }
             # NOTE: The PackageManagement install of $ProgramName is unreliable, so just in case, fallback to the Chocolatey cmdline for install
-            $null = Install-Package $ProgramName -Force -ErrorVariable InstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+            $null = Install-Package @InstallPackageSplatParams
             if ($InstallError.Count -gt 0) {
                 $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
                 Write-Warning "There was a problem installing $ProgramName via PackageManagement/PowerShellGet!"
@@ -446,7 +460,12 @@ function Install-Program {
                 # TODO: Figure out how to handle errors from choco.exe. Some we can ignore, others
                 # we shouldn't. But I'm not sure what all of the possibilities are so I can't
                 # control for them...
-                $null = cup $ProgramName -y
+                if ($PreRelease) {
+                    $null = cup $ProgramName --pre -y
+                }
+                else {
+                    $null = cup $ProgramName -y
+                }
                 $ChocoInstall = $true
 
                 # Since Installation via the Chocolatey CmdLine was succesful, let's update $env:Path with the
@@ -753,8 +772,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2dyB21AUsrJlj7Ih2JgAj4+Q
-# aOmgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8gqxbrO18aiNk2h/AbDnajTs
+# 2c6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -811,11 +830,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLsKXkSr0Z5nMiIb
-# NQdHGebJloSIMA0GCSqGSIb3DQEBAQUABIIBAJk6hl84lvSeyvYyOcnTGe9BeDzd
-# puIU4Va7wJebujOdPJK0MlYoT+sOhNgzH3YN8S4sjggHS3HfMPC/O12eqEPE1fWy
-# PijWlLrlxT5w6E/dW0oW3h3mj35MPVTTRFPE8cL7ErQ1ktYZCA8+c7GS2ICmSHRg
-# aXyhb/0gCkfwA9+tAHzST7UKJ8KHJCS397S+78CMMV/Heqr+5S5HzGc7qDbqCKxs
-# tIw2+llBMUnWpOksFjHbMNBX6fvgLF588n03XE6J7LVyneQfpbVjNYN0wzEQHqoD
-# xz6KntNxRL58WeUQj7AhcThQfqY1pMI1OdOMUpWV9w9160VZzl4Y233ejsM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMKpJlMy5iOikz11
+# IKFuI+tTPQD2MA0GCSqGSIb3DQEBAQUABIIBAEGfyeP9zMurx/euczJtutDWLt63
+# MGnJlbd543CKwoRw1g0aBjFr1rKYdyQqFpeQUxb+H836WyZfwGktGd6O7fu0LeeS
+# R6rEMvloQCukxCZ7Bt74AKV00pPXUwf2qpgd5R0N3dH6+GqUZZzQx0E7RP7MVIqq
+# zhCpaHC8rAMN9n4tzxLYQO9PIidtEHmSjBcvMIRK82WqgWOFd0HwkabISzOEq0gK
+# 4CfDlUUnCiQUbAvbIMKzLIwLGX0SEh9/ju14Y3upnOd6MHDiYaenYwurVyQNuSMF
+# wA2RYjPcn/VVCUU7FJl4gXkUKlKjh627SyKTkVEChJriIiqb4wC5ZeccwtA=
 # SIG # End signature block
