@@ -5,6 +5,9 @@ function Get-vSwitchAllRelatedInfo {
         [string]$vSwitchName,
 
         [Parameter(Mandatory=$False)]
+        [string]$InterfaceAlias,
+
+        [Parameter(Mandatory=$False)]
         [string]$IPAddress,
 
         [Parameter(Mandatory=$False)]
@@ -18,8 +21,8 @@ function Get-vSwitchAllRelatedInfo {
 
     $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
 
-    if (!$vSwitchName -and !$IPAddress -and !$MacAddress -and !$DeviceId) {
-        Write-Error "The Get-vSwitchRelationship function requires at least one of the following parameters: -vSwitchName, -IPAddress, -MacAddress, -DeviceId or any combination thereof! Halting!"
+    if (!$vSwitchName -and !$InterfaceAlias -and !$IPAddress -and !$MacAddress -and !$DeviceId) {
+        Write-Error "The Get-vSwitchRelationship function requires at least one of the following parameters: -vSwitchName, -InterfaceAlias, -IPAddress, -MacAddress, -DeviceId or any combination thereof! Halting!"
         $global:FunctionResult = "1"
         return
     }
@@ -61,29 +64,66 @@ function Get-vSwitchAllRelatedInfo {
     if ($BoundParametersDictionary["vSwitchName"]) {
         try {
             $DetailedvSwitchInfoViavSwitchName = Get-VMNetworkAdapter -ManagementOS | Where-Object {$_.SwitchName -eq $vSwitchName}
+            if (!$DetailedvSwitchInfoViavSwitchName) {
+                throw "Unable to find a vSwitch with the name $vSwitchName! Halting!"
+            }
+            if ($DetailedvSwitchInfoViavSwitchName.Count -gt 1) {
+                throw "Multiple vSwitches with the same name (i.e. $vSwitchName)! Halting!"
+            }
+
             $BasicvSwitchInfo = Get-VMSwitch -Name $DetailedvSwitchInfoViavSwitchName.SwitchName
             $NetworkAdapterInfo = Get-NetAdapter | Where-Object {$($_.MacAddress -replace '-','') -eq $DetailedvSwitchInfoViavSwitchName.MacAddress}
             $IPAddressInfo = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetworkAdapterInfo.InterfaceAlias
 
-            if (!$DetailedvSwitchInfoViavSwitchName) {
-                throw
+            $vSwitchNamePSObject = @{
+                ParameterUsed           = "vSwitchName"
+                DetailedvSwitchInfo     = $DetailedvSwitchInfoViavSwitchName
             }
-            else {
-                $vSwitchNamePSObject = @{
-                    ParameterUsed           = "vSwitchName"
-                    DetailedvSwitchInfo     = $DetailedvSwitchInfoViavSwitchName
-                }
 
-                $null = $DetailedvSwitchInfoPSObjects.Add($vSwitchNamePSObject)
-            }
+            $null = $DetailedvSwitchInfoPSObjects.Add($vSwitchNamePSObject)
         }
         catch {
-            if ($($BoundParametersDictionary.GetEnumerator()).Count -gt 1) {
+            if (!$DetailedvSwitchInfoViavSwitchName -and $($BoundParametersDictionary.GetEnumerator()).Count -gt 1) {
                 Write-Warning "Unable to find a vSwitch with the name $vSwitchName!"
                 $BadvSwitchNameProvided = $True
             }
             else {
-                Write-Error "Unable to find a vSwitch with the name $vSwitchName! Halting!"
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    if ($BoundParametersDictionary["InterfaceAlias"]) {
+        try {
+            $NetworkAdapterInfo = Get-NetAdapter -InterfaceAlias $InterfaceAlias -ErrorAction Stop
+            $IPAddressInfo = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $NetworkAdapterInfo.InterfaceAlias
+
+            $PotentialvSwitchesDetailedInfo = Get-VMNetworkAdapter -ManagementOS
+            $MacAddressPrep = $NetworkAdapterInfo.MacAddress -replace '-',''
+            $DetailedvSwitchInfoViaIPAddress = $PotentialvSwitchesDetailedInfo | Where-Object {$_.MacAddress -eq $MacAddressPrep}
+            $BasicvSwitchInfo = Get-VMSwitch -Name $DetailedvSwitchInfoViaIPAddress.SwitchName
+
+            if (!$DetailedvSwitchInfoViaIPAddress) {
+                throw
+            }
+            else {
+                $InterfaceAliasPSObject = @{
+                    ParameterUsed           = "InterfaceAlias"
+                    DetailedvSwitchInfo     = $DetailedvSwitchInfoViaIPAddress
+                }
+
+                $null = $DetailedvSwitchInfoPSObjects.Add($InterfaceAliasPSObject)
+            }
+        }
+        catch {
+            if (!$DetailedvSwitchInfoViaIPAddress -and $($BoundParametersDictionary.GetEnumerator()).Count -gt 1) {
+                Write-Warning "Unable to find a Network Adapter with the InterfaceAlias name $InterfaceAlias!"
+                $BadvInterfaceAliasProvided = $True
+            }
+            else {
+                Write-Error $_
                 $global:FunctionResult = "1"
                 return
             }
@@ -95,7 +135,8 @@ function Get-vSwitchAllRelatedInfo {
             try {
                 $PotentialvSwitchesDetailedInfo = Get-VMNetworkAdapter -ManagementOS
 
-                $IPAddressInfo = Get-NetIPAddress -AddressFamily IPv4 -IPAddress $IPAddress -ErrorAction Stop
+                $IPAddressInfo = Get-NetIPAddress -AddressFamily IPv4 -IPAddress $IPAddress -ErrorAction SilentlyContinue -ErrorVariable GNIPErr
+                if (!$IPAddressInfo -or $GNIPErr) {throw}
                 $NetworkAdapterInfo = Get-NetAdapter -InterfaceAlias $IPAddressInfo.InterfaceAlias
                 $MacAddressPrep = $NetworkAdapterInfo.MacAddress -replace '-',''
 
@@ -272,6 +313,9 @@ function Get-vSwitchAllRelatedInfo {
     if ($BadvSwitchNameProvided) {
         $null = $ParametersIgnoredToGenerateOutput.Add("vSwitchName")
     }
+    if ($BadvInterfaceAliasProvided) {
+        $null = $ParametersIgnoredToGenerateOutput.Add("InterfaceAlias")
+    }
     if ($BadIPAddressProvided) {
         $null = $ParametersIgnoredToGenerateOutput.Add("IPAddress")
     }
@@ -287,7 +331,7 @@ function Get-vSwitchAllRelatedInfo {
         BasicvSwitchInfo                    = $FinalBasicvSwitchInfo
         DetailedvSwitchInfo                 = $FinalDetailedvSwitchInfo
         NetworkAdapterInfo                  = $FinalNetworkAdapterInfo
-        IPAddressinfo                       = $FinalIPAddressInfo
+        IPAddressInfo                       = $FinalIPAddressInfo
         ParametersUsedToGenerateOutput      = $ParametersUsedToGenerateOutput
         ParametersIgnoredToGenerateOutput   = $ParametersIgnoredToGenerateOutput
         NonExistentvSwitchNameProvided      = if ($BadvSwitchNameProvided) {$True} else {$False}
@@ -315,8 +359,8 @@ function Get-vSwitchAllRelatedInfo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcF41/l6lPfr2iiCbIs7iOoNj
-# iQagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUgeTgMsr1N2j2YGLlikjvoDpY
+# CsOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -373,11 +417,11 @@ function Get-vSwitchAllRelatedInfo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPrYhkDCissqrnhL
-# EV6UToiqaIInMA0GCSqGSIb3DQEBAQUABIIBALQoXu9EnrLqu5EK4JiiBTDk7uIg
-# kVU7GQVxMVShbVCdqs49YqL9SIK2u47YX4FeUwhA3wcbSXDfu5bpqFHM9eGSMRqn
-# AS4EqYtL2nhY0PUWL8bkZ+FJWvLEqnGHhwnC24PjV0q/wW/8mvtE7voSag5CAmWQ
-# rxWesWqTmYCYary5i3qFjbPCpl8XlIZl9V0wUVI6e0oDzpRY+KbFdTNdR88itLF9
-# v6+9Vvot3MZsEg/CuBQ4I9NUqqSv9Limh/IyK/gCz/1k/1t0q7GTDHDfv5iZR6XS
-# 6WTC4ZUbwa0Yrl1D9zu4+5tySoNNPCUGw236itf+RcTGgOrW0ZnwMU9A3Ek=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLFNh5eDKO32Ajm9
+# 5t9f4U4Nz8DwMA0GCSqGSIb3DQEBAQUABIIBAHEXjdKfvhHSUHjjrh+rLnet6gpz
+# F5KkJnUWrf/GAlMyNykaqOs1YRF8pFbuiXxBgG3vJgHoq5AZRkAXGbP3Xg9+HryC
+# OroTnfCPve/KsXt1SAOZucd20qjbdXqFOhNVSOFb/1Ob/ohDuin0GAfRG5PW8SZu
+# d31BAc/BNeh7d610ZcuGt3/NX5nBM0PzP2y4TC8drLMr6vxekBF3H/YZN+3rwrhO
+# S82BKCMfT3J0zOTjtqXXqM4HfD1LwQBmyNO6txa+78jGKURwGh2d7bXg8G4dajcc
+# NxM/XLNqzvZ5l9Y+cJ7hwFdDtzX8gJqhbk9oLPCl2mnU4BpSRBzTBkNseJA=
 # SIG # End signature block

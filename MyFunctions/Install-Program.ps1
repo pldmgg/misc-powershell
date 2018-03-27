@@ -17,7 +17,7 @@
 
         This paramter takes a string that represents the name of the program that you'd like to install.
 
-    .PARAMETER UsePackageManagement
+    .PARAMETER UsePowerShellGet
         This parameter is OPTIONAL.
 
         This parameter is a switch that makes the function attempt program installation using ONLY
@@ -62,7 +62,7 @@
         Install-Program -ProgramName kubernetes-cli -CommandName kubectl.exe
 
     .EXAMPLE
-        Install-Program -ProgramName awscli -CommandName aws.exe -UsePackageManagement
+        Install-Program -ProgramName awscli -CommandName aws.exe -UsePowerShellGet
 
     .EXAMPLE
         Install-Program -ProgramName VisualStudioCode -CommandName Code.exe -UseChocolateyCmdLine
@@ -85,7 +85,7 @@ function Install-Program {
             Mandatory=$False,
             ParameterSetName='PackageManagement'
         )]
-        [switch]$UsePackageManagement,
+        [switch]$UsePowerShellGet,
 
         [Parameter(
             Mandatory=$False,
@@ -106,7 +106,7 @@ function Install-Program {
         [switch]$ScanCDriveForMainExeIfNecessary,
 
         [Parameter(Mandatory=$False)]
-        [switch]$SkipExeCheck,
+        [switch]$SkipExeCheck = $True,
 
         [Parameter(Mandatory=$False)]
         [switch]$PreRelease
@@ -238,6 +238,9 @@ function Install-Program {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
+    # Invoke-WebRequest fix...
+    [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
     if ($UseChocolateyCmdLine) {
         $NoUpdatePackageManagement = $True
     }
@@ -274,7 +277,7 @@ function Install-Program {
         }
     }
 
-    if ($UseChocolateyCmdLine -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine)) {
+    if ($UseChocolateyCmdLine -or $(!$UsePowerShellGet -and !$UseChocolateyCmdLine)) {
         if (![bool]$(Get-Command Install-ChocolateyCmdLine -ErrorAction SilentlyContinue)) {
             $InstallCCFunctionUrl = "$MyFunctionsUrl/Install-ChocolateyCmdLine.ps1"
             try {
@@ -376,7 +379,7 @@ function Install-Program {
     $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
     $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
     ) {
-        if ($UsePackageManagement -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine) -or 
+        if ($UsePowerShellGet -or $(!$UsePowerShellGet -and !$UseChocolateyCmdLine) -or 
         $PackageManagementInstalledPrograms.Name -contains $ProgramName -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName
         ) {
             $InstallPackageSplatParams = @{
@@ -396,8 +399,10 @@ function Install-Program {
                 $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
                 Write-Warning "There was a problem installing $ProgramName via PackageManagement/PowerShellGet!"
                 
-                if ($UsePackageManagement) {
+                if ($UsePowerShellGet) {
                     Write-Error "One or more errors occurred during the installation of $ProgramName via the the PackageManagement/PowerShellGet Modules failed! Installation has been rolled back! Halting!"
+                    Write-Host "Errors for the Install-Package cmdlet are as follows:"
+                    Write-Error $($InstallError | Out-String)
                     $global:FunctionResult = "1"
                     return
                 }
@@ -479,141 +484,143 @@ function Install-Program {
             }
         }
         
-        ## BEGIN Try to Find Main Executable Post Install ##
+        if (!$SkipExeCheck -or $PSBoundParameters['CommandName']) {
+            ## BEGIN Try to Find Main Executable Post Install ##
 
-        # Now the parent directory of $ProgramName's main executable should be part of the SYSTEM Path
-        # (and therefore part of $env:Path). If not, try to find it in Chocolatey directories...
-        if ($(Get-Command $FinalCommandName -ErrorAction SilentlyContinue).CommandType -eq "Alias") {
-            while (Test-Path Alias:\$FinalCommandName) {
-                Remove-Item Alias:\$FinalCommandName
-            }
-        }
-
-        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
-            try {
-                Write-Host "Refreshing `$env:Path..."
-                $global:FunctionResult = "0"
-                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw "The Refresh-ChocolateyEnv function failed! Halting!"}
-            }
-            catch {
-                Write-Error $_
-                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                Write-Error $($RCEErr | Out-String)
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-        
-        # If we still can't find the main executable...
-        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
-            if ($ExpectedInstallLocation) {
-                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
-            }
-            else {
-                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
-            }
-        }
-        
-        # If we STILL can't find the main executable...
-        if ($(![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) -or $ForceChocoInstallScript) {
-            # If, at this point we don't have $ExePath, if we did a $ChocoInstall, then we have to give up...
-            # ...but if we did a $PMInstall, then it's possible that PackageManagement/PowerShellGet just
-            # didn't run the chocolateyInstall.ps1 script that sometimes comes bundled with Packages from the
-            # Chocolatey Package Provider/Repo. So try running that...
-            if (!$ExePath -or $ExePath.Count -eq 0 -or $ForceChocoInstallScript) {
-                if ($ChocoInstall) {
-                    Write-Warning "Unable to find main executable for $ProgramName!"
-                    $MainExeSearchFail = $True
+            # Now the parent directory of $ProgramName's main executable should be part of the SYSTEM Path
+            # (and therefore part of $env:Path). If not, try to find it in Chocolatey directories...
+            if ($(Get-Command $FinalCommandName -ErrorAction SilentlyContinue).CommandType -eq "Alias") {
+                while (Test-Path Alias:\$FinalCommandName) {
+                    Remove-Item Alias:\$FinalCommandName
                 }
-                if ($PMInstall -or $($PMInstall -and $ForceChocoInstallScript)) {
-                    [System.Collections.ArrayList]$PossibleChocolateyInstallScripts = @()
-                    
-                    if (Test-Path "C:\Chocolatey") {
-                        $ChocoScriptsA = Get-ChildItem -Path "C:\Chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1"
-                        foreach ($Script in $ChocoScriptsA) {
-                            $null = $PossibleChocolateyInstallScripts.Add($Script)
-                        }
-                    }
-                    if (Test-Path "C:\ProgramData\chocolatey") {
-                        $ChocoScriptsB = Get-ChildItem -Path "C:\ProgramData\chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1"
-                        foreach ($Script in $ChocoScriptsB) {
-                            $null = $PossibleChocolateyInstallScripts.Add($Script)
-                        }
-                    }
+            }
 
-                    [System.Collections.ArrayList][Array]$ChocolateyInstallScriptSearch = $PossibleChocolateyInstallScripts.FullName | Where-Object {$_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"}
-                    if ($ChocolateyInstallScriptSearch.Count -eq 0) {
-                        Write-Warning "Unable to find main the Chocolatey Install Script for $ProgramName PowerShellGet install!"
+            if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+                try {
+                    Write-Host "Refreshing `$env:Path..."
+                    $global:FunctionResult = "0"
+                    $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+                    if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw "The Refresh-ChocolateyEnv function failed! Halting!"}
+                }
+                catch {
+                    Write-Error $_
+                    Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                    Write-Error $($RCEErr | Out-String)
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+            
+            # If we still can't find the main executable...
+            if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
+                if ($ExpectedInstallLocation) {
+                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
+                }
+                else {
+                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
+                }
+            }
+            
+            # If we STILL can't find the main executable...
+            if ($(![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) -or $ForceChocoInstallScript) {
+                # If, at this point we don't have $ExePath, if we did a $ChocoInstall, then we have to give up...
+                # ...but if we did a $PMInstall, then it's possible that PackageManagement/PowerShellGet just
+                # didn't run the chocolateyInstall.ps1 script that sometimes comes bundled with Packages from the
+                # Chocolatey Package Provider/Repo. So try running that...
+                if (!$ExePath -or $ExePath.Count -eq 0 -or $ForceChocoInstallScript) {
+                    if ($ChocoInstall) {
+                        Write-Warning "Unable to find main executable for $ProgramName!"
                         $MainExeSearchFail = $True
                     }
-                    if ($ChocolateyInstallScriptSearch.Count -eq 1) {
-                        $ChocolateyInstallScript = $ChocolateyInstallScriptSearch[0]
-                    }
-                    if ($ChocolateyInstallScriptSearch.Count -gt 1) {
-                        $ChocolateyInstallScript = $($ChocolateyInstallScriptSearch | Sort-Object LastWriteTime)[-1]
-                    }
-                    
-                    if ($ChocolateyInstallScript) {
-                        try {
-                            Write-Host "Trying the Chocolatey Install script from $ChocolateyInstallScript..." -ForegroundColor Yellow
-                            & $ChocolateyInstallScript
-
-                            # Now that the $ChocolateyInstallScript ran, search for the main executable again
-                            Synchronize-SystemPathEnvPath
-
-                            if ($ExpectedInstallLocation) {
-                                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
-                            }
-                            else {
-                                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
-                            }
-
-                            # If we STILL don't have $ExePath, then we have to give up...
-                            if (!$ExePath -or $ExePath.Count -eq 0) {
-                                Write-Warning "Unable to find main executable for $ProgramName!"
-                                $MainExeSearchFail = $True
+                    if ($PMInstall -or $($PMInstall -and $ForceChocoInstallScript)) {
+                        [System.Collections.ArrayList]$PossibleChocolateyInstallScripts = @()
+                        
+                        if (Test-Path "C:\Chocolatey") {
+                            $ChocoScriptsA = Get-ChildItem -Path "C:\Chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1" | Where-Object {$($(Get-Date) - $_.CreationTime).TotalMinutes -lt 5}
+                            foreach ($Script in $ChocoScriptsA) {
+                                $null = $PossibleChocolateyInstallScripts.Add($Script)
                             }
                         }
-                        catch {
-                            Write-Error $_
-                            Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
-
-                            # If PackageManagement/PowerShellGet is ERRONEOUSLY reporting that the program was installed
-                            # use the Uninstall-Package cmdlet to wipe it out. This scenario happens when PackageManagement/
-                            # PackageManagement/PowerShellGet gets a Package from the Chocolatey Package Provider/Repo but
-                            # fails to run the chocolateyInstall.ps1 script for some reason.
-                            if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
-                                $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                        if (Test-Path "C:\ProgramData\chocolatey") {
+                            $ChocoScriptsB = Get-ChildItem -Path "C:\ProgramData\chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1" | Where-Object {$($(Get-Date) - $_.CreationTime).TotalMinutes -lt 5}
+                            foreach ($Script in $ChocoScriptsB) {
+                                $null = $PossibleChocolateyInstallScripts.Add($Script)
                             }
+                        }
 
-                            # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
-                            # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
-                            $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
-                            $InstallProgramSplatParams = @{}
-                            foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
-                                $key = $kvpair.Key
-                                $value = $BoundParametersDictionary[$key]
-                                if ($key -notmatch "UsePackageManagement|ForceChocoInstallScript" -and $InstallProgramSplatParams.Keys -notcontains $key) {
-                                    $InstallProgramSplatParams.Add($key,$value)
+                        [System.Collections.ArrayList][Array]$ChocolateyInstallScriptSearch = $PossibleChocolateyInstallScripts.FullName | Where-Object {$_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"}
+                        if ($ChocolateyInstallScriptSearch.Count -eq 0) {
+                            Write-Warning "Unable to find main the Chocolatey Install Script for $ProgramName PowerShellGet install!"
+                            $MainExeSearchFail = $True
+                        }
+                        if ($ChocolateyInstallScriptSearch.Count -eq 1) {
+                            $ChocolateyInstallScript = $ChocolateyInstallScriptSearch[0]
+                        }
+                        if ($ChocolateyInstallScriptSearch.Count -gt 1) {
+                            $ChocolateyInstallScript = $($ChocolateyInstallScriptSearch | Sort-Object LastWriteTime)[-1]
+                        }
+                        
+                        if ($ChocolateyInstallScript) {
+                            try {
+                                Write-Host "Trying the Chocolatey Install script from $ChocolateyInstallScript..." -ForegroundColor Yellow
+                                & $ChocolateyInstallScript
+
+                                # Now that the $ChocolateyInstallScript ran, search for the main executable again
+                                Synchronize-SystemPathEnvPath
+
+                                if ($ExpectedInstallLocation) {
+                                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
+                                }
+                                else {
+                                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
+                                }
+
+                                # If we STILL don't have $ExePath, then we have to give up...
+                                if (!$ExePath -or $ExePath.Count -eq 0) {
+                                    Write-Warning "Unable to find main executable for $ProgramName!"
+                                    $MainExeSearchFail = $True
                                 }
                             }
-                            if ($InstallProgramSplatParams.Keys -notcontains "UseChocolateyCmdLine") {
-                                $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
-                            }
-                            if ($InstallProgramSplatParams.Keys -notcontains "NoUpdatePackageManagement") {
-                                $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
-                            }
-                            Install-Program @InstallProgramSplatParams
+                            catch {
+                                Write-Error $_
+                                Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
 
-                            return
+                                # If PackageManagement/PowerShellGet is ERRONEOUSLY reporting that the program was installed
+                                # use the Uninstall-Package cmdlet to wipe it out. This scenario happens when PackageManagement/
+                                # PackageManagement/PowerShellGet gets a Package from the Chocolatey Package Provider/Repo but
+                                # fails to run the chocolateyInstall.ps1 script for some reason.
+                                if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
+                                    $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                                }
+
+                                # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
+                                # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
+                                $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
+                                $InstallProgramSplatParams = @{}
+                                foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
+                                    $key = $kvpair.Key
+                                    $value = $BoundParametersDictionary[$key]
+                                    if ($key -notmatch "UsePowerShellGet|ForceChocoInstallScript" -and $InstallProgramSplatParams.Keys -notcontains $key) {
+                                        $InstallProgramSplatParams.Add($key,$value)
+                                    }
+                                }
+                                if ($InstallProgramSplatParams.Keys -notcontains "UseChocolateyCmdLine") {
+                                    $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+                                }
+                                if ($InstallProgramSplatParams.Keys -notcontains "NoUpdatePackageManagement") {
+                                    $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
+                                }
+                                Install-Program @InstallProgramSplatParams
+
+                                return
+                            }
                         }
                     }
                 }
             }
-        }
 
-        ## END Try to Find Main Executable Post Install ##
+            ## END Try to Find Main Executable Post Install ##
+        }
     }
     else {
         if ($ChocolateyInstalledProgramsPSObjects.ProgramName -contains $ProgramName) {
@@ -628,8 +635,8 @@ function Install-Program {
 
     # If we weren't able to find the main executable (or any potential main executables) for
     # $ProgramName, offer the option to scan the whole C:\ drive (with some obvious exceptions)
-    if ($MainExeSearchFail) {
-        if (!$ScanCDriveForMainExeIfNecessary -and !$SkipExeCheck) {
+    if ($MainExeSearchFail -and $(!$SkipExeCheck -or $PSBoundParameters['CommandName'])) {
+        if (!$ScanCDriveForMainExeIfNecessary -and !$SkipExeCheck -and !$PSBoundParameters['CommandName']) {
             $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
             while ($ScanCDriveChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
                 Write-Host "$ScanDriveChoice is not a valid input. Please enter 'Yes' or 'No'"
@@ -637,10 +644,7 @@ function Install-Program {
             }
         }
 
-        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary -or $SkipExeCheck) {
-            if (!$SkipExeCheck) {
-                Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
-            }
+        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary) {
             $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
             [System.Collections.ArrayList]$ExePath = @()
             foreach ($dir in $DirectoriesToSearchRecursively) {
@@ -654,46 +658,48 @@ function Install-Program {
         }
     }
 
-    # Finalize $env:Path
-    if ([bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
-        $PathToAdd = $($ExePath -match "\\$FinalCommandName.exe$") | Split-Path -Parent
-        if ($($env:Path -split ";") -notcontains $PathToAdd) {
-            if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path" + $PathToAdd + ";"
-            }
-            else {
-                $env:Path = "$env:Path" + ";" + $PathToAdd
+    if (!$SkipExeCheck -or $PSBoundParameters['CommandName']) {
+        # Finalize $env:Path
+        if ([bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+            $PathToAdd = $($ExePath -match "\\$FinalCommandName.exe$") | Split-Path -Parent
+            if ($($env:Path -split ";") -notcontains $PathToAdd) {
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path" + $PathToAdd + ";"
+                }
+                else {
+                    $env:Path = "$env:Path" + ";" + $PathToAdd
+                }
             }
         }
-    }
-    $FinalEnvPathArray = $env:Path -split ";" | foreach {if($_ -match "[\w]") {$_}}
-    $FinalEnvPathString = $($FinalEnvPathArray | foreach {if (Test-Path $_) {$_}}) -join ";"
-    $env:Path = $FinalEnvPathString
+        $FinalEnvPathArray = $env:Path -split ";" | foreach {if($_ -match "[\w]") {$_}}
+        $FinalEnvPathString = $($FinalEnvPathArray | foreach {if (Test-Path $_) {$_}}) -join ";"
+        $env:Path = $FinalEnvPathString
 
-    if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
-        # Try to determine Main Executable
-        if (!$ExePath -or $ExePath.Count -eq 0) {
-            $FinalExeLocation = "NotFound"
-        }
-        elseif ($ExePath.Count -eq 1) {
-            $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
-
-            try {
-                $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName -ErrorAction SilentlyContinue).Source
+        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+            # Try to determine Main Executable
+            if (!$ExePath -or $ExePath.Count -eq 0) {
+                $FinalExeLocation = "NotFound"
             }
-            catch {
+            elseif ($ExePath.Count -eq 1) {
+                $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
+
+                try {
+                    $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName -ErrorAction SilentlyContinue).Source
+                }
+                catch {
+                    $FinalExeLocation = $ExePath
+                }
+            }
+            elseif ($ExePath.Count -gt 1) {
+                if (![bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+                    Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
+                }
                 $FinalExeLocation = $ExePath
             }
         }
-        elseif ($ExePath.Count -gt 1) {
-            if (![bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
-                Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
-            }
-            $FinalExeLocation = $ExePath
+        else {
+            $FinalExeLocation = $(Get-Command $FinalCommandName).Source
         }
-    }
-    else {
-        $FinalExeLocation = $(Get-Command $FinalCommandName).Source
     }
 
     if ($ChocoInstall) {
@@ -772,8 +778,8 @@ function Install-Program {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8gqxbrO18aiNk2h/AbDnajTs
-# 2c6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUPOXXzCR7oOtJZERVuaUXS/G0
+# dyGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -830,11 +836,11 @@ function Install-Program {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMKpJlMy5iOikz11
-# IKFuI+tTPQD2MA0GCSqGSIb3DQEBAQUABIIBAEGfyeP9zMurx/euczJtutDWLt63
-# MGnJlbd543CKwoRw1g0aBjFr1rKYdyQqFpeQUxb+H836WyZfwGktGd6O7fu0LeeS
-# R6rEMvloQCukxCZ7Bt74AKV00pPXUwf2qpgd5R0N3dH6+GqUZZzQx0E7RP7MVIqq
-# zhCpaHC8rAMN9n4tzxLYQO9PIidtEHmSjBcvMIRK82WqgWOFd0HwkabISzOEq0gK
-# 4CfDlUUnCiQUbAvbIMKzLIwLGX0SEh9/ju14Y3upnOd6MHDiYaenYwurVyQNuSMF
-# wA2RYjPcn/VVCUU7FJl4gXkUKlKjh627SyKTkVEChJriIiqb4wC5ZeccwtA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGVzXWSMGRg4EVHm
+# wQtWwSJQDK+OMA0GCSqGSIb3DQEBAQUABIIBAERmPK12TSuNechyWFWeMICy8Y1O
+# QJHynguQ9WfLzHTv70G6E+HDSRbr1a5frXIfgThy5QKnvEyugVMfG9iua93/AtUC
+# Us79eicW0Rq0JazrOdC2CoGp60KrC1icGrXG4d04N9mudBmhUxG9DzzInpdtmVf7
+# dNnFNQCMgEEKDdI2TJvjwyBne8Xk78kXYgrDxjREFK+yOvrpXpwfyV8VqMIKh/KS
+# 2I5bGehEPqHuQH7Mwj+SBSAxKTUYyl8CSxKB4A8Nj+/4QCYJpBNQRL39aofU6m5e
+# hNK5oUc5IhCkXlxquuPn5C3U9idiek3lha8VaZdqwc5r3VYoYImraXlbn74=
 # SIG # End signature block

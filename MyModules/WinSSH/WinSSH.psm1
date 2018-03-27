@@ -1,3 +1,5 @@
+[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
 function Check-Elevation {
     if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
         [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
@@ -39,120 +41,40 @@ function Test-Port {
         
         ##### BEGIN Parameter Validation #####
 
+        # Begin Helper Functions #
+
         function Test-IsValidIPAddress([string]$IPAddress) {
             [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
             [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
             Return  ($Valid -and $Octets)
         }
 
-        $HostNetworkInfoArray = @()
-        if (! $(Test-IsValidIPAddress -IPAddress $HostName)) {
-            try {
-                $HostIP = $(Resolve-DNSName $HostName).IP4Address
-                if ($HostIP.Count -gt 1) {
-                    if ($HostName -eq $env:COMPUTERNAME) {
-                        $PrimaryLocalIPv4AddressPrep = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notmatch "^127"}
-                        if ($PrimaryLocalIPv4AddressPrep.Count -gt 1) {
-                            $HostIP = $($PrimaryLocalIPv4AddressPrep | Where-Object {$_.PrefixOrigin -eq "Dhcp"})[0].IPAddress
-                        }
-                        else {
-                            $HostIP = $PrimaryLocalIPv4AddressPrep.IPAddress
-                        }
-                    }
-                    else {
-                        Write-Warning "Potential IPv4 addresses for $HostName are as follows"
-                        Write-Host $($HostIP -join "; ")
-                        $HostIPChoice = Read-Host -Prompt "Please enter the primary IPv4 address for $HostName"
-                        if ($HostIP -notcontains $HostIPChoice) {
-                            Write-Error "The specified IPv4 selection does nto match one of the available options! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        else {
-                            $HostIP = $HostIPChoice
-                        }
-                    }
-                }
-            }
-            catch {
-                Write-Verbose "Unable to resolve $HostName!"
-            }
-            if ($HostIP) {
-                # Filter out any non IPV4 IP Addresses that are in $HostIP
-                $HostIP = $HostIP | % {[ipaddress]$_} | % {if ($_.AddressFamily -eq "InterNetwork") {$_.IPAddressToString}}
-                # If there is still more than one IPAddress string in $HostIP, just select the first one
-                if ($HostIP.Count -gt 1) {
-                    $IP = $HostIP[0]
-                }
-                if ($HostIP -eq "127.0.0.1") {
-                    $LocalHostInfo = Get-CimInstance Win32_ComputerSystem
-                    $DNSHostName = "$($LocalHostInfo.Name)`.$($LocalHostInfo.Domain)"
-                    $HostNameFQDN = $DNSHostName
-                }
-                else {
-                    $DNSHostName = $(Resolve-DNSName $HostIP).NameHost
-                    $HostNameFQDN = $($(Resolve-DNSName $DNSHostName) | ? {$_.IPAddress -eq $HostIP}).Name
-                }
-
-                $pos = $HostNameFQDN.IndexOf(".")
-                $HostNameFQDNPre = $HostNameFQDN.Substring(0, $pos)
-                $HostNameFQDNPost = $HostNameFQDN.Substring($pos+1)
-
-                $HostNetworkInfoArray += $HostIP
-                $HostNetworkInfoArray += $HostNameFQDN
-                $HostNetworkInfoArray += $HostNameFQDNPre
-            }
-            if (!$HostIP) {
-                Write-Error "Unable to resolve $HostName! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
+        try {
+            $HostNameNetworkInfo = Resolve-Host -HostNameOrIP $HostName -ErrorAction Stop
         }
-        if (Test-IsValidIPAddress -IPAddress $HostName) {
-            try {
-                $HostIP = $HostName
-                $DNSHostName = $(Resolve-DNSName $HostIP).NameHost
-                $HostNameFQDN = $($(Resolve-DNSName $DNSHostName) | ? {$_.IPAddress -eq $HostIP}).Name
-            }
-            catch {
-                Write-Verbose "Unable to resolve $HostName!"
-            }
-            if ($HostNameFQDN) {
-                if ($($HostNameFQDN | Select-String -Pattern "\.").Matches.Success) {
-                    $pos = $HostNameFQDN.IndexOf(".")
-                    $HostNameFQDNPre = $HostNameFQDN.Substring(0, $pos)
-                    $HostNameFQDNPost = $HostNameFQDN.Substring($pos+1)
-                }
-                else {
-                    $HostNameFQDNPre = $HostNameFQDN
-                    $HostNameFQDNPost = $HostNameFQDN
-                }
-
-                $HostNetworkInfoArray += $HostIP
-                $HostNetworkInfoArray += $HostNameFQDN
-                $HostNetworkInfoArray += $HostNameFQDNPre
-            }
-            if (!$HostNameFQDN) {
-                Write-Error "Unable to resolve $HostName! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
+        catch {
+            Write-Error "Unable to resolve $HostName! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
+
+        # End Helper Functions #
 
         ##### END Parameter Validation #####
 
         ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
         
         $tcp = New-Object Net.Sockets.TcpClient
+        $RemoteHostFQDN = $HostNameNetworkInfo.FQDN
         
         ##### END Variable/Parameter Transforms and PreRun Prep #####
     }
 
     ##### BEGIN Main Body #####
     Process {
-        if ($pscmdlet.ShouldProcess("$HostName","Test Connection on $HostName`:$Port")) {
+        if ($pscmdlet.ShouldProcess("$RemoteHostFQDN","Test Connection on $RemoteHostFQDN`:$Port")) {
             try {
-                $tcp.Connect($HostName, $Port)
+                $tcp.Connect($RemoteHostFQDN, $Port)
             }
             catch {}
 
@@ -165,7 +87,7 @@ function Test-Port {
             }
 
             $PortTestResult = [pscustomobject]@{
-                Address      = $HostName
+                Address = $RemoteHostFQDN
                 Port    = $Port
                 Open    = $open
             }
@@ -1227,13 +1149,13 @@ function Install-ChocolateyCmdLine {
 
         try {
             $global:FunctionResult = "0"
-            $null = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
-            if ($UPMErr -and $global:FunctionResult -eq 1) {throw}
+            $UPMResult = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
+            if ($global:FunctionResult -eq "1" -or $UPMResult -eq $null) {throw "The Update-PackageManagement function failed!"}
         }
         catch {
+            Write-Error $_
             Write-Host "Errors from the Update-PackageManagement function are as follows:"
-            foreach ($error in $UPMErr) {Write-Error $($error | Out-String)}
-            Write-Error "The Update-PackageManagement function failed! Halting!"
+            Write-Error $($UPMErr | Out-String)
             $global:FunctionResult = "1"
             return
         }
@@ -1298,13 +1220,13 @@ function Install-ChocolateyCmdLine {
             if ($RCEErr.Count -gt 0 -and
             $global:FunctionResult -eq "1" -and
             ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
-                throw
+                throw "The Refresh-ChocolateyEnv function failed! Halting!"
             }
         }
         catch {
+            Write-Error $_
             Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-            foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-            Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+            Write-Error $($RCEErr | Out-String)
             $global:FunctionResult = "1"
             return
         }
@@ -1380,13 +1302,13 @@ function Install-ChocolateyCmdLine {
                     if ($RCEErr.Count -gt 0 -and
                     $global:FunctionResult -eq "1" -and
                     ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
-                        throw
+                        throw "The Refresh-ChocolateyEnv function failed! Halting!"
                     }
                 }
                 catch {
+                    Write-Error $_
                     Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                    foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                    Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                    Write-Error $($RCEErr | Out-String)
                     $global:FunctionResult = "1"
                     return
                 }
@@ -1415,12 +1337,14 @@ function Install-ChocolateyCmdLine {
                 Write-Host "Refreshing `$env:Path..."
                 $global:FunctionResult = "0"
                 $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw}
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {
+                    throw "The Refresh-ChocolateyEnv function failed! Halting!"
+                }
             }
             catch {
+                Write-Error $_
                 Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                foreach ($error in $RCEErr) {Write-Error $($error | Out-String)}
-                Write-Error "The Refresh-ChocolateyEnv function failed! Halting!"
+                Write-Error $($RCEErr | Out-String)
                 $global:FunctionResult = "1"
                 return
             }
@@ -1464,7 +1388,7 @@ function Refresh-ChocolateyEnv {
 
     ##### BEGIN Main Body #####
 
-    if (!$(Get-Command choco -ErrorAction SilentlyContinue)) {
+    if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
         if ($ChocolateyDirectory) {
             $ChocolateyPath = $ChocolateyDirectory
         }
@@ -1474,6 +1398,11 @@ function Refresh-ChocolateyEnv {
             }
             elseif (Test-Path "C:\ProgramData\chocolatey") {
                 $ChocolateyPath = "C:\ProgramData\chocolatey"
+            }
+            else {
+                Write-Error "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed! Halting!"
+                $global:FunctionResult = "1"
+                return
             }
         }
     }
@@ -1515,6 +1444,26 @@ function Refresh-ChocolateyEnv {
     # Remove any repeats in $env:Path
     $env:Path = $($($env:Path -split ";").Trim("\\") | Select-Object -Unique) -join ";"
 
+    # Next, find chocolatey-core.psm1, chocolateysetup.psm1, chocolateyInstaller.psm1, and chocolateyProfile.psm1
+    # and import them
+    $ChocoCoreModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolatey-core.psm1").FullName
+    $ChocoSetupModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateysetup.psm1").FullName
+    $ChocoInstallerModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyInstaller.psm1").FullName
+    $ChocoProfileModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyProfile.psm1").FullName
+
+    $ChocoModulesToImportPrep = @($ChocoCoreModule, $ChocoSetupModule, $ChocoInstallerModule, $ChocoProfileModule)
+    [System.Collections.ArrayList]$ChocoModulesToImport = @()
+    foreach ($ModulePath in $ChocoModulesToImportPrep) {
+        if ($ModulePath -ne $null) {
+            $null = $ChocoModulesToImport.Add($ModulePath)
+        }
+    }
+
+    foreach ($ModulePath in $ChocoModulesToImport) {
+        Remove-Module -Name $([System.IO.Path]::GetFileNameWithoutExtension($ModulePath)) -ErrorAction SilentlyContinue
+        Import-Module -Name $ModulePath
+    }
+
     ##### END Main Body #####
 
 }
@@ -1532,7 +1481,7 @@ function Install-Program {
             Mandatory=$False,
             ParameterSetName='PackageManagement'
         )]
-        [switch]$UsePackageManagement,
+        [switch]$UsePowerShellGet,
 
         [Parameter(
             Mandatory=$False,
@@ -1553,7 +1502,10 @@ function Install-Program {
         [switch]$ScanCDriveForMainExeIfNecessary,
 
         [Parameter(Mandatory=$False)]
-        [switch]$SkipExeCheck
+        [switch]$SkipExeCheck = $True,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$PreRelease
     )
 
     ##### BEGIN Native Helper Functions #####
@@ -1682,6 +1634,9 @@ function Install-Program {
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
+    # Invoke-WebRequest fix...
+    [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
     if ($UseChocolateyCmdLine) {
         $NoUpdatePackageManagement = $True
     }
@@ -1718,7 +1673,7 @@ function Install-Program {
         }
     }
 
-    if ($UseChocolateyCmdLine -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine)) {
+    if ($UseChocolateyCmdLine -or $(!$UsePowerShellGet -and !$UseChocolateyCmdLine)) {
         if (![bool]$(Get-Command Install-ChocolateyCmdLine -ErrorAction SilentlyContinue)) {
             $InstallCCFunctionUrl = "$MyFunctionsUrl/Install-ChocolateyCmdLine.ps1"
             try {
@@ -1817,20 +1772,33 @@ function Install-Program {
     # Install $ProgramName if it's not already or if it's outdated...
     if ($($PackageManagementInstalledPrograms.Name -notcontains $ProgramName  -and
     $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName) -or
-    $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion -or
+    $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
     $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
     ) {
-        if ($UsePackageManagement -or $(!$UsePackageManagement -and !$UseChocolateyCmdLine) -or 
+        if ($UsePowerShellGet -or $(!$UsePowerShellGet -and !$UseChocolateyCmdLine) -or 
         $PackageManagementInstalledPrograms.Name -contains $ProgramName -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName
         ) {
+            $InstallPackageSplatParams = @{
+                Name            = $ProgramName
+                Force           = $True
+                ErrorAction     = "SilentlyContinue"
+                ErrorVariable   = "InstallError"
+                WarningAction   = "SilentlyContinue"
+            }
+            if ($PreRelease) {
+                $LatestVersion = $(Find-Package $ProgramName -AllVersions)[-1].Version
+                $InstallPackageSplatParams.Add("MinimumVersion",$LatestVersion)
+            }
             # NOTE: The PackageManagement install of $ProgramName is unreliable, so just in case, fallback to the Chocolatey cmdline for install
-            $null = Install-Package $ProgramName -Force -ErrorVariable InstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+            $null = Install-Package @InstallPackageSplatParams
             if ($InstallError.Count -gt 0) {
                 $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
                 Write-Warning "There was a problem installing $ProgramName via PackageManagement/PowerShellGet!"
                 
-                if ($UsePackageManagement) {
+                if ($UsePowerShellGet) {
                     Write-Error "One or more errors occurred during the installation of $ProgramName via the the PackageManagement/PowerShellGet Modules failed! Installation has been rolled back! Halting!"
+                    Write-Host "Errors for the Install-Package cmdlet are as follows:"
+                    Write-Error $($InstallError | Out-String)
                     $global:FunctionResult = "1"
                     return
                 }
@@ -1893,7 +1861,12 @@ function Install-Program {
                 # TODO: Figure out how to handle errors from choco.exe. Some we can ignore, others
                 # we shouldn't. But I'm not sure what all of the possibilities are so I can't
                 # control for them...
-                $null = cup $ProgramName -y
+                if ($PreRelease) {
+                    $null = cup $ProgramName --pre -y
+                }
+                else {
+                    $null = cup $ProgramName -y
+                }
                 $ChocoInstall = $true
 
                 # Since Installation via the Chocolatey CmdLine was succesful, let's update $env:Path with the
@@ -1907,135 +1880,143 @@ function Install-Program {
             }
         }
         
-        ## BEGIN Try to Find Main Executable Post Install ##
+        if (!$SkipExeCheck -or $PSBoundParameters['CommandName']) {
+            ## BEGIN Try to Find Main Executable Post Install ##
 
-        # Now the parent directory of $ProgramName's main executable should be part of the SYSTEM Path
-        # (and therefore part of $env:Path). If not, try to find it in Chocolatey directories...
-        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
-            try {
-                Write-Host "Refreshing `$env:Path..."
-                $global:FunctionResult = "0"
-                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
-                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw "The Refresh-ChocolateyEnv function failed! Halting!"}
-            }
-            catch {
-                Write-Error $_
-                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
-                Write-Error $($RCEErr | Out-String)
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        # If we still can't find the main executable...
-        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
-            if ($ExpectedInstallLocation) {
-                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
-            }
-            else {
-                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
-            }
-        }
-        
-        # If we STILL can't find the main executable...
-        if ($(![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) -or $ForceChocoInstallScript) {
-            # If, at this point we don't have $ExePath, if we did a $ChocoInstall, then we have to give up...
-            # ...but if we did a $PMInstall, then it's possible that PackageManagement/PowerShellGet just
-            # didn't run the chocolateyInstall.ps1 script that sometimes comes bundled with Packages from the
-            # Chocolatey Package Provider/Repo. So try running that...
-            if (!$ExePath -or $ExePath.Count -eq 0 -or $ForceChocoInstallScript) {
-                if ($ChocoInstall) {
-                    Write-Warning "Unable to find main executable for $ProgramName!"
-                    $MainExeSearchFail = $True
+            # Now the parent directory of $ProgramName's main executable should be part of the SYSTEM Path
+            # (and therefore part of $env:Path). If not, try to find it in Chocolatey directories...
+            if ($(Get-Command $FinalCommandName -ErrorAction SilentlyContinue).CommandType -eq "Alias") {
+                while (Test-Path Alias:\$FinalCommandName) {
+                    Remove-Item Alias:\$FinalCommandName
                 }
-                if ($PMInstall -or $($PMInstall -and $ForceChocoInstallScript)) {
-                    [System.Collections.ArrayList]$PossibleChocolateyInstallScripts = @()
-                    
-                    if (Test-Path "C:\Chocolatey") {
-                        $ChocoScriptsA = Get-ChildItem -Path "C:\Chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1"
-                        foreach ($Script in $ChocoScriptsA) {
-                            $null = $PossibleChocolateyInstallScripts.Add($Script)
-                        }
-                    }
-                    if (Test-Path "C:\ProgramData\chocolatey") {
-                        $ChocoScriptsB = Get-ChildItem -Path "C:\ProgramData\chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1"
-                        foreach ($Script in $ChocoScriptsB) {
-                            $null = $PossibleChocolateyInstallScripts.Add($Script)
-                        }
-                    }
+            }
 
-                    [System.Collections.ArrayList][Array]$ChocolateyInstallScriptSearch = $PossibleChocolateyInstallScripts.FullName | Where-Object {$_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"}
-                    if ($ChocolateyInstallScriptSearch.Count -eq 0) {
-                        Write-Warning "Unable to find main the Chocolatey Install Script for $ProgramName PowerShellGet install!"
+            if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+                try {
+                    Write-Host "Refreshing `$env:Path..."
+                    $global:FunctionResult = "0"
+                    $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+                    if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw "The Refresh-ChocolateyEnv function failed! Halting!"}
+                }
+                catch {
+                    Write-Error $_
+                    Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                    Write-Error $($RCEErr | Out-String)
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+            
+            # If we still can't find the main executable...
+            if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
+                if ($ExpectedInstallLocation) {
+                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
+                }
+                else {
+                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
+                }
+            }
+            
+            # If we STILL can't find the main executable...
+            if ($(![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) -or $ForceChocoInstallScript) {
+                # If, at this point we don't have $ExePath, if we did a $ChocoInstall, then we have to give up...
+                # ...but if we did a $PMInstall, then it's possible that PackageManagement/PowerShellGet just
+                # didn't run the chocolateyInstall.ps1 script that sometimes comes bundled with Packages from the
+                # Chocolatey Package Provider/Repo. So try running that...
+                if (!$ExePath -or $ExePath.Count -eq 0 -or $ForceChocoInstallScript) {
+                    if ($ChocoInstall) {
+                        Write-Warning "Unable to find main executable for $ProgramName!"
                         $MainExeSearchFail = $True
                     }
-                    if ($ChocolateyInstallScriptSearch.Count -eq 1) {
-                        $ChocolateyInstallScript = $ChocolateyInstallScriptSearch[0]
-                    }
-                    if ($ChocolateyInstallScriptSearch.Count -gt 1) {
-                        $ChocolateyInstallScript = $($ChocolateyInstallScriptSearch | Sort-Object LastWriteTime)[-1]
-                    }
-                    
-                    if ($ChocolateyInstallScript) {
-                        try {
-                            Write-Host "Trying the Chocolatey Install script from $ChocolateyInstallScript..." -ForegroundColor Yellow
-                            & $ChocolateyInstallScript
-
-                            # Now that the $ChocolateyInstallScript ran, search for the main executable again
-                            Synchronize-SystemPathEnvPath
-
-                            if ($ExpectedInstallLocation) {
-                                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
-                            }
-                            else {
-                                [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
-                            }
-
-                            # If we STILL don't have $ExePath, then we have to give up...
-                            if (!$ExePath -or $ExePath.Count -eq 0) {
-                                Write-Warning "Unable to find main executable for $ProgramName!"
-                                $MainExeSearchFail = $True
+                    if ($PMInstall -or $($PMInstall -and $ForceChocoInstallScript)) {
+                        [System.Collections.ArrayList]$PossibleChocolateyInstallScripts = @()
+                        
+                        if (Test-Path "C:\Chocolatey") {
+                            $ChocoScriptsA = Get-ChildItem -Path "C:\Chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1" | Where-Object {$($(Get-Date) - $_.CreationTime).TotalMinutes -lt 5}
+                            foreach ($Script in $ChocoScriptsA) {
+                                $null = $PossibleChocolateyInstallScripts.Add($Script)
                             }
                         }
-                        catch {
-                            Write-Error $_
-                            Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
-
-                            # If PackageManagement/PowerShellGet is ERRONEOUSLY reporting that the program was installed
-                            # use the Uninstall-Package cmdlet to wipe it out. This scenario happens when PackageManagement/
-                            # PackageManagement/PowerShellGet gets a Package from the Chocolatey Package Provider/Repo but
-                            # fails to run the chocolateyInstall.ps1 script for some reason.
-                            if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
-                                $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                        if (Test-Path "C:\ProgramData\chocolatey") {
+                            $ChocoScriptsB = Get-ChildItem -Path "C:\ProgramData\chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1" | Where-Object {$($(Get-Date) - $_.CreationTime).TotalMinutes -lt 5}
+                            foreach ($Script in $ChocoScriptsB) {
+                                $null = $PossibleChocolateyInstallScripts.Add($Script)
                             }
+                        }
 
-                            # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
-                            # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
-                            $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
-                            $InstallProgramSplatParams = @{}
-                            foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
-                                $key = $kvpair.Key
-                                $value = $BoundParametersDictionary[$key]
-                                if ($key -notmatch "UsePackageManagement|ForceChocoInstallScript" -and $InstallProgramSplatParams.Keys -notcontains $key) {
-                                    $InstallProgramSplatParams.Add($key,$value)
+                        [System.Collections.ArrayList][Array]$ChocolateyInstallScriptSearch = $PossibleChocolateyInstallScripts.FullName | Where-Object {$_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"}
+                        if ($ChocolateyInstallScriptSearch.Count -eq 0) {
+                            Write-Warning "Unable to find main the Chocolatey Install Script for $ProgramName PowerShellGet install!"
+                            $MainExeSearchFail = $True
+                        }
+                        if ($ChocolateyInstallScriptSearch.Count -eq 1) {
+                            $ChocolateyInstallScript = $ChocolateyInstallScriptSearch[0]
+                        }
+                        if ($ChocolateyInstallScriptSearch.Count -gt 1) {
+                            $ChocolateyInstallScript = $($ChocolateyInstallScriptSearch | Sort-Object LastWriteTime)[-1]
+                        }
+                        
+                        if ($ChocolateyInstallScript) {
+                            try {
+                                Write-Host "Trying the Chocolatey Install script from $ChocolateyInstallScript..." -ForegroundColor Yellow
+                                & $ChocolateyInstallScript
+
+                                # Now that the $ChocolateyInstallScript ran, search for the main executable again
+                                Synchronize-SystemPathEnvPath
+
+                                if ($ExpectedInstallLocation) {
+                                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
+                                }
+                                else {
+                                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
+                                }
+
+                                # If we STILL don't have $ExePath, then we have to give up...
+                                if (!$ExePath -or $ExePath.Count -eq 0) {
+                                    Write-Warning "Unable to find main executable for $ProgramName!"
+                                    $MainExeSearchFail = $True
                                 }
                             }
-                            if ($InstallProgramSplatParams.Keys -notcontains "UseChocolateyCmdLine") {
-                                $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
-                            }
-                            if ($InstallProgramSplatParams.Keys -notcontains "NoUpdatePackageManagement") {
-                                $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
-                            }
-                            Install-Program @InstallProgramSplatParams
+                            catch {
+                                Write-Error $_
+                                Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
 
-                            return
+                                # If PackageManagement/PowerShellGet is ERRONEOUSLY reporting that the program was installed
+                                # use the Uninstall-Package cmdlet to wipe it out. This scenario happens when PackageManagement/
+                                # PackageManagement/PowerShellGet gets a Package from the Chocolatey Package Provider/Repo but
+                                # fails to run the chocolateyInstall.ps1 script for some reason.
+                                if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
+                                    $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                                }
+
+                                # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
+                                # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
+                                $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
+                                $InstallProgramSplatParams = @{}
+                                foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
+                                    $key = $kvpair.Key
+                                    $value = $BoundParametersDictionary[$key]
+                                    if ($key -notmatch "UsePowerShellGet|ForceChocoInstallScript" -and $InstallProgramSplatParams.Keys -notcontains $key) {
+                                        $InstallProgramSplatParams.Add($key,$value)
+                                    }
+                                }
+                                if ($InstallProgramSplatParams.Keys -notcontains "UseChocolateyCmdLine") {
+                                    $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+                                }
+                                if ($InstallProgramSplatParams.Keys -notcontains "NoUpdatePackageManagement") {
+                                    $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
+                                }
+                                Install-Program @InstallProgramSplatParams
+
+                                return
+                            }
                         }
                     }
                 }
             }
-        }
 
-        ## END Try to Find Main Executable Post Install ##
+            ## END Try to Find Main Executable Post Install ##
+        }
     }
     else {
         if ($ChocolateyInstalledProgramsPSObjects.ProgramName -contains $ProgramName) {
@@ -2050,8 +2031,8 @@ function Install-Program {
 
     # If we weren't able to find the main executable (or any potential main executables) for
     # $ProgramName, offer the option to scan the whole C:\ drive (with some obvious exceptions)
-    if ($MainExeSearchFail) {
-        if (!$ScanCDriveForMainExeIfNecessary -and !$SkipExeCheck) {
+    if ($MainExeSearchFail -and $(!$SkipExeCheck -or $PSBoundParameters['CommandName'])) {
+        if (!$ScanCDriveForMainExeIfNecessary -and !$SkipExeCheck -and !$PSBoundParameters['CommandName']) {
             $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
             while ($ScanCDriveChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
                 Write-Host "$ScanDriveChoice is not a valid input. Please enter 'Yes' or 'No'"
@@ -2059,10 +2040,7 @@ function Install-Program {
             }
         }
 
-        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary -or $SkipExeCheck) {
-            if (!$SkipExeCheck) {
-                Write-Host "Searching for the newly installed $FinalCommandName.exe...Please wait..."
-            }
+        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary) {
             $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
             [System.Collections.ArrayList]$ExePath = @()
             foreach ($dir in $DirectoriesToSearchRecursively) {
@@ -2076,46 +2054,48 @@ function Install-Program {
         }
     }
 
-    # Finalize $env:Path
-    if ([bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
-        $PathToAdd = $($ExePath -match "\\$FinalCommandName.exe$") | Split-Path -Parent
-        if ($($env:Path -split ";") -notcontains $PathToAdd) {
-            if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path" + $PathToAdd + ";"
-            }
-            else {
-                $env:Path = "$env:Path" + ";" + $PathToAdd
+    if (!$SkipExeCheck -or $PSBoundParameters['CommandName']) {
+        # Finalize $env:Path
+        if ([bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+            $PathToAdd = $($ExePath -match "\\$FinalCommandName.exe$") | Split-Path -Parent
+            if ($($env:Path -split ";") -notcontains $PathToAdd) {
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path" + $PathToAdd + ";"
+                }
+                else {
+                    $env:Path = "$env:Path" + ";" + $PathToAdd
+                }
             }
         }
-    }
-    $FinalEnvPathArray = $env:Path -split ";" | foreach {if($_ -match "[\w]") {$_}}
-    $FinalEnvPathString = $($FinalEnvPathArray | foreach {if (Test-Path $_) {$_}}) -join ";"
-    $env:Path = $FinalEnvPathString
+        $FinalEnvPathArray = $env:Path -split ";" | foreach {if($_ -match "[\w]") {$_}}
+        $FinalEnvPathString = $($FinalEnvPathArray | foreach {if (Test-Path $_) {$_}}) -join ";"
+        $env:Path = $FinalEnvPathString
 
-    if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
-        # Try to determine Main Executable
-        if (!$ExePath -or $ExePath.Count -eq 0) {
-            $FinalExeLocation = "NotFound"
-        }
-        elseif ($ExePath.Count -eq 1) {
-            $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
-
-            try {
-                $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName -ErrorAction SilentlyContinue).Source
+        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+            # Try to determine Main Executable
+            if (!$ExePath -or $ExePath.Count -eq 0) {
+                $FinalExeLocation = "NotFound"
             }
-            catch {
+            elseif ($ExePath.Count -eq 1) {
+                $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
+
+                try {
+                    $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName -ErrorAction SilentlyContinue).Source
+                }
+                catch {
+                    $FinalExeLocation = $ExePath
+                }
+            }
+            elseif ($ExePath.Count -gt 1) {
+                if (![bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+                    Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
+                }
                 $FinalExeLocation = $ExePath
             }
         }
-        elseif ($ExePath.Count -gt 1) {
-            if (![bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
-                Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
-            }
-            $FinalExeLocation = $ExePath
+        else {
+            $FinalExeLocation = $(Get-Command $FinalCommandName).Source
         }
-    }
-    else {
-        $FinalExeLocation = $(Get-Command $FinalCommandName).Source
     }
 
     if ($ChocoInstall) {
@@ -2130,7 +2110,7 @@ function Install-Program {
     if ($AlreadyInstalled) {
         $InstallAction = "AlreadyInstalled"
     }
-    elseif ($PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion -or
+    elseif ($PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
     $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
     ) {
         $InstallAction = "Updated"
@@ -2269,11 +2249,27 @@ function Resolve-Host {
         }
     }
 
+    $FQDNPrep = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
+    if ($FQDNPrep -match ',') {
+        $FQDN = $($FQDNPrep -split ',')[0]
+    }
+    else {
+        $FQDN = $FQDNPrep
+    }
+
+    $DomainPrep = if ($DomainList) {$DomainList[0]} else {$null}
+    if ($DomainPrep -match ',') {
+        $Domain = $($DomainPrep -split ',')[0]
+    }
+    else {
+        $Domain = $DomainPrep
+    }
+
     [pscustomobject]@{
         IPAddressList   = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
-        FQDN            = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
+        FQDN            = $FQDN
         HostName        = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
-        Domain          = if ($DomainList) {$DomainList[0]} else {$null}
+        Domain          = $Domain
     }
 
     ##### END Main Body #####
@@ -3370,19 +3366,7 @@ function Install-WinSSH {
         [switch]$ConfigureSSHDOnLocalHost,
 
         [Parameter(Mandatory=$False)]
-        [switch]$InstallSSHAgentService,
-
-        [Parameter(Mandatory=$False)]
         [switch]$RemoveHostPrivateKeys,
-
-        [Parameter(Mandatory=$False)]
-        [string]$NewSSHKeyName,
-
-        [Parameter(Mandatory=$False)]
-        [string]$NewSSHKeyPwd,
-
-        [Parameter(Mandatory=$False)]
-        [string]$NewSSHKeyPurpose,
 
         # For situations where there may be more than one ssh.exe available on the system that are already part of $env:Path
         # or System PATH - for example, the ssh.exe that comes with Git
@@ -3390,7 +3374,7 @@ function Install-WinSSH {
         [switch]$GiveWinSSHBinariesPathPriority,
 
         [Parameter(Mandatory=$False)]
-        [switch]$UsePackageManagement,
+        [switch]$UsePowerShellGet,
 
         [Parameter(Mandatory=$False)]
         [switch]$UseChocolateyCmdLine,
@@ -3402,7 +3386,10 @@ function Install-WinSSH {
         [switch]$NoChocolateyCmdLine,
 
         [Parameter(Mandatory=$False)]
-        [switch]$NoUpdatePackageManagement
+        [switch]$NoUpdatePackageManagement = $True,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SkipWinCapabilityAttempt
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
@@ -3414,18 +3401,22 @@ function Install-WinSSH {
         return
     }
 
-    if ($UsePackageManagement -and $($UseChocolateyCmdLine -or $GitHubInstall)) {
-        Write-Error "Please use EITHER the -UsePackageManagement switch OR the -UseChocolateyCmdLine switch OR the -GitHubInstall switch. Halting!"
+    if ($UsePowerShellGet -or $UseChocolateyCmdLine -or $GitHubInstall) {
+        $SkipWinCapabilityAttempt = $True
+    }
+
+    if ($UsePowerShellGet -and $($UseChocolateyCmdLine -or $GitHubInstall)) {
+        Write-Error "Please use EITHER the -UsePowerShellGet switch OR the -UseChocolateyCmdLine switch OR the -GitHubInstall switch. Halting!"
         $global:FunctionResult = "1"
         return
     }
-    if ($UseChocolateyCmdLine -and $($UsePackageManagement -or $GitHubInstall)) {
-        Write-Error "Please use EITHER the -UseUseChocolateyCmdLine switch OR the -UsePackageManagement switch OR the -GitHubInstall switch. Halting!"
+    if ($UseChocolateyCmdLine -and $($UsePowerShellGet -or $GitHubInstall)) {
+        Write-Error "Please use EITHER the -UseUseChocolateyCmdLine switch OR the -UsePowerShellGet switch OR the -GitHubInstall switch. Halting!"
         $global:FunctionResult = "1"
         return
     }
-    if ($GitHubInstall -and $($UsePackageManagement -or $UseChocolateyCmdLine)) {
-        Write-Error "Please use EITHER the -GitHubInstall switch OR the -UsePackageManagement switch OR the -UseChocolateyCmdLine switch. Halting!"
+    if ($GitHubInstall -and $($UsePowerShellGet -or $UseChocolateyCmdLine)) {
+        Write-Error "Please use EITHER the -GitHubInstall switch OR the -UsePowerShellGet switch OR the -UseChocolateyCmdLine switch. Halting!"
         $global:FunctionResult = "1"
         return
     }
@@ -3436,89 +3427,60 @@ function Install-WinSSH {
 
 
     ##### BEGIN Main Body #####
-
-    if ($UsePackageManagement) {
-        Install-Program -ProgramName OpenSSH -CommandName ssh -UsePackageManagement
-    }
-    if ($UseChocolateyCmdLine) {
-        Install-Program -ProgramName OpenSSH -CommandName ssh -UseChocolateyCmdLine
-    }
-    if ($GitHubInstall) {
-        try {
-            Write-Host "Finding latest version of OpenSSH for Windows..."
-            $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
-            $request = [System.Net.WebRequest]::Create($url)
-            $request.AllowAutoRedirect = $false
-            $response = $request.GetResponse()
-
-            $LatestOpenSSHWin = $($response.GetResponseHeader("Location") -split '/v')[-1]
-        }
-        catch {
-            Write-Error "Unable to determine the latest version of OpenSSH using the Find-Package cmdlet! Try the Install-WinSSH function again using the -UsePackageManagement switch. Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        try {
-            $SSHExePath = $(Get-ChildItem -Path $OpenSSHWinPath -File -Recurse -Filter "ssh.exe").FullName
-        
-            if (Test-Path $SSHExePath) {
-                $InstalledOpenSSHVer = [version]$(Get-Item $SSHExePath).VersionInfo.ProductVersion
-            }
-
-            $NeedNewerVersion = $InstalledOpenSSHVer -lt [version]$LatestOpenSSHWin
-        }
-        catch {
-            $NotInstalled = $True
-        }
-
-        if ($NeedNewerVersion -or $NotInstalled) {
-            $WinSSHFileNameSansExt = "OpenSSH-Win64"
-
-            # We need the NTFSSecurity Module
-            if ($(Get-Module -ListAvailable).Name -contains "NTFSSecurity") {
-                if ($(Get-Module NTFSSecurity).Name -notcontains "NTFSSecurity") {
-                    $null = Import-Module NTFSSecurity
-                }
-            }
-            else {    
-                try {
-                    $null = Install-Module -Name NTFSSecurity
-                    $null = Import-Module NTFSSecurity
-                }
-                catch {
-                    Write-Error $_
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-
-            try {
-                $WinOpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + "/$WinSSHFileNameSansExt.zip"
-                Write-Host "Downloading OpenSSH-Win64 from $WinOpenSSHDLLink..."
-                Invoke-WebRequest -Uri $WinOpenSSHDLLink -OutFile "$HOME\Downloads\$WinSSHFileNameSansExt.zip"
-                # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
-                $null = Unzip-File -PathToZip "$HOME\Downloads\$WinSSHFileNameSansExt.zip" -TargetDir "$HOME\Downloads"
-                Move-Item "$HOME\Downloads\$WinSSHFileNameSansExt" "$env:ProgramFiles\$WinSSHFileNameSansExt"
-                Enable-NTFSAccessInheritance -Path "$env:ProgramFiles\$WinSSHFileNameSansExt" -RemoveExplicitAccessRules
-            }
-            catch {
-                Write-Error $_
-                Write-Error "Installation of OpenSSH failed! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-        else {
-            Write-Error "It appears that the newest version of $WinSSHFileNameSansExt is already installed! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    if (!$UsePackageManagement -and !$UseChocolateyCmdLine -and !$GitHubInstall) {
-        Install-Program -ProgramName OpenSSH -CommandName ssh
-    }
     
+    $InstallSSHAgentSplatParams = @{
+        ErrorAction         = "SilentlyContinue"
+        ErrorVariable       = "ISAErr"
+    }
+    if ($NoUpdatePackageManagement) {
+        $InstallSSHAgentSplatParams.Add("NoUpdatePackageManagement",$True)
+    }
+    if ($UsePowerShellGet) {
+        $InstallSSHAgentSplatParams.Add("UsePowerShellGet",$True)  
+    }
+    elseif ($UseChocolateyCmdLine) {
+        $InstallSSHAgentSplatParams.Add("UseChocolateyCmdLine",$True)
+    }
+    if ($SkipWinCapabilityAttempt) {
+        $InstallSSHAgentSplatParams.Add("SkipWinCapabilityAttempt",$True)
+    }
+
+    try {
+        $InstallSSHAgentResult = Install-SSHAgentService @InstallSSHAgentSplatParams
+        if (!$InstallSSHAgentResult) {throw "The Install-SSHAgentService function failed!"}
+    }
+    catch {
+        Write-Error $_
+        Write-Host "Errors for the Install-SSHAgentService function are as follows:"
+        Write-Error $($ISAErr | Out-String)
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if ($ConfigureSSHDOnLocalHost) {
+        $NewSSHDServerSplatParams = @{
+            ErrorAction         = "SilentlyContinue"
+            ErrorVariable       = "SSHDErr"
+        }
+        if ($RemoveHostPrivateKeys) {
+            $NewSSHDServerSplatParams.Add("RemoveHostPrivateKeys",$True)
+        }
+        if ($SkipWinCapabilityAttempt) {
+            $NewSSHDServerSplatParams.Add("SkipWinCapabilityAttempt",$True)
+        }
+        
+        try {
+            $NewSSHDServerResult = New-SSHDServer @NewSSHDServerSplatParams
+        }
+        catch {
+            Write-Error $_
+            Write-Host "Errors for the New-SSHDServer function are as follows:"
+            Write-Error $($SSHDErr | Out-String)
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
     # Update $env:Path to give the ssh.exe binary we just installed priority
     if ($GiveWinSSHBinariesPathPriority) {
         if ($($env:Path -split ";") -notcontains $OpenSSHWinPath) {
@@ -3541,28 +3503,19 @@ function Install-WinSSH {
         }
     }
 
-    if ($ConfigureSSHDOnLocalHost) {
-        try {
-            $NewSSHDServerResult = New-SSHDServer -ErrorAction Stop
-        }
-        catch {
-            Write-Error "The New-SSDServer function failed! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
+    $Output = [ordered]@{
+        SSHAgentInstallInfo     = $InstallSSHAgentResult
     }
-    elseif ($InstallSSHAgentService) {
-        try {
-            $InstallSSHAgentResult = Install-SSHAgentService -ErrorAction Stop
-        }
-        catch {
-            Write-Error "The Install-SSHAgentService function failed! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
+    if ($NewSSHDServerResult) {
+        $Output.Add("SSHDServerInstallInfo",$NewSSHDServerResult)
     }
 
-    $Output
+    if ($Output.Count -eq 1) {
+        $InstallSSHAgentResult
+    }
+    else {
+        [pscustomobject]$Output
+    }
 }
 
 <#
@@ -3579,6 +3532,20 @@ function Install-WinSSH {
 
 #>
 function Install-SSHAgentService {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [switch]$UseChocolateyCmdLine,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$UsePowerShellGet,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$NoUpdatePackageManagement = $True,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SkipWinCapabilityAttempt
+    )
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
     if (!$(Check-Elevation)) {
@@ -3611,67 +3578,221 @@ function Install-SSHAgentService {
         }
     }
 
-    $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
-    $sshagentpath = $(Get-ChildItem -Path $OpenSSHWinPath -Recurse -File -Filter "*ssh-agent.exe").FullName 
-    $logsdir = "$OpenSSHWinPath\logs"
+    if ([Environment]::OSVersion.Version -ge [version]"10.0.17063" -and !$SkipWinCapabilityAttempt) {
+        # Import the Dism Module
+        if ($(Get-Module).Name -notcontains "Dism") {
+            try {
+                Import-Module Dism
+            }
+            catch {
+                # Using full path to Dism Module Manifest because sometimes there are issues with just 'Import-Module Dism'
+                $DismModuleManifestPaths = $(Get-Module -ListAvailable -Name Dism).Path
 
-    if (Get-Service ssh-agent -ErrorAction SilentlyContinue) {
-        Stop-Service ssh-agent
-        sc.exe delete ssh-agent 1>$null
-    }
-
-    New-Service -Name ssh-agent -BinaryPathName "$sshagentpath" -Description "SSH Agent" -StartupType Automatic | Out-Null
-    # pldmgg NOTE: I have no idea about the below...ask the original authors...
-    cmd.exe /c 'sc.exe sdset ssh-agent D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RP;;;AU)'
-
-    # create logs folder and set its permissions
-    if (-not $(Test-Path $logsdir -PathType Container)) {
-        $null = New-Item $logsdir -ItemType Directory -Force -ErrorAction Stop
-    }
-    $agentlog = Join-Path $logsdir "ssh-agent.log"
-    if(-not (Test-Path $agentlog)){ $null | Set-Content $agentlog }
-
-    # pldmgg NOTE: The below commented code from the original authors is not reliable or readable
-    # Using NTFSSecurity Module instead...
-    <#
-    $acl = Get-Acl -Path $logsdir
-    # following SDDL implies 
-    # - owner - built in Administrators
-    # - disabled inheritance
-    # - Full access to System
-    # - Full access to built in Administrators
-    $acl.SetSecurityDescriptorSddlForm("O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")
-    Set-Acl -Path $logsdir -AclObject $acl
-    #Set-Acl -Path $agentlog -AclObject $acl
-    #>
-
-    # Special Permissions for the logs directory
-    $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $logsdir
-    $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
-    $SecurityDescriptor | Clear-NTFSAccess
-    $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
-    $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
-    #$SecurityDescriptor | Add-NTFSAccess -Account Users -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
-    if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
-        $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
-    }
-    $SecurityDescriptor | Set-NTFSSecurityDescriptor
-    Remove-Variable -Name "SecurityDescriptor"
-
-    # Finally, log files inherit from C:\Program Files\OpenSSH-Win64\logs
-    [System.Collections.ArrayList][Array]$OpenSSHWin64LogFiles = $(Get-ChildItem $logsdir).FullName
-    foreach ($item in $OpenSSHWin64LogFiles) {
-        $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $item
-        $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
-        $SecurityDescriptor | Clear-NTFSAccess
-        $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderOnly
-        $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderOnly
-        #$SecurityDescriptor | Add-NTFSAccess -Account Users -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderOnly
-        if ([bool]$(Get-Service sshd -ErrorAction SilentlyContinue)) {
-            $SecurityDescriptor | Add-NTFSAccess -Account "NT SERVICE\sshd" -AccessRights "Read, Synchronize" -AppliesTo ThisFolderOnly
+                foreach ($MMPath in $DismModuleManifestPaths) {
+                    try {
+                        Import-Module $MMPath -ErrorAction Stop
+                        break
+                    }
+                    catch {
+                        Write-Verbose "Unable to import $MMPath..."
+                    }
+                }
+            }
         }
-        $SecurityDescriptor | Set-NTFSSecurityDescriptor
-        Remove-Variable -Name "SecurityDescriptor"
+        if ($(Get-Module).Name -notcontains "Dism") {
+            Write-Error "Problem importing the Dism PowerShell Module! Unable to proceed with Hyper-V install! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $OpenSSHClientFeature = Get-WindowsCapability -Online | Where-Object {$_.Name -match 'OpenSSH\.Client'}
+
+        if (!$OpenSSHClientFeature) {
+            Write-Warning "Unable to find the OpenSSH.Client feature using the Get-WindowsCapability cmdlet!"
+            $AddWindowsCapabilityFailure = $True
+        }
+        else {
+            try {
+                $SSHClientFeatureInstall = Add-WindowsCapability -Online -Name $OpenSSHClientFeature.Name -ErrorAction Stop
+            }
+            catch {
+                Write-Warning "The Add-WindowsCapability cmdlet failed to add the $($OpenSSHClientFeature.Name)!"
+                $AddWindowsCapabilityFailure = $True
+            }
+        }
+
+        # Make sure the ssh-agent service exists
+        try {
+            $SSHDServiceCheck = Get-Service sshd -ErrorAction Stop
+        }
+        catch {
+            $AddWindowsCapabilityFailure = $True
+        }
+    }
+
+    if ([Environment]::OSVersion.Version -ge [version]"10.0.17063" -or $AddWindowsCapabilityFailure -or $SkipWinCapabilityAttempt) {
+        # BEGIN OpenSSH Program Installation #
+
+        $InstallProgramSplatParams = @{
+            ProgramName         = "OpenSSH"
+            CommandName         = "ssh.exe"
+        }
+        if ($NoUpdatePackageManagement) {
+            $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
+        }
+        if ($UsePowerShellGet) {
+            $InstallProgramSplatParams.Add("UsePowerShellGet",$True)  
+        }
+        elseif ($UseChocolateyCmdLine) {
+            $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+        }
+        elseif ($GitHubInstall) {
+            try {
+                Write-Host "Finding latest version of OpenSSH for Windows..."
+                $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
+                $request = [System.Net.WebRequest]::Create($url)
+                $request.AllowAutoRedirect = $false
+                $response = $request.GetResponse()
+    
+                $LatestOpenSSHWin = $($response.GetResponseHeader("Location") -split '/v')[-1]
+            }
+            catch {
+                Write-Error "Unable to determine the latest version of OpenSSH using the Find-Package cmdlet! Try the Install-WinSSH function again using the -UsePowerShellGet switch. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+    
+            try {
+                $SSHExePath = $(Get-ChildItem -Path $OpenSSHWinPath -File -Recurse -Filter "ssh.exe").FullName
+            
+                if (Test-Path $SSHExePath) {
+                    $InstalledOpenSSHVer = [version]$(Get-Item $SSHExePath).VersionInfo.ProductVersion
+                }
+    
+                $NeedNewerVersion = $InstalledOpenSSHVer -lt [version]$LatestOpenSSHWin
+            }
+            catch {
+                $NotInstalled = $True
+            }
+    
+            if ($NeedNewerVersion -or $NotInstalled) {
+                $WinSSHFileNameSansExt = "OpenSSH-Win64"
+    
+                # We need the NTFSSecurity Module
+                if ($(Get-Module -ListAvailable).Name -contains "NTFSSecurity") {
+                    if ($(Get-Module NTFSSecurity).Name -notcontains "NTFSSecurity") {
+                        $null = Import-Module NTFSSecurity
+                    }
+                }
+                else {    
+                    try {
+                        $null = Install-Module -Name NTFSSecurity
+                        $null = Import-Module NTFSSecurity
+                    }
+                    catch {
+                        Write-Error $_
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                }
+    
+                try {
+                    $WinOpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + "/$WinSSHFileNameSansExt.zip"
+                    Write-Host "Downloading OpenSSH-Win64 from $WinOpenSSHDLLink..."
+                    Invoke-WebRequest -Uri $WinOpenSSHDLLink -OutFile "$HOME\Downloads\$WinSSHFileNameSansExt.zip"
+                    # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
+                    $null = Unzip-File -PathToZip "$HOME\Downloads\$WinSSHFileNameSansExt.zip" -TargetDir "$HOME\Downloads"
+                    Move-Item "$HOME\Downloads\$WinSSHFileNameSansExt" "$env:ProgramFiles\$WinSSHFileNameSansExt"
+                    Enable-NTFSAccessInheritance -Path "$env:ProgramFiles\$WinSSHFileNameSansExt" -RemoveExplicitAccessRules
+                }
+                catch {
+                    Write-Error $_
+                    Write-Error "Installation of OpenSSH failed! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+            else {
+                Write-Error "It appears that the newest version of $WinSSHFileNameSansExt is already installed! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        if (!$GitHubInstall) {
+            Install-Program @InstallProgramSplatParams
+        }
+
+        # END OpenSSH Program Installation #
+
+        $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
+        if (!$(Test-Path $OpenSSHWinPath)) {
+            Write-Error "The path $OpenSSHWinPath does not exist! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        #$sshdpath = Join-Path $OpenSSHWinPath "sshd.exe"
+        $sshagentpath = Join-Path $OpenSSHWinPath "ssh-agent.exe"
+        $sshdir = "$env:ProgramData\ssh"
+        $logsdir = Join-Path $sshdir "logs"
+
+        try {
+            if (Get-Service ssh-agent -ErrorAction SilentlyContinue) {
+                Stop-Service ssh-agent
+                sc.exe delete ssh-agent 1>$null
+            }
+
+            New-Service -Name ssh-agent -BinaryPathName "$sshagentpath" -Description "SSH Agent" -StartupType Automatic | Out-Null
+            # pldmgg NOTE: I have no idea about the below...ask the original authors...
+            cmd.exe /c 'sc.exe sdset ssh-agent D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RP;;;AU)'
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            # Create the C:\ProgramData\ssh folder and set its permissions
+            if (-not (Test-Path $sshdir -PathType Container)) {
+                $null = New-Item $sshdir -ItemType Directory -Force -ErrorAction Stop
+            }
+            # Set Permissions
+            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $sshdir
+            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+            $SecurityDescriptor | Clear-NTFSAccess
+            $SecurityDescriptor | Add-NTFSAccess -Account "NT AUTHORITY\Authenticated Users" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+            Set-NTFSOwner -Path $sshdir -Account Administrators
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            # Create logs folder and set its permissions
+            if (-not (Test-Path $logsdir -PathType Container)) {
+                $null = New-Item $logsdir -ItemType Directory -Force -ErrorAction Stop
+            }
+            # Set Permissions
+            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $logsdir
+            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+            $SecurityDescriptor | Clear-NTFSAccess
+            #$SecurityDescriptor | Add-NTFSAccess -Account "NT AUTHORITY\Authenticated Users" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+            Set-NTFSOwner -Path $logsdir -Account Administrators
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
     }
 
     Write-Host -ForegroundColor Green "The ssh-agent service was successfully installed! Starting the service..."
@@ -3683,7 +3804,10 @@ function New-SSHDServer {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
-        [switch]$RemoveHostPrivateKeys
+        [switch]$RemoveHostPrivateKeys,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SkipWinCapabilityAttempt
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
@@ -3695,19 +3819,319 @@ function New-SSHDServer {
         return
     }
 
-    $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
-
-    if (!$(Test-Path $OpenSSHWinPath)) {
-        Write-Error "The path $OpenSSHWinPath was not found! Halting!"
-        $global:FunctionResult = "1"
-        return
+    # Make sure the dependency ssh-agent service is already installed
+    if (![bool]$(Get-Service ssh-agent -ErrorAction SilentlyContinue)) {
+        try {
+            $InstallSSHAgentResult = Install-SSHAgentService -ErrorAction SilentlyContinue -ErrorVariable ISAErr
+            if (!$InstallSSHAgentResult) {throw "The Install-SSHAgentService function failed!"}
+        }
+        catch {
+            Write-Error $_
+            Write-Host "Errors for the Install-SSHAgentService function are as follows:"
+            Write-Error $($ISAErr | Out-String)
+            $global:FunctionResult = "1"
+            return
+        }
     }
 
+    if ([Environment]::OSVersion.Version -ge [version]"10.0.17063" -and !$SkipWinCapabilityAttempt) {
+        try {
+            # Import the Dism Module
+            if ($(Get-Module).Name -notcontains "Dism") {
+                try {
+                    Import-Module Dism
+                }
+                catch {
+                    # Using full path to Dism Module Manifest because sometimes there are issues with just 'Import-Module Dism'
+                    $DismModuleManifestPaths = $(Get-Module -ListAvailable -Name Dism).Path
+
+                    foreach ($MMPath in $DismModuleManifestPaths) {
+                        try {
+                            Import-Module $MMPath -ErrorAction Stop
+                            break
+                        }
+                        catch {
+                            Write-Verbose "Unable to import $MMPath..."
+                        }
+                    }
+                }
+            }
+            if ($(Get-Module).Name -notcontains "Dism") {
+                Write-Error "Problem importing the Dism PowerShell Module! Unable to proceed with Hyper-V install! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+
+            $SSHDServerFeature = Get-WindowsCapability -Online | Where-Object {$_.Name -match 'OpenSSH\.Server'}
+
+            if (!$SSHDServerFeature) {
+                Write-Warning "Unable to find the OpenSSH.Server feature using the Get-WindowsCapability cmdlet!"
+                $AddWindowsCapabilityFailure = $True
+            }
+            else {
+                try {
+                    $SSHDFeatureInstall = Add-WindowsCapability -Online -Name $SSHDServerFeature.Name -ErrorAction Stop
+                }
+                catch {
+                    Write-Warning "The Add-WindowsCapability cmdlet failed to add the $($SSHDServerFeature.Name)!"
+                    $AddWindowsCapabilityFailure = $True
+                }
+            }
+
+            # Make sure the sshd service exists
+            try {
+                $SSHDServiceCheck = Get-Service sshd -ErrorAction Stop
+            }
+            catch {
+                $AddWindowsCapabilityFailure = $True
+            }
+        }
+        catch {
+            Write-Warning "The Add-WindowsCapability cmdlet failed to add feature: $($SSHDServerFeature.Name) !"
+            $AddWindowsCapabilityFailure = $True
+        }
+        
+        if (!$AddWindowsCapabilityFailure) {
+            $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
+            $sshdpath = Join-Path $OpenSSHWinPath "sshd.exe"
+            $sshdir = "$env:ProgramData\ssh"
+            $logsdir = Join-Path $sshdir "logs"
+            $sshdConfigPath = Join-Path $sshdir "sshd_config"
+
+            try {
+                # NOTE: $sshdir won't actually be created until you start the SSHD Service for the first time
+                # Starting the service also creates all of the needed host keys.
+                $SSHDServiceInfo = Get-Service sshd -ErrorAction Stop
+                if ($SSHDServiceInfo.Status -ne "Running") {
+                    $SSHDServiceInfo | Start-Service -ErrorAction Stop
+                }
+
+                if (Test-Path "$env:ProgramFiles\OpenSSH-Win64\sshd_config_default") {
+                    # Copy sshd_config_default to $sshdir\sshd_config
+                    $sshddefaultconfigpath = Join-Path $OpenSSHWinPath "sshd_config_default"
+                    if (-not (Test-Path $sshdconfigpath -PathType Leaf)) {
+                        $null = Copy-Item $sshddefaultconfigpath -Destination $sshdconfigpath -Force -ErrorAction Stop
+                    }
+                }
+                else {
+                    $SSHConfigUri = "https://raw.githubusercontent.com/PowerShell/Win32-OpenSSH/L1-Prod/contrib/win32/openssh/sshd_config"
+                    Invoke-WebRequest -Uri $SSHConfigUri -OutFile $sshdConfigPath
+                }
+
+                $PubPrivKeyPairFiles = Get-ChildItem -Path $sshdir | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -match "ssh_host"}
+                $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
+                $PrivKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -ne ".pub"}
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+    
+    if ([Environment]::OSVersion.Version -lt [version]"10.0.17063" -or $AddWindowsCapabilityFailure -or $SkipWinCapabilityAttempt) {
+        $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
+        if (!$(Test-Path $OpenSSHWinPath)) {
+            try {
+                $InstallSSHAgentResult = Install-SSHAgentService -ErrorAction SilentlyContinue -ErrorVariable ISAErr
+                if (!$InstallSSHAgentResult) {throw "The Install-SSHAgentService function failed!"}
+            }
+            catch {
+                Write-Error $_
+                Write-Host "Errors for the Install-SSHAgentService function are as follows:"
+                Write-Error $($ISAErr | Out-String)
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        if (!$(Test-Path $OpenSSHWinPath)) {
+            Write-Error "The path $OpenSSHWinPath does not exist! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        $sshdpath = Join-Path $OpenSSHWinPath "sshd.exe"
+        if (!$(Test-Path $sshdpath)) {
+            Write-Error "The path $sshdpath does not exist! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        $sshagentpath = Join-Path $OpenSSHWinPath "ssh-agent.exe"
+        $sshdir = "$env:ProgramData\ssh"
+        $logsdir = Join-Path $sshdir "logs"
+
+        try {
+            # Create the C:\ProgramData\ssh folder and set its permissions
+            if (-not (Test-Path $sshdir -PathType Container)) {
+                $null = New-Item $sshdir -ItemType Directory -Force -ErrorAction Stop
+            }
+            # Set Permissions
+            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $sshdir
+            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+            $SecurityDescriptor | Clear-NTFSAccess
+            $SecurityDescriptor | Add-NTFSAccess -Account "NT AUTHORITY\Authenticated Users" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+            Set-NTFSOwner -Path $sshdir -Account Administrators
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            # Create logs folder and set its permissions
+            if (-not (Test-Path $logsdir -PathType Container)) {
+                $null = New-Item $logsdir -ItemType Directory -Force -ErrorAction Stop
+            }
+            # Set Permissions
+            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $logsdir
+            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+            $SecurityDescriptor | Clear-NTFSAccess
+            #$SecurityDescriptor | Add-NTFSAccess -Account "NT AUTHORITY\Authenticated Users" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account SYSTEM -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account Administrators -AccessRights FullControl -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+            Set-NTFSOwner -Path $logsdir -Account Administrators
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            # Copy sshd_config_default to $sshdir\sshd_config
+            $sshdConfigPath = Join-Path $sshdir "sshd_config"
+            $sshddefaultconfigpath = Join-Path $OpenSSHWinPath "sshd_config_default"
+            if (-not (Test-Path $sshdconfigpath -PathType Leaf)) {
+                $null = Copy-Item $sshddefaultconfigpath -Destination $sshdconfigpath -Force -ErrorAction Stop
+            }
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            if (Get-Service sshd -ErrorAction SilentlyContinue) {
+               Stop-Service sshd
+               sc.exe delete sshd 1>$null
+            }
+    
+            New-Service -Name sshd -BinaryPathName "$sshdpath" -Description "SSH Daemon" -StartupType Manual | Out-Null
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+
+        # Setup Host Keys
+        $SSHKeyGenProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $SSHKeyGenProcessInfo.WorkingDirectory = $sshdir
+        $SSHKeyGenProcessInfo.FileName = "ssh-keygen.exe"
+        $SSHKeyGenProcessInfo.RedirectStandardError = $true
+        $SSHKeyGenProcessInfo.RedirectStandardOutput = $true
+        $SSHKeyGenProcessInfo.UseShellExecute = $false
+        $SSHKeyGenProcessInfo.Arguments = "-A"
+        $SSHKeyGenProcess = New-Object System.Diagnostics.Process
+        $SSHKeyGenProcess.StartInfo = $SSHKeyGenProcessInfo
+        $SSHKeyGenProcess.Start() | Out-Null
+        $SSHKeyGenProcess.WaitForExit()
+        $SSHKeyGenStdout = $SSHKeyGenProcess.StandardOutput.ReadToEnd()
+        $SSHKeyGenStderr = $SSHKeyGenProcess.StandardError.ReadToEnd()
+        $SSHKeyGenAllOutput = $SSHKeyGenStdout + $SSHKeyGenStderr
+
+        if ($SSHKeyGenAllOutput -match "fail|error") {
+            Write-Error $SSHKeyGenAllOutput
+            Write-Error "The 'ssh-keygen -A' command failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        
+        $PubPrivKeyPairFiles = Get-ChildItem -Path $sshdir | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -match "ssh_host"}
+        $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
+        $PrivKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -ne ".pub"}
+        # $PrivKeys = $PubPrivKeyPairFiles | foreach {if ($PubKeys -notcontains $_) {$_}}
+        
+        Start-Service ssh-agent
+        Start-Sleep -Seconds 5
+
+        if ($(Get-Service "ssh-agent").Status -ne "Running") {
+            Write-Error "The ssh-agent service did not start succesfully! Please check your config! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        
+        foreach ($PrivKey in $PrivKeys) {
+            $SSHAddProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $SSHAddProcessInfo.WorkingDirectory = $sshdir
+            $SSHAddProcessInfo.FileName = "ssh-add.exe"
+            $SSHAddProcessInfo.RedirectStandardError = $true
+            $SSHAddProcessInfo.RedirectStandardOutput = $true
+            $SSHAddProcessInfo.UseShellExecute = $false
+            $SSHAddProcessInfo.Arguments = "$($PrivKey.FullName)"
+            $SSHAddProcess = New-Object System.Diagnostics.Process
+            $SSHAddProcess.StartInfo = $SSHAddProcessInfo
+            $SSHAddProcess.Start() | Out-Null
+            $SSHAddProcess.WaitForExit()
+            $SSHAddStdout = $SSHAddProcess.StandardOutput.ReadToEnd()
+            $SSHAddStderr = $SSHAddProcess.StandardError.ReadToEnd()
+            $SSHAddAllOutput = $SSHAddStdout + $SSHAddStderr
+            
+            if ($SSHAddAllOutput -match "fail|error") {
+                Write-Error $SSHAddAllOutput
+                Write-Error "The 'ssh-add $($PrivKey.FullName)' command failed!"
+            }
+            else {
+                if ($RemoveHostPrivateKeys) {
+                    Remove-Item $PrivKey
+                }
+            }
+
+            # Need to remove the above variables before next loop...
+            # TODO: Make the below not necessary...
+            $VariablesToRemove = @("SSHAddProcessInfo","SSHAddProcess","SSHAddStdout","SSHAddStderr","SSHAddAllOutput")
+            foreach ($VarName in $VariablesToRemove) {
+                Remove-Variable -Name $VarName
+            }
+        }
+
+        $null = Set-Service ssh-agent -StartupType Automatic
+        $null = Set-Service sshd -StartupType Automatic
+
+        # IMPORTANT: It is important that File Permissions are "Fixed" at the end (as opposed to earlier in this function),
+        # otherwise previous steps break
+        if (!$(Test-Path "$OpenSSHWinPath\FixHostFilePermissions.ps1")) {
+            Write-Error "The script $OpenSSHWinPath\FixHostFilePermissions.ps1 cannot be found! Permissions in the $OpenSSHWinPath directory need to be fixed before the sshd service will start successfully! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            & "$OpenSSHWinPath\FixHostFilePermissions.ps1" -Confirm:$false
+        }
+        catch {
+            Write-Error "The script $OpenSSHWinPath\FixHostFilePermissions.ps1 failed! Permissions in the $OpenSSHWinPath directory need to be fixed before the sshd service will start successfully! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    # Make sure PowerShell Core is Installed
     if (![bool]$(Get-Command pwsh -ErrorAction SilentlyContinue)) {
-        Update-PowerShellCore -Latest -DownloadDirectory "$HOME\Downloads"
+        # Search for pwsh.exe where we expect it to be
+        if (!$(Test-Path "$env:ProgramFiles\Powershell")) {
+            Update-PowerShellCore -Latest -DownloadDirectory "$HOME\Downloads"
+        }
 
         $PotentialPwshExes = Get-ChildItem "$env:ProgramFiles\Powershell" -Recurse -File -Filter "*pwsh.exe"
-        $LatestLocallyAvailablePwsh = $($PotentialPwshExes.VersionInfo | Sort-Object -Property ProductVersion).FileName[-1]
+        $LatestLocallyAvailablePwsh = [array]$($PotentialPwshExes.VersionInfo | Sort-Object -Property ProductVersion)[-1].FileName
         $LatestPwshParentDir = [System.IO.Path]::GetDirectoryName($LatestLocallyAvailablePwsh)
 
         if ($($env:Path -split ";") -notcontains $LatestPwshParentDir) {
@@ -3724,13 +4148,6 @@ function New-SSHDServer {
     $PowerShellCorePath = $(Get-Command pwsh).Source
     $PowerShellCorePathWithForwardSlashes = $PowerShellCorePath -replace "\\","/"
 
-    $sshdConfigPath = "$OpenSSHWinPath\sshd_config"
-    if (!$(Test-Path $sshdConfigPath)) {
-        Write-Error "The path $sshdConfigPath was not found! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
@@ -3742,21 +4159,6 @@ function New-SSHDServer {
     $InsertOnThisLine = $sshdContent.IndexOf($InsertAfterThisLine)+1
     $sshdContent.Insert($InsertOnThisLine, "Subsystem    powershell    $PowerShellCorePathWithForwardSlashes -sshs -NoLogo -NoProfile")
     Set-Content -Value $sshdContent -Path $sshdConfigPath
-
-    if (!$(Test-Path "$OpenSSHWinPath\install-sshd.ps1")) {
-        Write-Error "The path $OpenSSHWinPath\install-sshd.ps1 was not found! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    try {
-        & "$OpenSSHWinPath\install-sshd.ps1"
-    }
-    catch {
-        Write-Error "The $OpenSSHWinPath\install-sshd.ps1 script failed! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
 
     # Make sure port 22 is open
     if (!$(Test-Port -Port 22).Open) {
@@ -3774,97 +4176,6 @@ function New-SSHDServer {
         if ($Existing22RuleCheck -eq $null -or $ExistingRuleFound -eq $False) {
             $null = New-NetFirewallRule -Action Allow -Direction Inbound -Name ssh -DisplayName ssh -Enabled True -LocalPort 22 -Protocol TCP
         }
-    }
-
-    # Setup Host Keys
-    $SSHKeyGenProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $SSHKeyGenProcessInfo.WorkingDirectory = $OpenSSHWinPath
-    $SSHKeyGenProcessInfo.FileName = "ssh-keygen.exe"
-    $SSHKeyGenProcessInfo.RedirectStandardError = $true
-    $SSHKeyGenProcessInfo.RedirectStandardOutput = $true
-    $SSHKeyGenProcessInfo.UseShellExecute = $false
-    $SSHKeyGenProcessInfo.Arguments = "-A"
-    $SSHKeyGenProcess = New-Object System.Diagnostics.Process
-    $SSHKeyGenProcess.StartInfo = $SSHKeyGenProcessInfo
-    $SSHKeyGenProcess.Start() | Out-Null
-    $SSHKeyGenProcess.WaitForExit()
-    $SSHKeyGenStdout = $SSHKeyGenProcess.StandardOutput.ReadToEnd()
-    $SSHKeyGenStderr = $SSHKeyGenProcess.StandardError.ReadToEnd()
-    $SSHKeyGenAllOutput = $SSHKeyGenStdout + $SSHKeyGenStderr
-
-    if ($SSHKeyGenAllOutput -match "fail|error") {
-        Write-Error $SSHKeyGenAllOutput
-        Write-Error "The 'ssh-keygen -A' command failed! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    $PubPrivKeyPairFiles = Get-ChildItem -Path "$OpenSSHWinPath" | Where-Object {$_.CreationTime -gt (Get-Date).AddSeconds(-5) -and $_.Name -match "ssh_host"}
-    $PubKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -eq ".pub"}
-    $PrivKeys = $PubPrivKeyPairFiles | Where-Object {$_.Extension -ne ".pub"}
-    # $PrivKeys = $PubPrivKeyPairFiles | foreach {if ($PubKeys -notcontains $_) {$_}}
-    
-    Start-Service ssh-agent
-    Start-Sleep -Seconds 5
-
-    if ($(Get-Service "ssh-agent").Status -ne "Running") {
-        Write-Error "The ssh-agent service did not start succesfully! Please check your config! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    foreach ($PrivKey in $PrivKeys) {
-        $SSHAddProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $SSHAddProcessInfo.WorkingDirectory = $OpenSSHWinPath
-        $SSHAddProcessInfo.FileName = "ssh-add.exe"
-        $SSHAddProcessInfo.RedirectStandardError = $true
-        $SSHAddProcessInfo.RedirectStandardOutput = $true
-        $SSHAddProcessInfo.UseShellExecute = $false
-        $SSHAddProcessInfo.Arguments = "$($PrivKey.FullName)"
-        $SSHAddProcess = New-Object System.Diagnostics.Process
-        $SSHAddProcess.StartInfo = $SSHAddProcessInfo
-        $SSHAddProcess.Start() | Out-Null
-        $SSHAddProcess.WaitForExit()
-        $SSHAddStdout = $SSHAddProcess.StandardOutput.ReadToEnd()
-        $SSHAddStderr = $SSHAddProcess.StandardError.ReadToEnd()
-        $SSHAddAllOutput = $SSHAddStdout + $SSHAddStderr
-        
-        if ($SSHAddAllOutput -match "fail|error") {
-            Write-Error $SSHAddAllOutput
-            Write-Error "The 'ssh-add $($PrivKey.FullName)' command failed!"
-        }
-        else {
-            if ($RemoveHostPrivateKeys) {
-                Remove-Item $PrivKey
-            }
-        }
-
-        # Need to remove the above variables before next loop...
-        # TODO: Make the below not necessary...
-        $VariablesToRemove = @("SSHAddProcessInfo","SSHAddProcess","SSHAddStdout","SSHAddStderr","SSHAddAllOutput")
-        foreach ($VarName in $VariablesToRemove) {
-            Remove-Variable -Name $VarName
-        }
-    }
-
-    $null = Set-Service ssh-agent -StartupType Automatic
-    $null = Set-Service sshd -StartupType Automatic
-
-    # IMPORTANT: It is important that File Permissions are "Fixed" at the end (as opposed to earlier in this function),
-    # otherwise previous steps break
-    if (!$(Test-Path "$OpenSSHWinPath\FixHostFilePermissions.ps1")) {
-        Write-Error "The script $OpenSSHWinPath\FixHostFilePermissions.ps1 cannot be found! Permissions in the $OpenSSHWinPath directory need to be fixed before the sshd service will start successfully! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    try {
-        & "$OpenSSHWinPath\FixHostFilePermissions.ps1" -Confirm:$false
-    }
-    catch {
-        Write-Error "The script $OpenSSHWinPath\FixHostFilePermissions.ps1 failed! Permissions in the $OpenSSHWinPath directory need to be fixed before the sshd service will start successfully! Halting!"
-        $global:FunctionResult = "1"
-        return
     }
 
     Start-Service sshd
@@ -3963,12 +4274,17 @@ function New-SSHKey {
     }
 
     $SSHKeyOutFile = "$HOME\.ssh\$NewSSHKeyName"
-    if (!$NewSSHKeyPurpose) {
-        $NewSSHKeyPurpose = "Default Purpose"
-    }
 
-    $SSHKeyGenArgumentsString = "-t rsa -b 2048 -f `"$SSHKeyOutFile`" -q -N `"$NewSSHKeyPwd`" -C `"$NewSSHKeyPurpose`""
-    $SSHKeyGenArgumentsNoPwdString = "-t rsa -b 2048 -f `"$SSHKeyOutFile`" -q -C `"$NewSSHKeyPurpose`""
+    if ($NewSSHKeyPurpose) {
+        $NewSSHKeyPurpose = $NewSSHKeyPurpose -replace "[\s]",""
+
+        $SSHKeyGenArgumentsString = "-t rsa -b 2048 -f `"$SSHKeyOutFile`" -q -N `"$NewSSHKeyPwd`" -C `"$NewSSHKeyPurpose`""
+        $SSHKeyGenArgumentsNoPwdString = "-t rsa -b 2048 -f `"$SSHKeyOutFile`" -q -C `"$NewSSHKeyPurpose`""
+    }
+    else {
+        $SSHKeyGenArgumentsString = "-t rsa -b 2048 -f `"$SSHKeyOutFile`" -q -N `"$NewSSHKeyPwd`""
+        $SSHKeyGenArgumentsNoPwdString = "-t rsa -b 2048 -f `"$SSHKeyOutFile`" -q"
+    }
     
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -4266,6 +4582,7 @@ function Add-PublicKeyToRemoteHost {
     ##### END Main Body #####
 }
 
+<#
 function Fix-SSHPermissions {
     [CmdletBinding()]
     Param(
@@ -4273,7 +4590,10 @@ function Fix-SSHPermissions {
         [switch]$HomeFolderAndSubItemsOnly,
 
         [Parameter(Mandatory=$False)]
-        [switch]$OpenSSHWin64FolderAndSubItemsOnly
+        [switch]$OpenSSHWin64FolderAndSubItemsOnly,
+
+        [Parameter(Mandatory=$False)]
+        [string]$OtherUserHomePath
     )
 
     if ($(Get-Module -ListAvailable).Name -contains "NTFSSecurity") {
@@ -4599,7 +4919,7 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
     Write-Host "IMPORTANT NOTE #3:" -ForegroundColor Yellow
     Write-Host $ImportantNote3
 }
-
+#>
 
 
 
@@ -4651,8 +4971,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVITPMfyZProsFIBJKD717EEb
-# AWygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmTa7t1mckH6aNS1yf/I+s3qr
+# u8Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4709,11 +5029,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFP1PhtyqapR79ulL
-# zXp5TxvxBUJEMA0GCSqGSIb3DQEBAQUABIIBAA0pVsBVSyncLEZqHelP/dKkEm3x
-# NB0TOFKwbpnyTWMX0paHXFyH+ZfMk881KtphDNO3kCeD5Yyl2P8S1V6k7vgapAxN
-# S4XUZ4ODMHRuE7ov6PEifmbt5e4AESWyFID3qF7rLBlRaljnQ/U1VPVg3S6PII2l
-# C5ABqc8WI8DDPsRahnATBK4ETKF0wqNfScDeE0yjUrUHfy6TSpayA7GWVH2c5PLD
-# phubOcEdsxK1RaHitg5M3ofkpo5E5XITH46o/K7OlQ8UnAKvBQ2Kbe+X/hV/XG1E
-# 8aYINkDCS/kVE065o/mWEhzKlBle5cOLfATgvCvGUmYmZBfxJzN4Yxe61pA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDwYL7zUAlX9D65v
+# 0Pm3ne+tvTclMA0GCSqGSIb3DQEBAQUABIIBAA5nGDrQmgsUlLfvt0ppO7ToyB7y
+# 3a2fs9jQL63O0lU3CN+9qNsKy/k888MB2UNHWoRrwojnlg+EzsuONkOMzkZvrXDC
+# /qz2qpLq1XSVNi1kmVkD1ZTS9WXOKXnL8ezzXaw010kywf7cfzC2On5p6HO/OTg/
+# QnIK+o3eUv7zvZsRLSOYNvBZ8CYHfOgtBjr/SaK/g75hOhTLgX0VlhEIY+rUxidX
+# 2fYUlUMcoA4x2bjvGLhwgurPSdfx7730Ut3mqQjVJ97ShARWqWvRw5LBuFRpW9k/
+# Qo44vQU5RsxdLY/B+2WIaHrmrZe80PPaUpt4owN/BUi/ca93k02cCv3xpNI=
 # SIG # End signature block
