@@ -3368,6 +3368,10 @@ function Install-WinSSH {
         [Parameter(Mandatory=$False)]
         [switch]$RemoveHostPrivateKeys,
 
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("powershell","pwsh")]
+        [string]$DefaultShell,
+
         # For situations where there may be more than one ssh.exe available on the system that are already part of $env:Path
         # or System PATH - for example, the ssh.exe that comes with Git
         [Parameter(Mandatory=$False)]
@@ -3421,6 +3425,12 @@ function Install-WinSSH {
         return
     }
 
+    if ($DefaultShell -and !$ConfigureSSHDOnLocalHost) {
+        Write-Error "The -DefaultShell parameter is meant to set the configure the default shell for the SSHD Server. Please also use the -ConfigureSSHDOnLocalHost switch. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
     $OpenSSHWinPath = "$env:ProgramFiles\OpenSSH-Win64"
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
@@ -3464,6 +3474,9 @@ function Install-WinSSH {
         }
         if ($RemoveHostPrivateKeys) {
             $NewSSHDServerSplatParams.Add("RemoveHostPrivateKeys",$True)
+        }
+        if ($DefaultShell) {
+            $NewSSHDServerSplatParams.Add("DefaultShell",$DefaultShell)
         }
         if ($SkipWinCapabilityAttempt) {
             $NewSSHDServerSplatParams.Add("SkipWinCapabilityAttempt",$True)
@@ -3807,6 +3820,10 @@ function New-SSHDServer {
         [switch]$RemoveHostPrivateKeys,
 
         [Parameter(Mandatory=$False)]
+        [ValidateSet("powershell","pwsh")]
+        [string]$DefaultShell,
+
+        [Parameter(Mandatory=$False)]
         [switch]$SkipWinCapabilityAttempt
     )
 
@@ -4126,11 +4143,23 @@ function New-SSHDServer {
     # Make sure PowerShell Core is Installed
     if (![bool]$(Get-Command pwsh -ErrorAction SilentlyContinue)) {
         # Search for pwsh.exe where we expect it to be
-        if (!$(Test-Path "$env:ProgramFiles\Powershell")) {
-            Update-PowerShellCore -Latest -DownloadDirectory "$HOME\Downloads"
-        }
-
         $PotentialPwshExes = Get-ChildItem "$env:ProgramFiles\Powershell" -Recurse -File -Filter "*pwsh.exe"
+        if (!$PotentialPwshExes) {
+            try {
+                Update-PowerShellCore -Latest -DownloadDirectory "$HOME\Downloads" -ErrorAction Stop
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        $PotentialPwshExes = Get-ChildItem "$env:ProgramFiles\Powershell" -Recurse -File -Filter "*pwsh.exe"
+        if (!$PotentialPwshExes) {
+            Write-Error "Unable to find pwsh.exe! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
         $LatestLocallyAvailablePwsh = [array]$($PotentialPwshExes.VersionInfo | Sort-Object -Property ProductVersion)[-1].FileName
         $LatestPwshParentDir = [System.IO.Path]::GetDirectoryName($LatestLocallyAvailablePwsh)
 
@@ -4160,6 +4189,62 @@ function New-SSHDServer {
     $sshdContent.Insert($InsertOnThisLine, "Subsystem    powershell    $PowerShellCorePathWithForwardSlashes -sshs -NoLogo -NoProfile")
     Set-Content -Value $sshdContent -Path $sshdConfigPath
 
+    if ($DefaultShell) {
+        if ($DefaultShell -eq "powershell") {
+            $ForceCommandOptionLine = "ForceCommand powershell.exe -NoProfile"
+        }
+        if ($DefaultShell -eq "pwsh") {
+            $PotentialPwshExes = Get-ChildItem "$env:ProgramFiles\Powershell" -Recurse -File -Filter "*pwsh.exe"
+            $LatestLocallyAvailablePwsh = [array]$($PotentialPwshExes.VersionInfo | Sort-Object -Property ProductVersion)[-1].FileName
+
+            $ForceCommandOptionLine = "ForceCommand `"$LatestLocallyAvailablePwsh`" -NoProfile"
+        }
+
+        [System.Collections.ArrayList]$sshdContent = Get-Content $sshdConfigPath
+
+        # Determine if sshd_config already has the 'ForceCommand' option active
+        $ExistingForceCommandOption = $sshdContent -match "ForceCommand" | Where-Object {$_ -notmatch "#"}
+
+        # Determine if sshd_config already has 'Match User' option active
+        $ExistingMatchUserOption = $sshdContent -match "Match User" | Where-Object {$_ -notmatch "#"}
+        
+        if (!$ExistingForceCommandOption) {
+            # If sshd_config already has the 'Match User' option available, don't touch it, else add it with ForceCommand
+            try {
+                if (!$ExistingMatchUserOption) {
+                    Add-Content -Value "Match User *`n$ForceCommandOptionLine" -Path $sshdConfigPath
+                }
+                else {
+                    Add-Content -Value "$ForceCommandOptionLine" -Path $sshdConfigPath
+                }
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        else {
+            if ($ExistingForceCommandOption -ne $ForceCommandOptionLine) {
+                if (!$ExistingMatchUserOption) {
+                    $UpdatedSSHDConfig = $sshdContent -replace [regex]::Escape($ExistingForceCommandOption),"Match User *`n$ForceCommandOptionLine"
+                }
+                else {
+                    $UpdatedSSHDConfig = $sshdContent -replace [regex]::Escape($ExistingForceCommandOption),"$ForceCommandOptionLine"
+                }
+                
+                try {
+                    Set-Content -Value $UpdatedSSHDConfig -Path $sshdConfigPath
+                }
+                catch {
+                    Write-Error $_
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+        }
+    }
+
     # Make sure port 22 is open
     if (!$(Test-Port -Port 22).Open) {
         # See if there's an existing rule regarding locahost TCP port 22, if so change it to allow port 22, if not, make a new rule
@@ -4187,11 +4272,131 @@ function New-SSHDServer {
         return
     }
 
+    if ($DefaultShell) {
+        # For some reason, the 'ForceCommand' option is not picked up the first time the sshd service is started
+        # so restart sshd service
+        Restart-Service sshd
+        Start-Sleep -Seconds 5
+
+        if ($(Get-Service sshd).Status -ne "Running") {
+            Write-Error "The sshd service did not start succesfully (within 5 seconds)! Please check your sshd_config configuration. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
     [pscustomobject]@{
         SSHDServiceStatus       = $(Get-Service sshd).Status
         SSHAgentServiceStatus   = $(Get-Service ssh-agent).Status
         PublicKeysPaths         = $PubKeys.FullName
         PrivateKeysPaths        = $PrivKeys.FullName
+    }
+}
+
+function Set-DefaultShell {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [ValidateSet("powershell","pwsh")]
+        [string]$DefaultShell
+    )
+
+    if (Test-Path "$env:ProgramData\ssh\sshd_config") {
+        $sshdConfigPath = "$env:ProgramData\ssh\sshd_config"
+    }
+    elseif (Test-Path "$env:ProgramFiles\OpenSSH-Win64\sshd_config") {
+        $sshdConfigPath = "$env:ProgramFiles\OpenSSH-Win64\sshd_config"
+    }
+    else {
+        Write-Error "Unable to find file 'sshd_config'! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    if ($DefaultShell -eq "powershell") {
+        $ForceCommandOptionLine = "ForceCommand powershell.exe -NoProfile"
+    }
+    if ($DefaultShell -eq "pwsh") {
+        # Search for pwsh.exe where we expect it to be
+        $PotentialPwshExes = Get-ChildItem "$env:ProgramFiles\Powershell" -Recurse -File -Filter "*pwsh.exe"
+        if (!$PotentialPwshExes) {
+            try {
+                Update-PowerShellCore -Latest -DownloadDirectory "$HOME\Downloads" -ErrorAction Stop
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        $PotentialPwshExes = Get-ChildItem "$env:ProgramFiles\Powershell" -Recurse -File -Filter "*pwsh.exe"
+        if (!$PotentialPwshExes) {
+            Write-Error "Unable to find pwsh.exe! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $LatestLocallyAvailablePwsh = [array]$($PotentialPwshExes.VersionInfo | Sort-Object -Property ProductVersion)[-1].FileName
+        $LatestPwshParentDir = [System.IO.Path]::GetDirectoryName($LatestLocallyAvailablePwsh)
+
+        if ($($env:Path -split ";") -notcontains $LatestPwshParentDir) {
+            # TODO: Clean out older pwsh $env:Path entries if they exist...
+            $env:Path = "$LatestPwshParentDir;$env:Path"
+        }
+
+        $ForceCommandOptionLine = "ForceCommand `"$LatestLocallyAvailablePwsh`" -NoProfile"
+    }
+
+    [System.Collections.ArrayList]$sshdContent = Get-Content $sshdConfigPath
+
+    # Determine if sshd_config already has the 'ForceCommand' option active
+    $ExistingForceCommandOption = $sshdContent -match "ForceCommand" | Where-Object {$_ -notmatch "#"}
+
+    # Determine if sshd_config already has 'Match User' option active
+    $ExistingMatchUserOption = $sshdContent -match "Match User" | Where-Object {$_ -notmatch "#"}
+    
+    if (!$ExistingForceCommandOption) {
+        # If sshd_config already has the 'Match User' option available, don't touch it, else add it with ForceCommand
+        try {
+            if (!$ExistingMatchUserOption) {
+                Add-Content -Value "Match User *`n$ForceCommandOptionLine" -Path $sshdConfigPath
+            }
+            else {
+                Add-Content -Value "$ForceCommandOptionLine" -Path $sshdConfigPath
+            }
+
+            Restart-Service sshd -ErrorAction Stop
+            Write-Host "Successfully changed sshd default shell to '$DefaultShell'" -ForegroundColor Green
+        }
+        catch {
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    else {
+        if ($ExistingForceCommandOption -ne $ForceCommandOptionLine) {
+            if (!$ExistingMatchUserOption) {
+                $UpdatedSSHDConfig = $sshdContent -replace [regex]::Escape($ExistingForceCommandOption),"Match User *`n$ForceCommandOptionLine"
+            }
+            else {
+                $UpdatedSSHDConfig = $sshdContent -replace [regex]::Escape($ExistingForceCommandOption),"$ForceCommandOptionLine"
+            }
+
+            try {
+                Set-Content -Value $UpdatedSSHDConfig -Path $sshdConfigPath
+                Restart-Service sshd -ErrorAction Stop
+                Write-Host "Successfully changed sshd default shell to '$DefaultShell'" -ForegroundColor Green
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        else {
+            Write-Warning "The specified 'ForceCommand' option is already active in the the sshd_config file. No changes made."
+        }
     }
 }
 
@@ -4971,8 +5176,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmTa7t1mckH6aNS1yf/I+s3qr
-# u8Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUE7ChdKfzJxnes4BfgsZDhp3W
+# geigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -5029,11 +5234,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDwYL7zUAlX9D65v
-# 0Pm3ne+tvTclMA0GCSqGSIb3DQEBAQUABIIBAA5nGDrQmgsUlLfvt0ppO7ToyB7y
-# 3a2fs9jQL63O0lU3CN+9qNsKy/k888MB2UNHWoRrwojnlg+EzsuONkOMzkZvrXDC
-# /qz2qpLq1XSVNi1kmVkD1ZTS9WXOKXnL8ezzXaw010kywf7cfzC2On5p6HO/OTg/
-# QnIK+o3eUv7zvZsRLSOYNvBZ8CYHfOgtBjr/SaK/g75hOhTLgX0VlhEIY+rUxidX
-# 2fYUlUMcoA4x2bjvGLhwgurPSdfx7730Ut3mqQjVJ97ShARWqWvRw5LBuFRpW9k/
-# Qo44vQU5RsxdLY/B+2WIaHrmrZe80PPaUpt4owN/BUi/ca93k02cCv3xpNI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDgRq4PDKltwL932
+# iOYA8P3oUP4TMA0GCSqGSIb3DQEBAQUABIIBAJNvJdQgXxmhW6+Jw+hQQJM55wRu
+# xdYeCnZL1aM4bfRnN/uZO/k1jwq6/xdrwg/0SX77ipL3CSE0Ty6UnMIhlVveQcK+
+# UGL24WL47zo/4HBca1lKP7f9D2K3qpzTKWeNq9Exzy7tvnlQChZwk21exnVakyBD
+# mQHOB3+hZ+DJPr8ca10h5BI37sQ9hVJ3SlB902NPnMQTb5Wl/uUgJzSuFMC6veMT
+# 7tGChBuhL72PC66AURYJckcZd86kv4BjoUKPdKn1dCLgafiHH8DzsuD/ZsVFrLM7
+# ClDR36GpfEk84zvBDsNka5dSSGxzCvKWpyTMeX9bPUr/BKGF/RpBMjZmoI8=
 # SIG # End signature block
