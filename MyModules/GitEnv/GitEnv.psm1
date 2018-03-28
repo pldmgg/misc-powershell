@@ -1,3 +1,5 @@
+[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
 function Check-Elevation {
     if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
         [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
@@ -1203,6 +1205,1022 @@ function Update-PackageManagement {
     $Result
 }
 
+function Install-ChocolateyCmdLine {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$False)]
+        [switch]$NoUpdatePackageManagement
+    )
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    Write-Host "Please wait..."
+    $global:FunctionResult = "0"
+    $MyFunctionsUrl = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions"
+
+    if (!$NoUpdatePackageManagement) {
+        if (![bool]$(Get-Command Update-PackageManagement -ErrorAction SilentlyContinue)) {
+            $UpdatePMFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Update-PackageManagement.ps1"
+            try {
+                Invoke-Expression $([System.Net.WebClient]::new().DownloadString($UpdatePMFunctionUrl))
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Unable to load the Update-PackageManagement function! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        try {
+            $global:FunctionResult = "0"
+            $UPMResult = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
+            if ($global:FunctionResult -eq "1" -or $UPMResult -eq $null) {throw "The Update-PackageManagement function failed!"}
+        }
+        catch {
+            Write-Error $_
+            Write-Host "Errors from the Update-PackageManagement function are as follows:"
+            Write-Error $($UPMErr | Out-String)
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    if (![bool]$(Get-Command Refresh-ChocolateyEnv -ErrorAction SilentlyContinue)) {
+        $RefreshCEFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Refresh-ChocolateyEnv.ps1"
+        try {
+            Invoke-Expression $([System.Net.WebClient]::new().DownloadString($RefreshCEFunctionUrl))
+        }
+        catch {
+            Write-Error $_
+            Write-Error "Unable to load the Refresh-ChocolateyEnv function! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+
+    ##### BEGIN Main Body #####
+
+    if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+        # The below Install-Package Chocolatey screws up $env:Path, so restore it afterwards
+        $OriginalEnvPath = $env:Path
+
+        # Installing Package Providers is spotty sometimes...Using while loop 3 times before failing
+        $Counter = 0
+        while ($(Get-PackageProvider).Name -notcontains "Chocolatey" -and $Counter -lt 3) {
+            Install-PackageProvider -Name Chocolatey -Force -Confirm:$false -WarningAction SilentlyContinue
+            $Counter++
+            Start-Sleep -Seconds 5
+        }
+        if ($(Get-PackageProvider).Name -notcontains "Chocolatey") {
+            Write-Error "Unable to install the Chocolatey Package Provider / Repo for PackageManagement/PowerShellGet! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        if (![bool]$(Get-Package -Name Chocolatey -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
+            # NOTE: The PackageManagement install of choco is unreliable, so just in case, fallback to the Chocolatey cmdline for install
+            $null = Install-Package Chocolatey -Provider Chocolatey -Force -Confirm:$false -ErrorVariable ChocoInstallError -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+            
+            if ($ChocoInstallError.Count -gt 0) {
+                Write-Warning "There was a problem installing the Chocolatey CmdLine via PackageManagement/PowerShellGet!"
+                $InstallViaOfficialScript = $True
+                Uninstall-Package Chocolatey -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($ChocoInstallError.Count -eq 0) {
+                $PMPGetInstall = $True
+            }
+        }
+
+        # Try and find choco.exe
+        try {
+            Write-Host "Refreshing `$env:Path..."
+            $global:FunctionResult = "0"
+            $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+            
+            if ($RCEErr.Count -gt 0 -and
+            $global:FunctionResult -eq "1" -and
+            ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")
+            ) {
+                throw "The Refresh-ChocolateyEnv function failed! Halting!"
+            }
+        }
+        catch {
+            Write-Error $_
+            Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+            Write-Error $($RCEErr | Out-String)
+            $global:FunctionResult = "1"
+            return
+        }
+
+        if ($PMPGetInstall) {
+            # It's possible that PowerShellGet didn't run the chocolateyInstall.ps1 script to actually install the
+            # Chocolatey CmdLine. So do it manually.
+            if (Test-Path "C:\Chocolatey") {
+                $ChocolateyPath = "C:\Chocolatey"
+            }
+            elseif (Test-Path "C:\ProgramData\chocolatey") {
+                $ChocolateyPath = "C:\ProgramData\chocolatey"
+            }
+            else {
+                Write-Warning "Unable to find Chocolatey directory! Halting!"
+                Write-Host "Installing via official script at https://chocolatey.org/install.ps1"
+                $InstallViaOfficialScript = $True
+            }
+            
+            if ($ChocolateyPath) {
+                $ChocolateyInstallScript = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyinstall.ps1").FullName | Where-Object {
+                    $_ -match ".*?chocolatey\.[0-9].*?chocolateyinstall.ps1$"
+                }
+
+                if (!$ChocolateyInstallScript) {
+                    Write-Warning "Unable to find chocolateyinstall.ps1!"
+                    $InstallViaOfficialScript = $True
+                }
+            }
+
+            if ($ChocolateyInstallScript) {
+                try {
+                    Write-Host "Trying PowerShellGet Chocolatey CmdLine install script from $ChocolateyInstallScript ..." -ForegroundColor Yellow
+                    & $ChocolateyInstallScript
+                }
+                catch {
+                    Write-Error $_
+                    Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
+
+                    if ([bool]$(Get-Package $ProgramName)) {
+                        Uninstall-Package Chocolatey -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+        }
+
+        # If we still can't find choco.exe, then use the Chocolatey install script from chocolatey.org
+        if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue) -or $InstallViaOfficialScript) {
+            $ChocolateyInstallScriptUrl = "https://chocolatey.org/install.ps1"
+            try {
+                Invoke-Expression $([System.Net.WebClient]::new().DownloadString($ChocolateyInstallScriptUrl))
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Unable to install Chocolatey via the official chocolatey.org script! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+
+            $PMPGetInstall = $False
+        }
+        
+        # If we STILL can't find choco.exe, then Refresh-ChocolateyEnv a third time...
+        #if (![bool]$($env:Path -split ";" -match "chocolatey\\bin")) {
+        if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+            # ...and then find it again and add it to $env:Path via Refresh-ChocolateyEnv function
+            if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                try {
+                    Write-Host "Refreshing `$env:Path..."
+                    $global:FunctionResult = "0"
+                    $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+                    
+                    if ($RCEErr.Count -gt 0 -and
+                    $global:FunctionResult -eq "1" -and
+                    ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")
+                    ) {
+                        throw "The Refresh-ChocolateyEnv function failed! Halting!"
+                    }
+                }
+                catch {
+                    Write-Error $_
+                    Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                    Write-Error $($RCEErr | Out-String)
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+        }
+
+        # If we STILL can't find choco.exe, then give up...
+        if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+            Write-Error "Unable to find choco.exe after install! Check your `$env:Path! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        else {
+            Write-Host "Finished installing Chocolatey CmdLine." -ForegroundColor Green
+
+            try {
+                cup chocolatey-core.extension -y
+            }
+            catch {
+                Write-Error "Installation of chocolatey-core.extension via the Chocolatey CmdLine failed! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+
+            try {
+                Write-Host "Refreshing `$env:Path..."
+                $global:FunctionResult = "0"
+                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+                if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {
+                    throw "The Refresh-ChocolateyEnv function failed! Halting!"
+                }
+            }
+            catch {
+                Write-Error $_
+                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                Write-Error $($RCEErr | Out-String)
+                $global:FunctionResult = "1"
+                return
+            }
+
+            $ChocoModulesThatRefreshEnvShouldHaveLoaded = @(
+                "chocolatey-core"
+                "chocolateyInstaller"
+                "chocolateyProfile"
+                "chocolateysetup"
+            )
+
+            foreach ($ModName in $ChocoModulesThatRefreshEnvShouldHaveLoaded) {
+                if ($(Get-Module).Name -contains $ModName) {
+                    Write-Host "The $ModName Module has been loaded from $($(Get-Module -Name $ModName).Path)" -ForegroundColor Green
+                }
+            }
+        }
+    }
+    else {
+        Write-Warning "The Chocolatey CmdLine is already installed!"
+    }
+
+    ##### END Main Body #####
+}
+
+function Refresh-ChocolateyEnv {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [string]$ChocolateyDirectory
+    )
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    # Fix any potential $env:Path mistakes...
+    if ($env:Path -match ";;") {
+        $env:Path = $env:Path -replace ";;",";"
+    }
+
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+    ##### BEGIN Main Body #####
+
+    if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+        if ($ChocolateyDirectory) {
+            $ChocolateyPath = $ChocolateyDirectory
+        }
+        else {
+            if (Test-Path "C:\Chocolatey") {
+                $ChocolateyPath = "C:\Chocolatey"
+            }
+            elseif (Test-Path "C:\ProgramData\chocolatey") {
+                $ChocolateyPath = "C:\ProgramData\chocolatey"
+            }
+            else {
+                Write-Error "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+    else {
+        $ChocolateyPath = "$($($(Get-Command choco).Source -split "chocolatey")[0])chocolatey"
+    }
+    [System.Collections.ArrayList]$ChocolateyPathsPrep = @()
+    [System.Collections.ArrayList]$ChocolateyPathsToAddToEnvPath = @()
+    if (Test-Path $ChocolateyPath) {
+        $($(Get-ChildItem $ChocolateyPath -Directory | foreach {
+            Get-ChildItem $_.FullName -Recurse -File
+        } | foreach {
+            if ($_.Extension -eq ".exe" -or $_.Extension -eq ".bat") {
+                $_.Directory.FullName
+            }
+        }) | Sort-Object | Get-Unique) | foreach {
+            $null = $ChocolateyPathsPrep.Add($_.Trim("\\"))
+        }
+
+        foreach ($ChocoPath in $ChocolateyPathsPrep) {
+            if ($(Test-Path $ChocoPath) -and $($env:Path -split ";") -notcontains $ChocoPath) {
+                $null = $ChocolateyPathsToAddToEnvPath.Add($ChocoPath)
+            }
+        }
+
+        foreach ($ChocoPath in $ChocolateyPathsToAddToEnvPath) {
+            if ($env:Path[-1] -eq ";") {
+                $env:Path = "$env:Path" + $ChocoPath + ";"
+            }
+            else {
+                $env:Path = "$env:Path" + ";" + $ChocoPath
+            }
+        }
+    }
+    else {
+        Write-Verbose "Unable to find Chocolatey Path $ChocolateyPath."
+    }
+
+    # Remove any repeats in $env:Path
+    $env:Path = $($($env:Path -split ";").Trim("\\") | Select-Object -Unique) -join ";"
+
+    # Next, find chocolatey-core.psm1, chocolateysetup.psm1, chocolateyInstaller.psm1, and chocolateyProfile.psm1
+    # and import them
+    $ChocoCoreModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolatey-core.psm1").FullName
+    $ChocoSetupModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateysetup.psm1").FullName
+    $ChocoInstallerModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyInstaller.psm1").FullName
+    $ChocoProfileModule = $(Get-ChildItem -Path $ChocolateyPath -Recurse -File -Filter "*chocolateyProfile.psm1").FullName
+
+    $ChocoModulesToImportPrep = @($ChocoCoreModule, $ChocoSetupModule, $ChocoInstallerModule, $ChocoProfileModule)
+    [System.Collections.ArrayList]$ChocoModulesToImport = @()
+    foreach ($ModulePath in $ChocoModulesToImportPrep) {
+        if ($ModulePath -ne $null) {
+            $null = $ChocoModulesToImport.Add($ModulePath)
+        }
+    }
+
+    foreach ($ModulePath in $ChocoModulesToImport) {
+        Remove-Module -Name $([System.IO.Path]::GetFileNameWithoutExtension($ModulePath)) -ErrorAction SilentlyContinue
+        Import-Module -Name $ModulePath
+    }
+
+    ##### END Main Body #####
+
+}
+
+function Install-Program {
+    [CmdletBinding(DefaultParameterSetName='ChocoCmdLine')]
+    Param (
+        [Parameter(Mandatory=$True)]
+        [string]$ProgramName,
+
+        [Parameter(Mandatory=$False)]
+        [string]$CommandName,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='PackageManagement'
+        )]
+        [switch]$UsePowerShellGet,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='PackageManagement'
+        )]
+        [switch]$ForceChocoInstallScript,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$UseChocolateyCmdLine,
+
+        [Parameter(Mandatory=$False)]
+        [string]$ExpectedInstallLocation,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$NoUpdatePackageManagement,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$ScanCDriveForMainExeIfNecessary,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$SkipExeCheck = $True,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$PreRelease
+    )
+
+    ##### BEGIN Native Helper Functions #####
+
+    # The below function adds Paths from System PATH that aren't present in $env:Path (this probably shouldn't
+    # be an issue, because $env:Path pulls from System PATH...but sometimes profile.ps1 scripts do weird things
+    # and also $env:Path wouldn't necessarily be updated within the same PS session where a program is installed...)
+    function Synchronize-SystemPathEnvPath {
+        $SystemPath = $(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+        
+        $SystemPathArray = $SystemPath -split ";" | foreach {if ($_ -match "[\w]") {$_}}
+        $EnvPathArray = $env:Path -split ";" | foreach {if ($_ -match "[\w]") {$_}}
+        
+        # => means that $EnvPathArray HAS the paths but $SystemPathArray DOES NOT
+        # <= means that $SystemPathArray HAS the paths but $EnvPathArray DOES NOT
+        $PathComparison = Compare-Object $SystemPathArray $EnvPathArray
+        [System.Collections.ArrayList][Array]$SystemPathsThatWeWantToAddToEnvPath = $($PathComparison | Where-Object {$_.SideIndicator -eq "<="}).InputObject
+
+        if ($SystemPathsThatWeWantToAddToEnvPath.Count -gt 0) {
+            foreach ($NewPath in $SystemPathsThatWeWantToAddToEnvPath) {
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path$NewPath"
+                }
+                else {
+                    $env:Path = "$env:Path;$NewPath"
+                }
+            }
+        }
+    }
+
+    # Outputs [System.Collections.ArrayList]$ExePath
+    function Adjudicate-ExePath {
+        [CmdletBinding()]
+        Param (
+            [Parameter(Mandatory=$True)]
+            [string]$ProgramName,
+
+            [Parameter(Mandatory=$True)]
+            [string]$OriginalSystemPath,
+
+            [Parameter(Mandatory=$True)]
+            [string]$OriginalEnvPath,
+
+            [Parameter(Mandatory=$True)]
+            [string]$FinalCommandName,
+
+            [Parameter(Mandatory=$False)]
+            [string]$ExpectedInstallLocation
+        )
+
+        # ...search for it in the $ExpectedInstallLocation if that parameter is provided by the user...
+        if ($ExpectedInstallLocation) {
+            [System.Collections.ArrayList][Array]$ExePath = $(Get-ChildItem -Path $ExpectedInstallLocation -File -Recurse -Filter "*$FinalCommandName.exe").FullName
+        }
+        # If we don't have $ExpectedInstallLocation provided...
+        if (!$ExpectedInstallLocation) {
+            # ...then we can compare $OriginalSystemPath to the current System PATH to potentially
+            # figure out which directories *might* contain the main executable.
+            $OriginalSystemPathArray = $OriginalSystemPath -split ";" | foreach {if ($_ -match "[\w]") {$_}}
+            $OriginalEnvPathArray = $OriginalEnvPath -split ";" | foreach {if ($_ -match "[\w]") {$_}}
+
+            $CurrentSystemPath = $(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+            $CurrentSystemPathArray = $CurrentSystemPath -split ";" | foreach {if ($_ -match "[\w]") {$_}}
+            $CurrentEnvPath = $env:Path
+            $CurrentEnvPathArray = $CurrentEnvPath -split ";" | foreach {if ($_ -match "[\w]") {$_}}
+            
+
+            $OriginalVsCurrentSystemPathComparison = Compare-Object $OriginalSystemPathArray $CurrentSystemPathArray
+            $OriginalVsCurrentEnvPathComparison = Compare-Object $OriginalEnvPathArray $CurrentEnvPathArray
+
+            [System.Collections.ArrayList]$DirectoriesToSearch = @()
+            if ($OriginalVsCurrentSystemPathComparison -ne $null) {
+                # => means that $CurrentSystemPathArray has some new directories
+                [System.Collections.ArrayList][Array]$NewSystemPathDirs = $($OriginalVsCurrentSystemPathComparison | Where-Object {$_.SideIndicator -eq "=>"}).InputObject
+            
+                if ($NewSystemPathDirs.Count -gt 0) {
+                    foreach ($dir in $NewSystemPathDirs) {
+                        $null = $DirectoriesToSearch.Add($dir)
+                    }
+                }
+            }
+            if ($OriginalVsCurrentEnvPathComparison -ne $null) {
+                # => means that $CurrentEnvPathArray has some new directories
+                [System.Collections.ArrayList][Array]$NewEnvPathDirs = $($OriginalVsCurrentEnvPathComparison | Where-Object {$_.SideIndicator -eq "=>"}).InputObject
+            
+                if ($NewEnvPathDirs.Count -gt 0) {
+                    foreach ($dir in $NewEnvPathDirs) {
+                        $null = $DirectoriesToSearch.Add($dir)
+                    }
+                }
+            }
+
+            if ($DirectoriesToSearch.Count -gt 0) {
+                $DirectoriesToSearchFinal = $($DirectoriesToSearch | Sort-Object | Get-Unique) | foreach {if (Test-Path $_) {$_}}
+                $DirectoriesToSearchFinal = $DirectoriesToSearchFinal | Where-Object {$_ -match "$ProgramName"}
+
+                [System.Collections.ArrayList]$ExePath = @()
+                foreach ($dir in $DirectoriesToSearchFinal) {
+                    [Array]$ExeFiles = $(Get-ChildItem -Path $dir -File -Filter "*$FinalCommandName.exe").FullName
+                    if ($ExeFiles.Count -gt 0) {
+                        $null = $ExePath.Add($ExeFiles)
+                    }
+                }
+
+                # If there IS a difference in original vs current System PATH / $Env:Path, but we 
+                # still DO NOT find the main executable in those diff directories (i.e. $ExePath is still not set),
+                # it's possible that the name of the main executable that we're looking for is actually
+                # incorrect...in which case just tell the user that we can't find the expected main
+                # executable name and provide a list of other .exe files that we found in the diff dirs.
+                if (!$ExePath -or $ExePath.Count -eq 0) {
+                    [System.Collections.ArrayList]$ExePath = @()
+                    foreach ($dir in $DirectoriesToSearchFinal) {
+                        [Array]$ExeFiles = $(Get-ChildItem -Path $dir -File -Filter "*.exe").FullName
+                        foreach ($File in $ExeFiles) {
+                            $null = $ExePath.Add($File)
+                        }
+                    }
+                }
+            }
+        }
+
+        $ExePath | Sort-Object | Get-Unique
+    }
+
+    ##### END Native Helper Functions #####
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    # Invoke-WebRequest fix...
+    [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
+    if ($UseChocolateyCmdLine) {
+        $NoUpdatePackageManagement = $True
+    }
+
+    Write-Host "Please wait..."
+    $global:FunctionResult = "0"
+    $MyFunctionsUrl = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyFunctions"
+
+    if (!$NoUpdatePackageManagement) {
+        if (![bool]$(Get-Command Update-PackageManagement -ErrorAction SilentlyContinue)) {
+            $UpdatePMFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Update-PackageManagement.ps1"
+            try {
+                Invoke-Expression $([System.Net.WebClient]::new().DownloadString($UpdatePMFunctionUrl))
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Unable to load the Update-PackageManagement function! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        try {
+            $global:FunctionResult = "0"
+            $null = Update-PackageManagement -AddChocolateyPackageProvider -ErrorAction SilentlyContinue -ErrorVariable UPMErr
+            if ($UPMErr -and $global:FunctionResult -eq "1") {throw "The Update-PackageManagement function failed! Halting!"}
+        }
+        catch {
+            Write-Error $_
+            Write-Host "Errors from the Update-PackageManagement function are as follows:"
+            Write-Error $($UPMErr | Out-String)
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    if ($UseChocolateyCmdLine -or $(!$UsePowerShellGet -and !$UseChocolateyCmdLine)) {
+        if (![bool]$(Get-Command Install-ChocolateyCmdLine -ErrorAction SilentlyContinue)) {
+            $InstallCCFunctionUrl = "$MyFunctionsUrl/Install-ChocolateyCmdLine.ps1"
+            try {
+                Invoke-Expression $([System.Net.WebClient]::new().DownloadString($InstallCCFunctionUrl))
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Unable to load the Install-ChocolateyCmdLine function! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    }
+
+    if (![bool]$(Get-Command Refresh-ChocolateyEnv -ErrorAction SilentlyContinue)) {
+        $RefreshCEFunctionUrl = "$MyFunctionsUrl/PowerShellCore_Compatible/Refresh-ChocolateyEnv.ps1"
+        try {
+            Invoke-Expression $([System.Net.WebClient]::new().DownloadString($RefreshCEFunctionUrl))
+        }
+        catch {
+            Write-Error $_
+            Write-Error "Unable to load the Refresh-ChocolateyEnv function! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    # If PackageManagement/PowerShellGet is installed, determine if $ProgramName is installed
+    if ([bool]$(Get-Command Get-Package -ErrorAction SilentlyContinue)) {
+        $PackageManagementInstalledPrograms = Get-Package
+
+        # If teh Current Installed Version is not equal to the Latest Version available, then it's outdated
+        if ($PackageManagementInstalledPrograms.Name -contains $ProgramName) {
+            $PackageManagementCurrentInstalledPackage = $PackageManagementInstalledPrograms | Where-Object {$_.Name -eq $ProgramName}
+            $PackageManagementLatestVersion = $(Find-Package -Name $ProgramName -Source chocolatey -AllVersions | Sort-Object -Property Version)[-1]
+        }
+    }
+
+    # If the Chocolatey CmdLine is installed, get a list of programs installed via Chocolatey
+    if ([bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+        $ChocolateyInstalledProgramsPrep = clist --local-only
+        $ChocolateyInstalledProgramsPrep = $ChocolateyInstalledProgramsPrep[1..$($ChocolateyInstalledProgramsPrep.Count-2)]
+
+        [System.Collections.ArrayList]$ChocolateyInstalledProgramsPSObjects = @()
+
+        foreach ($program in $ChocolateyInstalledProgramsPrep) {
+            $programParsed = $program -split " "
+            $PSCustomObject = [pscustomobject]@{
+                ProgramName     = $programParsed[0]
+                Version         = $programParsed[1]
+            }
+
+            $null = $ChocolateyInstalledProgramsPSObjects.Add($PSCustomObject)
+        }
+
+        # Also get a list of outdated packages in case this Install-Program function is used to update a package
+        $ChocolateyOutdatedProgramsPrep = choco outdated
+        $UpperLineMatch = $ChocolateyOutdatedProgramsPrep -match "Output is package name"
+        $LowerLineMatch = $ChocolateyOutdatedProgramsPrep -match "Chocolatey has determined"
+        $UpperIndex = $ChocolateyOutdatedProgramsPrep.IndexOf($UpperLineMatch) + 2
+        $LowerIndex = $ChocolateyOutdatedProgramsPrep.IndexOf($LowerLineMatch) - 2
+        $ChocolateyOutdatedPrograms = $ChocolateyOutdatedProgramsPrep[$UpperIndex..$LowerIndex]
+
+        [System.Collections.ArrayList]$ChocolateyOutdatedProgramsPSObjects = @()
+        foreach ($line in $ChocolateyOutdatedPrograms) {
+            $ParsedLine = $line -split "\|"
+            $Program = $ParsedLine[0]
+            $CurrentInstalledVersion = $ParsedLine[1]
+            $LatestAvailableVersion = $ParsedLine[2]
+
+            $PSObject = [pscustomobject]@{
+                ProgramName                 = $Program
+                CurrentInstalledVersion     = $CurrentInstalledVersion
+                LatestAvailableVersion      = $LatestAvailableVersion
+            }
+
+            $null = $ChocolateyOutdatedProgramsPSObjects.Add($PSObject)
+        }
+    }
+
+    if ($CommandName -match "\.exe") {
+        $CommandName = $CommandName -replace "\.exe",""
+    }
+    $FinalCommandName = if ($CommandName) {$CommandName} else {$ProgramName}
+
+    # Save the original System PATH and $env:Path before we do anything, just in case
+    $OriginalSystemPath = $(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+    $OriginalEnvPath = $env:Path
+    Synchronize-SystemPathEnvPath
+
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
+
+
+    ##### BEGIN Main Body #####
+
+    # Install $ProgramName if it's not already or if it's outdated...
+    if ($($PackageManagementInstalledPrograms.Name -notcontains $ProgramName  -and
+    $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName) -or
+    $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
+    $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
+    ) {
+        if ($UsePowerShellGet -or $(!$UsePowerShellGet -and !$UseChocolateyCmdLine) -or 
+        $PackageManagementInstalledPrograms.Name -contains $ProgramName -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName
+        ) {
+            $InstallPackageSplatParams = @{
+                Name            = $ProgramName
+                Force           = $True
+                ErrorAction     = "SilentlyContinue"
+                ErrorVariable   = "InstallError"
+                WarningAction   = "SilentlyContinue"
+            }
+            if ($PreRelease) {
+                $LatestVersion = $(Find-Package $ProgramName -AllVersions)[-1].Version
+                $InstallPackageSplatParams.Add("MinimumVersion",$LatestVersion)
+            }
+            # NOTE: The PackageManagement install of $ProgramName is unreliable, so just in case, fallback to the Chocolatey cmdline for install
+            $null = Install-Package @InstallPackageSplatParams
+            if ($InstallError.Count -gt 0) {
+                $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                Write-Warning "There was a problem installing $ProgramName via PackageManagement/PowerShellGet!"
+                
+                if ($UsePowerShellGet) {
+                    Write-Error "One or more errors occurred during the installation of $ProgramName via the the PackageManagement/PowerShellGet Modules failed! Installation has been rolled back! Halting!"
+                    Write-Host "Errors for the Install-Package cmdlet are as follows:"
+                    Write-Error $($InstallError | Out-String)
+                    $global:FunctionResult = "1"
+                    return
+                }
+                else {
+                    Write-Host "Trying install via Chocolatey CmdLine..."
+                    $PMInstall = $False
+                }
+            }
+            else {
+                $PMInstall = $True
+
+                # Since Installation via PackageManagement/PowerShellGet was succesful, let's update $env:Path with the
+                # latest from System PATH before we go nuts trying to find the main executable manually
+                Synchronize-SystemPathEnvPath
+            }
+        }
+
+        if (!$PMInstall -or $UseChocolateyCmdLine -or
+        $ChocolateyInstalledProgramsPSObjects.ProgramName -contains $ProgramName
+        ) {
+            try {
+                Write-Host "Refreshing `$env:Path..."
+                $global:FunctionResult = "0"
+                $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+
+                # The first time we attempt to Refresh-ChocolateyEnv, Chocolatey CmdLine and/or the
+                # Chocolatey Package Provider legitimately might not be installed,
+                # so if the Refresh-ChocolateyEnv function throws that error, we can ignore it
+                if ($RCEErr.Count -gt 0 -and
+                $global:FunctionResult -eq "1" -and
+                ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
+                    throw "The Refresh-ChocolateyEnv function failed! Halting!"
+                }
+            }
+            catch {
+                Write-Error $_
+                Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                Write-Error $($RCEErr | Out-String)
+                $global:FunctionResult = "1"
+                return
+            }
+
+            # Make sure Chocolatey CmdLine is installed...if not, install it
+            if (![bool]$(Get-Command choco -ErrorAction SilentlyContinue)) {
+                try {
+                    $global:FunctionResult = "0"
+                    $null = Install-ChocolateyCmdLine -NoUpdatePackageManagement -ErrorAction SilentlyContinue -ErrorVariable ICCErr
+                    if ($ICCErr -and $global:FunctionResult -eq "1") {throw "The Install-ChocolateyCmdLine function failed! Halting!"}
+                }
+                catch {
+                    Write-Error $_
+                    Write-Host "Errors from the Install-ChocolateyCmdline function are as follows:"
+                    Write-Error $($ICCErr | Out-String)
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+
+            try {
+                # TODO: Figure out how to handle errors from choco.exe. Some we can ignore, others
+                # we shouldn't. But I'm not sure what all of the possibilities are so I can't
+                # control for them...
+                if ($PreRelease) {
+                    $null = cup $ProgramName --pre -y
+                }
+                else {
+                    $null = cup $ProgramName -y
+                }
+                $ChocoInstall = $true
+
+                # Since Installation via the Chocolatey CmdLine was succesful, let's update $env:Path with the
+                # latest from System PATH before we go nuts trying to find the main executable manually
+                Synchronize-SystemPathEnvPath
+            }
+            catch {
+                Write-Error "There was a problem installing $ProgramName using the Chocolatey cmdline! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        
+        if (!$SkipExeCheck -or $PSBoundParameters['CommandName']) {
+            ## BEGIN Try to Find Main Executable Post Install ##
+
+            # Now the parent directory of $ProgramName's main executable should be part of the SYSTEM Path
+            # (and therefore part of $env:Path). If not, try to find it in Chocolatey directories...
+            if ($(Get-Command $FinalCommandName -ErrorAction SilentlyContinue).CommandType -eq "Alias") {
+                while (Test-Path Alias:\$FinalCommandName) {
+                    Remove-Item Alias:\$FinalCommandName
+                }
+            }
+
+            if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+                try {
+                    Write-Host "Refreshing `$env:Path..."
+                    $global:FunctionResult = "0"
+                    $null = Refresh-ChocolateyEnv -ErrorAction SilentlyContinue -ErrorVariable RCEErr
+                    if ($RCEErr.Count -gt 0 -and $global:FunctionResult -eq "1") {throw "The Refresh-ChocolateyEnv function failed! Halting!"}
+                }
+                catch {
+                    Write-Error $_
+                    Write-Host "Errors from the Refresh-ChocolateyEnv function are as follows:"
+                    Write-Error $($RCEErr | Out-String)
+                    $global:FunctionResult = "1"
+                    return
+                }
+            }
+            
+            # If we still can't find the main executable...
+            if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) {
+                if ($ExpectedInstallLocation) {
+                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
+                }
+                else {
+                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
+                }
+            }
+            
+            # If we STILL can't find the main executable...
+            if ($(![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue) -and $(!$ExePath -or $ExePath.Count -eq 0)) -or $ForceChocoInstallScript) {
+                # If, at this point we don't have $ExePath, if we did a $ChocoInstall, then we have to give up...
+                # ...but if we did a $PMInstall, then it's possible that PackageManagement/PowerShellGet just
+                # didn't run the chocolateyInstall.ps1 script that sometimes comes bundled with Packages from the
+                # Chocolatey Package Provider/Repo. So try running that...
+                if (!$ExePath -or $ExePath.Count -eq 0 -or $ForceChocoInstallScript) {
+                    if ($ChocoInstall) {
+                        Write-Warning "Unable to find main executable for $ProgramName!"
+                        $MainExeSearchFail = $True
+                    }
+                    if ($PMInstall -or $($PMInstall -and $ForceChocoInstallScript)) {
+                        [System.Collections.ArrayList]$PossibleChocolateyInstallScripts = @()
+                        
+                        if (Test-Path "C:\Chocolatey") {
+                            $ChocoScriptsA = Get-ChildItem -Path "C:\Chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1" | Where-Object {$($(Get-Date) - $_.CreationTime).TotalMinutes -lt 5}
+                            foreach ($Script in $ChocoScriptsA) {
+                                $null = $PossibleChocolateyInstallScripts.Add($Script)
+                            }
+                        }
+                        if (Test-Path "C:\ProgramData\chocolatey") {
+                            $ChocoScriptsB = Get-ChildItem -Path "C:\ProgramData\chocolatey" -Recurse -File -Filter "*chocolateyinstall.ps1" | Where-Object {$($(Get-Date) - $_.CreationTime).TotalMinutes -lt 5}
+                            foreach ($Script in $ChocoScriptsB) {
+                                $null = $PossibleChocolateyInstallScripts.Add($Script)
+                            }
+                        }
+
+                        [System.Collections.ArrayList][Array]$ChocolateyInstallScriptSearch = $PossibleChocolateyInstallScripts.FullName | Where-Object {$_ -match ".*?$ProgramName.*?chocolateyinstall.ps1$"}
+                        if ($ChocolateyInstallScriptSearch.Count -eq 0) {
+                            Write-Warning "Unable to find main the Chocolatey Install Script for $ProgramName PowerShellGet install!"
+                            $MainExeSearchFail = $True
+                        }
+                        if ($ChocolateyInstallScriptSearch.Count -eq 1) {
+                            $ChocolateyInstallScript = $ChocolateyInstallScriptSearch[0]
+                        }
+                        if ($ChocolateyInstallScriptSearch.Count -gt 1) {
+                            $ChocolateyInstallScript = $($ChocolateyInstallScriptSearch | Sort-Object LastWriteTime)[-1]
+                        }
+                        
+                        if ($ChocolateyInstallScript) {
+                            try {
+                                Write-Host "Trying the Chocolatey Install script from $ChocolateyInstallScript..." -ForegroundColor Yellow
+                                & $ChocolateyInstallScript
+
+                                # Now that the $ChocolateyInstallScript ran, search for the main executable again
+                                Synchronize-SystemPathEnvPath
+
+                                if ($ExpectedInstallLocation) {
+                                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName -ExpectedInstallLocation $ExpectedInstallLocation
+                                }
+                                else {
+                                    [System.Collections.ArrayList][Array]$ExePath = Adjudicate-ExePath -ProgramName $ProgramName -OriginalSystemPath $OriginalSystemPath -OriginalEnvPath $OriginalEnvPath -FinalCommandName $FinalCommandName
+                                }
+
+                                # If we STILL don't have $ExePath, then we have to give up...
+                                if (!$ExePath -or $ExePath.Count -eq 0) {
+                                    Write-Warning "Unable to find main executable for $ProgramName!"
+                                    $MainExeSearchFail = $True
+                                }
+                            }
+                            catch {
+                                Write-Error $_
+                                Write-Error "The Chocolatey Install Script $ChocolateyInstallScript has failed!"
+
+                                # If PackageManagement/PowerShellGet is ERRONEOUSLY reporting that the program was installed
+                                # use the Uninstall-Package cmdlet to wipe it out. This scenario happens when PackageManagement/
+                                # PackageManagement/PowerShellGet gets a Package from the Chocolatey Package Provider/Repo but
+                                # fails to run the chocolateyInstall.ps1 script for some reason.
+                                if ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
+                                    $null = Uninstall-Package $ProgramName -Force -ErrorAction SilentlyContinue
+                                }
+
+                                # Now we need to try the Chocolatey CmdLine. Easiest way to do this at this point is to just
+                                # invoke the function again with the same parameters, but specify -UseChocolateyCmdLine
+                                $BoundParametersDictionary = $PSCmdlet.MyInvocation.BoundParameters
+                                $InstallProgramSplatParams = @{}
+                                foreach ($kvpair in $BoundParametersDictionary.GetEnumerator()) {
+                                    $key = $kvpair.Key
+                                    $value = $BoundParametersDictionary[$key]
+                                    if ($key -notmatch "UsePowerShellGet|ForceChocoInstallScript" -and $InstallProgramSplatParams.Keys -notcontains $key) {
+                                        $InstallProgramSplatParams.Add($key,$value)
+                                    }
+                                }
+                                if ($InstallProgramSplatParams.Keys -notcontains "UseChocolateyCmdLine") {
+                                    $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+                                }
+                                if ($InstallProgramSplatParams.Keys -notcontains "NoUpdatePackageManagement") {
+                                    $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
+                                }
+                                Install-Program @InstallProgramSplatParams
+
+                                return
+                            }
+                        }
+                    }
+                }
+            }
+
+            ## END Try to Find Main Executable Post Install ##
+        }
+    }
+    else {
+        if ($ChocolateyInstalledProgramsPSObjects.ProgramName -contains $ProgramName) {
+            Write-Warning "$ProgramName is already installed via the Chocolatey CmdLine!"
+            $AlreadyInstalled = $True
+        }
+        elseif ([bool]$(Get-Package $ProgramName -ErrorAction SilentlyContinue)) {
+            Write-Warning "$ProgramName is already installed via PackageManagement/PowerShellGet!"
+            $AlreadyInstalled = $True
+        }
+    }
+
+    # If we weren't able to find the main executable (or any potential main executables) for
+    # $ProgramName, offer the option to scan the whole C:\ drive (with some obvious exceptions)
+    if ($MainExeSearchFail -and $(!$SkipExeCheck -or $PSBoundParameters['CommandName'])) {
+        if (!$ScanCDriveForMainExeIfNecessary -and !$SkipExeCheck -and !$PSBoundParameters['CommandName']) {
+            $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
+            while ($ScanCDriveChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
+                Write-Host "$ScanDriveChoice is not a valid input. Please enter 'Yes' or 'No'"
+                $ScanCDriveChoice = Read-Host -Prompt "Would you like to scan C:\ for $FinalCommandName.exe? NOTE: This search excludes system directories but still could take some time. [Yes\No]"
+            }
+        }
+
+        if ($ScanCDriveChoice -match "Yes|yes|Y|y" -or $ScanCDriveForMainExeIfNecessary) {
+            $DirectoriesToSearchRecursively = $(Get-ChildItem -Path "C:\" -Directory | Where-Object {$_.Name -notmatch "Windows|PerfLogs|Microsoft"}).FullName
+            [System.Collections.ArrayList]$ExePath = @()
+            foreach ($dir in $DirectoriesToSearchRecursively) {
+                $FoundFiles = $(Get-ChildItem -Path $dir -Recurse -File).FullName
+                foreach ($FilePath in $FoundFiles) {
+                    if ($FilePath -match "(.*?)$FinalCommandName([^\\]+)") {
+                        $null = $ExePath.Add($FilePath)
+                    }
+                }
+            }
+        }
+    }
+
+    if (!$SkipExeCheck -or $PSBoundParameters['CommandName']) {
+        # Finalize $env:Path
+        if ([bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+            $PathToAdd = $($ExePath -match "\\$FinalCommandName.exe$") | Split-Path -Parent
+            if ($($env:Path -split ";") -notcontains $PathToAdd) {
+                if ($env:Path[-1] -eq ";") {
+                    $env:Path = "$env:Path" + $PathToAdd + ";"
+                }
+                else {
+                    $env:Path = "$env:Path" + ";" + $PathToAdd
+                }
+            }
+        }
+        $FinalEnvPathArray = $env:Path -split ";" | foreach {if($_ -match "[\w]") {$_}}
+        $FinalEnvPathString = $($FinalEnvPathArray | foreach {if (Test-Path $_) {$_}}) -join ";"
+        $env:Path = $FinalEnvPathString
+
+        if (![bool]$(Get-Command $FinalCommandName -ErrorAction SilentlyContinue)) {
+            # Try to determine Main Executable
+            if (!$ExePath -or $ExePath.Count -eq 0) {
+                $FinalExeLocation = "NotFound"
+            }
+            elseif ($ExePath.Count -eq 1) {
+                $UpdatedFinalCommandName = $ExePath | Split-Path -Leaf
+
+                try {
+                    $FinalExeLocation = $(Get-Command $UpdatedFinalCommandName -ErrorAction SilentlyContinue).Source
+                }
+                catch {
+                    $FinalExeLocation = $ExePath
+                }
+            }
+            elseif ($ExePath.Count -gt 1) {
+                if (![bool]$($ExePath -match "\\$FinalCommandName.exe$")) {
+                    Write-Warning "No exact match for main executable $FinalCommandName.exe was found. However, other executables associated with $ProgramName were found."
+                }
+                $FinalExeLocation = $ExePath
+            }
+        }
+        else {
+            $FinalExeLocation = $(Get-Command $FinalCommandName).Source
+        }
+    }
+
+    if ($ChocoInstall) {
+        $InstallManager = "choco.exe"
+        $InstallCheck = $(clist --local-only $ProgramName)[1]
+    }
+    if ($PMInstall -or [bool]$(Get-Package $ProgramName -ProviderName Chocolatey -ErrorAction SilentlyContinue)) {
+        $InstallManager = "PowerShellGet"
+        $InstallCheck = Get-Package $ProgramName -ErrorAction SilentlyContinue
+    }
+
+    if ($AlreadyInstalled) {
+        $InstallAction = "AlreadyInstalled"
+    }
+    elseif ($PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
+    $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
+    ) {
+        $InstallAction = "Updated"
+    }
+    else {
+        $InstallAction = "FreshInstall"
+    }
+
+
+    [pscustomobject]@{
+        InstallManager      = $InstallManager
+        InstallAction       = $InstallAction
+        InstallCheck        = $InstallCheck
+        MainExecutable      = $FinalExeLocation
+        OriginalSystemPath  = $OriginalSystemPath
+        CurrentSystemPath   = $(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+        OriginalEnvPath     = $OriginalEnvPath
+        CurrentEnvPath      = $env:Path
+    }
+
+    ##### END Main Body #####
+}
+
 Function Check-InstalledPrograms {
 
     [CmdletBinding(
@@ -1345,154 +2363,154 @@ public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 }
 
 <#
-.Synopsis
-    Refactored From: https://gallery.technet.microsoft.com/scriptcenter/PowerShell-Credentials-d44c3cde
+    .Synopsis
+        Refactored From: https://gallery.technet.microsoft.com/scriptcenter/PowerShell-Credentials-d44c3cde
 
-    Provides access to Windows CredMan basic functionality for client scripts
+        Provides access to Windows CredMan basic functionality for client scripts
 
-    ****************** IMPORTANT ******************
-    *
-    * If you use this script from the PS console, you 
-    * should ALWAYS pass the Target, User and Password
-    * parameters using single quotes:
-    * 
-    *   .\CredMan.ps1 -AddCred -Target 'http://server' -User 'JoeSchmuckatelli' -Pass 'P@55w0rd!'
-    * 
-    * to prevent PS misinterpreting special characters 
-    * you might use as PS reserved characters
-    * 
-    ****************** IMPORTANT ******************
+        ****************** IMPORTANT ******************
+        *
+        * If you use this script from the PS console, you 
+        * should ALWAYS pass the Target, User and Password
+        * parameters using single quotes:
+        * 
+        *   .\CredMan.ps1 -AddCred -Target 'http://server' -User 'JoeSchmuckatelli' -Pass 'P@55w0rd!'
+        * 
+        * to prevent PS misinterpreting special characters 
+        * you might use as PS reserved characters
+        * 
+        ****************** IMPORTANT ******************
 
-.Description
-    Provides the following API when dot-sourced
-    Del-Cred
-    Enum-Creds
-    Read-Cred
-    Write-Cred
+    .Description
+        Provides the following API when dot-sourced
+        Del-Cred
+        Enum-Creds
+        Read-Cred
+        Write-Cred
 
-    Supports the following cmd-line actions
-    AddCred (requires -User, -Pass; -Target is optional)
-    DelCred (requires -Target)
-    GetCred (requires -Target)
-    RunTests (no cmd-line opts)
-    ShoCred (optional -All parameter to dump cred objects to console)
+        Supports the following cmd-line actions
+        AddCred (requires -User, -Pass; -Target is optional)
+        DelCred (requires -Target)
+        GetCred (requires -Target)
+        RunTests (no cmd-line opts)
+        ShoCred (optional -All parameter to dump cred objects to console)
 
-.INPUTS
-    See function-level notes
+    .INPUTS
+        See function-level notes
 
-.OUTPUTS
-      Cmd-line usage: console output relative to success or failure state
-      Dot-sourced usage:
-      ** Successful Action **
-      * Del-Cred   : Int = 0
-      * Enum-Cred  : PsUtils.CredMan+Credential[]
-      * Read-Cred  : PsUtils.CredMan+Credential
-      * Write-Cred : Int = 0
-      ** Failure **
-      * All API    : Management.Automation.ErrorRecord
+    .OUTPUTS
+        Cmd-line usage: console output relative to success or failure state
+        Dot-sourced usage:
+        ** Successful Action **
+        * Del-Cred   : Int = 0
+        * Enum-Cred  : PsUtils.CredMan+Credential[]
+        * Read-Cred  : PsUtils.CredMan+Credential
+        * Write-Cred : Int = 0
+        ** Failure **
+        * All API    : Management.Automation.ErrorRecord
 
-.NOTES
-    Author: Jim Harrison (jim@isatools.org)
-    Date  : 2012/05/20
-    Vers  : 1.5
+    .NOTES
+        Author: Jim Harrison (jim@isatools.org)
+        Date  : 2012/05/20
+        Vers  : 1.5
 
-    Updates:
-    2012/10/13
-            - Fixed a bug where the script would only read, write or delete GENERIC 
-            credentials types. 
-                - Added #region blocks to clarify internal functionality
-                - Added 'CredType' param to specify what sort of credential is to be read, 
-                created or deleted (not used for -ShoCred or Enum-Creds)
-                - Added 'CredPersist' param to specify how the credential is to be stored;
-                only used in Write-Cred
-                - Added 'All' param for -ShoCreds to differentiate between creds summary
-                list and detailed creds dump
-                - Added CRED_FLAGS enum to make the credential struct flags values clearer
-                - Improved parameter validation
-                - Expanded internal help (used with Get-Help cmdlet)
-                - Cmd-line functions better illustrate how to interpret the results when 
-                dot-sourcing the script
+        Updates:
+        2012/10/13
+                - Fixed a bug where the script would only read, write or delete GENERIC 
+                credentials types. 
+                    - Added #region blocks to clarify internal functionality
+                    - Added 'CredType' param to specify what sort of credential is to be read, 
+                    created or deleted (not used for -ShoCred or Enum-Creds)
+                    - Added 'CredPersist' param to specify how the credential is to be stored;
+                    only used in Write-Cred
+                    - Added 'All' param for -ShoCreds to differentiate between creds summary
+                    list and detailed creds dump
+                    - Added CRED_FLAGS enum to make the credential struct flags values clearer
+                    - Improved parameter validation
+                    - Expanded internal help (used with Get-Help cmdlet)
+                    - Cmd-line functions better illustrate how to interpret the results when 
+                    dot-sourcing the script
 
-.PARAMETER AddCred
-    Specifies that you wish to add a new credential or update an existing credentials
-    -Target, -User and -Pass parameters are required for this action
+    .PARAMETER AddCred
+        Specifies that you wish to add a new credential or update an existing credentials
+        -Target, -User and -Pass parameters are required for this action
 
-.PARAMETER Comment
-    Specifies the information you wish to place in the credentials comment field
+    .PARAMETER Comment
+        Specifies the information you wish to place in the credentials comment field
 
-.PARAMETER CredPersist
-    Specifies the credentials storage persistence you wish to use
-    Valid values are: "SESSION", "LOCAL_MACHINE", "ENTERPRISE"
-    NOTE: if not specified, defaults to "ENTERPRISE"
-    
-.PARAMETER CredType
-    Specifies the type of credential object you want to store
-    Valid values are: "GENERIC", "DOMAIN_PASSWORD", "DOMAIN_CERTIFICATE",
-    "DOMAIN_VISIBLE_PASSWORD", "GENERIC_CERTIFICATE", "DOMAIN_EXTENDED",
-    "MAXIMUM", "MAXIMUM_EX"
-    NOTE: if not specified, defaults to "GENERIC"
-    ****************** IMPORTANT ******************
-    *
-    * I STRONGLY recommend that you become familiar 
-    * with http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
-    * before you create new credentials with -CredType other than "GENERIC"
-    * 
-    ****************** IMPORTANT ******************
+    .PARAMETER CredPersist
+        Specifies the credentials storage persistence you wish to use
+        Valid values are: "SESSION", "LOCAL_MACHINE", "ENTERPRISE"
+        NOTE: if not specified, defaults to "ENTERPRISE"
+        
+    .PARAMETER CredType
+        Specifies the type of credential object you want to store
+        Valid values are: "GENERIC", "DOMAIN_PASSWORD", "DOMAIN_CERTIFICATE",
+        "DOMAIN_VISIBLE_PASSWORD", "GENERIC_CERTIFICATE", "DOMAIN_EXTENDED",
+        "MAXIMUM", "MAXIMUM_EX"
+        NOTE: if not specified, defaults to "GENERIC"
+        ****************** IMPORTANT ******************
+        *
+        * I STRONGLY recommend that you become familiar 
+        * with http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
+        * before you create new credentials with -CredType other than "GENERIC"
+        * 
+        ****************** IMPORTANT ******************
 
-.PARAMETER DelCred
-    Specifies that you wish to remove an existing credential
-    -CredType may be required to remove the correct credential if more than one is
-    specified for a target
+    .PARAMETER DelCred
+        Specifies that you wish to remove an existing credential
+        -CredType may be required to remove the correct credential if more than one is
+        specified for a target
 
-.PARAMETER GetCred
-    Specifies that you wish to retrieve an existing credential
-    -CredType may be required to access the correct credential if more than one is
-    specified for a target
+    .PARAMETER GetCred
+        Specifies that you wish to retrieve an existing credential
+        -CredType may be required to access the correct credential if more than one is
+        specified for a target
 
-.PARAMETER Pass
-    Specifies the credentials password
+    .PARAMETER Pass
+        Specifies the credentials password
 
-.PARAMETER RunTests
-    Specifies that you wish to run built-in Win32 CredMan functionality tests
+    .PARAMETER RunTests
+        Specifies that you wish to run built-in Win32 CredMan functionality tests
 
-.PARAMETER ShoCred
-    Specifies that you wish to retrieve all credential stored for the interactive user
-    -All parameter may be used to indicate that you wish to view all credentials properties
-    (default display is a summary list)
+    .PARAMETER ShoCred
+        Specifies that you wish to retrieve all credential stored for the interactive user
+        -All parameter may be used to indicate that you wish to view all credentials properties
+        (default display is a summary list)
 
-.PARAMETER Target
-    Specifies the authentication target for the specified credentials
-    If not specified, the -User information is used
+    .PARAMETER Target
+        Specifies the authentication target for the specified credentials
+        If not specified, the -User information is used
 
-.PARAMETER User
-    Specifies the credentials username
-    
+    .PARAMETER User
+        Specifies the credentials username
+        
 
-.LINK
-    http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
-    http://stackoverflow.com/questions/7162604/get-cached-credentials-in-powershell-from-windows-7-credential-manager
-    http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
-    http://blogs.msdn.com/b/peerchan/archive/2005/11/01/487834.aspx
+    .LINK
+        http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
+        http://stackoverflow.com/questions/7162604/get-cached-credentials-in-powershell-from-windows-7-credential-manager
+        http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
+        http://blogs.msdn.com/b/peerchan/archive/2005/11/01/487834.aspx
 
-.EXAMPLE
-    .\CredMan.ps1 -AddCred -Target 'http://aserver' -User 'UserName' -Password 'P@55w0rd!' -Comment 'cuziwanna'
-    Stores the credential for 'UserName' with a password of 'P@55w0rd!' for authentication against 'http://aserver' and adds a comment of 'cuziwanna'
+    .EXAMPLE
+        .\CredMan.ps1 -AddCred -Target 'http://aserver' -User 'UserName' -Password 'P@55w0rd!' -Comment 'cuziwanna'
+        Stores the credential for 'UserName' with a password of 'P@55w0rd!' for authentication against 'http://aserver' and adds a comment of 'cuziwanna'
 
-.EXAMPLE
-    .\CredMan.ps1 -DelCred -Target 'http://aserver' -CredType 'DOMAIN_PASSWORD'
-    Removes the credential used for the target 'http://aserver' as credentials type 'DOMAIN_PASSWORD'
+    .EXAMPLE
+        .\CredMan.ps1 -DelCred -Target 'http://aserver' -CredType 'DOMAIN_PASSWORD'
+        Removes the credential used for the target 'http://aserver' as credentials type 'DOMAIN_PASSWORD'
 
-.EXAMPLE
-    .\CredMan.ps1 -GetCred -Target 'http://aserver'
-    Retreives the credential used for the target 'http://aserver'
+    .EXAMPLE
+        .\CredMan.ps1 -GetCred -Target 'http://aserver'
+        Retreives the credential used for the target 'http://aserver'
 
-.EXAMPLE
-    .\CredMan.ps1 -ShoCred
-    Retrieves a summary list of all credentials stored for the interactive user
+    .EXAMPLE
+        .\CredMan.ps1 -ShoCred
+        Retrieves a summary list of all credentials stored for the interactive user
 
-.EXAMPLE
-    .\CredMan.ps1 -ShoCred -All
-    Retrieves a detailed list of all credentials stored for the interactive user
+    .EXAMPLE
+        .\CredMan.ps1 -ShoCred -All
+        Retrieves a detailed list of all credentials stored for the interactive user
 
 #>
 #requires -version 2
@@ -2323,335 +3341,46 @@ function Manage-StoredCredentials {
     CredManMain
 }
 
-
 <#
-.SYNOPSIS
-    Sets up the GitHub Git Shell Environment in PowerShell
+    .SYNOPSIS
+        Configures Git installed on Windows via GitDesktop to authenticate via https or ssh.
+        Optionally, clone all repos from the GitHub User you authenticate as.
 
-.DESCRIPTION
-    Sets up the proper PATH and ENV to use GitHub for Window's shell environment
-    
-    This is a refactored version of $env:LOCALAPPDATA\GitHub\shell.ps1 that gets installed
-    with GitDesktop for Windows.
+    .DESCRIPTION
+        See Synopsis.
 
-.PARAMETER SkipSSHSetup
-    If true, skips calling GitHub.exe to autoset and upload ssh-keys
+    .EXAMPLE
+        $GitAuthParams = @{
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@genericemailprovider.com"
+            AuthMethod = "https"
+            PersonalAccessToken = "234567ujhgfw456734567890okfd3456"
+        }
 
-.EXAMPLE
-    Initialize-GitEnvironment
+        Setup-GitCmdLine @GitAuthParams
+
+    .EXAMPLE
+        $GitAuthParams = @{
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@genericemailprovider.com"
+            AuthMethod = "ssh"
+            NewSSHKeyName "gitauth_rsa"
+        }
+
+        Setup-GitCmdLine @GitAuthParams
+
+    .EXAMPLE
+        $GitAuthParams = @{
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@genericemailprovider.com"
+            AuthMethod = "ssh"
+            ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa" 
+        }
+        
+        Setup-GitCmdLine @GitAuthParams
 
 #>
-function Initialize-GitEnvironment {
-    [CmdletBinding(DefaultParameterSetname='Skip AuthSetup')]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [string]$GitHubUserName = $(Read-Host -Prompt "Please enter your GitHub Username"),
-
-        [Parameter(Mandatory=$False)]
-        [string]$GitHubEmail = $(Read-Host -Prompt "Please the primary GitHub email address associated with $GitHubUserName"),
-
-        [Parameter(Mandatory=$False)]
-        [ValidateSet("https","ssh")]
-        [string]$AuthMethod,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='SSH Auth'
-        )]
-        [string]$ExistingSSHPrivateKeyPath,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='SSH Auth'
-        )]
-        [string]$NewSSHKeyName,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='SSH Auth'
-        )]
-        $NewSSHKeyPwd,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='SSH Auth'
-        )]
-        [switch]$DownloadAndSetupDependencies,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='HTTPS Auth'
-        )]
-        $PersonalAccessToken
-    )
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-    if ($PersonalAccessToken) {
-        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
-            # Convert SecureString to PlainText
-            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
-        }
-    }
-
-    $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
-
-    if ($ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd -or $DownloadAndSetupDependencies) {
-        $AuthMethod = "ssh"
-    }
-    if ($PersonalAccessToken) {
-        $AuthMethod = "https"
-    }
-    if ($AuthMethod -eq "https" -and $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
-        Write-Verbose "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
-        Write-Error "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
-    # because Setup-GitAuthentication function can handle things if neither are provided
-    if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
-        Write-Verbose "If -AuthMethod is `"https`", you must use the -PersonalAccessToken parameter! Halting!"
-        Write-Error "If -AuthMethod is `"https`", you must use the -PersonalAccessToken parameter! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    if ($NewSSHKeyPwd) {
-        if ($NewSSHKeyPwd.GetType().FullName -eq "System.Security.SecureString") {
-            # Convert SecureString to PlainText
-            $NewSSHKeyPwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($NewSSHKeyPwd))
-        }
-        if (!$NewSSHKeyName) {
-            $NewSSHKeyName = "GitAuthFor$CurrentUser"
-        }
-    }
-
-    # Check to make sure Git Desktop is Installed
-    $GitDesktopVersion = [version]$(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub" | Where-Object {$_.DisplayName -notmatch "Machine-Wide Installer"}).DisplayVersion
-    $GitHubDesktopVersionString = $(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub" | Where-Object {$_.DisplayName -notmatch "Machine-Wide Installer"}).DisplayVersion
-    if ($GitDesktopVersion -eq $null) {
-        Write-Verbose "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
-        Write-Error "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    if ($GitDesktopVersion.Major -eq 0) {
-        $GitDesktopChannel = "Beta"
-    }
-    if ($GitDesktopVersion.Major -gt 0) {
-        $GitDesktopChannel = "Stable"
-    }
-    if (!$(Test-Path "$HOME\Documents\GitHub")) {
-        New-Item -Type Directory -Path "$HOME\Documents\GitHub"
-    }
-
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
-
-    # Set the Git PowerShell Environment
-    if ($GitDesktopChannel -eq "Beta") {
-        if ($env:github_shell -eq $null) {
-            while (!$(Resolve-Path "$env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersionString\resources\app\git" -ErrorAction SilentlyContinue)) {
-                Write-Host "Waiting for $env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersionString\resources\app\git"
-                Start-Sleep -Seconds 1
-            }
-            $env:github_git = $(Resolve-Path "$env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersionString\resources\app\git" -ErrorAction Continue).Path
-            $env:PLINK_PROTOCOL = "ssh"
-            $env:TERM = "msys"
-            $env:HOME = $HOME
-            $env:TMP = $env:TEMP = [system.io.path]::gettemppath()
-            <#
-            if ($env:EDITOR -eq $null) {
-              $env:EDITOR = "GitPad"
-            }
-            #>
-
-            # Setup PATH
-            $pGitPath = $env:github_git
-            $appPath = "$env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersion"
-            while (!$appPath) {
-                Write-Host "Waiting for `$appPath..."
-                $appPath = "$env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersion"
-                Start-Sleep -Seconds 1
-            }
-            $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
-            $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
-            $lfsamd64Path = "$env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersion\resources\app\git\mingw64\libexec\git-core"
-
-            if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$lfsamd64Path;$appPath;$msBuildPath"
-            }
-            else {
-                $env:Path = "$env:Path;$pGitPath\cmd;$pGitPath\usr\bin;$lfsamd64Path;$appPath;$msBuildPath"
-            }
-
-            $env:git_bash_path = "$env:github_git\usr\bin"
-            $env:github_shell = $true
-            $env:git_install_root = $pGitPath
-        }
-        else {
-            Write-Verbose "GitHub shell environment already setup"
-        }
-    }
-    if ($GitDesktopChannel -eq "Stable") {
-        if ($env:github_shell -eq $null) {
-            $env:github_posh_git = $(Resolve-Path "$env:LocalAppData\GitHub\PoshGit_*" -ErrorAction Continue).Path
-            while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction SilentlyContinue)) {
-                Write-Host "Waiting for $env:LocalAppData\GitHub\PortableGit_*"
-                Start-Sleep -Seconds 1
-            }
-            $env:github_git = $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*" -ErrorAction Continue).Path
-            $env:PLINK_PROTOCOL = "ssh"
-            $env:TERM = "msys"
-            $env:HOME = $HOME
-            $env:TMP = $env:TEMP = [system.io.path]::gettemppath()
-            if ($env:EDITOR -eq $null) {
-              $env:EDITOR = "GitPad"
-            }
-
-            # Setup PATH
-            $pGitPath = $env:github_git
-            #$appPath = Resolve-Path "$env:LocalAppData\Apps\2.0\XE9KPQJJ.N9E\GALTN70J.73D\gith..tion_317444273a93ac29_0003.0003_5794af8169eeff14"
-            $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
-            while (!$appPath) {
-                Write-Host "Waiting for `$appPath..."
-                $appPath = $(Get-ChildItem -Recurse -Path "$env:LocalAppData\Apps" | Where-Object {$_.Name -match "^gith..tion*" -and $_.FullName -notlike "*manifests*" -and $_.FullName -notlike "*\Data\*"}).FullName
-                Start-Sleep -Seconds 1
-            }
-            $HighestNetVer = $($(Get-ChildItem "$env:SystemRoot\Microsoft.NET\Framework" | Where-Object {$_.Name -match "^v[0-9]"}).Name -replace "v","" | Measure-Object -Maximum).Maximum
-            $msBuildPath = "$env:SystemRoot\Microsoft.NET\Framework\v$HighestNetVer"
-            $lfsamd64Path = "$env:LocalAppData\GitHub\lfs-amd*"
-
-            if ($env:Path[-1] -eq ";") {
-                $env:Path = "$env:Path$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
-            }
-            else {
-                $env:Path = "$env:Path;$pGitPath\cmd;$pGitPath\usr\bin;$pGitPath\usr\share\git-tfs;$lfsamd64Path;$appPath;$msBuildPath"
-            }
-
-            $env:github_shell = $true
-            $env:git_install_root = $pGitPath
-            if ($env:github_posh_git) {
-                $env:posh_git = "$env:github_posh_git\profile.example.ps1"
-            }
-        }
-        else {
-            Write-Verbose "GitHub shell environment already setup"
-        }
-    }
-
-    if ($(Get-Module -ListAvailable | Where-Object {$_.Name -eq "posh-git"}) -eq $null) {
-        Update-PackageManagement
-        Install-Module posh-git -Scope CurrentUser
-    }
-    if ($(Get-Module | Where-Object {$_.Name -eq "posh-git"}) -eq $null) {
-        Import-Module posh-git -Verbose
-    }
-    
-
-    # Setup Authentication if requested #
-    # Setup SSH
-    if ($AuthMethod -eq "ssh") {
-        $GitAuthParams = @{
-            GitHubUserName      = $GitHubUserName
-            GitHubEmail         = $GitHubEmail
-            AuthMethod          = $AuthMethod
-        }
-        if (!$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
-            $GitAuthParams = $GitAuthParams
-        }
-        if ($ExistingSSHPrivateKeyPath) {
-            $GitAuthParams = $GitAuthParams.Add("ExistingSSHPrivateKeyPath",$ExistingSSHPrivateKeyPath)
-        }
-        if ($NewSSHKeyName) {
-            if (!$NewSSHKeyPwd) {
-                $GitAuthParams = $GitAuthParams.Add("NewSSHKeyName",$NewSSHKeyName)
-            }
-            else {
-                $GitAuthParams = $GitAuthParams.Add("NewSSHKeyName",$NewSSHKeyName)
-                $GitAuthParams = $GitAuthParams.Add("NewSSHKeyPwd",$NewSSHKeyPwd)
-            }
-        }
-        if ($DownloadAndSetupDependencies) {
-            $global:FunctionResult = "0"
-            Setup-GitAuthentication @GitAuthParams -DownloadAndSetupDependencies
-            if ($global:FunctionResult -eq "1") {
-                Write-Verbose "The Setup-GitAuthentication function failed. Halting!"
-                Write-Error "The Setup-GitAuthentication function failed. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-        else {
-            $global:FunctionResult = "0"
-            Setup-GitAuthentication @GitAuthParams
-            if ($global:FunctionResult -eq "1") {
-                Write-Verbose "The Setup-GitAuthentication function failed. Halting!"
-                Write-Error "The Setup-GitAuthentication function failed. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-    }
-    # Setup https
-    if ($AuthMethod -eq "https") {
-        $GitAuthParams = @{
-            GitHubUserName = $GitHubUserName
-            GitHubEmail = $GitHubEmail
-            AuthMethod = $AuthMethod
-            PersonalAccessToken = $PersonalAccessToken
-        }
-        $global:FunctionResult = "0"
-        Setup-GitAuthentication @GitAuthParams
-        if ($global:FunctionResult -eq "1") {
-            Write-Verbose "The Setup-GitAuthentication function failed. Halting!"
-            Write-Error "The Setup-GitAuthentication function failed. Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-}
-
-
-<#
-.SYNOPSIS
-    Configures Git installed on Windows via GitDesktop to authenticate via https or ssh.
-    Optionally, clone all repos from the GitHub User you authenticate as.
-
-.DESCRIPTION
-    See Synopsis.
-
-.EXAMPLE
-    $GitAuthParams = @{
-        GitHubUserName = "pldmgg"
-        GitHubEmail = "pldmgg@genericemailprovider.com"
-        AuthMethod = "https"
-        PersonalAccessToken = "234567ujhgfw456734567890okfd3456"
-    }
-
-    Setup-GitAuthentication @GitAuthParams
-
-.EXAMPLE
-    $GitAuthParams = @{
-        GitHubUserName = "pldmgg"
-        GitHubEmail = "pldmgg@genericemailprovider.com"
-        AuthMethod = "ssh"
-        NewSSHKeyName "gitauth_rsa"
-    }
-
-    Setup-GitAuthentication @GitAuthParams
-
-.EXAMPLE
-    $GitAuthParams = @{
-        GitHubUserName = "pldmgg"
-        GitHubEmail = "pldmgg@genericemailprovider.com"
-        AuthMethod = "ssh"
-        ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa" 
-    }
-    
-    Setup-GitAuthentication @GitAuthParams
-
-#>
-function Setup-GitAuthentication {
+function Setup-GitCmdLine {
     [CmdletBinding(DefaultParameterSetname='AuthSetup')]
     Param(
         [Parameter(Mandatory=$False)]
@@ -2695,7 +3424,16 @@ function Setup-GitAuthentication {
         $PersonalAccessToken
     )
 
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep ######
+
+    # Make sure git cmdline is installed
+    if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
+        $InstallGitExeResult = Install-Program -ProgramName git -CommandName git.exe
+    }
+
+    # Make sure global config for UserName and Email Address is configured
+    git config --global user.name "$GitHubUserName"
+    git config --global user.email "$GitHubEmail"
 
     if ($PersonalAccessToken) {
         if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
@@ -2712,6 +3450,10 @@ function Setup-GitAuthentication {
     if ($PersonalAccessToken) {
         $AuthMethod = "https"
     }
+    if (!$AuthMethod) {
+        $AuthMethod = "ssh"
+    }
+
     if ($AuthMethod -eq "https" -and $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
         Write-Verbose "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
         Write-Error "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
@@ -2719,7 +3461,7 @@ function Setup-GitAuthentication {
         return
     }
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
-    # because Setup-GitAuthentication function can handle things if neither are provided
+    # because Setup-GitCmdLine function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
         $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
     }
@@ -2764,36 +3506,37 @@ function Setup-GitAuthentication {
         # Windows OpenSSH
         $Potential64ArchLocation = "C:\Program Files\OpenSSH-Win64"
         $Potential32ArchLocation = "C:\Program Files (x86)\OpenSSH-Win32"
-        $Potential64ArchLocationRegex = $Potential64ArchLocation -replace "\\","\\"
-        $Potential32ArchLocationRegex = $($($Potential32ArchLocation -replace "\\","\\") -replace "(","\(") -replace ")","\)"
+        $Potential64ArchLocationRegex = [regex]::Escape($Potential64ArchLocation)
+        $Potential32ArchLocationRegex = [regex]::Escape($Potential32ArchLocation)
         if (!$(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and !$DownloadAndSetupDependencies) {
-            Write-Verbose "The Setup-GitAuthentication function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitAuthentication function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
-            Write-Error "The Setup-GitAuthentication function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitAuthentication function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
+            Write-Verbose "The Setup-GitCmdLine function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitCmdLine function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
+            Write-Error "The Setup-GitCmdLine function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitCmdLine function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
             $global:FunctionResult = "1"
             return
         }
         $NeedWinOpenSSHScenario1 = !$(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and $DownloadAndSetupDependencies
         $NeedWinOpenSSHScenario2 = $(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and $(Get-Command "ssh-keygen" -All | Where-Object {
-            $_.Source -match "$Potential32ArchLocation\ssh.exe|$Potential64ArchLocation\ssh.exe"
+            $_.Source -match "$Potential32ArchLocationRegex\\ssh-keygen\.exe|$Potential64ArchLocationRegex\\ssh-keygen\.exe"
         }).Source -eq $null -and $DownloadAndSetupDependencies
         if ($NeedWinOpenSSHScenario1 -or $NeedWinOpenSSHScenario2) {
-            $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
-            $request = [System.Net.WebRequest]::Create($url)
-            $request.AllowAutoRedirect = $false
-            $response = $request.GetResponse()
-            $Win64OpenSSHDLLink = $([String]$response.GetResponseHeader("Location")).Replace('tag','download') + '/OpenSSH-Win64.zip'
-            Invoke-WebRequest -Uri $Win64OpenSSHDLLink -OutFile "$HOME\Downloads\OpenSSH-Win64.zip"
-            #if (!$(Test-Path "$HOME\Downloads\OpenSSH-Win64")) {
-            #    New-Item -Type Directory -Path "$HOME\Downloads\OpenSSH-Win64"
-            #}
-            # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
-            Unzip-File -PathToZip "$HOME\Downloads\OpenSSH-Win64.zip" -TargetDir "$HOME\Downloads"
-            $OpenSSHWin64Path = "$HOME\Downloads\OpenSSH-Win64"
-            $env:Path = "$OpenSSHWin64Path;$env:Path"
+            try {
+                $WinSSHModuleUri = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyModules/WinSSH/WinSSH.psm1"
+                $OutFilePath = "$HOME\Downloads\WinSSH.psm1"
+                Invoke-WebRequest -Uri $WinSSHModuleUri -OutFile $OutFilePath
+                Import-Module $OutFilePath
+                Install-WinSSH -GiveWinSSHBinariesPathPriority
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Problem installing OpenSSH-Win64! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
         }
         # Make sure we're using the Windows OpenSSH Version of ssh-keygen.exe by moving the Git SSH Utilities Path
         # to the end of $env:Path
-        $RegexMatches = $($env:Path | Select-String -Pattern "$Potential64ArchLocationRegex|$Potential32ArchLocationRegex|C:\\Users\\testadmin\\AppData\\Local\\GitHub\\PortableGit_.*\\usr\\bin" -AllMatches).Matches
+        $Currentuser = $($(whoami) -split '\\')[-1]
+        $RegexMatches = $($env:Path | Select-String -Pattern "$Potential64ArchLocationRegex|$Potential32ArchLocationRegex|C:\\Users\\$CurrentUser\\AppData\\Local\\GitHub\\PortableGit_.*\\usr\\bin" -AllMatches).Matches
         if ($RegexMatches[0].Value -match "Git") {
             $RegexValueToReplace = $RegexMatches[0].Value -replace "\\","\\"
             $env:Path = $($env:Path -replace "$RegexValueToReplace","") + ";" + $RegexMatches[0].Value
@@ -2930,31 +3673,37 @@ function Setup-GitAuthentication {
             return
         }
     }
+
+    if ($NewSSHKeyName) {
+        $FinalPrivateKeyLocation = "$HOME\.ssh\$NewSSHKeyName"
+    }
+    if ($ExistingSSHPrivateKeyPath) {
+        $FinalPrivateKeyLocation = $ExistingSSHPrivateKeyPath
+    }
+
+    if (!$FinalPrivateKeyLocation) {
+        Write-Error "Unable to find private key! Halting!"
+    }
     
     Push-Location "$HOME\Documents\GitHub"
-
-    if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
-        $global:FunctionResult = "0"
-        Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
-        if ($global:FunctionResult -eq "1") {
-            Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
-            Write-Error "The Initialize-GitEnvironment function failed! Halting!"
-            Pop-Location
-            $global:FunctionResult = "1"
-            return
-        }
-    }
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
 
     ##### BEGIN Main Body #####
 
-    git config --global user.name "$GitHubUserName"
-    git config --global user.email "$GitHubEmail"
-
-
     if ($AuthMethod -eq "https") {
+        # We don't really need posh-git...it just confuses things...
+        <#
+        if ($(Get-Module -ListAvailable).Name -notcontains "posh-git") {
+            #Update-PackageManagement
+            Install-Module posh-git -Scope CurrentUser
+        }
+        if ($(Get-Module).Name -notcontains "posh-git") {
+            Import-Module posh-git -Verbose
+        }
+        #>
+
         git config --global credential.helper wincred
 
         # Alternate Stored Credentials Format
@@ -2987,21 +3736,33 @@ function Setup-GitAuthentication {
     }
 
     if ($AuthMethod -eq "ssh") {
+        git config core.sshCommand "ssh -i $([regex]::Escape($FinalPrivateKeyLocation)) -F /dev/null"
+
         # Start the ssh agent and add your ExistingSSHPrivateKeyPath to it. We need to do this regardless...
-        if (!$(Get-Module -List -Name posh-git)) {
-            if ($PSVersionTable.PSVersion.Major -ge 5) {
-                Update-PackageManagement
-                Install-Module posh-git -Scope CurrentUser
-                Import-Module posh-git -Verbose
-            }
-            if ($PSVersionTable.PSVersion.Major -lt 5) {
-                Update-PackageManagement
-                Install-Module posh-git -Scope CurrentUser
-                Import-Module posh-git -Verbose
+        $SSHAddProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $SSHAddProcessInfo.WorkingDirectory = $sshdir
+        $SSHAddProcessInfo.FileName = "ssh-add.exe"
+        $SSHAddProcessInfo.RedirectStandardError = $true
+        $SSHAddProcessInfo.RedirectStandardOutput = $true
+        $SSHAddProcessInfo.UseShellExecute = $false
+        $SSHAddProcessInfo.Arguments = "$FinalPrivateKeyLocation"
+        $SSHAddProcess = New-Object System.Diagnostics.Process
+        $SSHAddProcess.StartInfo = $SSHAddProcessInfo
+        $SSHAddProcess.Start() | Out-Null
+        $SSHAddProcess.WaitForExit()
+        $SSHAddStdout = $SSHAddProcess.StandardOutput.ReadToEnd()
+        $SSHAddStderr = $SSHAddProcess.StandardError.ReadToEnd()
+        $SSHAddAllOutput = $SSHAddStdout + $SSHAddStderr
+        
+        if ($SSHAddAllOutput -match "fail|error") {
+            Write-Error $SSHAddAllOutput
+            Write-Error "The 'ssh-add $($FinalPrivateKeyLocation)' command failed!"
+        }
+        else {
+            if ($RemoveHostPrivateKeys) {
+                Remove-Item $FinalPrivateKeyLocation
             }
         }
-        Start-SshAgent
-        Add-SshKey $ExistingSSHPrivateKeyPath
 
         # Check To Make Sure Online GitHub Account is aware of Existing Public Key
         $PubSSHKeys = Invoke-Restmethod -Uri "https://api.github.com/users/$GitHubUserName/keys"
@@ -3024,7 +3785,7 @@ function Setup-GitAuthentication {
 
         $GitHubOnlineIsAware = @()
         foreach ($fingerprint in $SSHPubKeyFingerPrintsFromGitHub) {
-            $ExistingSSHPubKeyPath = "$ExistingSSHPrivateKeyPath.pub"
+            $ExistingSSHPubKeyPath = "$FinalPrivateKeyLocation.pub"
             $LocalPubKeyFingerPrintPrep = ssh-keygen -E md5 -lf $ExistingSSHPubKeyPath
             $LocalPubKeyFingerPrint = $($LocalPubKeyFingerPrintPrep -split " ")[1] -replace "MD5:",""
             if ($fingerprint -eq $LocalPubKeyFingerPrint) {
@@ -3059,8 +3820,8 @@ function Setup-GitAuthentication {
         }
         if ($GitHubOnlineIsAware.Count -eq 0 -or $NewSSHKeyName) {
             Write-Host ""
-            Write-Host "GitHub Authentication was successfully configured on the client machine, however, the GitHub Online Account is not aware of the local public SSH key $ExistingSSHPrivateKeyPath.pub"
-            Write-Host "Please add $HOME\.ssh\$ExistingSSHPrivateKeyPath.pub to your GitHub Account via Web Browser by:"
+            Write-Host "GitHub Authentication was successfully configured on the client machine, however, the GitHub Online Account is not aware of the local public SSH key $FinalPrivateKeyLocation.pub"
+            Write-Host "Please add $HOME\.ssh\$FinalPrivateKeyLocation.pub to your GitHub Account via Web Browser by:"
             Write-Host "    1) Navigating to Settings"
             Write-Host "    2) In the user settings sidebar, click SSH and GPG keys."
             Write-Host "    3) Add SSH Key"
@@ -3152,7 +3913,7 @@ function Install-GitDesktop {
         return
     }
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
-    # because Setup-GitAuthentication function can handle things if neither are provided
+    # because Setup-GitCmdLine function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
         $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
     }
@@ -3404,52 +4165,22 @@ function Install-GitDesktop {
         New-Item -Type Directory -Path "$HOME\Documents\GitHub"
     }
 
-    if (!$(Test-Path "$env:LocalAppData\GitHub\PoshGit*")) {
-        if (!$(Get-Module -List -Name posh-git)) {
-            if (!$(Check-Elevation)) {
-                Write-Host "Updating PackageManagement. Please wait..."
-                Update-PackageManagement -Credentials $Credentials
-            }
-            else {
-                Write-Host "Updating PackageManagement. Please wait..."
-                Update-PackageManagement
-            }
-            Install-Module posh-git -Scope CurrentUser
-        }
-    }
-
-    # Check all PSModule Paths for posh-git
     <#
-    $PSModulePathsArray = $env:PSModulePath -split ";"
-    $PotentialPoshGitModulePaths = foreach ($potpath in $PSModulePathsArray) {
-        "$potpath\posh-git"
+    if ($(Get-Module -ListAvailable).Name -notcontains "posh-git") {
+        #Update-PackageManagement
+        Install-Module posh-git -Scope CurrentUser
     }
-    while ($TestPotentialPoshGitModulePaths -notcontains $true) {
-        $TestPotentialPoshGitModulePaths = foreach ($poshgitpath in $PotentialPoshGitModulePaths) {
-            Test-Path $poshgitpath
-        }
-        Write-Host "Waiting for posh-git PowerShell module to be ready in $HOME\Documents\WindowsPowerShell\Modules ..."
-        Start-Sleep -Seconds 2
-    }
-    if ($TestPotentialPoshGitModulePaths -contains $true) {
-        Write-Host "posh-git PowerShell module is ready. Setting up GitHub Authentication using $AuthMethod..."
+    if ($(Get-Module).Name -notcontains "posh-git") {
+        Import-Module posh-git -Verbose
     }
     #>
 
-    Write-Host "posh-git PowerShell module is ready. Setting up GitHub Authentication using $AuthMethod..."
+    if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
+        $InstallGitExeResult = Install-Program -ProgramName git -CommandName git.exe
+    }
 
     # Set the Git PowerShell Environment
-    if (!$(Get-Command git -ErrorAction SilentlyContinue)) {
-        $global:FunctionResult = "0"
-        Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
-        if ($global:FunctionResult -eq "1") {
-            Write-Warning "GitHub Desktop was successfully installed, but the Git Environment could not be initialized"
-            Write-Verbose "The Initialize-GitEnvironment function failed! Halting!"
-            Write-Error "The Initialize-GitEnvironment function failed! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
+    Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
 
     if ($AuthMethod -eq "ssh") {
         $GitAuthParams = @{
@@ -3474,20 +4205,20 @@ function Install-GitDesktop {
         }
         if ($DownloadAndSetupDependencies) {
             $global:FunctionResult = "0"
-            Setup-GitAuthentication @GitAuthParams -DownloadAndSetupDependencies
+            Setup-GitCmdLine @GitAuthParams -DownloadAndSetupDependencies
             if ($global:FunctionResult -eq "1") {
-                Write-Verbose "The Setup-GitAuthentication function failed. Halting!"
-                Write-Error "The Setup-GitAuthentication function failed. Halting!"
+                Write-Verbose "The Setup-GitCmdLine function failed. Halting!"
+                Write-Error "The Setup-GitCmdLine function failed. Halting!"
                 $global:FunctionResult = "1"
                 return
             }
         }
         else {
             $global:FunctionResult = "0"
-            Setup-GitAuthentication @GitAuthParams
+            Setup-GitCmdLine @GitAuthParams
             if ($global:FunctionResult -eq "1") {
-                Write-Verbose "The Setup-GitAuthentication function failed. Halting!"
-                Write-Error "The Setup-GitAuthentication function failed. Halting!"
+                Write-Verbose "The Setup-GitCmdLine function failed. Halting!"
+                Write-Error "The Setup-GitCmdLine function failed. Halting!"
                 $global:FunctionResult = "1"
                 return
             }
@@ -3502,16 +4233,16 @@ function Install-GitDesktop {
             PersonalAccessToken = $PersonalAccessToken
         }
         $global:FunctionResult = "0"
-        Setup-GitAuthentication @GitAuthParams
+        Setup-GitCmdLine @GitAuthParams
         if ($global:FunctionResult -eq "1") {
-            Write-Verbose "The Setup-GitAuthentication function failed. Halting!"
-            Write-Error "The Setup-GitAuthentication function failed. Halting!"
+            Write-Verbose "The Setup-GitCmdLine function failed. Halting!"
+            Write-Error "The Setup-GitCmdLine function failed. Halting!"
             $global:FunctionResult = "1"
             return
         }
     }
     if (!$AuthMethod) {
-        Write-Host "GitHub Authentication still needs to be setup. Use the Setup-GitAuthentication function in the GitEnv Module."
+        Write-Host "GitHub Authentication still needs to be setup. Use the Setup-GitCmdLine function in the GitEnv Module."
     }
 
     Write-Host "Git Environment is ready."
@@ -3952,74 +4683,74 @@ function Clone-GitRepo {
 
 
 <#
-.SYNOPSIS
-    Copy script from working directory to local github repository. Optionally commit and push to GitHub.
-.DESCRIPTION
-    If your workflow involves using a working directory that is NOT an initialized git repo for first
-    drafts of scripts/functions, this function will assist with "publishing" your script/function from
-    your working directory to the appropriate local git repo. Additional parameters will commit all
-    changes to the local git repo and push these deltas to the appropriate repo on GitHub.
+    .SYNOPSIS
+        Copy script from working directory to local github repository. Optionally commit and push to GitHub.
+    .DESCRIPTION
+        If your workflow involves using a working directory that is NOT an initialized git repo for first
+        drafts of scripts/functions, this function will assist with "publishing" your script/function from
+        your working directory to the appropriate local git repo. Additional parameters will commit all
+        changes to the local git repo and push these deltas to the appropriate repo on GitHub.
 
-.NOTES
-    IMPORTANT NOTES
+    .NOTES
+        IMPORTANT NOTES
 
-    1) Using the $gitpush switch runs the following git commands which effectively 
-    commmit and push ALL changes made to the local git repo since the last commit.
-    
-    git -C $DestinationLocalGitRepoDir add -A
-    git -C $DestinationLocalGitRepoDir commit -a -m "$gitmessage"
-    git -C $DestinationLocalGitRepoDir push
+        1) Using the $gitpush switch runs the following git commands which effectively 
+        commmit and push ALL changes made to the local git repo since the last commit.
+        
+        git -C $DestinationLocalGitRepoDir add -A
+        git -C $DestinationLocalGitRepoDir commit -a -m "$gitmessage"
+        git -C $DestinationLocalGitRepoDir push
 
-    The only change made by this script is the copy/paste operation from working directory to
-    the specified local git repo. However, other changes outside the scope of this function may
-    have occurred since the last commit. EVERYTHING will be committed and pushed if the $gitpush
-    switch is used.
+        The only change made by this script is the copy/paste operation from working directory to
+        the specified local git repo. However, other changes outside the scope of this function may
+        have occurred since the last commit. EVERYTHING will be committed and pushed if the $gitpush
+        switch is used.
 
-    DEPENDENCEIES
-        None
+        DEPENDENCEIES
+            None
 
-.PARAMETER SourceFilePath
-    This parameter is MANDATORY.
+    .PARAMETER SourceFilePath
+        This parameter is MANDATORY.
 
-    This parameter takes a string that represents a file path to the script/function that you
-    would like to publish.
+        This parameter takes a string that represents a file path to the script/function that you
+        would like to publish.
 
-.PARAMETER DestinationLocalGitRepoName
-    This parameter is MANDATORY.
+    .PARAMETER DestinationLocalGitRepoName
+        This parameter is MANDATORY.
 
-    This parameter takes a string that represents the name of the Local Git Repository that
-    your script/function will be copied to. This parameter is NOT a file path. It is just
-    the name of the Local Git Repository.
+        This parameter takes a string that represents the name of the Local Git Repository that
+        your script/function will be copied to. This parameter is NOT a file path. It is just
+        the name of the Local Git Repository.
 
-.PARAMETER SigningCertFilePath
-    This parameter is OPTIONAL.
+    .PARAMETER SigningCertFilePath
+        This parameter is OPTIONAL.
 
-    This parameter takes a string that represents a file path to a certificate that can be used
-    to digitally sign your script/function.
+        This parameter takes a string that represents a file path to a certificate that can be used
+        to digitally sign your script/function.
 
-.PARAMETER gitpush
-    This parameter is OPTIONAL.
+    .PARAMETER gitpush
+        This parameter is OPTIONAL.
 
-    This parameter is a switch. If it is provided in the command line, then the function will 
-    not only copy the source script/function from the working directory to the Local Git Repo,
-    it will also commit changes to the Local Git Repo and push updates the corresponding repo
-    on GitHub.
+        This parameter is a switch. If it is provided in the command line, then the function will 
+        not only copy the source script/function from the working directory to the Local Git Repo,
+        it will also commit changes to the Local Git Repo and push updates the corresponding repo
+        on GitHub.
 
-.PARAMETER gitmessage
-    This parameter is OPTIONAL.
+    .PARAMETER gitmessage
+        This parameter is OPTIONAL.
 
-    If the $gitpush parameter is used, this parameter is MANDATORY.
+        If the $gitpush parameter is used, this parameter is MANDATORY.
 
-    This parameter takes a string that represents a message that accompanies a git commit
-    operation. The message should very briefly describe the changes that were made to the
-    Git Repository.
+        This parameter takes a string that represents a message that accompanies a git commit
+        operation. The message should very briefly describe the changes that were made to the
+        Git Repository.
 
-.EXAMPLE
-    Publish-MyGitRepo -SourceFilePath "V:\powershell\testscript.ps1" `
-    -DestinationLocalGitRepo "misc-powershell" `
-    -SigningCertFilePath "R:\zero\ZeroCode.pfx" `
-    -gitpush `
-    -gitmessage "Initial commit for testscript.ps1" -Confirm
+    .EXAMPLE
+        Publish-MyGitRepo -SourceFilePath "V:\powershell\testscript.ps1" `
+        -DestinationLocalGitRepo "misc-powershell" `
+        -SigningCertFilePath "R:\zero\ZeroCode.pfx" `
+        -gitpush `
+        -gitmessage "Initial commit for testscript.ps1" -Confirm
 #>
 
 function Publish-MyGitRepo {
@@ -4162,11 +4893,24 @@ function Publish-MyGitRepo {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUK6RhSMzWY7uWkmCfeV4ds2ol
-# l1Ogggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+vZsW1GyG5UnskW3I7rdEb6m
+# g1Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4223,11 +4967,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPcmJne+b+ZUGwd6
-# vUMr7wo3ikK9MA0GCSqGSIb3DQEBAQUABIIBAK3RxrnxP+Mo6Zck9Bi8IefVyKGZ
-# G3Q9b0hq8AP9lP1b/6ZJbLUpaAPJeYTdO7SLOc6GtguZQAiyKEW8W4fxLzU/ieGB
-# JCwc4tFTcAPuntMGxsFi8EUxsnDhamwRs/f1REfwr2RGOdNd8Lo3qoXz0EcZRkI1
-# wP08drof/YdAZPHwsa4I0KXBavsns9TvPrVQmWZirJMDk3jEUZz8tTXO+aq2oYU7
-# qLAbs90Zw0A+OqHSwIf7YBO0/BzcWpu0xoeUFF2ZlWjIeXtkLM4U9P9AU/qdMuL4
-# qWZh5yv+mg/X5A1NYp7mcvKgxNaIuvkOMS9ZjHelRY8XdHkrcK0qfGRDwRI=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOnxoieBI4X4GXZI
+# a+ic29bPi2++MA0GCSqGSIb3DQEBAQUABIIBABwXFGIuOwqJBMyyJ/YG8k9ycNOQ
+# hh7wHyRMAtEofxLXkJhSrFKO0tiHvFeOVZ7MPDJje4X1gV0t/MddTev3rDN5ljgR
+# CMkMqxkI73HNWo7QA2mcm1es7koofTZCH/XWTXalEZoLw2bsbBFo72pC+EnEwU3I
+# C7Uwb/QK7vTM42CL9KFlm9+PErHjOdhPJ+NtSDtcZnKWK/Db6xCJy3bcdEx0EkBE
+# EqX7Bhyc77+b8F+8VYwopEYN0h6jYREZC0G3n/oVdE+wXmxyGsHBqhdAc3i1nK9q
+# 7EF8kXvp3M9sUgYr5lWqwps6BsZM7wxNANvbNpheZhJlmpVAY/QCy/tAAgA=
 # SIG # End signature block
