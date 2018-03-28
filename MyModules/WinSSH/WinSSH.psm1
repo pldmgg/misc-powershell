@@ -3583,7 +3583,10 @@ function Install-SSHAgentService {
         [switch]$NoUpdatePackageManagement = $True,
 
         [Parameter(Mandatory=$False)]
-        [switch]$SkipWinCapabilityAttempt
+        [switch]$SkipWinCapabilityAttempt,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$Force
     )
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
@@ -3669,7 +3672,7 @@ function Install-SSHAgentService {
         }
     }
 
-    if ([Environment]::OSVersion.Version -ge [version]"10.0.17063" -or $AddWindowsCapabilityFailure -or $SkipWinCapabilityAttempt) {
+    if ([Environment]::OSVersion.Version -lt [version]"10.0.17063" -or $AddWindowsCapabilityFailure -or $SkipWinCapabilityAttempt -or $Force) {
         # BEGIN OpenSSH Program Installation #
 
         $InstallProgramSplatParams = @{
@@ -3759,7 +3762,7 @@ function Install-SSHAgentService {
         }
 
         if (!$GitHubInstall) {
-            Install-Program @InstallProgramSplatParams
+            $OpenSSHInstallResults = Install-Program @InstallProgramSplatParams
         }
 
         # END OpenSSH Program Installation #
@@ -3776,14 +3779,15 @@ function Install-SSHAgentService {
         $logsdir = Join-Path $sshdir "logs"
 
         try {
-            if (Get-Service ssh-agent -ErrorAction SilentlyContinue) {
+            if ([bool]$(Get-Service ssh-agent -ErrorAction SilentlyContinue)) {
+                Write-Host "Recreating ssh-agent service..."
                 Stop-Service ssh-agent
                 sc.exe delete ssh-agent 1>$null
             }
 
             New-Service -Name ssh-agent -BinaryPathName "$sshagentpath" -Description "SSH Agent" -StartupType Automatic | Out-Null
             # pldmgg NOTE: I have no idea about the below...ask the original authors...
-            cmd.exe /c 'sc.exe sdset ssh-agent D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RP;;;AU)'
+            cmd.exe /c 'sc.exe sdset ssh-agent D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RP;;;AU)' 1>$null
         }
         catch {
             Write-Error $_
@@ -5138,8 +5142,8 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUB51o6kB1LcxCbAoUgJIclEOV
-# szSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUJPHI9iQQ5DyOBhnjo72vfUDq
+# HZCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -5196,11 +5200,11 @@ key that has been added to .ssh/authorized_keys on the Remote Windows Host.
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJ0ItHDhZWkIriPJ
-# kLzDgPbzi4ATMA0GCSqGSIb3DQEBAQUABIIBABI7S2m4yIlh6WqFJj31NOujGhf0
-# VBdsz/jsGp31+anx6Ab8kbaGFsVrjCnYBLOKzN/Hc67cMKXOO6PO8lQyyW3SniN3
-# mIZjhbKYoTqpAX7B7MAVmQy40eS2lbF7BEr07EmTTMjWUKnXfBixGXWMczxxRFQ3
-# xKpDRocTJ0dIAVShRtywNkh8Rf+f/fREVOcoy1PXRShx5S1QApQl/ycCTznImmL7
-# IrZf6JVoNP7PUdhmRjf3CtD/gpyLe0jsj3QY0Ve2naXo2NqzumVHFBElybEI2aJG
-# 1XYfrdAOoIYqfSSsCYI+Qrb3vqI+fbvlMELtOKa+tAek4ONR8F0tbbNXGZE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAtzHc7b/ImIaDgD
+# KAiamD6kH+YyMA0GCSqGSIb3DQEBAQUABIIBABCno9atk0Ej9L8deegSdsaxYDj6
+# Mr+MDcUc8oF8uKWTGvR2otgt8OjmWBBv9cHN8P37jrHSTYZ/PPVUb4XnM7VvIhND
+# 9U1dqDwSUvE2hZ4gAmgYjfjDuhvJNMzCQPes9fxSKJ4IhQYDCvUNhkOcxd68IxSI
+# MsQXcJ0Og20GzDGwiZcZ9ziZ5HLtLu5Sa8mVRyHA2KXZTjkDK2qyKROzOVKO+094
+# aNpMvMbzn43mJqHsHc2PWYK28wEaa7BjwNq8/mqtcpz8YV0qFbZRBFgGFXLI53c5
+# 03DvWUJG2JBLb3kquA/gq2XfAQI+Rt3E83fy8/ZAnu7z7VlIsZpTomvKFnU=
 # SIG # End signature block
