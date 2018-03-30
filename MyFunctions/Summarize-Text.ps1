@@ -112,7 +112,7 @@ function Summarize-Text {
         $null = $sumyParams.Add("--url=$SiteUrl")
     }
     if ($FilePath) {
-        $null = $sumyParams.Add("--file=$FilePath")
+        $null = $sumyParams.Add("--file='$FilePath'")
     }
     if ($Text) {
         $null = $sumyParams.Add("--text=$Text")
