@@ -567,24 +567,7 @@
     may not satisfy all of your needs depending on your circumstances. Please review the explanation for each of the
     variables/parameters that can/should be changed.
 
-.PARAMETER AddSAN
-    This parameter is MANDATORY.
-
-    There IS A DEFAULT VALUE supplied (i.e. "No"). If the user does not explicitly provide a value from the command line,
-    then the default value will be used.
-
-    The parameter takes one of two inputs:
-    1) The string "No"; OR
-    2) The string "Yes"
-
-    Set this parameter to "Yes" if you intend to include Subject Alternate Names (SANs) on the New Certificate.
-
-    IMPORTANT NOTE: Default values for some parameters are already provided, and running the Generate-Certificate script/
-    function will generate a New Certificate using these default values, however, the resulting Certificate
-    may not satisfy all of your needs depending on your circumstances. Please review the explanation for each of the
-    variables/parameters that can/should be changed.
-
-.PARAMETER TypesofSANObjectsToAdd
+.PARAMETER SANObjectsToAdd
     This parameter is OPTIONAL.
 
     This parameter takes a comma separated list of SAN Object Types. All possible values are: 
@@ -2917,6 +2900,11 @@ else {
 }
 
 if ($SANObjectsToAdd) {
+    if (![bool]$($(Get-Content "$CertGenWorking\$CertificateRequestConfigFile") -match "\[Extensions\]")) {
+        Add-Content -Value "`n`r" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+        Add-Content -Value '[Extensions]' -Path "$CertGenWorking\$CertificateRequestConfigFile"
+    }
+
     Add-Content -Value '2.5.29.17 = "{text}"' -Path "$CertGenWorking\$CertificateRequestConfigFile"
     
     if ($SANObjectsToAdd -contains "DNS") {
@@ -3348,8 +3336,8 @@ $global:FunctionResult = "0"
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUe3MzaqyzSUETM24I3x5s3vBJ
-# /higggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUmNNh0/1AerR5p1lZAfjRjZ6k
+# RLqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3406,11 +3394,11 @@ $global:FunctionResult = "0"
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFP8oZXN2qgJWNuq
-# 6ZFrk4AkUueBMA0GCSqGSIb3DQEBAQUABIIBALGbx08Sf9OKe8MTF1Rpgcuk8f5D
-# 7k4S2mB7w6iwTsLA0uPXTLyH9Te15i0TY//zw0EuBpRrmmvbZzafohZigImk9y+N
-# r8/jMkZLijEoow7v8rrxORsE05FHouRTZlachxXlNAaWoMH1iQAcaWfNQZ3r/7vw
-# hPy4KVaYRpjzP3tWFOAv0lmk6kg8XuIjYkVDSB7PbS1iRFeAb9TSFpzv3jtLs67g
-# i9e9HkRhzjyORlKxlcjYhSg0+WZpnvhblaTYQkeToBzf4Xy6FGFbB7Gqk1xCqxDE
-# Jnz8tsZYUe3qv3tz9kx0X6iKVf5UCoLQxgJ+fHDH1w5ZgSSx06bzmSMhjtU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAT604bO6q1bwFw4
+# If0hX+2qc0+nMA0GCSqGSIb3DQEBAQUABIIBAHIhL1ekqEfIxO81IBfLXXyg/wEQ
+# 4GLo0VGZYDfBcxY17YLg7zBCxX63YCeb4E2/tBjN29RJpoH9ZKs7PwKZyCM5LTzb
+# 8wNPVjevnpi/S/t8f/QwiR6nszwwMq8c6WKGahXAhpE1/dHH1sdlGXb3IAKrpFtf
+# 5MW7tvhmovila/cFK5zEqF3Fj92p07lPVg76UdvbLfLjUjLlTbFhxiHrJzq0c8CE
+# /ELnXXFal88xEabz0jzY9zVfyCGTeOXM9AQSgjgUxffBvBudUZ9ZalwueB028/E5
+# b1bkyq23FCIF8QA/skjqLVAXzG/Dx+CTheGHxnxd3ocmRpee43jR1/miQUM=
 # SIG # End signature block
