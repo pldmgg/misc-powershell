@@ -20,7 +20,7 @@
     - Generate Certificate Request and Submit to Issuing Certificate Authority (~Lines 2172-2284)
 
     .DEPENDENCIES
-        OPTIONAL DEPENDENCIES
+        OPTIONAL DEPENDENCIES (One of the two will be required depending on if you use the ADCS Website)
         1) RSAT (Windows Server Feature) - If you're not using the ADCS Website, then the Get-ADObject cmdlet is used for various purposes. This cmdlet
         is available only if RSAT is installed on the Windows Server.
 
@@ -145,21 +145,12 @@
 .PARAMETER PFXPwdAsSecureString
     This parameter is OPTIONAL.
 
-    This parameter takes one of two inputs:
-    1) A string that represents a Plaintext Password; OR 
-    2) A PowerShell Secure String object 
-    
-    Plaintext will be converted to a Secure String by the script and purged from memory.
+    This parameter takes a securestring.
 
     In order to export a .pfx file from the Local Certificate Store, a password must be supplied (or permissions based on user accounts 
     must be configured beforehand, but this is outside the scope of this script). 
 
     ***IMPORTANT*** This same password is applied to $ProtectedPrivateKeyOut if $UseOpenSSL = "Yes"
-
-    ***IMPORTANT*** To avoid providing this password in plaintext on the command line, recommend using Generate-EncryptedPwdFile.ps1 and 
-    Decrypt-EncryptedPwdFile.ps1 to pass this parameter. See:
-    https://github.com/pldmgg/misc-powershell/blob/master/Generate-EncryptedPwdFile.ps1
-    https://github.com/pldmgg/misc-powershell/blob/master/Decrypt-EncryptedPwdFile.ps1
 
 .PARAMETER RequestViaWebEnrollment
     This parameter is MANDATORY.
@@ -212,22 +203,13 @@
 .PARAMETER ADCSWebAuthPass
     This parameter is OPTIONAL.
 
-    This parameter takes one of two inputs:
-    1) A string that represents a Plaintext Password; OR 
-    2) A PowerShell Secure String object 
-    
-    Plaintext will be converted to a Secure String by the script and purged from memory.
+    This parameter takes a securestring.
 
     If $ADCSWebEnrollmentUrl is used, then this parameter becomes MANDATORY. Under this circumstance, if 
     this parameter is left blank, the user will be prompted for secure input. If using this script as part of a larger
     automated process, use a wrapper function to pass this parameter securely (this is outside the scope of this script).
 
-    ***IMPORTANT*** To avoid providing this password in plaintext on the command line, recommend using 
-    Generate-EncryptedPwdFile.ps1 and Decrypt-EncryptedPwdFile.ps1 to pass this parameter. See:
-    https://github.com/pldmgg/misc-powershell/blob/master/Generate-EncryptedPwdFile.ps1
-    https://github.com/pldmgg/misc-powershell/blob/master/Decrypt-EncryptedPwdFile.ps1
-
-.PARAMETER CertADCSWebResponse
+.PARAMETER CertADCSWebResponseOutFile
     This parameter is MANDATORY.
 
     There IS A DEFAULT VALUE supplied. If the user does not explicitly provide a value from the command line, then
@@ -421,25 +403,7 @@
 
     IMPORTANT NOTE: Do not set this parameter to "Yes" if you want this script/function to run unattended.
 
-.PARAMETER ProviderNameOverride
-    This parameter is MANDATORY.
-
-    There IS A DEFAULT VALUE supplied (i.e. "No"). If the user does not explicitly provide a value from the command line, 
-    then the default value will be used.
-
-    The parameter takes one of two inputs:
-    1) The string "No"; OR
-    2) The string "Yes"
-
-    Setting this parameter to "Yes", "Y", "yes", or "y" will trigger an interactive walkthrough that explains Cryptographic
-    Provider values and asks the user for input.
-
-    IMPORTANT NOTE: Default values for some parameters are already provided, and running the Generate-Certificate script/
-    function will generate a New Certificate using these default values, however, the resulting Certificate
-    may not satisfy all of your needs depending on your circumstances. Please review the explanation for each of the
-    variables/parameters that can/should be changed.
-
-.PARAMETER ProviderNameValuePrep
+.PARAMETER ProviderNameValue
     This parameter is MANDATORY.
 
     There IS A DEFAULT VALUE supplied (i.e. "Microsoft RSA SChannel Cryptographic Provider"). If the user does not explicitly provide a value from the command line, 
@@ -452,24 +416,6 @@
     WARNING: The Certificate Template that this New Certificate is based on (i.e. the value provided for the parameter 
     $BasisTemplate) COULD POTENTIALLY limit the availble Crypographic Provders for the Certificate Request. Make sure 
     the Cryptographic Provider you use is allowed by the Basis Certificate Template.
-
-    IMPORTANT NOTE: Default values for some parameters are already provided, and running the Generate-Certificate script/
-    function will generate a New Certificate using these default values, however, the resulting Certificate
-    may not satisfy all of your needs depending on your circumstances. Please review the explanation for each of the
-    variables/parameters that can/should be changed.
-
-.PARAMETER RequestTypeOverride
-    This parameter is MANDATORY.
-
-    There IS A DEFAULT VALUE supplied (i.e. "No"). If the user does not explicitly provide a value from the command line, 
-    then the default value will be used.
-
-    The parameter takes one of two inputs:
-    1) The string "No"; OR
-    2) The string "Yes"
-
-    Setting this parameter to "Yes", "Y", "yes", or "y" will trigger an interactive walkthrough that explains RequestType
-    values and asks the user for input.
 
     IMPORTANT NOTE: Default values for some parameters are already provided, and running the Generate-Certificate script/
     function will generate a New Certificate using these default values, however, the resulting Certificate
@@ -491,25 +437,7 @@
     may not satisfy all of your needs depending on your circumstances. Please review the explanation for each of the
     variables/parameters that can/should be changed.
 
-.PARAMETER IntendedPurposeOverride
-    This parameter is MANDATORY.
-
-    There IS A DEFAULT VALUE supplied (i.e. "No"). If the user does not explicitly provide a value from the command line, 
-    then the default value will be used.
-
-    The parameter takes one of two inputs:
-    1) The string "No"; OR
-    2) The string "Yes"
-
-    Setting this parameter to "Yes", "Y", "yes", or "y" will trigger an interactive walkthrough that explains
-    IntendedPurpose values and asks the user for input.
-
-    IMPORTANT NOTE: Default values for some parameters are already provided, and running the Generate-Certificate script/
-    function will generate a New Certificate using these default values, however, the resulting Certificate
-    may not satisfy all of your needs depending on your circumstances. Please review the explanation for each of the
-    variables/parameters that can/should be changed.
-
-.PARAMETER IntendedPurposeValuesPrep
+.PARAMETER IntendedPurposeValues
     This parameter is OPTIONAL.
 
     There is NO DEFAULT VALUE supplied. If the user does not explicitly provide a value from the command line, then
@@ -796,7 +724,7 @@
     -ADCSWebAuthType "Windows" `
     -ADCSWebAuthUserName "testadmin" `
     -ADCSWebAuthPass "SecurityIsHard321!" `
-    -CertADCSWebResponse "C:\Users\zeroadmin\Desktop\CertGenWorking\test8\ADCSWebResponse.txt"
+    -CertADCSWebResponseOutFile "C:\Users\zeroadmin\Desktop\CertGenWorking\test8\ADCSWebResponse.txt"
     -Organization "Contoso Inc" `
     -OrganizationalUnit "DevOps Department" `
     -Locality "Portland" `
@@ -818,11 +746,11 @@
     -SecureEmail "No" `
     -UserProtected "No" `
     -ProviderNameOverride "No" `
-    -ProviderNameValuePrep "Microsoft Enhanced Cryptographic Provider v1.0" `
+    -ProviderNameValue "Microsoft Enhanced Cryptographic Provider v1.0" `
     -RequestTypeOverride "No" `
     -RequestTypeValue "PKCS10" `
     -IntendedPurposeOverride "No" `
-    -IntendedPurposeValuesPrep "Code Signing, Document Signing" `
+    -IntendedPurposeValues "Code Signing, Document Signing" `
     -UseOpenSSL "Yes" `
     -PathToWin32OpenSSL "C:\openssl-0.9.8r-i386-win32-rev2" `
     -AllPublicKeysInChainOut "TigerSigningCert_all_public_keys_in_chain.pem" `
@@ -889,9 +817,9 @@
             Value : ZeroDC01_Public_Cert.pem
             Name  : RootCAPublicCertFile
 
-            Key   : CertADCSWebResponse
+            Key   : CertADCSWebResponseOutFile
             Value : NewCertificate_aws-coreos3-client-server-cert_ADCSWebResponse04-Sep-2016_2127.txt
-            Name  : CertADCSWebResponse
+            Name  : CertADCSWebResponseOutFile
 
             Key   : CertFileOut
             Value : NewCertificate_aws-coreos3-client-server-cert04-Sep-2016_2127.cer
@@ -959,7 +887,7 @@
     The following outputs are ONLY generated by this function/script when $ADCSWebEnrollmentUrl IS provided
     (NOTE: Under this scenario, the workstation running the script is sending a web request to the ADCS Web Enrollment website):
         - An File Containing the HTTP Response From the ADCS Web Enrollment Site (with .txt file extension) - 
-            RELEVANT PARAMETER: $CertADCSWebResponse
+            RELEVANT PARAMETER: $CertADCSWebResponseOutFile
     
     GENERATED WHEN $UseOpenSSL = "Yes"
     The following outputs are ONLY generated by this function/script when $UseOpenSSL = "Yes"
@@ -1030,6 +958,7 @@ Param(
     #$IssuingCertAuth = $(Read-Host -Prompt "Please enter the FQDN the server responsible for Issuing New Certificates."),
 
     [Parameter(Mandatory=$False)]
+    [ValidatePattern("certsrv$")]
     [string]$ADCSWebEnrollmentUrl, # Example: https://pki.zero.lab/certsrv"
 
     [Parameter(Mandatory=$False)]
@@ -1045,9 +974,9 @@ Param(
     [Parameter(Mandatory=$False)]
     [System.Management.Automation.PSCredential]$ADCSWebCreds,
 
-    # This function creates the $CertADCSWebResponse file. It should NOT exist prior to running this function
+    # This function creates the $CertADCSWebResponseOutFile file. It should NOT exist prior to running this function
     [Parameter(Mandatory=$False)]
-    [string]$CertADCSWebResponse = "NewCertificate_$CertificateCN"+"_ADCSWebResponse"+$(Get-Date -format 'dd-MMM-yyyy_HHmm')+".txt",
+    [string]$CertADCSWebResponseOutFile = "NewCertificate_$CertificateCN"+"_ADCSWebResponse"+$(Get-Date -format 'dd-MMM-yyyy_HHmm')+".txt",
 
     [Parameter(Mandatory=$False)]
     $Organization = $(Read-Host -Prompt "Please enter the name of the the Company that will appear on the New Certificate"),
@@ -2522,6 +2451,14 @@ $HostFQDN = $Hostname+'.'+$DomainPrefix+'.'+$DomainSuffix
 
 # If using Win32 OpenSSL, check to make sure the path to binary is valid...
 if ($UseOpenSSL -eq "Yes") {
+    if ($PathToWin32OpenSSL) {
+        if (!$(Test-Path $PathToWin32OpenSSL)) {
+            $OpenSSLPathDNE = $True
+        }
+
+        $env:Path = "$PathToWin32OpenSSL;$env:Path"
+    }
+
     # Check is openssl.exe is already available
     if ([bool]$(Get-Command openssl -ErrorAction SilentlyContinue)) {
         # Check to make sure the version is at least 1.1.0
@@ -2530,8 +2467,8 @@ if ($UseOpenSSL -eq "Yes") {
     }
 
     # We need at least vertion 1.1.0 of OpenSSL
-    if ($OpenSSLExeVersion.Major -lt 1 -or 
-    $($OpenSSLExeVersion.Major -eq 1 -and $OpenSSLExeVersion.Minor -lt 1)
+    if ($OpenSSLExeVersion.Major -lt 1 -or $($OpenSSLExeVersion.Major -eq 1 -and $OpenSSLExeVersion.Minor -lt 1) -or
+    ![bool]$(Get-Command openssl -ErrorAction SilentlyContinue)
     ) {
         [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
         $OpenSSLWinBinariesUrl = "http://wiki.overbyte.eu/wiki/index.php/ICS_Download"
@@ -3102,10 +3039,10 @@ if ($ADCSWebEnrollmentUrl) {
     # Submit New Certificate Request and Download New Certificate
     if ($ADCSWebAuthType -eq "Windows") {
         # Send the POST Data
-        Invoke-RestMethod -Uri "$ADCSWebEnrollmentUrl/certfnsh.asp" -Method Post -Body $postParams -Credential $ADCSWebCreds -OutFile "$CertGenWorking\$CertADCSWebResponse"
+        Invoke-RestMethod -Uri "$ADCSWebEnrollmentUrl/certfnsh.asp" -Method Post -Body $postParams -Credential $ADCSWebCreds -OutFile "$CertGenWorking\$CertADCSWebResponseOutFile"
     
         # Download New Certificate
-        $ReqId = (Get-Content "$CertGenWorking\$CertADCSWebResponse" | Select-String -Pattern "ReqID=[0-9]{1,5}" | Select-Object -Index 0).Matches.Value.Split("=")[1]
+        $ReqId = (Get-Content "$CertGenWorking\$CertADCSWebResponseOutFile" | Select-String -Pattern "ReqID=[0-9]{1,5}" | Select-Object -Index 0).Matches.Value.Split("=")[1]
         if ($ReqId -eq $null) {
             Write-Host "The Certificate Request was successfully submitted via ADCS Web Enrollment, but was rejected. Please check the format and contents of
             the Certificate Request Config File and try again."
@@ -3121,10 +3058,10 @@ if ($ADCSWebEnrollmentUrl) {
     }
     if ($ADCSWebAuthType -eq "Basic") {
         # Send the POST Data
-        Invoke-RestMethod -Uri "$ADCSWebEnrollmentUrl/certfnsh.asp" -Method Post -Body $postParams -Headers $headers -OutFile "$CertGenWorking\$CertADCSWebResponse"
+        Invoke-RestMethod -Uri "$ADCSWebEnrollmentUrl/certfnsh.asp" -Method Post -Body $postParams -Headers $headers -OutFile "$CertGenWorking\$CertADCSWebResponseOutFile"
 
         # Download New Certificate
-        $ReqId = (Get-Content "$CertGenWorking\$CertADCSWebResponse" | Select-String -Pattern "ReqID=[0-9]{1,5}" | Select-Object -Index 0).Matches.Value.Split("=")[1]
+        $ReqId = (Get-Content "$CertGenWorking\$CertADCSWebResponseOutFile" | Select-String -Pattern "ReqID=[0-9]{1,5}" | Select-Object -Index 0).Matches.Value.Split("=")[1]
         if ($ReqId -eq $null) {
             Write-Host "The Certificate Request was successfully submitted via ADCS Web Enrollment, but was rejected. Please check the format and contents of
             the Certificate Request Config File and try again."
@@ -3279,7 +3216,7 @@ if (!$ADCSWebEnrollmentUrl) {
     $GenerateCertificateFileOutputHash.Add("CertificateChainOut", "$CertificateChainOut")
 }
 if ($ADCSWebEnrollmentUrl) {
-    $GenerateCertificateFileOutputHash.Add("CertADCSWebResponse", "$CertADCSWebResponse")
+    $GenerateCertificateFileOutputHash.Add("CertADCSWebResponseOutFile", "$CertADCSWebResponseOutFile")
 }
 if ($UseOpenSSL -eq "Yes") {
     $GenerateCertificateFileOutputHash.Add("AllPublicKeysInChainOut", "$AllPublicKeysInChainOut")
@@ -3411,8 +3348,8 @@ $global:FunctionResult = "0"
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKakBNgEvI9SPqgUWsx4foPrg
-# ltigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUe3MzaqyzSUETM24I3x5s3vBJ
+# /higggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3469,11 +3406,11 @@ $global:FunctionResult = "0"
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKeoMdvzc9abNfj4
-# 6paRob1/zB2WMA0GCSqGSIb3DQEBAQUABIIBACThkWBCOe2J/G/RWfv34fItQxbi
-# FhM+YY2QnXPD21cg97SNoq7ofy46GInrrKn+HJ7VSf/6bCMs5pDvfAlRbGzYP2Tw
-# nr5p50cgJ1T2SpWH0vyNrsNKU1UiDru0IW17FfxgP3ovxMUj3NR+8eljsgg79VmZ
-# KGXpLQdv6gBrNx98r8kHF7pWjHk9QdkWfewvPr6zZUQw1s+rbg7H+rdpNEVMEYhn
-# irCRmCfOdwoR5O2RTQuk0RkUvfeazfBQMw40uh1hwym+Ywv7XDq/4dmqpHchWTRf
-# 85lJbpL0MR/DirTNZr395MpCmjj68LNLyShmJsp+VW+RnObCeOpxLuUu1N0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFP8oZXN2qgJWNuq
+# 6ZFrk4AkUueBMA0GCSqGSIb3DQEBAQUABIIBALGbx08Sf9OKe8MTF1Rpgcuk8f5D
+# 7k4S2mB7w6iwTsLA0uPXTLyH9Te15i0TY//zw0EuBpRrmmvbZzafohZigImk9y+N
+# r8/jMkZLijEoow7v8rrxORsE05FHouRTZlachxXlNAaWoMH1iQAcaWfNQZ3r/7vw
+# hPy4KVaYRpjzP3tWFOAv0lmk6kg8XuIjYkVDSB7PbS1iRFeAb9TSFpzv3jtLs67g
+# i9e9HkRhzjyORlKxlcjYhSg0+WZpnvhblaTYQkeToBzf4Xy6FGFbB7Gqk1xCqxDE
+# Jnz8tsZYUe3qv3tz9kx0X6iKVf5UCoLQxgJ+fHDH1w5ZgSSx06bzmSMhjtU=
 # SIG # End signature block
