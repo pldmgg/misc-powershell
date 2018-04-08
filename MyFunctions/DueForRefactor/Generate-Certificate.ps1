@@ -858,8 +858,8 @@
             but $CertFileOut DOES. Even though $CertFileOut has what appear to be extraneous newlines, Microsoft Crypto Shell Extensions will 
             be able to read both files as if they were the same. However, Linux machines will need to use $PublicKeySansChainOutFile (Also, the 
             file extension for $PublicKeySansChainOutFile can safely be changed from .cer to .pem without issue)
-        - A Global HashTable called $GenerateCertificateFileOutputHashGlobal that can help the user quickly and easily reference output 
-            files in $CertGenWorking. Example content of $GenerateCertificateFileOutputHashGlobal:
+        - A Global HashTable called $GenerateCertificateFileOutputHash that can help the user quickly and easily reference output 
+            files in $CertGenWorking. Example content of $GenerateCertificateFileOutputHash:
 
             Key   : CertificateRequestFile
             Value : NewCertRequest_aws-coreos3-client-server-cert04-Sep-2016_2127.csr
@@ -905,8 +905,8 @@
             Value : NewCertificate_aws-coreos3-client-server-cert_protected_private_key_.pem
             Name  : EndPointProtectedPrivateKey
 
-        - A Global HashTable called $CertNamevsContentsHashGlobal that contains the actual content of certain Certificates. 
-            Example content of $CertNamevsContentsHashGlobal is as follows:
+        - A Global HashTable called $CertNamevsContentsHash that contains the actual content of certain Certificates. 
+            Example content of $CertNamevsContentsHash is as follows:
 
             Key   : EndPointUnProtectedPrivateKey
             Value : -----BEGIN RSA PRIVATE KEY-----
@@ -1151,15 +1151,8 @@ Param(
     [string]$ProviderNameValue = "Microsoft RSA SChannel Cryptographic Provider",
 
     [Parameter(Mandatory=$False)]
-    [ValidateSet("Yes","No")]
-    $RequestTypeOverride = "No",
-
-    [Parameter(Mandatory=$False)]
+    [ValidateSet("CMC", "PKCS10", "PKCS10-", "PKCS7")]
     $RequestTypeValue = "PKCS10",
-
-    [Parameter(Mandatory=$False)]
-    [ValidateSet("Yes","No")]
-    $IntendedPurposeOverride = "No",
 
     [Parameter(Mandatory=$False)]
     [ValidateSet("Code Signing","Document Signing","Client Authentication","Server Authentication",
@@ -2443,10 +2436,32 @@ function Install-RSAT {
 # Make a working Directory Where Generated Certificates will be Saved
 if (Test-Path $CertGenWorking) {
     $NewDirName = New-UniqueString -PossibleNewUniqueString $($CertGenWorking | Split-Path -Leaf) -ArrayOfStrings $(Get-ChildItem -Path $($CertGenWorking | Split-Path -Parent) -Directory).Name
-    $CertGenWorking = "$($CertGenWorking | Split-Path -Parent)\$NewDirName"
+    $CertGenWorking = "$CertGenWorking`_Certs_$(Get-Date -Format MMddyy_hhmmss)"
 }
-else {
-    New-Item -ItemType Directory -Path $CertGenWorking
+if (!$(Test-Path $CertGenWorking)) {
+    $null = New-Item -ItemType Directory -Path $CertGenWorking
+}
+
+# Check Cert:\CurrentUser\My for a Certificate with the same CN as our intended new Certificate.
+[array]$ExistingCertInStore = Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -match "CN=$CertificateCN,"}
+if ($ExistingCertInStore.Count -gt 0) {
+    Write-Warning "There is already a Certificate in your Certificate Store under 'Cert:\CurrentUser\My' with Common Name (CN) $CertificateCN!"
+
+    $ContinuePrompt = Read-Host -Prompt "Are you sure you want to continue? [Yes\No]"
+    while ($ContinuePrompt -notmatch "Yes|yes|Y|y|No|no|N|n") {
+        Write-Host "$ContinuePrompt is not a valid option. Please enter 'Yes' or 'No'"
+        $ContinuePrompt = Read-Host -Prompt "Are you sure you want to continue? [Yes\No]"
+    }
+
+    if ($ContinuePrompt -match "Yes|yes|Y|y") {
+        $ThumprintToAvoid = $ExistingCertInStore.Thumbprint
+    }
+    else {
+        Write-Error "User chose not proceed due to existing Certificate concerns. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    
 }
 
 if (!$MachineKeySet) {
@@ -2462,7 +2477,7 @@ if (!$MachineKeySet) {
 }
 $MachineKeySet = $MachineKeySet.ToUpper()
 $PrivateKeyExportableValue = $PrivateKeyExportableValue.ToUpper()
-$KeyUsageValue = "0x" + $KeyUsageValue
+$KeyUsageValueUpdated = "0x" + $KeyUsageValue
 
 if (!$SecureEmail) {
     $SecureEmail = Read-Host -Prompt "Are you using this new certificate for Secure E-Mail? [Yes/No]"
@@ -2601,7 +2616,18 @@ if ($MachineKeySet -eq "TRUE" -and $UseOpenSSL -eq "Yes") {
     }
 }
 if ($MachineKeySet -eq "FALSE" -and $PFXPwdAsSecureString -eq $null) {
-    $PFXPwdAsSecureString = Read-Host -Prompt "Please enter a password to use when exporting .pfx bundle certificate/key bundle" -AsSecureString
+    $PFXPwdAsSecureStringA = Read-Host -Prompt "Please enter a password to use when exporting .pfx bundle certificate/key bundle" -AsSecureString
+    $PFXPwdAsSecureStringB = Read-Host -Prompt "Please enter the same password again" -AsSecureString
+
+    while ([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PFXPwdAsSecureStringA)) -ne
+    [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PFXPwdAsSecureStringB))
+    ) {
+        Write-Warning "Passwords don't match!"
+        $PFXPwdAsSecureStringA = Read-Host -Prompt "Please enter a password to use when exporting .pfx bundle certificate/key bundle" -AsSecureString
+        $PFXPwdAsSecureStringB = Read-Host -Prompt "Please enter the same password again" -AsSecureString
+    }
+
+    $PFXPwdAsSecureString = $PFXPwdAsSecureStringA
 }
 
 if ($PFXPwdAsSecureString.GetType().Name -eq "String") {
@@ -2694,24 +2720,19 @@ if (!$ADCSWebEnrollmentUrl) {
         }
     }
 
-    # Set displayName and CN Values for user-provided $BasisTemplate
-    if ($ValidCertificateTemplatesByCN -contains $BasisTemplate) {
-        $cnForBasisTemplate = $BasisTemplate
-    }
-    if ($ValidCertificateTemplatesByDisplayName -contains $BasisTemplate) {
-        $displayNameForBasisTemplate = $BasisTemplate
-    }
-
     # Get all Certificate Template Properties of the Basis Template
     $LDAPSearchBase = "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=$DomainPrefix,DC=$DomainSuffix"
 
-    if ($displayNameForBasisTemplate) {
-        $CertificateTemplateLDAPObject = Get-ADObject -SearchBase $LDAPSearchBase -Filter {displayName -eq "$displayNameForBasisTemplate"}
-        $AllCertificateTemplateProperties = Get-ADObject -SearchBase $LDAPSearchBase -Filter {displayName -eq "$displayNameForBasisTemplate"} -Properties * 
+    # Set displayName and CN Values for user-provided $BasisTemplate
+    if ($ValidCertificateTemplatesByCN -contains $BasisTemplate) {
+        $cnForBasisTemplate = $BasisTemplate
+        $CertificateTemplateLDAPObject = Get-ADObject -SearchBase $LDAPSearchBase -Filter {cn -eq $cnForBasisTemplate}
+        $AllCertificateTemplateProperties = Get-ADObject -SearchBase $LDAPSearchBase -Filter {cn -eq $cnForBasisTemplate} -Properties *
     }
-    if ($cnForBasisTemplate) {
-        $CertificateTemplateLDAPObject = Get-ADObject -SearchBase $LDAPSearchBase -Filter {cn -eq "$cnForBasisTemplate"}
-        $AllCertificateTemplateProperties = Get-ADObject -SearchBase $LDAPSearchBase -Filter {cn -eq "$cnForBasisTemplate"} -Properties *
+    if ($ValidCertificateTemplatesByDisplayName -contains $BasisTemplate) {
+        $displayNameForBasisTemplate = $BasisTemplate
+        $CertificateTemplateLDAPObject = Get-ADObject -SearchBase $LDAPSearchBase -Filter {displayName -eq $displayNameForBasisTemplate}
+        $AllCertificateTemplateProperties = Get-ADObject -SearchBase $LDAPSearchBase -Filter {displayName -eq $displayNameForBasisTemplate} -Properties *
     }
 
     # Validate $ProviderNameValue
@@ -2728,8 +2749,9 @@ if (!$ADCSWebEnrollmentUrl) {
     # Does the Basis Certificate Template LDAP Object have an attribute called pKIDefaultCSPs that is set?
     $CertificateTemplateLDAPObjectSetAttributes = $AllCertificateTemplateProperties.PropertyNames
     if ($CertificateTemplateLDAPObjectSetAttributes -notcontains "pKIDefaultCSPs") {
-        Write-Host "The Basis Template $BasisTemplate does NOT have the attribute pKIDefaultCSPs set. " +
+        $PKIMsg = "The Basis Template $BasisTemplate does NOT have the attribute pKIDefaultCSPs set. " +
         "This means that Cryptographic Providers are NOT Limited, and (almost) any ProviderNameValue is valid"
+        Write-Host $PKIMsg
     }
     else {
         $AvailableCSPsBasedOnCertificateTemplate = $AllCertificateTemplateProperties.pkiDefaultCSPs -replace '[0-9],',''
@@ -2888,7 +2910,7 @@ Add-Content -Value "Exportable = $PrivateKeyExportableValue" -Path "$CertGenWork
 
 Add-Content -Value "KeySpec = $KeySpecValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 
-Add-Content -Value "KeyUsage = $KeyUsageValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+Add-Content -Value "KeyUsage = $KeyUsageValueUpdated" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 
 Add-Content -Value "MachineKeySet = $MachineKeySet" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 
@@ -2900,83 +2922,15 @@ Add-Content -Value "UserProtected = $UserProtected" -Path "$CertGenWorking\$Cert
 
 Add-Content -Value 'UseExistingKeySet = FALSE' -Path "$CertGenWorking\$CertificateRequestConfigFile"
 
-if ($ProviderNameOverride -eq "Yes" -or $ProviderNameOverride -eq "y") {
-    Write-Host ""
-    Write-Host "All available Cryptographic Providers (CSPs) are as follows:"
-    Write-Host ""
-    $PossibleProvidersPrep = certutil -csplist | Select-String "Provider Name" -Context 0,1
-    $PossibleProviders = foreach ($obj1 in $PossibleProvidersPrep) {
-        $obj2 = $obj1.Context.PostContext | Select-String 'FAIL' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
-        $obj3 = $obj1.Context.PostContext | Select-String 'not ready' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Success
-        if ($obj2 -ne "True" -and $obj3 -ne "True") {
-            $obj1.Line -replace "Provider Name: ",""
-        }
-    }
-    $PossibleProviders
-    Write-Host ""
-    Write-Host "Available Cryptographic Providers (CSPs) based on your choice in Certificate Template (i.e. $($BasisTemplate)) are as follows:"
-    Write-Host ""
-    $AvailableCSPsBasedOnCertificateTemplate = (Get-ADObject $CertificateTemplateLDAPObject -Properties * | Select-Object -ExpandProperty pkiDefaultCSPs) -replace '[0-9],',''
-    $AvailableCSPsBasedOnCertificateTemplate
-    # NOTE: There can only be one (1) ProviderNameValue. Maybe no need to use array.
-    $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
-    $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
-    # Validation check...
-    foreach ($obj1 in $ProviderNameValue) {
-        if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
-            Write-Host "$($obj1) is not a valid ProviderNameValue. Valid Provider Names based on your choice in Basis Certificate Template are as follows:"
-            $AvailableCSPsBasedOnCertificateTemplate
-            $ProviderNameValuePrep = $(Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use")
-            $ProviderNameValue = $ProviderNameValuePrep.Split(",").Trim()
-            # Validation check...
-            foreach ($obj1 in $ProviderNameValue) {
-                if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $obj1) {
-                    Write-Host "$($obj1) is not a valid ProviderNameValue. Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-        }
-    }
-    Add-Content -Value "ProviderName = `"$ProviderNameValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    
-    # Next, get the $ProviderTypeValue based on $ProviderNameValue
-    $ProviderTypeValuePrep = certutil -csplist | Select-String $ProviderNameValue -Context 0,1
-    $ProviderTypeValue = $ProviderTypeValuePrep.Context.PostContext | Select-String -Pattern '[0-9]{1,2}' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    Add-Content -Value "ProviderType = `"$ProviderTypeValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-}
-else {
-    Add-Content -Value "ProviderName = `"$ProviderNameValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-    $ProviderTypeValuePrep = certutil -csplist | Select-String $ProviderNameValue -Context 0,1
-    $ProviderTypeValue = $ProviderTypeValuePrep.Context.PostContext | Select-String -Pattern '[0-9]{1,2}' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
-    Add-Content -Value "ProviderType = `"$ProviderTypeValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-}
+Add-Content -Value "ProviderName = `"$ProviderNameValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
 
-if ($RequestTypeOverride -eq "Yes" -or $RequestTypeOverride -eq "y") {
-    # TODO: Valid RequestType options are CMC, PKCS10, PKCS10-, PKCS7, and Cert
-    # HOWEVER, the "Cert" RequestType indicates a self-signed or self-issued certificate. It does NOT generate a request, but rather a new certificate
-    # and then installs the certificate. To create a self-issued certificate that is NOT self-signed, specify a signing cert by using the -cert option 
-    # in the certreq.exe command. For this to work, you must 1) add "Cert" to the below $ValidRequestTypes array. 2) Uncomment 
-    # the below 'if' statement: if ($RequestTypeValue -eq "Cert"), 3) Uncomment the "certreq -new -cert ..." command, 4) Comment the original 
-    # "certreq -new ..." command, and 5) Comment the "certreq submit ..." command
-    Write-Host ""
-    Write-Host "Available RequestType values are as follows:"
-    $ValidRequestTypes = @("CMC", "PKCS10", "PKCS10-", "PKCS7")
-    $ValidRequestTypes
-    $RequestTypeValue = $(Read-Host -Prompt "Please enter the RequestType value you would like to use")
-    # Validation check...
-    if ($ValidRequestTypes -notcontains $RequestTypeValue) {
-        Write-Host "The RequestType value is not valid. Please choose a RequestType value from the list of available RequestType values. halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    # Add RequestType format  
-    Add-Content -Value "RequestType = $RequestTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-}
-else {
-    Add-Content -Value "RequestType = $RequestTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
-}
+# Next, get the $ProviderTypeValue based on $ProviderNameValue
+$ProviderTypeValuePrep = certutil -csplist | Select-String $ProviderNameValue -Context 0,1
+$ProviderTypeValue = $ProviderTypeValuePrep.Context.PostContext | Select-String -Pattern '[0-9]{1,2}' | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+Add-Content -Value "ProviderType = `"$ProviderTypeValue`"" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+
+Add-Content -Value "RequestType = $RequestTypeValue" -Path "$CertGenWorking\$CertificateRequestConfigFile"
+
 <#
 TODO: Logic for self-signed and/or self-issued certificates that DO NOT generate a CSR and DO NOT submit to Certificate Authority
 if ($RequestTypeValue -eq "Cert") {
@@ -3022,7 +2976,7 @@ if ($IntendedPurposeValues) {
 }
 else {
     $IntendedPurposesFromCertificateTemplate = $($OIDHashTable.GetEnumerator() | Where-Object {$_.Value -eq $AllCertificateTemplateProperties.pKIExtendedKeyUsage}).Name
-    Write-Host "Using Intended Purpose Values from the Basis Certificate Template $BasisTemplate, i.e. $($IntendedPurposesFromCertificateTemplate -join ", ") ..."
+    Write-Host "Using Intended Purpose Values from the Basis Certificate Template '$BasisTemplate', i.e. $($IntendedPurposesFromCertificateTemplate -join ", ") ..."
 }
 
 if ($SANObjectsToAdd) {
@@ -3187,7 +3141,7 @@ if ($ADCSWebEnrollmentUrl) {
 if (!$ADCSWebEnrollmentUrl) {
     ## Submit New Certificate Request File to Issuing Certificate Authority and Specify a Certificate to Use as a Base ##
     if (Test-Path "$CertGenWorking\$CertificateRequestFile") {
-        certreq.exe -submit -attrib "CertificateTemplate:$cnForBasisTemplate" -config "$IssuingCertAuth" "$CertGenWorking\$CertificateRequestFile" "$CertGenWorking\$CertFileOut" "$CertGenWorking\$CertificateChainOut"
+        $null = certreq.exe -submit -attrib "CertificateTemplate:$cnForBasisTemplate" -config "$IssuingCertAuth" "$CertGenWorking\$CertificateRequestFile" "$CertGenWorking\$CertFileOut" "$CertGenWorking\$CertificateChainOut"
         # Equivalent of above certreq command using "Get-Certificate" cmdlet is below. We decided to use certreq.exe though because it actually outputs
         # files to the filesystem as opposed to just working with the client machine's certificate store.  This is more similar to the same process on Linux.
         #
@@ -3204,26 +3158,27 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
     # NOTE: I'm not sure why importing a file that only contains the public certificate (i.e, the .cer file) suddenly makes the private key available
     # in the Certificate Store. It just works for some reason...
     # First, install the public certificate in store
-    Import-Certificate -FilePath "$CertGenWorking\$CertFileOut" -CertStoreLocation Cert:\CurrentUser\My
+    $null = Import-Certificate -FilePath "$CertGenWorking\$CertFileOut" -CertStoreLocation Cert:\CurrentUser\My
     # certreq.exe equivalent of the above Import-Certificate command is below. It is not as reliable as Import-Certifcate.
     # certreq -accept -user "$CertGenWorking\$CertFileOut"     
 
     # Then, export cert with private key in the form of a .pfx file
     if ($MachineKeySet -eq "FALSE") {
-        Sleep 5
-        $LocationOfCertInStore = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -like "*CN=$CertificateCN*"}) | Select-Object -ExpandProperty PSPath
+        if ($ThumprintToAvoid) {
+            $LocationOfCertInStore = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -match "CN=$CertificateCN," -and $_.Thumbprint -notmatch $ThumprintToAvoid}) | Select-Object -ExpandProperty PSPath
+        }
+        else {
+            $LocationOfCertInStore = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -match "CN=$CertificateCN,"}) | Select-Object -ExpandProperty PSPath
+        }
+
         if ($LocationOfCertInStore.Count -gt 1) {
-            Write-Host ""
-            Write-Host "Writing LocationofCertInStore"
-            Write-Host ""
-            $LocationOfCertInStore
-            Write-Host ""
-            Write-Host "You have more than one certificate in your Certificate Store under Cert:\CurrentUser\My with the same Common Name (CN). Please correct this and try again."
+            Write-Host "Certificates to inspect:`n$($LocationOfCertInStore -join "`n")" -ForeGroundColor Yellow
+            Write-Error "You have more than one certificate in your Certificate Store under Cert:\CurrentUser\My with the Common Name (CN) '$CertificateCN'. Please correct this and try again."
             $global:FunctionResult = "1"
             return
         }
-        Sleep 5
-        Export-PfxCertificate -Cert $LocationOfCertInStore -FilePath "$CertGenWorking\$PFXFileOut" -Password $PFXPwdAsSecureString
+
+        $null = Export-PfxCertificate -Cert $LocationOfCertInStore -FilePath "$CertGenWorking\$PFXFileOut" -Password $PFXPwdAsSecureString
         # Equivalent of above using certutil
         # $ThumbprintOfCertToExport = $(Get-ChildItem Cert:\CurrentUser\My | Where-Object {$_.Subject -like "*$CertificateCN*"}) | Select-Object -ExpandProperty Thumbprint
         # certutil -exportPFX -p "$PFXPwdPlainText" my $ThumbprintOfCertToExport "$CertGenWorking\$PFXFileOut"
@@ -3260,12 +3215,17 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
             # Setup Hash Containing Cert Name vs Content Pairs
             $CertNamevsContentsHash = @{}
             foreach ($obj1 in $PublicKeySansChainPrep4) {
+                # First line after BEGIN CERTIFICATE
                 $obj2 = $obj1.Split("`n")[1]
-                if ((($PublicKeySansChainPrep1 | Select-String -SimpleMatch $obj2).Line) -ne $null) {
-                    $CertNamePrep = (($PublicKeySansChainPrep1 | Select-String -SimpleMatch $obj2 -Context 4).Context.PreContext | Select-String -Pattern "subject").Line
-                    $CertName = $CertNamePrep.Split("=") | Select-Object -Last 1
-                    $CertNamevsContentsHash.Add("$CertName", "$obj1")
+                
+                $ContextCounter = 3
+                $CertNamePrep = $null
+                while (!$CertNamePrep) {
+                    $CertNamePrep = (($PublicKeySansChainPrep1 | Select-String -SimpleMatch $obj2 -Context $ContextCounter).Context.PreContext | Select-String -Pattern "subject").Line
+                    $ContextCounter++
                 }
+                $CertName = $($CertNamePrep.Split("=") | Select-Object -Last 1).Trim()
+                $CertNamevsContentsHash.Add($CertName, $obj1)
             }
 
             # Write each Hash Key Value to Separate Files (i.e. writing all public keys in chain to separate files)
@@ -3305,45 +3265,51 @@ if (Test-Path "$CertGenWorking\$CertFileOut") {
 }
 
 # Create Global HashTable of Outputs for use in scripts that source this script
-$GenerateCertificateFileOutputHashGlobal = @{}
-$GenerateCertificateFileOutputHashGlobal.Add("CertificateRequestConfigFile", "$CertificateRequestConfigFile")
-$GenerateCertificateFileOutputHashGlobal.Add("CertificateRequestFile", "$CertificateRequestFile")
-$GenerateCertificateFileOutputHashGlobal.Add("CertFileOut", "$CertFileOut")
+$GenerateCertificateFileOutputHash = @{}
+$GenerateCertificateFileOutputHash.Add("CertificateRequestConfigFile", "$CertificateRequestConfigFile")
+$GenerateCertificateFileOutputHash.Add("CertificateRequestFile", "$CertificateRequestFile")
+$GenerateCertificateFileOutputHash.Add("CertFileOut", "$CertFileOut")
 if ($MachineKeySet -eq "FALSE") {
-    $GenerateCertificateFileOutputHashGlobal.Add("PFXFileOut", "$PFXFileOut")
+    $GenerateCertificateFileOutputHash.Add("PFXFileOut", "$PFXFileOut")
 }
 if (!$ADCSWebEnrollmentUrl) {
     $CertUtilResponseFile = (Get-Item "$CertGenWorking\*.rsp").Name
-    $GenerateCertificateFileOutputHashGlobal.Add("CertUtilResponseFile", "$CertUtilResponseFile")
+    $GenerateCertificateFileOutputHash.Add("CertUtilResponseFile", "$CertUtilResponseFile")
 
-    $GenerateCertificateFileOutputHashGlobal.Add("CertificateChainOut", "$CertificateChainOut")
+    $GenerateCertificateFileOutputHash.Add("CertificateChainOut", "$CertificateChainOut")
 }
 if ($ADCSWebEnrollmentUrl) {
-    $GenerateCertificateFileOutputHashGlobal.Add("CertADCSWebResponse", "$CertADCSWebResponse")
+    $GenerateCertificateFileOutputHash.Add("CertADCSWebResponse", "$CertADCSWebResponse")
 }
-if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
-    $GenerateCertificateFileOutputHashGlobal.Add("AllPublicKeysInChainOut", "$AllPublicKeysInChainOut")
+if ($UseOpenSSL -eq "Yes") {
+    $GenerateCertificateFileOutputHash.Add("AllPublicKeysInChainOut", "$AllPublicKeysInChainOut")
 
     # Make CertName vs Contents Key/Value Pair hashtable available to scripts that source this script
-    $CertNamevsContentsHashGlobal = $CertNamevsContentsHash
+    $CertNamevsContentsHash = $CertNamevsContentsHash
 
     $AdditionalPublicKeysArray = (Get-Item "$CertGenWorking\*_Public_Cert.pem").Name
-    # For each Certificate in the hashtable $CertNamevsContentsHashGlobal, determine it it's a Root, Intermediate, or End Entity
+    # For each Certificate in the hashtable $CertNamevsContentsHash, determine it it's a Root, Intermediate, or End Entity
     foreach ($obj1 in $AdditionalPublicKeysArray) {
-        $SubjectType = (certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "Subject Type=").Line.Split("=")[-1]
+        $SubjectTypePrep = (certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "Subject Type=").Line
+        if ($SubjectTypePrep) {
+            $SubjectType = $SubjectTypePrep.Split("=")[-1].Trim()
+        }
+        else {
+            $SubjectType = "End Entity"
+        }
         $RootCertFlag = certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "Subject matches issuer"
         $EndPointCNFlag = certutil -dump $CertGenWorking\$obj1 | Select-String -Pattern "CN=$CertificateCN"
         if ($SubjectType -eq "CA" -and $RootCertFlag.Matches.Success -eq $true) {
             $RootCAPublicCertFile = $obj1
-            $GenerateCertificateFileOutputHashGlobal.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
+            $GenerateCertificateFileOutputHash.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
         }
         if ($SubjectType -eq "CA" -and $RootCertFlag.Matches.Success -ne $true) {
             $IntermediateCAPublicCertFile = $obj1
-            $GenerateCertificateFileOutputHashGlobal.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
+            $GenerateCertificateFileOutputHash.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
         }
         if ($SubjectType -eq "End Entity" -and $EndPointCNFlag.Matches.Success -eq $true) {
             $EndPointPublicCertFile = $obj1
-            $GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
+            $GenerateCertificateFileOutputHash.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
         }
     }
 
@@ -3355,7 +3321,7 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
         if ($certPrint.Issuer -eq $certPrint.Subject) {
             $RootCAPublicCertFile = $obj1
             $RootCASubject = $certPrint.Subject
-            $GenerateCertificateFileOutputHashGlobal.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
+            $GenerateCertificateFileOutputHash.Add("RootCAPublicCertFile", "$RootCAPublicCertFile")
         }
     }
     foreach ($obj1 in $AdditionalPublicKeysArray) {
@@ -3364,7 +3330,7 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
         if ($certPrint.Issuer -eq $RootCASubject -and $certPrint.Subject -ne $RootCASubject) {
             $IntermediateCAPublicCertFile = $obj1
             $IntermediateCASubject = $certPrint.Subject
-            $GenerateCertificateFileOutputHashGlobal.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
+            $GenerateCertificateFileOutputHash.Add("IntermediateCAPublicCertFile", "$IntermediateCAPublicCertFile")
         }
     }
     foreach ($obj1 in $AdditionalPublicKeysArray) {
@@ -3373,36 +3339,35 @@ if ($UseOpenSSL -eq "Yes" -or $UseOpenSSL -eq "y") {
         if ($certPrint.Issuer -eq $IntermediateCASubject) {
             $EndPointPublicCertFile = $obj1
             $EndPointSubject = $certPrint.Subject
-            $GenerateCertificateFileOutputHashGlobal.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
+            $GenerateCertificateFileOutputHash.Add("EndPointPublicCertFile", "$EndPointPublicCertFile")
         }
     }
     #>
 
-    $GenerateCertificateFileOutputHashGlobal.Add("EndPointProtectedPrivateKey", "$ProtectedPrivateKeyOut")
+    $GenerateCertificateFileOutputHash.Add("EndPointProtectedPrivateKey", "$ProtectedPrivateKeyOut")
 }
 if ($StripPrivateKeyOfPassword -eq "Yes" -or $StripPrivateKeyOfPassword -eq "y") {
-    $GenerateCertificateFileOutputHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyOut")
+    $GenerateCertificateFileOutputHash.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyOut")
 
-    # Add UnProtected Private Key to $CertNamevsContentsHashGlobal
+    # Add UnProtected Private Key to $CertNamevsContentsHash
     $UnProtectedPrivateKeyContent = ((Get-Content $CertGenWorking\$UnProtectedPrivateKeyOut) -join "`n").Trim()
-    $CertNamevsContentsHashGlobal.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyContent")
+    $CertNamevsContentsHash.Add("EndPointUnProtectedPrivateKey", "$UnProtectedPrivateKeyContent")
 }
 
-# Return PSObject that contains $GenerateCertificateFileOutputHashGlobal and $CertNamevsContentsHashGlobal HashTables
-New-Variable -Name "GenCertOutput" -Scope Script -Value $(
-    [pscustomobject][ordered]@{
-        GenerateCertificateFileOutputHashGlobal    = $GenerateCertificateFileOutputHashGlobal
-        CertNamevsContentsHashGlobal               = $CertNamevsContentsHashGlobal
-    }
-)
+# Cleanup
+if ($LocationOfCertInStore) {
+    Remove-Item $LocationOfCertInStore
+}
 
-# Write the two Global Output HashTableses to STDOUT for Awareness
-Write-Host "The `$GenCertOutput PSObject containing `$GenCertOutput.GenerateCertificateFileOutputHashGlobal and `$GenCertOutput.CertNamevsContentsHashGlobal `
-for $CertificateCN should now be available in the current scope as a result of the Generate-Certificate function"
+# Return PSObject that contains $GenerateCertificateFileOutputHash and $CertNamevsContentsHash HashTables
+[pscustomobject]@{
+    FileOutputHashTable       = $GenerateCertificateFileOutputHash
+    CertNamevsContentsHash    = $CertNamevsContentsHash
+}
 
 $global:FunctionResult = "0"
 
-# ***IMPORTANT NOTE: If you want to write the Certificates contained in the $CertNamevsContentsHashGlobal out to files again
+# ***IMPORTANT NOTE: If you want to write the Certificates contained in the $CertNamevsContentsHash out to files again
 # at some point in the future, make sure you use the "Out-File" cmdlet instead of the "Set-Content" cmdlet
 
 ##### END Generate Certificate Request and Submit to Issuing Certificate Authority #####
@@ -3446,8 +3411,8 @@ $global:FunctionResult = "0"
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9suq2kngftKbUT7ktrf5ULRH
-# fTCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKakBNgEvI9SPqgUWsx4foPrg
+# ltigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3504,11 +3469,11 @@ $global:FunctionResult = "0"
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEQjJCCI21yOYU5P
-# sbJL10M1dM3lMA0GCSqGSIb3DQEBAQUABIIBABZiGyYiRWn1ltiCaqo6TCEoCdbY
-# 834C5zM9HqIXzLo9bakBUTCYHpkomst+8LyrCZnxaHm4QbXwAfOVXBQozGrLF6W1
-# VowPUBk1yoqYq4x+6l5zmV8bSi4OHTocm3RjJKQl7e+VaJtsFgF39VDJc9wrcrIL
-# J4Fwprq+3Ue/Y7nggfO4yvM6QUjv8iT0gdKq5F43Zkiw3sihB6kZvyqA9i6hyNAj
-# 2sMiSHqyZLyoZiIq5qSns15jSzZRAAwNbDAB2ps5J4WGrnG5LjC6D4G/TJWOHQJZ
-# n0b5r2OrblyibpV7h6ieXCVYF2nJ/QyNlnZbQIZ+CRaK4P7pWTmsHEzFQps=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKeoMdvzc9abNfj4
+# 6paRob1/zB2WMA0GCSqGSIb3DQEBAQUABIIBACThkWBCOe2J/G/RWfv34fItQxbi
+# FhM+YY2QnXPD21cg97SNoq7ofy46GInrrKn+HJ7VSf/6bCMs5pDvfAlRbGzYP2Tw
+# nr5p50cgJ1T2SpWH0vyNrsNKU1UiDru0IW17FfxgP3ovxMUj3NR+8eljsgg79VmZ
+# KGXpLQdv6gBrNx98r8kHF7pWjHk9QdkWfewvPr6zZUQw1s+rbg7H+rdpNEVMEYhn
+# irCRmCfOdwoR5O2RTQuk0RkUvfeazfBQMw40uh1hwym+Ywv7XDq/4dmqpHchWTRf
+# 85lJbpL0MR/DirTNZr395MpCmjj68LNLyShmJsp+VW+RnObCeOpxLuUu1N0=
 # SIG # End signature block
