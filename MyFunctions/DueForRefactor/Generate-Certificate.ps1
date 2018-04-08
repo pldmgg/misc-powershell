@@ -1147,7 +1147,7 @@ Param(
     "Microsoft Enhanced DSS and Diffie-Hellman Cryptographic Provider",
     "Microsoft Enhanced RSA and AES Cryptographic Provider","Microsoft RSA SChannel Cryptographic Provider",
     "Microsoft Strong Cryptographic Provider","Microsoft Software Key Storage Provider",
-    "Microsoft Passport Key Storage Provider)]
+    "Microsoft Passport Key Storage Provider")]
     [string]$ProviderNameValue = "Microsoft RSA SChannel Cryptographic Provider",
 
     [Parameter(Mandatory=$False)]
@@ -2500,17 +2500,6 @@ if (!$UseOpenSSL) {
     }
 }
 
-## TODO: Get rid of *Override parameters ##
-
-if ($RequestTypeOverride -eq "Yes" -or $RequestTypeOverride -eq "y" -or $RequestTypeOverride -eq "No" -or $RequestTypeOverride -eq "n") {
-    Write-Host "The value for RequestTypeOverride is valid...continuing"
-}
-else {
-    Write-Host "The value for RequestTypeOverride is not valid. Please enter either 'Yes', 'y', 'No', or 'n'. Halting!"
-    $global:FunctionResult = "1"
-    return
-}
-
 $DomainPrefix = ((gwmi Win32_ComputerSystem).Domain).Split(".") | Select-Object -Index 0
 $DomainSuffix = ((gwmi Win32_ComputerSystem).Domain).Split(".") | Select-Object -Index 1
 $Hostname = (gwmi Win32_ComputerSystem).Name
@@ -2641,7 +2630,7 @@ if (!$ADCSWebEnrollmentUrl) {
         $global:FunctionResult = "1"
         return
     }
-    if ($(Get-Module).Name -notcontains ActiveDirectory) {
+    if ($(Get-Module).Name -notcontains "ActiveDirectory") {
         try {
             Import-Module ActiveDirectory -ErrorAction Stop
         }
@@ -2745,14 +2734,13 @@ if (!$ADCSWebEnrollmentUrl) {
     else {
         $AvailableCSPsBasedOnCertificateTemplate = $AllCertificateTemplateProperties.pkiDefaultCSPs -replace '[0-9],',''
         if ($AvailableCSPsBasedOnCertificateTemplate -notcontains $ProviderNameValue) {
+            Write-Warning "$ProviderNameValue is not one of the available Provider Names on Certificate Template $BasisTemplate!"
+            Write-Host "Valid Provider Names based on your choice in Basis Certificate Template are as follows:`n$($AvailableCSPsBasedOnCertificateTemplate -join "`n")"
+            $ProviderNameValue = Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use"
+            while ($AvailableCSPsBasedOnCertificateTemplate -notcontains $ProviderNameValue) {
                 Write-Warning "$ProviderNameValue is not one of the available Provider Names on Certificate Template $BasisTemplate!"
                 Write-Host "Valid Provider Names based on your choice in Basis Certificate Template are as follows:`n$($AvailableCSPsBasedOnCertificateTemplate -join "`n")"
                 $ProviderNameValue = Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use"
-                while ($AvailableCSPsBasedOnCertificateTemplate -notcontains $ProviderNameValue) {
-                    Write-Warning "$ProviderNameValue is not one of the available Provider Names on Certificate Template $BasisTemplate!"
-                    Write-Host "Valid Provider Names based on your choice in Basis Certificate Template are as follows:`n$($AvailableCSPsBasedOnCertificateTemplate -join "`n")"
-                    $ProviderNameValue = Read-Host -Prompt "Please enter the name of the Cryptographic Provider (CSP) you would like to use"
-                }
             }
         }
     }
@@ -3458,8 +3446,8 @@ $global:FunctionResult = "0"
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUXy7taDcpwJiMTsWyj3gzQeTH
-# oSCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9suq2kngftKbUT7ktrf5ULRH
+# fTCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -3516,11 +3504,11 @@ $global:FunctionResult = "0"
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFZ4qfLM1klFyJwl
-# /U5yUNW6M2HQMA0GCSqGSIb3DQEBAQUABIIBABw1BMGSjLauG+WRdQ0I0YfujXzr
-# zXlMIV1GL997H5uP5j0I3PFhly1EffZ8rnvoyhk5mf8CyrVkMuRTOsI63j1I9q8L
-# sPm5SS6sCDj28JddTTo2W9ncNjP1SAMN5jky2xd/tUZf3Rl+jvVoH4Qgl2OFaHXS
-# 2e+mm8GB0DZB36TgPfqki4SXoG+/bhFHsYXC0HvHjLigRqOJwS5xx2z3IXTVlHDh
-# p7ep4l/OmwRVp4YWUtmlzzBQ7Va1N3vO4SZVwcvGCZys70khN51Ygxu5GWxmq3V2
-# uBMSFPOiVKVl26o09TXIIMV3ZPtd0Gi1t3m5uAb3DlUdmWp+S2bZpev1Gf8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEQjJCCI21yOYU5P
+# sbJL10M1dM3lMA0GCSqGSIb3DQEBAQUABIIBABZiGyYiRWn1ltiCaqo6TCEoCdbY
+# 834C5zM9HqIXzLo9bakBUTCYHpkomst+8LyrCZnxaHm4QbXwAfOVXBQozGrLF6W1
+# VowPUBk1yoqYq4x+6l5zmV8bSi4OHTocm3RjJKQl7e+VaJtsFgF39VDJc9wrcrIL
+# J4Fwprq+3Ue/Y7nggfO4yvM6QUjv8iT0gdKq5F43Zkiw3sihB6kZvyqA9i6hyNAj
+# 2sMiSHqyZLyoZiIq5qSns15jSzZRAAwNbDAB2ps5J4WGrnG5LjC6D4G/TJWOHQJZ
+# n0b5r2OrblyibpV7h6ieXCVYF2nJ/QyNlnZbQIZ+CRaK4P7pWTmsHEzFQps=
 # SIG # End signature block
