@@ -181,7 +181,7 @@ function Unzip-File {
                 $OutFileBaseNamePrep = Invoke-WebRequest "https://www.nuget.org/api/v2/package/$assembly" -DisableKeepAlive -UseBasicParsing
                 $OutFileBaseName = $($OutFileBaseNamePrep.BaseResponse.ResponseUri.AbsoluteUri -split "/")[-1] -replace "nupkg","zip"
                 Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/$assembly" -OutFile "$NewAssemblyDir\$OutFileBaseName"
-                Expand-Archive -Path "$NewAssemblyDir\$OutFileBaseName" -DestinationPath $NewAssemblyDir
+                $null = Expand-Archive -Path "$NewAssemblyDir\$OutFileBaseName" -DestinationPath $NewAssemblyDir -Force
 
                 $PossibleDLLs = Get-ChildItem -Recurse $NewAssemblyDir | Where-Object {$_.Name -eq "$assembly.dll" -and $_.Parent -notmatch "net[0-9]" -and $_.Parent -match "core|standard"}
 
@@ -389,7 +389,7 @@ function Unzip-File {
 
         if (!$SpecificItem) {
             if ($PSVersionTable.PSVersion.Major -ge 5) {
-                Expand-Archive -Path $PathToZip -DestinationPath $TargetDir
+                $null = Expand-Archive -Path $PathToZip -DestinationPath $TargetDir -Force
             }
             if ($PSVersionTable.PSVersion.Major -lt 5) {
                 # Load System.IO.Compression.Filesystem 
@@ -3510,6 +3510,7 @@ function Install-WinSSH {
         
         try {
             $NewSSHDServerResult = New-SSHDServer @NewSSHDServerSplatParams
+            if (!$NewSSHDServerResult) {throw "There was a problem with the New-SSHDServer function! Halting!"}
         }
         catch {
             Write-Error $_
@@ -3708,10 +3709,14 @@ function Install-SSHAgentService {
                 $SSHExePath = $(Get-ChildItem -Path $OpenSSHWinPath -File -Recurse -Filter "ssh.exe").FullName
             
                 if (Test-Path $SSHExePath) {
-                    $InstalledOpenSSHVer = [version]$(Get-Item $SSHExePath).VersionInfo.ProductVersion
+                    $InstalledOpenSSHVer = [version]$(Get-Item $SSHExePath).VersionInfo.FileVersion
                 }
     
-                $NeedNewerVersion = $InstalledOpenSSHVer -lt [version]$LatestOpenSSHWin
+                $NeedNewerVersion = $InstalledOpenSSHVer -lt [version]$($LatestOpenSSHWin -split "[a-zA-z]")[0]
+                
+                if ($Force) {
+                    $NeedNewerVersion = $True
+                }
             }
             catch {
                 $NotInstalled = $True
@@ -3744,6 +3749,13 @@ function Install-SSHAgentService {
                     Invoke-WebRequest -Uri $WinOpenSSHDLLink -OutFile "$HOME\Downloads\$WinSSHFileNameSansExt.zip"
                     # NOTE: OpenSSH-Win64.zip contains a folder OpenSSH-Win64, so no need to create one before extraction
                     $null = Unzip-File -PathToZip "$HOME\Downloads\$WinSSHFileNameSansExt.zip" -TargetDir "$HOME\Downloads"
+                    if (Test-Path "$env:ProgramFiles\$WinSSHFileNameSansExt") {
+                        Get-Service ssh-agent -ErrorAction SilentlyContinue | Stop-Service -ErrorAction SilentlyContinue
+                        Get-Service sshd -ErrorAction SilentlyContinue | Stop-Service -ErrorAction SilentlyContinue
+                        Get-Process -Name ssh-keygen -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
+
+                        Remove-Item "$env:ProgramFiles\$WinSSHFileNameSansExt" -Recurse -Force
+                    }
                     Move-Item "$HOME\Downloads\$WinSSHFileNameSansExt" "$env:ProgramFiles\$WinSSHFileNameSansExt"
                     Enable-NTFSAccessInheritance -Path "$env:ProgramFiles\$WinSSHFileNameSansExt" -RemoveExplicitAccessRules
                 }
@@ -4214,10 +4226,12 @@ function New-SSHDServer {
 
     # Subsystem instructions: https://github.com/PowerShell/PowerShell/tree/master/demos/SSHRemoting#setup-on-windows-machine
     [System.Collections.ArrayList]$sshdContent = Get-Content $sshdConfigPath
-    $InsertAfterThisLine = $sshdContent -match "sftp"
-    $InsertOnThisLine = $sshdContent.IndexOf($InsertAfterThisLine)+1
-    $sshdContent.Insert($InsertOnThisLine, "Subsystem    powershell    $PowerShellCorePathWithForwardSlashes -sshs -NoLogo -NoProfile")
-    Set-Content -Value $sshdContent -Path $sshdConfigPath
+    if (![bool]$($sshdContent -match "Subsystem    powershell    $PowerShellCorePathWithForwardSlashes -sshs -NoLogo -NoProfile")) {
+        $InsertAfterThisLine = $sshdContent -match "sftp"
+        $InsertOnThisLine = $sshdContent.IndexOf($InsertAfterThisLine)+1
+        $sshdContent.Insert($InsertOnThisLine, "Subsystem    powershell    $PowerShellCorePathWithForwardSlashes -sshs -NoLogo -NoProfile")
+        Set-Content -Value $sshdContent -Path $sshdConfigPath
+    }
 
     if ($DefaultShell) {
         if ($DefaultShell -eq "powershell") {
@@ -4452,8 +4466,8 @@ function New-SSHKey {
         [Parameter(Mandatory=$False)]
         [switch]$RemovePrivateKey,
 
-        [Parameter(Mandatory=$False)]
-        [switch]$ShowNextSteps,
+        #[Parameter(Mandatory=$False)]
+        #[switch]$ShowNextSteps,
 
         [Parameter(Mandatory=$False)]
         [string]$RemoteHost,
@@ -4621,6 +4635,10 @@ function New-SSHKey {
             }
             else {
                 Stop-Process -Id $PSAwaitProcess.Id
+                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
+                    Write-Host "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
+                    Start-Sleep -Seconds 1
+                }
             }
         }
     }
@@ -4812,7 +4830,8 @@ function Add-PublicKeyToRemoteHost {
         $RemoteHostLocation = $RemoteHostNetworkInfo.IPAddressList[0]
     }
 
-    ssh -t $RemoteHostUserName@$RemoteHostLocation "echo '$PubKeyContent' >> ~/.ssh/authorized_keys"
+    #ssh -t $RemoteHostUserName@$RemoteHostLocation "echo '$PubKeyContent' >> ~/.ssh/authorized_keys"
+    ssh -o "StrictHostKeyChecking=no" -o "BatchMode=yes" -t $RemoteHostUserName@$RemoteHostLocation "echo '$PubKeyContent' >> ~/.ssh/authorized_keys"
 
     ##### END Main Body #####
 }
@@ -4832,6 +4851,20 @@ function Fix-SSHPermissions {
         Write-Error "This function is only meant to fix permissions on Windows machines. Halting!"
         $global:FunctionResult = "1"
         return
+    }
+
+    if (!$HomeFolderAndSubItemsOnly) {
+        if (Test-Path "$env:ProgramData\ssh") {
+            $sshdir = "$env:ProgramData\ssh"
+        }
+        elseif (Test-Path "$env:ProgramFiles\OpenSSH-Win64") {
+            $sshdir = "$env:ProgramFiles\OpenSSH-Win64"
+        }
+        if (!$sshdir) {
+            Write-Error "Unable to find ssh directory at '$env:ProgramData\ssh' or '$env:ProgramFiles\OpenSSH-Win64'! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
 
     if (!$(Test-Path "$env:ProgramFiles\OpenSSH-Win64\FixHostFilePermissions.ps1")) {
@@ -4894,29 +4927,50 @@ function Fix-SSHPermissions {
     }
     #>
 
+    if ($(Get-Module -ListAvailable).Name -notcontains "NTFSSecurity") {
+        Install-Module NTFSSecurity
+    }
+
+    try {
+        if ($(Get-Module).Name -notcontains "NTFSSecurity") {Import-Module NTFSSecurity}
+    }
+    catch {
+        if ($_.Exception.GetType().FullName -eq "System.Management.Automation.RuntimeException") {
+            Write-Verbose "NTFSSecurity Module is already loaded..."
+        }
+        else {
+            Write-Error "There was a problem loading the NTFSSecurity Module! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
     if (!$HomeFolderAndSubItemsOnly) {
         $FixHostFilePermissionsOutput = & "$OpenSSHPSUtilityScriptDir\FixHostFilePermissions.ps1" -Confirm:$false 6>&1
+
+        if (Test-Path "$sshdir/authorized_principals") {
+            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path "$sshdir/authorized_principals"
+            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+            $SecurityDescriptor | Clear-NTFSAccess
+            $SecurityDescriptor | Add-NTFSAccess -Account "NT AUTHORITY\SYSTEM" -AccessRights "FullControl" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account "Administrators" -AccessRights "FullControl" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+        }
+
+        # If there's a Host Key Public Cert, make sure permissions on it are set properly...This is not handled
+        # by FixHostFilePermissions.ps1
+        if (Test-Path "$sshdir/ssh_host_rsa_key-cert.pub") {
+            $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path "$sshdir/ssh_host_rsa_key-cert.pub"
+            $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+            $SecurityDescriptor | Clear-NTFSAccess
+            $SecurityDescriptor | Add-NTFSAccess -Account "NT AUTHORITY\SYSTEM" -AccessRights "FullControl" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account "Administrators" -AccessRights "FullControl" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Add-NTFSAccess -Account "NT AUTHORITY\Authenticated Users" -AccessRights "ReadAndExecute, Synchronize" -AppliesTo ThisFolderSubfoldersAndFiles
+            $SecurityDescriptor | Set-NTFSSecurityDescriptor
+        }
     }
     if (!$ProgramDataFolderAndSubItemsOnly) {
         $FixUserFilePermissionsOutput = & "$OpenSSHPSUtilityScriptDir\FixUserFilePermissions.ps1" -Confirm:$false 6>&1
-
-        if ($(Get-Module -ListAvailable).Name -notcontains "NTFSSecurity") {
-            Install-Module NTFSSecurity
-        }
-
-        try {
-            if ($(Get-Module).Name -notcontains "NTFSSecurity") {Import-Module NTFSSecurity}
-        }
-        catch {
-            if ($_.Exception.GetType().FullName -eq "System.Management.Automation.RuntimeException") {
-                Write-Verbose "NTFSSecurity Module is already loaded..."
-            }
-            else {
-                Write-Error "There was a problem loading the NTFSSecurity Module! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
 
         $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path "$HOME\.ssh"
         $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
@@ -4925,18 +4979,6 @@ function Fix-SSHPermissions {
         $SecurityDescriptor | Add-NTFSAccess -Account "$(whoami)" -AccessRights "FullControl" -AppliesTo ThisFolderSubfoldersAndFiles
         $SecurityDescriptor | Set-NTFSSecurityDescriptor
 
-        $DotSSHFilesThatShouldInheritFromDotSSH = @("$HOME\.ssh\known_hosts","$HOME\.ssh\authorized_keys")
-        foreach ($file in $DotSSHFilesThatShouldInheritFromDotSSH) {
-            if (Test-Path $file) {
-                $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $file
-                $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
-                $SecurityDescriptor | Clear-NTFSAccess
-                $SecurityDescriptor | Enable-NTFSAccessInheritance
-                $SecurityDescriptor | Set-NTFSSecurityDescriptor
-            }
-        }
-
-        # Make sure $HOME\.ssh\authorized_keys and $HOME\.ssh\known_hosts are UTF8 Encoded
         $UserHomeDirs = Get-ChildItem "C:\Users"
         foreach ($UserDir in $UserHomeDirs) {
             $KnownHostsPath = "$($UserDir.FullName)\.ssh\known_hosts"
@@ -4944,10 +4986,23 @@ function Fix-SSHPermissions {
 
             if ($(Test-Path $KnownHostsPath) -or $(Test-Path $AuthorizedKeysPath)) {
                 if (Test-Path $KnownHostsPath) {
+                    $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $KnownHostsPath
+                    $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+                    $SecurityDescriptor | Clear-NTFSAccess
+                    $SecurityDescriptor | Enable-NTFSAccessInheritance
+                    $SecurityDescriptor | Set-NTFSSecurityDescriptor
+
+                    # Make sure it's UTF8 Encoded
                     $FileContent = Get-Content $KnownHostsPath
                     Set-Content -Value $FileContent $KnownHostsPath -Encoding UTF8
                 }
                 if (Test-Path $AuthorizedKeysPath) {
+                    $SecurityDescriptor = Get-NTFSSecurityDescriptor -Path $AuthorizedKeysPath
+                    $SecurityDescriptor | Disable-NTFSAccessInheritance -RemoveInheritedAccessRules
+                    $SecurityDescriptor | Clear-NTFSAccess
+                    $SecurityDescriptor | Enable-NTFSAccessInheritance
+                    $SecurityDescriptor | Set-NTFSSecurityDescriptor
+
                     $FileContent = Get-Content $AuthorizedKeysPath
                     Set-Content -Value $FileContent $AuthorizedKeysPath -Encoding UTF8
                 }
@@ -4970,171 +5025,6 @@ function Fix-SSHPermissions {
         FixUserFilePermissionsOutput    = $FixUserFilePermissionsOutput
     }
 }
-
-<#
-function Get-PublicKeyAuthInstructions {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [string]$PublicKeyLocation,
-
-        [Parameter(Mandatory=$False)]
-        [string]$PrivateKeyLocation
-    )
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-    if ($PublicKeyLocation) {
-        $PublicKeyLocationFinal = $PublicKeyLocation
-    }
-    else {
-        $PublicKeyLocationFinal = "SamplePubKey.pub"
-    }
-    if ($PrivateKeyLocation) {
-        $PrivateKeyLocationFinal = $PrivateKeyLocation
-    }
-    else {
-        $PrivateKeyLocationFinal = "SamplePrivKey"
-    }
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-    # Reference for below info:
-    # https://github.com/PowerShell/Win32-OpenSSH/issues/815
-    # https://github.com/PowerShell/Win32-OpenSSH/issues/409 
-
-    $Headers1 = @"
-
-##### INFORMATION #####
-## WINDOWS TO LINUX PUBLIC KEY AUTH ##
-
-"@
-
-    $Info1 = @"
-In order to SSH from this computer (i.e. $env:ComputerName) to a Remote Host WITHOUT the need for a password,
-add the content of the RSA Public Key (i.e. $PublicKeyLocationFinal) to '~/.ssh/authorized_keys' on your Remote Linux Host.
-Permissions on the ~/.ssh directory should be 700 and permissions on the ~/.ssh/authorized_keys file should be 644.
-Check permissions with...
-
-    stat -c "%a %n" ~/.ssh
-    stat -c "%a %n" ~/.ssh/authorized_keys
-
-...and change permissions with 'chmod'
-
-"@
-
-    $Headers2 = "## WINDOWS TO WINDOWS PUBLIC KEY AUTH ##`n"
-
-    $Info2 = @"
-If the Remote Host is a Windows machine running sshd, add the content of the RSA Public Key (i.e. $PublicKeyLocationFinal) to the
-C:\Users\<User>\.ssh\authorized_keys file on your Remote Host. Permissions MUST be as follows...
-
-    C:\Users\<User>\.ssh\authorized_keys
-        Administrators      = Full Control
-        SYSTEM              = Full Control
-        NT SERVICE\sshd     = Read, Synchronize
-
-    C:\Users\<User>\.ssh
-        NT Service\sshd     = ReadAndExecute, Synchronize
-
-    C:\Users\<User>
-        NT Service\sshd     = ReadAndExecute, Synchronize
-
-    NOTE #1: 'Read, Synchronize' translates to:
-        'Read permissions'
-        'Read attributes'
-        'Read extended attributes'
-        'List folder / read data'
-
-    NOTE #2: 'ReadAndExecute, Synchronize' translates to:
-        'Traverse folder / execute file'
-        'Read permissions'
-        'Read attributes'
-        'Read extended attributes'
-        'List folder / read data'
-
-"@
-
-    $ImportantNote1 = "If you need to fix permissions on any of the above on the Windows Remote Host, " +
-    "the sshd service on the Remote Host must be restarted!`n"
-
-    $ImportantNote2 = @"
-The syntax for logging into a Remote Host with a Local Account available on the Remote Host is...
-
-    ssh -i $PrivateKeyLocationFinal <RemoteHostUserName>@<RemoteHostNameOrFQDNOrIP>
-
-...where $PrivateKeyLocationFinal is a private key file on the client and $PublicKeyLocationFinal is a public
-key that has been added to .ssh/authorized_keys on the Remote Windows Host.
-
-"@
-
-    $ImportantNote3 = @"
-If you would like to login to a Remote Windows Host using a Domain Account (as opposed to a Local
-Account on the Remote Host), the syntax is...
-
-    ssh -i $PrivateKeyLocationFinal -l <UserName>@<FullDomain> <RemoteHostName>.<FullDomain>
-
-...where $PrivateKeyLocationFinal is a private key file on the client and $PublicKeyLocationFinal is a public
-key that has been added to .ssh/authorized_keys on the Remote Windows Host.
-
-"@
-
-    Write-Host $Headers1 -ForegroundColor Yellow
-    Write-Host $Info1
-    Write-Host $Headers2 -ForegroundColor Yellow
-    Write-Host $Info2
-    Write-Host "IMPORTANT NOTE #1:" -ForegroundColor Yellow
-    Write-Host $ImportantNote1
-    Write-Host "IMPORTANT NOTE #2:" -ForegroundColor Yellow
-    Write-Host $ImportantNote2
-    Write-Host "IMPORTANT NOTE #3:" -ForegroundColor Yellow
-    Write-Host $ImportantNote3
-}
-#>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
