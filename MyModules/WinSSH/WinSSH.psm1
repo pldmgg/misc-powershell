@@ -3419,7 +3419,10 @@ function Install-WinSSH {
         [switch]$NoUpdatePackageManagement = $True,
 
         [Parameter(Mandatory=$False)]
-        [switch]$SkipWinCapabilityAttempt
+        [switch]$SkipWinCapabilityAttempt,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$Force
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
@@ -3479,6 +3482,9 @@ function Install-WinSSH {
     }
     if ($SkipWinCapabilityAttempt) {
         $InstallSSHAgentSplatParams.Add("SkipWinCapabilityAttempt",$True)
+    }
+    if ($Force) {
+        $InstallSSHAgentSplatParams.Add("Force",$True)
     }
 
     try {
@@ -3722,9 +3728,8 @@ function Install-SSHAgentService {
                 $NotInstalled = $True
             }
     
+            $WinSSHFileNameSansExt = "OpenSSH-Win64"
             if ($NeedNewerVersion -or $NotInstalled) {
-                $WinSSHFileNameSansExt = "OpenSSH-Win64"
-    
                 # We need the NTFSSecurity Module
                 if ($(Get-Module -ListAvailable).Name -contains "NTFSSecurity") {
                     if ($(Get-Module NTFSSecurity).Name -notcontains "NTFSSecurity") {
@@ -3881,7 +3886,18 @@ function New-SSHDServer {
     # Make sure the dependency ssh-agent service is already installed
     if (![bool]$(Get-Service ssh-agent -ErrorAction SilentlyContinue)) {
         try {
-            $InstallSSHAgentResult = Install-SSHAgentService -ErrorAction SilentlyContinue -ErrorVariable ISAErr
+            $InstallSSHAgentSplatParams = @{
+                ErrorAction         = "SilentlyContinue"
+                ErrorVariable       = "ISAErr"
+            }
+            if ($SkipWinCapabilityAttempt) {
+                $InstallSSHAgentSplatParams.Add("SkipWinCapabilityAttempt",$True)
+            }
+            if ($Force) {
+                $InstallSSHAgentSplatParams.Add("Force",$True)
+            }
+            
+            $InstallSSHAgentResult = Install-SSHAgentService @InstallSSHAgentSplatParams
             if (!$InstallSSHAgentResult) {throw "The Install-SSHAgentService function failed!"}
         }
         catch {
