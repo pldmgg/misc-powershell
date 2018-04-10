@@ -3464,6 +3464,8 @@ function Setup-GitCmdLine {
     # because Setup-GitCmdLine function can handle things if neither are provided
     if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
         $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
+        # Convert SecureString to PlainText
+        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
     }
     if ($ExistingSSHPrivateKeyPath) {
         $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
@@ -3672,17 +3674,17 @@ function Setup-GitCmdLine {
             $global:FunctionResult = "1"
             return
         }
-    }
 
-    if ($NewSSHKeyName) {
-        $FinalPrivateKeyLocation = "$HOME\.ssh\$NewSSHKeyName"
-    }
-    if ($ExistingSSHPrivateKeyPath) {
-        $FinalPrivateKeyLocation = $ExistingSSHPrivateKeyPath
-    }
-
-    if (!$FinalPrivateKeyLocation) {
-        Write-Error "Unable to find private key! Halting!"
+        if ($NewSSHKeyName) {
+            $FinalPrivateKeyLocation = "$HOME\.ssh\$NewSSHKeyName"
+        }
+        if ($ExistingSSHPrivateKeyPath) {
+            $FinalPrivateKeyLocation = $ExistingSSHPrivateKeyPath
+        }
+    
+        if (!$FinalPrivateKeyLocation) {
+            Write-Error "Unable to find private key! Halting!"
+        }
     }
     
     Push-Location "$HOME\Documents\GitHub"
@@ -4905,12 +4907,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+vZsW1GyG5UnskW3I7rdEb6m
-# g1Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvs+y9shx+qVgSFC2BW49YJyg
+# rTygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4967,11 +4968,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOnxoieBI4X4GXZI
-# a+ic29bPi2++MA0GCSqGSIb3DQEBAQUABIIBABwXFGIuOwqJBMyyJ/YG8k9ycNOQ
-# hh7wHyRMAtEofxLXkJhSrFKO0tiHvFeOVZ7MPDJje4X1gV0t/MddTev3rDN5ljgR
-# CMkMqxkI73HNWo7QA2mcm1es7koofTZCH/XWTXalEZoLw2bsbBFo72pC+EnEwU3I
-# C7Uwb/QK7vTM42CL9KFlm9+PErHjOdhPJ+NtSDtcZnKWK/Db6xCJy3bcdEx0EkBE
-# EqX7Bhyc77+b8F+8VYwopEYN0h6jYREZC0G3n/oVdE+wXmxyGsHBqhdAc3i1nK9q
-# 7EF8kXvp3M9sUgYr5lWqwps6BsZM7wxNANvbNpheZhJlmpVAY/QCy/tAAgA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMXXP5IPy39ar7//
+# D1FmfOr7LIztMA0GCSqGSIb3DQEBAQUABIIBAAJjxgcHXwCbZh4tw0N3SKoIhXvF
+# BGzT3/8CyPHYHk5JkVnGfuiMT2sXV4eF7ruyVZwr7O1UXa66de/OSyUa4C3pizwq
+# U+Xpz6P5vwfxBZnBPWrg4iULJA8QMYL3oS1kLAcDMDaynWurulxdzSjWXIC2DO6j
+# dMFLC4B/m7T2/iCkqpuTxx3G347lUAFEgJAPYqX66jHIop4b5iOjATOPE4e99lBn
+# 2SiMHFuDbkX+QcdjWvIbvpH6Z0UJAJsVDzm0wFRMGYfz8LhSKGuIH/MHJtWk+z1E
+# TPUIpq9VWk4tm9Djh7fBechh73DO0Fh+29P4KauwyWHD4qQk48HoNPFMnDc=
 # SIG # End signature block
