@@ -3480,8 +3480,11 @@ function Install-WinSSH {
     if ($UsePowerShellGet) {
         $InstallSSHAgentSplatParams.Add("UsePowerShellGet",$True)  
     }
-    elseif ($UseChocolateyCmdLine) {
+    if ($UseChocolateyCmdLine) {
         $InstallSSHAgentSplatParams.Add("UseChocolateyCmdLine",$True)
+    }
+    if ($GitHubInstall) {
+        $InstallSSHAgentSplatParams.Add("GitHubInstall",$True)
     }
     if ($SkipWinCapabilityAttempt) {
         $InstallSSHAgentSplatParams.Add("SkipWinCapabilityAttempt",$True)
@@ -3590,6 +3593,9 @@ function Install-SSHAgentService {
         [switch]$UsePowerShellGet,
 
         [Parameter(Mandatory=$False)]
+        [switch]$GitHubInstall,
+
+        [Parameter(Mandatory=$False)]
         [switch]$NoUpdatePackageManagement = $True,
 
         [Parameter(Mandatory=$False)]
@@ -3685,25 +3691,39 @@ function Install-SSHAgentService {
     if ([Environment]::OSVersion.Version -lt [version]"10.0.17063" -or $AddWindowsCapabilityFailure -or $SkipWinCapabilityAttempt -or $Force) {
         # BEGIN OpenSSH Program Installation #
 
-        $InstallProgramSplatParams = @{
-            ProgramName         = "OpenSSH"
-            CommandName         = "ssh.exe"
-            ErrorAction         = "SilentlyContinue"
-            ErrorVariable       = "IPErr"
+        if (!$GitHubInstall) {
+            $InstallProgramSplatParams = @{
+                ProgramName         = "OpenSSH"
+                CommandName         = "ssh.exe"
+                ErrorAction         = "SilentlyContinue"
+                ErrorVariable       = "IPErr"
+            }
+            if ($NoUpdatePackageManagement) {
+                $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
+            }
+            if ($Force) {
+                $InstallProgramSplatParams.Add("Force",$True)
+            }
+            if ($UsePowerShellGet) {
+                $InstallProgramSplatParams.Add("UsePowerShellGet",$True)  
+            }
+            elseif ($UseChocolateyCmdLine) {
+                $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
+            }
+
+            try {
+                $OpenSSHInstallResults = Install-Program @InstallProgramSplatParams
+                if (!$OpenSSHInstallResults) {throw "There was a problem with the Install-Program function! Halting!"}
+            }
+            catch {
+                Write-Error $_
+                Write-Host "Errors for the Install-Program function are as follows:"
+                Write-Error $($IPErr | Out-String)
+                $global:FunctionResult = "1"
+                return
+            }
         }
-        if ($NoUpdatePackageManagement) {
-            $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
-        }
-        if ($Force) {
-            $InstallProgramSplatParams.Add("Force",$True)
-        }
-        if ($UsePowerShellGet) {
-            $InstallProgramSplatParams.Add("UsePowerShellGet",$True)  
-        }
-        elseif ($UseChocolateyCmdLine) {
-            $InstallProgramSplatParams.Add("UseChocolateyCmdLine",$True)
-        }
-        elseif ($GitHubInstall) {
+        else {
             try {
                 Write-Host "Finding latest version of OpenSSH for Windows..."
                 $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/latest/'
@@ -3781,20 +3801,6 @@ function Install-SSHAgentService {
             }
             else {
                 Write-Error "It appears that the newest version of $WinSSHFileNameSansExt is already installed! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        if (!$GitHubInstall) {
-            try {
-                $OpenSSHInstallResults = Install-Program @InstallProgramSplatParams
-                if (!$OpenSSHInstallResults) {throw "There was a problem with the Install-Program function! Halting!"}
-            }
-            catch {
-                Write-Error $_
-                Write-Host "Errors for the Install-Program function are as follows:"
-                Write-Error $($IPErr | Out-String)
                 $global:FunctionResult = "1"
                 return
             }
