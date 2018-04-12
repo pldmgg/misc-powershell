@@ -1531,7 +1531,10 @@ function Install-Program {
         [switch]$SkipExeCheck = $True,
 
         [Parameter(Mandatory=$False)]
-        [switch]$PreRelease
+        [switch]$PreRelease,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$Force
     )
 
     ##### BEGIN Native Helper Functions #####
@@ -1799,7 +1802,7 @@ function Install-Program {
     if ($($PackageManagementInstalledPrograms.Name -notcontains $ProgramName  -and
     $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName) -or
     $PackageManagementCurrentInstalledPackage.Version -ne $PackageManagementLatestVersion.Version -or
-    $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName
+    $ChocolateyOutdatedProgramsPSObjects.ProgramName -contains $ProgramName -or $Force
     ) {
         if ($UsePowerShellGet -or $(!$UsePowerShellGet -and !$UseChocolateyCmdLine) -or 
         $PackageManagementInstalledPrograms.Name -contains $ProgramName -and $ChocolateyInstalledProgramsPSObjects.ProgramName -notcontains $ProgramName
@@ -3685,9 +3688,14 @@ function Install-SSHAgentService {
         $InstallProgramSplatParams = @{
             ProgramName         = "OpenSSH"
             CommandName         = "ssh.exe"
+            ErrorAction         = "SilentlyContinue"
+            ErrorVariable       = "IPErr"
         }
         if ($NoUpdatePackageManagement) {
             $InstallProgramSplatParams.Add("NoUpdatePackageManagement",$True)
+        }
+        if ($Force) {
+            $InstallProgramSplatParams.Add("Force",$True)
         }
         if ($UsePowerShellGet) {
             $InstallProgramSplatParams.Add("UsePowerShellGet",$True)  
@@ -3779,7 +3787,17 @@ function Install-SSHAgentService {
         }
 
         if (!$GitHubInstall) {
-            $OpenSSHInstallResults = Install-Program @InstallProgramSplatParams
+            try {
+                $OpenSSHInstallResults = Install-Program @InstallProgramSplatParams
+                if (!$OpenSSHInstallResults) {throw "There was a problem with the Install-Program function! Halting!"}
+            }
+            catch {
+                Write-Error $_
+                Write-Host "Errors for the Install-Program function are as follows:"
+                Write-Error $($IPErr | Out-String)
+                $global:FunctionResult = "1"
+                return
+            }
         }
 
         # END OpenSSH Program Installation #
