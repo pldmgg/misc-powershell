@@ -3428,7 +3428,12 @@ function Setup-GitCmdLine {
 
     # Make sure git cmdline is installed
     if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
-        $InstallGitExeResult = Install-Program -ProgramName git -CommandName git.exe
+        $InstallGitExeResult = Install-Program -ProgramName git -CommandName git
+    }
+    if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Error "There was a problem installing git! Halting!"
+        $global:FunctionResult = "1"
+        return
     }
 
     # Make sure global config for UserName and Email Address is configured
@@ -4906,12 +4911,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvs+y9shx+qVgSFC2BW49YJyg
-# rTygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+OEOAHrEO9U64QsuU1AcCQwI
+# W76gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4968,11 +4972,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMXXP5IPy39ar7//
-# D1FmfOr7LIztMA0GCSqGSIb3DQEBAQUABIIBAAJjxgcHXwCbZh4tw0N3SKoIhXvF
-# BGzT3/8CyPHYHk5JkVnGfuiMT2sXV4eF7ruyVZwr7O1UXa66de/OSyUa4C3pizwq
-# U+Xpz6P5vwfxBZnBPWrg4iULJA8QMYL3oS1kLAcDMDaynWurulxdzSjWXIC2DO6j
-# dMFLC4B/m7T2/iCkqpuTxx3G347lUAFEgJAPYqX66jHIop4b5iOjATOPE4e99lBn
-# 2SiMHFuDbkX+QcdjWvIbvpH6Z0UJAJsVDzm0wFRMGYfz8LhSKGuIH/MHJtWk+z1E
-# TPUIpq9VWk4tm9Djh7fBechh73DO0Fh+29P4KauwyWHD4qQk48HoNPFMnDc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEI3ayEc4Nv3jb9r
+# ZQheYmunFa44MA0GCSqGSIb3DQEBAQUABIIBAFnmoTLYfCvrCC5lRFcSrUXoAve7
+# gx3Pl2CSn8u/yxWyw3Shvv8UgpuUB44PGGBIwovZwvd8XcDkvsiR5m7VSCvf2PBJ
+# O50dfEWcfesIM4mLjPGlYVsZayOZNPqLuWPK02IPPuU5iclFrvN6W9uKTMheFwbp
+# 0QLDel6JKnKIV6Y50rKlre7mXtdZeutFTeRKktnUygGqSd+9sGesjnmM+cA0mYMi
+# rdutRYREIsChyQAAxmFiLKj1L5WdTB5+55JylLvdB3W/P7lieSCPYSFn2OF1VZCp
+# j8JPj+IX7LJhbI0mWbpylukV8kWDft14sQO2pl4U6g7k7N2FFU9+H0HgfCs=
 # SIG # End signature block
