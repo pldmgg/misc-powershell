@@ -3691,8 +3691,6 @@ function Setup-GitCmdLine {
             Write-Error "Unable to find private key! Halting!"
         }
     }
-    
-    Push-Location "$HOME\Documents\GitHub"
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -3837,8 +3835,6 @@ function Setup-GitCmdLine {
             Write-Host "    6) Click Add SSH key."
         }
     }
-
-    Pop-Location
 
     ##### END Main Body #####
 
@@ -4910,12 +4906,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+OEOAHrEO9U64QsuU1AcCQwI
-# W76gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVXkuu6O/8zywKZqK/3Xd3ZXp
+# a+qgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4972,11 +4967,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEI3ayEc4Nv3jb9r
-# ZQheYmunFa44MA0GCSqGSIb3DQEBAQUABIIBAFnmoTLYfCvrCC5lRFcSrUXoAve7
-# gx3Pl2CSn8u/yxWyw3Shvv8UgpuUB44PGGBIwovZwvd8XcDkvsiR5m7VSCvf2PBJ
-# O50dfEWcfesIM4mLjPGlYVsZayOZNPqLuWPK02IPPuU5iclFrvN6W9uKTMheFwbp
-# 0QLDel6JKnKIV6Y50rKlre7mXtdZeutFTeRKktnUygGqSd+9sGesjnmM+cA0mYMi
-# rdutRYREIsChyQAAxmFiLKj1L5WdTB5+55JylLvdB3W/P7lieSCPYSFn2OF1VZCp
-# j8JPj+IX7LJhbI0mWbpylukV8kWDft14sQO2pl4U6g7k7N2FFU9+H0HgfCs=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCrOFK/X5HUsbnYT
+# MZqYmm+Mid3aMA0GCSqGSIb3DQEBAQUABIIBAKQub9R5j0JJo6DHChub0DU0txqU
+# uUo7SLa8ROC7P7Ndvayu02lCudbhRKbPbZSrqc97p2Ayux2QJL0xRqxXZbdYSN8o
+# xrKnruMh73N1ISRSwPG34qetK6wc8RzNyTKutu+9PFZlz0g+3hazyx2JuUXPUulb
+# auWrF6oVv0XwAVDlmpY67DD5M1w1g3IMhvdQK8mSuQ/YnVioENY0VpErRVK/SKMu
+# lUIAOGuqHhRbBdp1qkyQWqrW7DY4Dw2pkR5IwGTlYhx9No9rSLahWaK+MVSFYomA
+# iT+qgRGbtWlYvcz8NHwrirKeuxf7CxS4LabQANU0k0AXBJJ4r89Q9sawYzQ=
 # SIG # End signature block
