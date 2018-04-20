@@ -5,7 +5,7 @@ function Manual-PSGalleryModuleInstall {
         [string]$ModuleName,
 
         [Parameter(Mandatory=$False)]
-        [string]$DownloadDirectory = "$HOME\Downloads"
+        [string]$DownloadDirectory
     )
 
     if (!$DownloadDirectory) {
@@ -27,6 +27,12 @@ function Manual-PSGalleryModuleInstall {
 
     $searchUrl = "https://www.powershellgallery.com/api/v2/Packages?`$filter=Id eq '$ModuleName' and IsLatestVersion"
     $ModuleInfo = Invoke-RestMethod $searchUrl
+    if (!$ModuleInfo) {
+        Write-Error "Unable to find Module Named $ModuleName! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+    
     $OutFilePath = Join-Path $DownloadDirectory $($ModuleInfo.title.'#text' + $ModuleInfo.properties.version + '.zip')
     if (Test-Path $OutFilePath) {Remove-Item $OutFilePath -Force}
     Invoke-WebRequest $ModuleInfo.Content.src -OutFile $OutFilePath
@@ -44,7 +50,6 @@ function Manual-PSGalleryModuleInstall {
 
     Remove-Item $OutFilePath -Force
 }
-
 
 
 
