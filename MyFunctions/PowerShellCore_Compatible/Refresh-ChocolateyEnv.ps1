@@ -8,9 +8,11 @@ function Refresh-ChocolateyEnv {
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
     # Fix any potential $env:Path mistakes...
+    <#
     if ($env:Path -match ";;") {
         $env:Path = $env:Path -replace ";;",";"
     }
+    #>
 
     ##### END Variable/Parameter Transforms and PreRun Prep #####
 
@@ -51,7 +53,7 @@ function Refresh-ChocolateyEnv {
         }
 
         foreach ($ChocoPath in $ChocolateyPathsPrep) {
-            if ($(Test-Path $ChocoPath) -and $($env:Path -split ";") -notcontains $ChocoPath) {
+            if ($(Test-Path $ChocoPath) -and $($env:Path -split ";") -notcontains $ChocoPath -and $ChocoPath -ne $null) {
                 $null = $ChocolateyPathsToAddToEnvPath.Add($ChocoPath)
             }
         }
@@ -70,7 +72,11 @@ function Refresh-ChocolateyEnv {
     }
 
     # Remove any repeats in $env:Path
-    $env:Path = $($($env:Path -split ";").Trim("\\") | Select-Object -Unique) -join ";"
+    $UpdatedEnvPath = $($($($env:Path -split ";") | foreach {
+        if (-not [System.String]::IsNullOrWhiteSpace($_)) {
+            $_.Trim("\\")
+        }
+    }) | Select-Object -Unique) -join ";"
 
     # Next, find chocolatey-core.psm1, chocolateysetup.psm1, chocolateyInstaller.psm1, and chocolateyProfile.psm1
     # and import them
@@ -92,6 +98,8 @@ function Refresh-ChocolateyEnv {
         Import-Module -Name $ModulePath
     }
 
+    $UpdatedEnvPath
+
     ##### END Main Body #####
 
 }
@@ -111,8 +119,8 @@ function Refresh-ChocolateyEnv {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6MP8ad4PyplbmQ0CLumVh1yb
-# 9KKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUCqmqQYONZhYaqhOpLPvDzsGR
+# qXCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -169,11 +177,11 @@ function Refresh-ChocolateyEnv {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOrA9QbwoASWOkaX
-# o2i1T9eQVX9jMA0GCSqGSIb3DQEBAQUABIIBAKQoluTtx5vHTryscUjnm6I7xQpy
-# vLv/5W0Tw37VwYreaA2kXQ8jZ8u7qvMBo3Ln4mmXO44T2ndrSE8hw/QwVVBPPZu9
-# 89Qp0HFj48cfx3th3Izx50QWXjyhYo0QM4k9iwclOiHdKqGPdARCs6vKHItcTLcm
-# j5OGZMRPagKY86t/4+UIphpc75hRbt2urnji90eMGgnkcDme3HnRsTPWb6N7WJDy
-# yVdGzFabgrwCYEHhcpvsrxrcQeZQSdcbU7d9C+kSk1e11jD5T2cUupqiQLkbHHKx
-# Up3iCmlvBwGUk9g5FLV7g/KO92VJCGbSz+U39pF/j5GgYD+Bgpk6Y57IIrU=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCbpLcshU8Xmta4E
+# ++i1hNvTu/jUMA0GCSqGSIb3DQEBAQUABIIBAC+q9FfyDq5/9zjqBHYVP2FxC8ov
+# UlJfQ5FiVwo+z83HfoEAOZUYZZVQKeynxzWlfjfHGJu0V7rKYYBuGzmXB//Ga+Pd
+# F+nEJcRlC2T7329wkr1IB4PPR0Zxn8dSiU/CZzql+TTcBD3ou4H22rbqvXr1kUyB
+# AfgH+XKKXvhRmIlEPp/3l0BgAp5OPs+toWZVYf3yNupA0ps7YA94vFKezuqtCieS
+# zbt+cmi5KbMFdI9yHFVBCfBR+lcUR9InVLwDBfeOAYmhjkUtmNX1xAiJEVA4KZVK
+# uYw83sLDLB7FH8nDPZxEoJ9N+Vp5EhUpJjgDmTKA0LotoUGxoGDOMsJJq+o=
 # SIG # End signature block
