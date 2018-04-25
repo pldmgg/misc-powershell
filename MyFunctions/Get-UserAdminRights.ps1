@@ -394,11 +394,7 @@ function Get-UserAdminRights {
     
     #endregion >> Helper Functions
     
-
-
-    ##### BEGIN Helper Functions #####
-
-    ##### BEGIN PreRun Prep #####
+    #region >> Main Body
     
     $UserShortName = $($UserAcct -split "\\")[-1]
     try {
@@ -443,6 +439,8 @@ function Get-UserAdminRights {
     else {
         $False
     }
+
+    #endregion >> Main Body
 }
 
 
@@ -455,8 +453,8 @@ function Get-UserAdminRights {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUd4iZGxy22IuD7Bz/QMLaJemm
-# wnqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUS0Dn9aYGSc+IbVuMOunZhXf9
+# Ab2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -513,11 +511,11 @@ function Get-UserAdminRights {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFgaKhtMZXaVInHs
-# T7NKV+Ce1v2lMA0GCSqGSIb3DQEBAQUABIIBAHB0u5x/fSgZIYum3bCtN7JNzjSX
-# a95CgXIFZ/mi9U+yf4nY1p5cVYaC4Ej/9mV/MTaIXZ+r1fIidc4bfqnhivkykiBr
-# Ao1uYyS1oTa9EAaNYGB2ig/j983omsH5JMTWlH9LhE7NrQh0I5lpaIs4q2+fFOdK
-# 3Mnddi4/kZpvbxQP7KYQzNQcwDQLxVbg4r/8R3abFNiTAhDj9KaYKO0y/5Cxr2WB
-# fHb4bgujM3yBSUAg7rsBuC0isMMcQnQWx/q/ptRCoQGsBy6M5qibmii2+QqjHnn9
-# cespxLNFsy/TflA6vZ/pgCRfjumaMoFJJWuSZQTi213ZFkH6ONgxgBRHCc8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMqr2Z9N0eZ13doh
+# PwSK4XH223JoMA0GCSqGSIb3DQEBAQUABIIBAC7qrnOPhtzdBO0jb5KznHF2UHSn
+# hYAtc8CMiggKnjGiN0JbXMKhXXXoH5XwdGfv00FNzVd5wWxzQF7FKCyhKvEHNgla
+# /A5uuNhmY4JYKRXiZHRe3IeSw1D7K7OfMPlk9ovAunBMzRxQJ1SadgZ6LA3hiXnf
+# VvvOubbT09oFga6AYpLqjqXXPChXnGlap8l+KU1HUVvU7z+b3kkkoJmGq66odtSR
+# hRcgSCHhsE08/JFyQjSLJfhTYg3foPk26dB8JZFZuuOHwGSDLpbHbRrLPhrE6gNY
+# QkGRIXXQ4KIvAzRPqaereUly6u82YRTlX3jqoUppXlvPDI9RA/03loUuB6E=
 # SIG # End signature block
