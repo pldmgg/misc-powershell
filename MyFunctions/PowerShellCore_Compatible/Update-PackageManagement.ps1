@@ -67,7 +67,7 @@ function Update-PackageManagement {
 
     ##### BEGIN Helper Functions #####
     
-    function Check-Elevation {
+    function GetElevation {
         if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
             [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
                 [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -165,7 +165,7 @@ function Update-PackageManagement {
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
     # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
-    if (!$(Check-Elevation)) {
+    if (!$(GetElevation)) {
         Write-Error "The Update-PackageManagement function must be run with elevated privileges. Halting!"
         $global:FunctionResult = "1"
         return
@@ -647,12 +647,11 @@ function Update-PackageManagement {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUR9QXY95a0FDONs3nFe3XNTnb
-# 2Bigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUd0o3O65O92rsp7Ari6H1hhvA
+# cx2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -709,11 +708,11 @@ function Update-PackageManagement {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAue+FBHEOc18zKd
-# ScdptzHGZJylMA0GCSqGSIb3DQEBAQUABIIBAHgFQ6qcgwyBg4njZE5Ht7JwNfyW
-# DUdzwJ1j/F7WqbyHZpANita7HS+X0B9K5t5s3SpZ66HMHgQggKzZcg9gIk5dx2k5
-# 1m0mjeFPtbu1WfouJTCv85zbMWXXZsnpO6w5NL8P7SC/Q47bN4REf1vJmN2rv9OQ
-# pdCpbAnnAaONR5Ndn06A+5ty7CFdvo9jpIj4yl2qHvcV11BYucjSnSsr3hwvvor9
-# 10PPhV84Xu+UUoRi11HqI5V7y54BwtUQ5RATgoPk25dSCVV+mdoNG/oXRP04BnAX
-# EGV5VALgf1EMDB6utoCH+4iiDsIwjpYNa2bClW9dC+hwXj0fk6IPO4Y4/do=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFD3YHalriUI+uje9
+# CzIZOZdKpuzOMA0GCSqGSIb3DQEBAQUABIIBACgP+k73t546jJVLAoyU+iMw0fx9
+# EbvxtiKBFHP/d4jb3moohSuz+qRxrCYzOufpALjWwEHKOTKAVGcmxKCB1jEJk3aV
+# eyCC9eAhsnEAURRuFSZ5Ixb5/tHjQzLdyAmx4l/BFYoFRMFrv2kS7RLup4grYyn1
+# cqzA+2qgla8t8RIVT5obl2vZXgjUHHtF1aga9aqFxAyPfuaBJ2IVXBq1RX6imLoO
+# L3Drw+6d6UP5AC1wObjDCA5rpLyrj3r/oetblxgDyBTPtzt8oRVRrK7gWJ4QMuFW
+# Uds/uX8mmQ31gMwN4GQqEBTkbeCh2iwDv0jqGbyG0npwOsfWldmyaSunxPU=
 # SIG # End signature block

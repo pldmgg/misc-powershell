@@ -5,7 +5,45 @@ function Install-ChocolateyCmdLine {
         [switch]$NoUpdatePackageManagement
     )
 
+    ##### BEGIN Native Helper Functions #####
+
+    function GetElevation {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+            [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            )
+    
+            [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    
+            if($currentPrincipal.IsInRole($administratorsRole)) {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+        
+        if ($PSVersionTable.Platform -eq "Unix") {
+            if ($(whoami) -eq "root") {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+    }
+
+    ##### END Native Helper Functions #####
+
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    # Invoke-WebRequest fix...
+    [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
+    if (!$(GetElevation)) {
+        Write-Error "The $($MyInvocation.MyCommand.Name) function must be ran from an elevated PowerShell Session (i.e. 'Run as Administrator')! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
 
     Write-Host "Please wait..."
     $global:FunctionResult = "0"
