@@ -3751,7 +3751,7 @@ function New-GitRepo {
     }
 
     if ($FinalNewRepoName -ne $NewRepoName) {
-        Write-Host "A repo with the Name '$NewRepoName' already exists! Final New Repo Name is '$FinalNewRepoName'" -ForegroundColor Yellow
+        Write-Warning "A repo with the Name '$NewRepoName' already exists! Final Repo Name will be '$FinalNewRepoName'"
         $ContinuePrompt = Read-Host -Prompt "Are you sure you want to create a new Git Repos with the name '$FinalNewRepoName'? [Yes\No]"
         while ($ContinuePrompt -notmatch "Yes|yes|Y|y|No|no|N|n") {
             Write-Host "'$ContinuePrompt' is not a valid option. Please enter 'Yes' or 'No'" -ForegroundColor Yellow
@@ -4487,12 +4487,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpczq1AYLOiseHEFesC+5/2/h
-# M6ygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHEVOYPL8iV/yapC2GvPemo+Y
+# OzCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4549,11 +4548,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAxAPkdnOdYAMjxw
-# 9M9+xsT+u/xDMA0GCSqGSIb3DQEBAQUABIIBAJ26anUph0RMuWP8IdDJo5am8oPN
-# Sh1F+4Dk3erXMom1HujsgzyZpUEzGiz26oxIdCYDfKH7dgjDTYBFRziRJB0baPDv
-# dtVyu6HqetB0BFdAEi2EW5y8t83MoPS5cgjdDsmPHJgOeDINBc1cfGQCTzwDuMdO
-# YcwfUXQGkoWpUmgViJIsy3nTm9hRPgMKKaB9ZXNTpezZcD3pfknvxfgEG9YvISNx
-# XV1X3jNB7GO58SpQzpbiH4JK5F3uZxb2e5bcTKtRQselyBRW+TQIOD5eXXYaVS4Q
-# dMWTwcEsLd8ln6vfjKwOqpepVINpPu4DKq+dJVGYljDa2jyxRq5az6V4Pz4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMCx41RlumhDTa3/
+# 8t9EI7QguD9wMA0GCSqGSIb3DQEBAQUABIIBAHtYNdBulTM4DYu0wV9hvPExweUR
+# Upu8sageOk1shS9QUwuUST+e2+7CtoWDZMq6yBFJROVzxFkbrqkxv39u0Jg3p5gA
+# 4sB4j+lAyavU33+ZADdmYRbsaOZTOorC9dfiEXE7fB5aBuSbCRq5sEHGAxyIJL0r
+# LQYxmepNa8NEWoO7BqGEhhHGOtJVKgHzkRROfJT937uj4VC4fnFUeiprzzj4VCO8
+# SWfYnAuvbh7WeNJGQe//8H7Bx5GQGIEAO3eYPo39WqbDEDDjPCfPDwkpmFlFQ2Wn
+# /P2YPfVFJfMU9YtcqhfNkYumL0AUjz6cSyz67aKIarVdqWcxvn68NSec/JE=
 # SIG # End signature block
