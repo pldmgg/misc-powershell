@@ -51,6 +51,32 @@ function Get-NativePath {
 
 }
 
+function New-UniqueString {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [string[]]$ArrayOfStrings,
+
+        [Parameter(Mandatory=$True)]
+        [string]$PossibleNewUniqueString
+    )
+
+    if (!$ArrayOfStrings -or $ArrayOfStrings.Count -eq 0 -or ![bool]$($ArrayOfStrings -match "[\w]")) {
+        $PossibleNewUniqueString
+    }
+    else {
+        $OriginalString = $PossibleNewUniqueString
+        $Iteration = 1
+        while ($ArrayOfStrings -contains $PossibleNewUniqueString) {
+            $AppendedValue = "_$Iteration"
+            $PossibleNewUniqueString = $OriginalString + $AppendedValue
+            $Iteration++
+        }
+
+        $PossibleNewUniqueString
+    }
+}
+
 function Pause-ForWarning {
     [CmdletBinding()]
     Param(
@@ -3604,13 +3630,19 @@ function Test-GitAuthentication {
 
         # Convert SecureString to PlainText
         $PersonalAccessTokenPT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
-
+        $Headers = @{
+            Authorization = "token $PersonalAccessTokenPT"
+        }
+        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos").Name
+        # Rest API Alternate Method
+        <#
         $Token = "$GitHubUserName`:$PersonalAccessTokenPT"
         $Base64Token = [System.Convert]::ToBase64String([char[]]$Token)
         $Headers = @{
             Authorization = "Basic {0}" -f $Base64Token
         }
         $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessTokenPT").Name
+        #>
 
         if ($PublicAndPrivateRepos -ne $null) {
             Write-Host "GitHub Authentication via https for $GitHubUserName was successful!" -ForegroundColor Green
@@ -3705,17 +3737,50 @@ function New-GitRepo {
 
     $NewRepoName = $NewRepoLocalPath | Split-Path -Leaf
 
-    if (!$(Test-Path $NewRepoLocalPath)) {
-        $null = New-Item -Type Directory -Path $NewRepoLocalPath -Force
+    if ($AuthMethod -eq "https") {
+        $Headers = @{
+            Authorization = "token $PersonalAccessTokenPT"
+        }
+        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos").Name
+        
+        # Make Sure $NewRepoName is Unique
+        $FinalNewRepoName = New-UniqueString -ArrayOfStrings $PublicAndPrivateRepos -PossibleNewUniqueString $NewRepoName
+    }
+    if ($AuthMethod -eq "ssh") {
+        #Placeholder
     }
 
-    Push-Location $NewRepoLocalPath
+    if ($FinalNewRepoName -ne $NewRepoName) {
+        Write-Host "A repo with the Name '$NewRepoName' already exists! Final New Repo Name is '$FinalNewRepoName'" -ForegroundColor Yellow
+        $ContinuePrompt = Read-Host -Prompt "Are you sure you want to create a new Git Repos with the name '$FinalNewRepoName'? [Yes\No]"
+        while ($ContinuePrompt -notmatch "Yes|yes|Y|y|No|no|N|n") {
+            Write-Host "'$ContinuePrompt' is not a valid option. Please enter 'Yes' or 'No'" -ForegroundColor Yellow
+            $ContinuePrompt = Read-Host -Prompt "Are you sure you want to create a new Git Repos with the name '$FinalNewRepoName'? [Yes\No]"
+        }
+
+        if ($ContinuePrompt -notmatch "Yes|yes|Y|y") {
+            Write-Error "User chose not to proceed. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $FinalNewRepoLocalPath = "$($NewRepoLocalPath | Split-Path -Parent)\$FinalNewRepoName"
+    }
+    else {
+        $FinalNewRepoLocalPath = $NewRepoLocalPath
+    }
+
+    if (!$(Test-Path $FinalNewRepoLocalPath)) {
+        $null = New-Item -Type Directory -Path $FinalNewRepoLocalPath -Force
+    }
+
+    Push-Location $FinalNewRepoLocalPath
 
     $ReadMeDefaultContent = @"
-[![Build status](https://ci.appveyor.com/api/projects/status/github/$GitHubUserName/$NewRepoName?branch=master&svg=true)](https://ci.appveyor.com/project/$GitHubUserName/sudo/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/github/$GitHubUserName/$FinalNewRepoName?branch=master&svg=true)](https://ci.appveyor.com/project/$GitHubUserName/sudo/branch/master)
 
 
-# $NewRepoName
+# $FinalNewRepoName
 <Synopsis>
 
 ## Getting Started
@@ -3724,19 +3789,19 @@ function New-GitRepo {
 # One time setup
     # Download the repository
     # Unblock the zip
-    # Extract the $NewRepoName folder to a module path (e.g. `$env:USERPROFILE\Documents\WindowsPowerShell\Modules\)
+    # Extract the $FinalNewRepoName folder to a module path (e.g. `$env:USERPROFILE\Documents\WindowsPowerShell\Modules\)
 # Or, with PowerShell 5 or later or PowerShellGet:
-    Install-Module $NewRepoName
+    Install-Module $FinalNewRepoName
 
 # Import the module.
-    Import-Module $NewRepoName    # Alternatively, Import-Module <PathToModuleFolder>
+    Import-Module $FinalNewRepoName    # Alternatively, Import-Module <PathToModuleFolder>
 
 # Get commands in the module
-    Get-Command -Module $NewRepoName
+    Get-Command -Module $FinalNewRepoName
 
 # Get help
-    Get-Help <$NewRepoName Function> -Full
-    Get-Help about_$NewRepoName
+    Get-Help <$FinalNewRepoName Function> -Full
+    Get-Help about_$FinalNewRepoName
 ``````
 
 ## Examples
@@ -3754,10 +3819,6 @@ powershell code
     Set-Content -Value $ReadMeDefaultContent -Path .\README.md
 
     if ($AuthMethod -eq "https") {
-        $Headers = @{
-            Authorization = "token $PersonalAccessTokenPT"
-        }
-
         # More info on JSON Options: https://developer.github.com/v3/repos/#create
         if ($PublicOrPrivate -eq "Public") {
             $PrivateBool = "false"
@@ -3768,7 +3829,7 @@ powershell code
         
         $jsonRequest = @(
             '{'
-            "    `"name`": `"$NewRepoName`","
+            "    `"name`": `"$FinalNewRepoName`","
             "    `"description`": `"$NewRepoDescription`","
             "    `"private`": `"$PrivateBool`""
             '}'
@@ -3787,7 +3848,7 @@ powershell code
         git init
         git add -A
         git commit -am "first commit"
-        git remote add origin "https://github.com/$GitHubUserName/$NewRepoName.git"
+        git remote add origin "https://github.com/$GitHubUserName/$FinalNewRepoName.git"
         git push -u origin master
     }
 }
@@ -4427,12 +4488,11 @@ function Publish-MyGitRepo {
 
 
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoOMRi4XvfTcWQ1x9+uAgBBIL
-# s3igggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpczq1AYLOiseHEFesC+5/2/h
+# M6ygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4489,11 +4549,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFB0PNMxm/B9tCqK/
-# 9MpGO8JcCw+xMA0GCSqGSIb3DQEBAQUABIIBAF4RXMAogW3YkyKBugSNNdJ/XKeS
-# YMN+OGwhWQY1Ol31IuHZeyv/BsLxbPHwfoM31ThyXysR71iQeTqPTCoBgs+glFhl
-# nAO3ZE8ChetLNt5Q97sLBgCrVCCokvlinwU4YD4kIWMHLoC6eEKnOv4EmVFB3sRV
-# wmiiTpuSWFYrYxrgciSuT9bkznuXxu11dCug+VxAlWvjs1uPktqMd36Ja6rBpGYV
-# ebax11YvB6xz6aIt7apMu7XT/LZSmHV0Pfp1XrGobpd+10ey48prYHgOIU5kl83R
-# JuAePoioL/IWpLvJoI74jsNYtBFSA6r2PSKdo0J7pScOhPo8VSfIHSY6i2E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAxAPkdnOdYAMjxw
+# 9M9+xsT+u/xDMA0GCSqGSIb3DQEBAQUABIIBAJ26anUph0RMuWP8IdDJo5am8oPN
+# Sh1F+4Dk3erXMom1HujsgzyZpUEzGiz26oxIdCYDfKH7dgjDTYBFRziRJB0baPDv
+# dtVyu6HqetB0BFdAEi2EW5y8t83MoPS5cgjdDsmPHJgOeDINBc1cfGQCTzwDuMdO
+# YcwfUXQGkoWpUmgViJIsy3nTm9hRPgMKKaB9ZXNTpezZcD3pfknvxfgEG9YvISNx
+# XV1X3jNB7GO58SpQzpbiH4JK5F3uZxb2e5bcTKtRQselyBRW+TQIOD5eXXYaVS4Q
+# dMWTwcEsLd8ln6vfjKwOqpepVINpPu4DKq+dJVGYljDa2jyxRq5az6V4Pz4=
 # SIG # End signature block
