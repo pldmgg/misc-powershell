@@ -1,6 +1,6 @@
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
 
-function Check-Elevation {
+function GetElevation {
     if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
         [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
             [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -408,215 +408,6 @@ function Unzip-File {
     }
 }
 
-function New-SudoSession {
-    [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
-    Param(
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Supply UserName and Password'
-        )]
-        [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Supply UserName and Password'
-        )]
-        $Password,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Supply Credentials'
-        )]
-        [System.Management.Automation.PSCredential]$Credentials
-
-    )
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-    if ($UserName -and !$Password -and !$Credentials) {
-        $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-    }
-
-    if ($UserName -and $Password) {
-        if ($Password.GetType().FullName -eq "System.String") {
-            $Password = ConvertTo-SecureString $Password -AsPlainText -Force
-        }
-        $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
-    }
-
-    $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
-    $LocalHostFQDN = "$env:ComputerName.$Domain"
-
-    ##### END Variable/Parameter Transforms and PreRunPrep #####
-
-    ##### BEGIN Main Body #####
-
-    $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
-    $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
-    $AllowFreshValue = "WSMAN/$LocalHostFQDN"
-    $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
-    $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
-    $tmpFileXml = $UpdatedtmpFileXmlName
-    $TranscriptPath = "$HOME\Open-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
-
-    $WSManGPOTempConfig = @"
--noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
-try {`$CurrentAllowFreshCredsProperties = Get-ChildItem -Path $CredDelRegLocation | ? {`$_.PSChildName -eq 'AllowFreshCredentials'}} catch {}
-try {`$CurrentAllowFreshCredsValues = foreach (`$propNum in `$CurrentAllowFreshCredsProperties) {`$(Get-ItemProperty -Path '$CredDelRegLocation\AllowFreshCredentials').`$propNum}} catch {}
-
-if (!`$(Test-WSMan)) {`$WinRMConfigured = 'false'; winrm quickconfig /force; Start-Sleep -Seconds 5} else {`$WinRMConfigured = 'true'}
-try {`$CredSSPServiceSetting = `$(Get-ChildItem WSMan:\localhost\Service\Auth\CredSSP).Value} catch {}
-try {`$CredSSPClientSetting = `$(Get-ChildItem WSMan:\localhost\Client\Auth\CredSSP).Value} catch {}
-if (`$CredSSPServiceSetting -eq 'false') {Enable-WSManCredSSP -Role Server -Force}
-if (`$CredSSPClientSetting -eq 'false') {Enable-WSManCredSSP -DelegateComputer localhost -Role Client -Force}
-
-if (!`$(Test-Path $CredDelRegLocation)) {`$Status = 'CredDelKey DNE'}
-if (`$(Test-Path $CredDelRegLocation) -and !`$(Test-Path $CredDelRegLocation\AllowFreshCredentials)) {`$Status = 'AllowFreshCreds DNE'}
-if (`$(Test-Path $CredDelRegLocation) -and `$(Test-Path $CredDelRegLocation\AllowFreshCredentials)) {`$Status = 'AllowFreshCreds AlreadyExists'}
-
-if (!`$(Test-Path $CredDelRegLocation)) {New-Item -Path $CredDelRegLocation}
-if (`$(Test-Path $CredDelRegLocation) -and !`$(Test-Path $CredDelRegLocation\AllowFreshCredentials)) {New-Item -Path $CredDelRegLocation\AllowFreshCredentials}
-
-if (`$CurrentAllowFreshCredsValues -notcontains '$AllowFreshValue') {Set-ItemProperty -Path $CredDelRegLocation -Name ConcatenateDefaults_AllowFresh -Value `$(`$CurrentAllowFreshCredsProperties.Count+1) -Type DWord; Start-Sleep -Seconds 2; Set-ItemProperty -Path $CredDelRegLocation\AllowFreshCredentials -Name `$(`$CurrentAllowFreshCredsProperties.Count+1) -Value '$AllowFreshValue' -Type String}
-New-Variable -Name 'OrigAllowFreshCredsState' -Value `$([pscustomobject][ordered]@{OrigAllowFreshCredsProperties = `$CurrentAllowFreshCredsProperties; OrigAllowFreshCredsValues = `$CurrentAllowFreshCredsValues; Status = `$Status; OrigWSMANConfigStatus = `$WinRMConfigured; OrigWSMANServiceCredSSPSetting = `$CredSSPServiceSetting; OrigWSMANClientCredSSPSetting = `$CredSSPClientSetting; PropertyToRemove = `$(`$CurrentAllowFreshCredsProperties.Count+1)})
-`$(Get-Variable -Name 'OrigAllowFreshCredsState' -ValueOnly) | Export-CliXml -Path $tmpFileXml
-exit"
-"@
-    $WSManGPOTempConfigFinal = $WSManGPOTempConfig -replace "`n","; "
-
-    # IMPORTANT NOTE: You CANNOT use the RunAs Verb if UseShellExecute is $false, and you CANNOT use
-    # RedirectStandardError or RedirectStandardOutput if UseShellExecute is $true, so we have to write
-    # output to a file temporarily
-    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $ProcessInfo.FileName = "powershell.exe"
-    $ProcessInfo.RedirectStandardError = $false
-    $ProcessInfo.RedirectStandardOutput = $false
-    $ProcessInfo.UseShellExecute = $true
-    $ProcessInfo.Arguments = $WSManGPOTempConfigFinal
-    $ProcessInfo.Verb = "RunAs"
-    $Process = New-Object System.Diagnostics.Process
-    $Process.StartInfo = $ProcessInfo
-    $Process.Start() | Out-Null
-    $Process.WaitForExit()
-    $WSManAndRegStatus = Import-CliXML $tmpFileXml
-
-    $ElevatedPSSession = New-PSSession -Name "ElevatedSessionFor$UserName" -Authentication CredSSP -Credential $Credentials
-
-    New-Variable -Name "NewSessionAndOriginalStatus" -Scope Global -Value $(
-        [pscustomobject][ordered]@{
-            ElevatedPSSession   = $ElevatedPSSession
-            OriginalWSManAndRegistryStatus   = $WSManAndRegStatus
-        }
-    ) -Force
-    
-    $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly)
-
-    # Cleanup 
-    Remove-Item $tmpFileXml
-
-    ##### END Main Body #####
-
-}
-
-function Remove-SudoSession {
-    [CmdletBinding(DefaultParameterSetName='Supply UserName and Password')]
-    Param(
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Supply UserName and Password'
-        )]
-        [string]$UserName = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name -split "\\")[-1],
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Supply UserName and Password'
-        )]
-        $Password,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Supply Credentials'
-        )]
-        [System.Management.Automation.PSCredential]$Credentials,
-
-        [Parameter(Mandatory=$True)]
-        $OriginalConfigInfo = $(Get-Variable -Name "NewSessionAndOriginalStatus" -ValueOnly).OriginalWSManAndRegistryStatus,
-
-        [Parameter(
-            Mandatory=$True,
-            ValueFromPipeline=$true,
-            Position=0
-        )]
-        [System.Management.Automation.Runspaces.PSSession]$SessionToRemove
-
-    )
-
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-    if ($OriginalConfigInfo -eq $null) {
-        Write-Warning "Unable to determine the original configuration of WinRM/WSMan and AllowFreshCredentials Registry prior to using New-SudoSession. No configuration changes will be made/reverted."
-        Write-Warning "The only action will be removing the Elevated PSSession specified by the -SessionToRemove parameter."
-    }
-
-    if ($UserName -and !$Password -and !$Credentials -and $OriginalConfigInfo -ne $null) {
-        $Password = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-    }
-
-    if ($UserName -and $Password) {
-        if ($Password.GetType().FullName -eq "System.String") {
-            $Password = ConvertTo-SecureString $Password -AsPlainText -Force
-        }
-        $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Password
-    }
-
-    $Domain = $(Get-CimInstance -ClassName Win32_ComputerSystem).Domain
-    $LocalHostFQDN = "$env:ComputerName.$Domain"
-
-    ##### END Variable/Parameter Transforms and PreRunPrep #####
-
-    ##### BEGIN Main Body #####
-
-    if ($OriginalConfigInfo -ne $null) {
-        $CredDelRegLocation = "HKLM:\Software\Policies\Microsoft\Windows\CredentialsDelegation"
-        $CredDelRegLocationParent = $CredDelRegLocation | Split-Path -Parent
-        $AllowFreshValue = "WSMAN/$LocalHostFQDN"
-        $tmpFileXmlPrep = [IO.Path]::GetTempFileName()
-        $UpdatedtmpFileXmlName = $tmpFileXmlPrep -replace "\.tmp",".xml"
-        $tmpFileXml = $UpdatedtmpFileXmlName
-        $TranscriptPath = "$HOME\Remove-SudoSession_Transcript_$UserName_$(Get-Date -Format MM-dd-yyy_hhmm_tt).txt"
-
-        $WSManGPORevertConfig = @"
--noprofile -WindowStyle Hidden -Command "Start-Transcript -Path $TranscriptPath -Append
-if ('$($OriginalConfigInfo.Status)' -eq 'CredDelKey DNE') {Remove-Item -Recurse $CredDelRegLocation -Force}
-if ('$($OriginalConfigInfo.Status)' -eq 'AllowFreshCreds DNE') {Remove-Item -Recurse $CredDelRegLocation\AllowFreshCredentials -Force}
-if ('$($OriginalConfigInfo.Status)' -eq 'AllowFreshCreds AlreadyExists') {Remove-ItemProperty $CredDelRegLocation\AllowFreshCredentials\AllowFreshCredentials -Name $($WSManAndRegStatus.PropertyToRemove) -Force}
-if ('$($OriginalConfigInfo.OrigWSMANConfigStatus)' -eq 'false') {Stop-Service -Name WinRm; Set-Service WinRM -StartupType "Manual"}
-if ('$($OriginalConfigInfo.OrigWSMANServiceCredSSPSetting)' -eq 'false') {Set-Item -Path WSMan:\localhost\Service\Auth\CredSSP -Value `$false}
-if ('$($OriginalConfigInfo.OrigWSMANClientCredSSPSetting)' -eq 'false') {Set-Item -Path WSMan:\localhost\Client\Auth\CredSSP -Value `$false}
-exit"
-"@
-        $WSManGPORevertConfigFinal = $WSManGPORevertConfig -replace "`n","; "
-
-        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $ProcessInfo.FileName = "powershell.exe"
-        $ProcessInfo.RedirectStandardError = $false
-        $ProcessInfo.RedirectStandardOutput = $false
-        $ProcessInfo.UseShellExecute = $true
-        $ProcessInfo.Arguments = $WSManGPORevertConfigFinal
-        $ProcessInfo.Verb = "RunAs"
-        $Process = New-Object System.Diagnostics.Process
-        $Process.StartInfo = $ProcessInfo
-        $Process.Start() | Out-Null
-        $Process.WaitForExit()
-
-    }
-
-    Remove-PSSession $SessionToRemove
-
-    ##### END Main Body #####
-
-}
-
 function Update-PackageManagement {
     [CmdletBinding()]
     Param( 
@@ -630,107 +421,10 @@ function Update-PackageManagement {
         [switch]$LoadUpdatedModulesInSameSession
     )
 
-    ##### BEGIN Helper Functions #####
-    
-    function Check-Elevation {
-        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
-            [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
-                [System.Security.Principal.WindowsIdentity]::GetCurrent()
-            )
-    
-            [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
-    
-            if($currentPrincipal.IsInRole($administratorsRole)) {
-                return $true
-            }
-            else {
-                return $false
-            }
-        }
-        
-        if ($PSVersionTable.Platform -eq "Unix") {
-            if ($(whoami) -eq "root") {
-                return $true
-            }
-            else {
-                return $false
-            }
-        }
-    }
-
-    function Get-NativePath {
-        [CmdletBinding()]
-        Param( 
-            [Parameter(Mandatory=$True)]
-            [string[]]$PathAsStringArray
-        )
-    
-        $PathAsStringArray = foreach ($pathPart in $PathAsStringArray) {
-            $SplitAttempt = $pathPart -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)
-            
-            if ($SplitAttempt.Count -gt 1) {
-                foreach ($obj in $SplitAttempt) {
-                    $obj
-                }
-            }
-            else {
-                $pathPart
-            }
-        }
-        $PathAsStringArray = $PathAsStringArray -join [IO.Path]::DirectorySeparatorChar
-    
-        $PathAsStringArray
-    
-    }
-
-    function Pause-ForWarning {
-        [CmdletBinding()]
-        Param(
-            [Parameter(Mandatory=$True)]
-            [int]$PauseTimeInSeconds,
-    
-            [Parameter(Mandatory=$True)]
-            $Message
-        )
-    
-        Write-Warning $Message
-        Write-Host "To answer in the affirmative, press 'y' on your keyboard."
-        Write-Host "To answer in the negative, press any other key on your keyboard, OR wait $PauseTimeInSeconds seconds"
-    
-        $timeout = New-Timespan -Seconds ($PauseTimeInSeconds - 1)
-        $stopwatch = [diagnostics.stopwatch]::StartNew()
-        while ($stopwatch.elapsed -lt $timeout){
-            if ([Console]::KeyAvailable) {
-                $keypressed = [Console]::ReadKey("NoEcho").Key
-                Write-Host "You pressed the `"$keypressed`" key"
-                if ($keypressed -eq "y") {
-                    $Result = $true
-                    break
-                }
-                if ($keypressed -ne "y") {
-                    $Result = $false
-                    break
-                }
-            }
-    
-            # Check once every 1 second to see if the above "if" condition is satisfied
-            Start-Sleep 1
-        }
-    
-        if (!$Result) {
-            $Result = $false
-        }
-        
-        $Result
-    }
-
-    ##### END Helper Functions #####
-    
-
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
     # We're going to need Elevated privileges for some commands below, so might as well try to set this up now.
-    if (!$(Check-Elevation)) {
+    if (!$(GetElevation)) {
         Write-Error "The Update-PackageManagement function must be run with elevated privileges. Halting!"
         $global:FunctionResult = "1"
         return
@@ -1212,7 +906,45 @@ function Install-ChocolateyCmdLine {
         [switch]$NoUpdatePackageManagement
     )
 
+    ##### BEGIN Native Helper Functions #####
+
+    function GetElevation {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+            [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            )
+    
+            [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    
+            if($currentPrincipal.IsInRole($administratorsRole)) {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+        
+        if ($PSVersionTable.Platform -eq "Unix") {
+            if ($(whoami) -eq "root") {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+    }
+
+    ##### END Native Helper Functions #####
+
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    # Invoke-WebRequest fix...
+    [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
+    if (!$(GetElevation)) {
+        Write-Error "The $($MyInvocation.MyCommand.Name) function must be ran from an elevated PowerShell Session (i.e. 'Run as Administrator')! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
 
     Write-Host "Please wait..."
     $global:FunctionResult = "0"
@@ -1304,8 +1036,7 @@ function Install-ChocolateyCmdLine {
             
             if ($RCEErr.Count -gt 0 -and
             $global:FunctionResult -eq "1" -and
-            ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")
-            ) {
+            ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
                 throw "The Refresh-ChocolateyEnv function failed! Halting!"
             }
         }
@@ -1387,8 +1118,7 @@ function Install-ChocolateyCmdLine {
                     
                     if ($RCEErr.Count -gt 0 -and
                     $global:FunctionResult -eq "1" -and
-                    ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")
-                    ) {
+                    ![bool]$($RCEErr -match "Neither the Chocolatey PackageProvider nor the Chocolatey CmdLine appears to be installed!")) {
                         throw "The Refresh-ChocolateyEnv function failed! Halting!"
                     }
                 }
@@ -1725,12 +1455,44 @@ function Install-Program {
         $ExePath | Sort-Object | Get-Unique
     }
 
+    function GetElevation {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+            [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            )
+    
+            [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    
+            if($currentPrincipal.IsInRole($administratorsRole)) {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+        
+        if ($PSVersionTable.Platform -eq "Unix") {
+            if ($(whoami) -eq "root") {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+    }
+
     ##### END Native Helper Functions #####
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
 
     # Invoke-WebRequest fix...
     [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+
+    if (!$(GetElevation)) {
+        Write-Error "The $($MyInvocation.MyCommand.Name) function must be ran from an elevated PowerShell Session (i.e. 'Run as Administrator')! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
 
     if ($UseChocolateyCmdLine) {
         $NoUpdatePackageManagement = $True
@@ -3375,6 +3137,21 @@ function Manage-StoredCredentials {
     CredManMain
 }
 
+function Install-GitCmdLine {
+    [CmdletBinding()]
+    Param ()
+
+    Install-Program -ProgramName git -CommandName git
+}
+
+function Install-GitDesktop {
+    [CmdletBinding()]
+    Param ()
+
+    #Install-Program -ProgramName github-desktop
+    Install-Program -ProgramName github-desktop -ResolveCommandPath:$False -UseChocolateyCmdLine
+}
+
 <#
     .SYNOPSIS
         Configures Git installed on Windows via GitDesktop to authenticate via https or ssh.
@@ -3414,7 +3191,7 @@ function Manage-StoredCredentials {
         Setup-GitCmdLine @GitAuthParams
 
 #>
-function Setup-GitCmdLine {
+function Configure-GitCmdLine {
     [CmdletBinding(DefaultParameterSetname='AuthSetup')]
     Param(
         [Parameter(Mandatory=$False)]
@@ -3455,17 +3232,27 @@ function Setup-GitCmdLine {
             Mandatory=$False,
             ParameterSetName='HTTPS Auth'
         )]
-        $PersonalAccessToken
+        [securestring]$PersonalAccessToken,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$AllowAwaitModuleInstall
     )
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep ######
 
+    $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
+
     # Make sure git cmdline is installed
     if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
-        $InstallGitExeResult = Install-Program -ProgramName git -CommandName git
+        $ExpectedGitPath = "C:\Program Files\Git\cmd"
+        if ($($env:Path -split ";") -notcontains [regex]::Escape($ExpectedGitPath)) {
+            if (Test-Path $ExpectedGitPath) {
+                $env:Path = $ExpectedGitPath + ";" + $env:Path
+            }
+        }
     }
     if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
-        Write-Error "There was a problem installing git! Halting!"
+        Write-Error "Unable to find git.exe! Try installing with the 'Install-GitCmdLine' function. Halting!"
         $global:FunctionResult = "1"
         return
     }
@@ -3473,15 +3260,6 @@ function Setup-GitCmdLine {
     # Make sure global config for UserName and Email Address is configured
     git config --global user.name "$GitHubUserName"
     git config --global user.email "$GitHubEmail"
-
-    if ($PersonalAccessToken) {
-        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
-            # Convert SecureString to PlainText
-            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
-        }
-    }
-
-    $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
 
     if ($ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd -or $DownloadAndSetupDependencies) {
         $AuthMethod = "ssh"
@@ -3493,255 +3271,24 @@ function Setup-GitCmdLine {
         $AuthMethod = "ssh"
     }
 
-    if ($AuthMethod -eq "https" -and $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
-        Write-Verbose "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
-        Write-Error "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+    if ($AuthMethod -eq "https" -and
+    $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd -or $AllowAwaitModuleInstall)
+    ) {
+        $ErrMsg = "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, " +
+        "-NewSSHKeyPwd, and/or -AllowAwaitModuleInstall should only be used when -AuthMethod is `"ssh`"! Halting!"
+        Write-Error $ErrMsg
         $global:FunctionResult = "1"
         return
     }
     # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
     # because Setup-GitCmdLine function can handle things if neither are provided
-    if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
-        $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
-        # Convert SecureString to PlainText
-        $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
-    }
-    if ($ExistingSSHPrivateKeyPath) {
-        $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
-        if (!$(Test-Path "$ExistingSSHPrivateKeyPath")) {
-            Write-Verbose "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
-            Write-Error "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    if ($NewSSHKeyPwd) {
-        if ($NewSSHKeyPwd.GetType().FullName -eq "System.Security.SecureString") {
-            # Convert SecureString to PlainText
-            $NewSSHKeyPwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($NewSSHKeyPwd))
-        }
-        if (!$NewSSHKeyName) {
-            $NewSSHKeyName = "GitAuthFor$CurrentUser"
-        }
-    }
-
-    $GitDesktopVersion = [version]$(Check-InstalledPrograms -ProgramTitleSearchTerm "GitHub" | Where-Object {$_.DisplayName -notmatch "Machine-Wide Installer"}).DisplayVersion
-    if ($GitDesktopVersion -eq $null) {
-        Write-Verbose "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
-        Write-Error "A Git Desktop installation was not found. Please install GitHub Desktop and try again. Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    if ($GitDesktopVersion.Major -eq 0) {
-        $GitDesktopChannel = "Beta"
-    }
-    if ($GitDesktopVersion.Major -gt 0) {
-        $GitDesktopChannel = "Stable"
-    }
-    if (!$(Test-Path "$HOME\Documents\GitHub")) {
-        New-Item -Type Directory -Path "$HOME\Documents\GitHub"
-    }
-
-    if ($AuthMethod -eq "ssh") {
-        # ssh Utilities could come from Git or From previously installed Windows OpenSSH. We want to make sure we use
-        # Windows OpenSSH
-        $Potential64ArchLocation = "C:\Program Files\OpenSSH-Win64"
-        $Potential32ArchLocation = "C:\Program Files (x86)\OpenSSH-Win32"
-        $Potential64ArchLocationRegex = [regex]::Escape($Potential64ArchLocation)
-        $Potential32ArchLocationRegex = [regex]::Escape($Potential32ArchLocation)
-        if (!$(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and !$DownloadAndSetupDependencies) {
-            Write-Verbose "The Setup-GitCmdLine function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitCmdLine function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
-            Write-Error "The Setup-GitCmdLine function depends on ssh-keygen.exe from OpenSSH-Win64 and it is currently not available. Run the Setup-GitCmdLine function again with the -DownloadAndSetupDependencies switch to add the dependency! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        $NeedWinOpenSSHScenario1 = !$(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and $DownloadAndSetupDependencies
-        $NeedWinOpenSSHScenario2 = $(Get-Command "ssh-keygen" -ErrorAction SilentlyContinue) -and $(Get-Command "ssh-keygen" -All | Where-Object {
-            $_.Source -match "$Potential32ArchLocationRegex\\ssh-keygen\.exe|$Potential64ArchLocationRegex\\ssh-keygen\.exe"
-        }).Source -eq $null -and $DownloadAndSetupDependencies
-        if ($NeedWinOpenSSHScenario1 -or $NeedWinOpenSSHScenario2) {
-            try {
-                $WinSSHModuleUri = "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyModules/WinSSH/WinSSH.psm1"
-                $OutFilePath = "$HOME\Downloads\WinSSH.psm1"
-                Invoke-WebRequest -Uri $WinSSHModuleUri -OutFile $OutFilePath
-                Import-Module $OutFilePath
-                Install-WinSSH -GiveWinSSHBinariesPathPriority
-            }
-            catch {
-                Write-Error $_
-                Write-Error "Problem installing OpenSSH-Win64! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-        # Make sure we're using the Windows OpenSSH Version of ssh-keygen.exe by moving the Git SSH Utilities Path
-        # to the end of $env:Path
-        $Currentuser = $($(whoami) -split '\\')[-1]
-        $RegexMatches = $($env:Path | Select-String -Pattern "$Potential64ArchLocationRegex|$Potential32ArchLocationRegex|C:\\Users\\$CurrentUser\\AppData\\Local\\GitHub\\PortableGit_.*\\usr\\bin" -AllMatches).Matches
-        if ($RegexMatches[0].Value -match "Git") {
-            $RegexValueToReplace = $RegexMatches[0].Value -replace "\\","\\"
-            $env:Path = $($env:Path -replace "$RegexValueToReplace","") + ";" + $RegexMatches[0].Value
-        }
-
-        if (!$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
-            if ($GitDesktopChannel -eq "Stable") {
-                if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
-                    GitHub.exe --set-up-ssh
-                    for ($i=0; $i -lt $(0..4).Count; $i++) {
-                        Write-Host "Waiting $($(0..4).Count - $i) seconds for GitHub.exe --set-up-ssh to create $HOME\.ssh\github_rsa..."
-                        if (Test-Path "$HOME\.ssh\github_rsa") {
-                            Write-Host "GitHub.exe --set-up-ssh successfully created $HOME\.ssh\github_rsa. Continuing..."
-                            break
-                        }
-                        Start-Sleep -Seconds 1
-                    }
-                    if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
-                        $NewSSHKeyName = "github_rsa"
-                    }
-                    else {
-                        $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
-                    }
-                }
-                else {
-                    $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
-                }
-            }
-            if ($GitDesktopChannel -eq "Beta") {
-                $NewSSHKeyName = "GitAuthFor$CurrentUser"
-            }
-        }
-        
-        if ($NewSSHKeyName) {
-            # Create new public/private keypair #
-            if (!$(Test-Path "$HOME\.ssh")) {
-                New-Item -Type Directory -Path "$HOME\.ssh"
-            }
-
-            if ($NewSSHKeyPwd) {
-                ssh-keygen.exe -t rsa -b 2048 -f "$HOME\.ssh\$NewSSHKeyName" -q -N "$NewSSHKeyPwd" -C "GitAuthFor$CurrentUser"
-            }
-            else {
-                 # Need PowerShell Await Module (Windows version of Linux Expect) for ssh-keygen with null password
-                if ($(Get-Module -ListAvailable).Name -notcontains "Await" -and $DownloadAndSetupDependencies) {
-                    # Install-Module "Await" -Scope CurrentUser
-                    # Clone PoshAwait repo to .zip
-                    Invoke-WebRequest -Uri "https://github.com/pldmgg/PoshAwait/archive/master.zip" -OutFile "$HOME\PoshAwait.zip"
-                    $tempDirectory = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())
-                    [IO.Directory]::CreateDirectory($tempDirectory)
-                    Unzip-File -PathToZip "$HOME\PoshAwait.zip" -TargetDir "$tempDirectory"
-                    if (!$(Test-Path "$HOME\Documents\WindowsPowerShell\Modules\Await")) {
-                        New-Item -Type Directory "$HOME\Documents\WindowsPowerShell\Modules\Await"
-                    }
-                    Copy-Item -Recurse -Path "$tempDirectory\PoshAwait-master\*" -Destination "$HOME\Documents\WindowsPowerShell\Modules\Await"
-                    Remove-Item -Recurse -Path $tempDirectory -Force
-                }
-
-                # Make private key password $null
-                Import-Module Await
-                if (!$?) {
-                    Write-Verbose "Unable to load the Await Module! Halting!"
-                    Write-Error "Unable to load the Await Module! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-
-                Start-AwaitSession
-                Start-Sleep -Seconds 1
-                Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
-                $PSAwaitProcess = $($(Get-Process | ? {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
-                Start-Sleep -Seconds 1
-                Send-AwaitCommand "`$env:Path = '$env:Path'"
-                Start-Sleep -Seconds 1
-                Send-AwaitCommand "ssh-keygen.exe -t rsa -b 2048 -f `"$HOME\.ssh\$NewSSHKeyName`" -C `"GitAuthFor$CurrentUser`""
-                Start-Sleep -Seconds 1
-                Send-AwaitCommand ""
-                Start-Sleep -Seconds 1
-                Send-AwaitCommand ""
-                Start-Sleep -Seconds 1
-                $SSHKeyGenConsoleOutput = Receive-AwaitResponse
-                Write-hOst ""
-                Write-Host "##### BEGIN ssh-keygen Console Output From PSAwaitSession #####"
-                Write-Host "$SSHKeyGenConsoleOutput"
-                Write-Host "##### END ssh-keygen Console Output From PSAwaitSession #####"
-                Write-Host ""
-                # If Stop-AwaitSession errors for any reason, it doesn't return control, so we need to handle in try/catch block
-                try {
-                    Stop-AwaitSession
-                }
-                catch {
-                    if ($PSAwaitProcess.Id -eq $PID) {
-                        Write-Verbose "The PSAwaitSession never spawned! Halting!"
-                        Write-Error "The PSAwaitSession never spawned! Halting!"
-                        $global:FunctionResult = "1"
-                        return
-                    }
-                    else {
-                        Stop-Process -Id $PSAwaitProcess.Id
-                    }
-                }
-            }
-
-            if (!$(Test-Path "$HOME\.ssh\$NewSSHKeyName")) {
-                Write-Verbose "ssh-keygen did not successfully create the public/private keypair! Halting!"
-                Write-Error "ssh-keygen did not successfully create the public/private keypair! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-            else {
-                $ExistingSSHPrivateKeyPath = "$HOME\.ssh\$NewSSHKeyName"
-            }
-        }
-
-        # At this point, $ExistingSSHPrivateKeyPath should exist
-        # Validate private key format
-        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $ProcessInfo.FileName = "ssh-keygen.exe"
-        $ProcessInfo.RedirectStandardError = $true
-        $ProcessInfo.RedirectStandardOutput = $true
-        $ProcessInfo.UseShellExecute = $false
-        $ProcessInfo.Arguments = "-lf $HOME\.ssh\github_rsa"
-        $Process = New-Object System.Diagnostics.Process
-        $Process.StartInfo = $ProcessInfo
-        $Process.Start() | Out-Null
-        $Process.WaitForExit()
-        $stdout = $Process.StandardOutput.ReadToEnd()
-        $stderr = $Process.StandardError.ReadToEnd()
-        $AllOutput = $stdout + $stderr
-        if ($AllOutput -match "is not") {
-            Write-Verbose "ssh-keygen reports that the private key is not in valid format. Please check manually. Halting!"
-            Write-Error "ssh-keygen reports that the private key is not in valid format. Please check manually. Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        if ($NewSSHKeyName) {
-            $FinalPrivateKeyLocation = "$HOME\.ssh\$NewSSHKeyName"
-        }
-        if ($ExistingSSHPrivateKeyPath) {
-            $FinalPrivateKeyLocation = $ExistingSSHPrivateKeyPath
-        }
-    
-        if (!$FinalPrivateKeyLocation) {
-            Write-Error "Unable to find private key! Halting!"
-        }
-    }
-
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
-
-
-    ##### BEGIN Main Body #####
-
     if ($AuthMethod -eq "https") {
-        # We don't really need posh-git...it just confuses things...
-        <#
-        if ($(Get-Module -ListAvailable).Name -notcontains "posh-git") {
-            #Update-PackageManagement
-            Install-Module posh-git -Scope CurrentUser
+        if (!$PersonalAccessToken) {
+            $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
         }
-        if ($(Get-Module).Name -notcontains "posh-git") {
-            Import-Module posh-git -Verbose
-        }
-        #>
+
+        # Convert SecureString to PlainText
+        $PersonalAccessTokenPT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
 
         git config --global credential.helper wincred
 
@@ -3757,51 +3304,237 @@ function Setup-GitCmdLine {
         $ManageStoredCredsParams = @{
             Target  = "git:https://$GitHubUserName@github.com"
             User    = $GitHubUserName
-            Pass    = $PersonalAccessToken
+            Pass    = $PersonalAccessTokenPT
             Comment = "Saved By Manage-StoredCredentials.ps1"
         }
-        Manage-StoredCredentials -AddCred @ManageStoredCredsParams
+        $null = Manage-StoredCredentials -AddCred @ManageStoredCredsParams
 
         # Test https OAuth2 authentication
         # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
-        $Token = "$GitHubUserName`:$PersonalAccessToken"
-        $Base64Token = [System.Convert]::ToBase64String([char[]]$Token)
-        $Headers = @{
-            Authorization = "Basic {0}" -f $Base64Token
+        $GitHubAuthSuccess = Test-GitAuthentication -GitHubUserName $GitHubUserName -AuthMethod $AuthMethod -PersonalAccessToken $PersonalAccessToken
+        if ($GitHubAuthSuccess) {
+            $env:GitCmdLineConfigured = "True"
         }
-        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken").Name
-        Write-Host "Writing Public and Private Repos to demonstrate https authentication success..."
-        Write-Host "$($PublicAndPrivateRepos -join ", ")"
     }
-
     if ($AuthMethod -eq "ssh") {
-        git config core.sshCommand "ssh -i $([regex]::Escape($FinalPrivateKeyLocation)) -F /dev/null"
-        $env:GIT_SSH_COMMAND = "ssh -i $([regex]::Escape($FinalPrivateKeyLocation))"
-
-        # Start the ssh agent and add your ExistingSSHPrivateKeyPath to it. We need to do this regardless...
-        $SSHAddProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $SSHAddProcessInfo.WorkingDirectory = $sshdir
-        $SSHAddProcessInfo.FileName = "ssh-add.exe"
-        $SSHAddProcessInfo.RedirectStandardError = $true
-        $SSHAddProcessInfo.RedirectStandardOutput = $true
-        $SSHAddProcessInfo.UseShellExecute = $false
-        $SSHAddProcessInfo.Arguments = "$FinalPrivateKeyLocation"
-        $SSHAddProcess = New-Object System.Diagnostics.Process
-        $SSHAddProcess.StartInfo = $SSHAddProcessInfo
-        $SSHAddProcess.Start() | Out-Null
-        $SSHAddProcess.WaitForExit()
-        $SSHAddStdout = $SSHAddProcess.StandardOutput.ReadToEnd()
-        $SSHAddStderr = $SSHAddProcess.StandardError.ReadToEnd()
-        $SSHAddAllOutput = $SSHAddStdout + $SSHAddStderr
-        
-        if ($SSHAddAllOutput -match "fail|error") {
-            Write-Error $SSHAddAllOutput
-            Write-Error "The 'ssh-add $($FinalPrivateKeyLocation)' command failed!"
+        if ($ExistingSSHPrivateKeyPath) {
+            try {
+                $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction Stop).Path
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
         }
         else {
-            if ($RemoveHostPrivateKeys) {
-                Remove-Item $FinalPrivateKeyLocation
+            if (Test-Path "$HOME\.ssh\github_rsa") {
+                $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
             }
+            else {
+                if ($NewSSHKeyPwd) {
+                    if ($NewSSHKeyPwd.GetType().FullName -eq "System.Security.SecureString") {
+                        # Convert SecureString to PlainText
+                        $NewSSHKeyPwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($NewSSHKeyPwd))
+                    }
+                }
+                if (!$NewSSHKeyName) {
+                    $NewSSHKeyName = "github_rsa"
+                }
+                $SSHKeyGenPath = $(Get-ChildItem "C:\Program Files\Git" -Recurse -Filter "*ssh-keygen.exe").FullName
+                $SSHKeyGenArgumentsString = "-t rsa -b 2048 -f `"$HOME\.ssh\$NewSSHKeyName`" -q -N `"$NewSSHKeyPwd`" -C `"GitAuthFor$CurrentUser`""
+                $SSHKeyGenArgumentsNoPwdString = "-t rsa -b 2048 -f `"$HOME\.ssh\$NewSSHKeyName`" -q -C `"GitAuthFor$CurrentUser`""
+
+                if (!$(Test-Path "$HOME\.ssh")) {
+                    New-Item -Type Directory -Path "$HOME\.ssh"
+                }
+            
+                # Create new public/private keypair
+                if ($NewSSHKeyPwd) {
+                    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $ProcessInfo.WorkingDirectory = $($SSHKeyGenPath | Split-Path -Parent)
+                    $ProcessInfo.FileName = $SSHKeyGenPath
+                    $ProcessInfo.RedirectStandardError = $true
+                    $ProcessInfo.RedirectStandardOutput = $true
+                    $ProcessInfo.UseShellExecute = $false
+                    $ProcessInfo.Arguments = $SSHKeyGenArgumentsString
+                    $Process = New-Object System.Diagnostics.Process
+                    $Process.StartInfo = $ProcessInfo
+                    $Process.Start() | Out-Null
+                    $stdout = $Process.StandardOutput.ReadToEnd()
+                    $stderr = $Process.StandardError.ReadToEnd()
+                    $AllOutput = $stdout + $stderr
+            
+                    if ($AllOutput -match "fail|error") {
+                        Write-Error $AllOutput
+                        Write-Error "The 'ssh-keygen command failed! Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                }
+                else {
+                    if (!$AllowAwaitModuleInstall -and $(Get-Module -ListAvailable).Name -notcontains "Await") {
+                        Write-Warning "This function needs to install the PowerShell Await Module in order to generate a private key with a null password."
+                        $ProceedChoice = Read-Host -Prompt "Would you like to proceed? [Yes\No]"
+                        while ($ProceedChoice -notmatch "Yes|yes|Y|y|No|no|N|n") {
+                            Write-Host "$ProceedChoice is NOT a valid choice! Please enter 'Yes' or 'No'"
+                            $ProceedChoice = Read-Host -Prompt "Would you like to proceed? [Yes\No]"
+                        }
+            
+                        if ($ProceedChoice -match "No|no|N|n") {
+                            Write-Error "User chose not to proceed! Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                    }
+                    if ($AllowAwaitModuleInstall -or $ProceedChoice -match "Yes|yes|Y|y") {
+                        # Need PowerShell Await Module (Windows version of Linux Expect) for ssh-keygen with null password
+                        if ($(Get-Module -ListAvailable).Name -notcontains "Await") {
+                            # Install-Module "Await" -Scope CurrentUser
+                            # Clone PoshAwait repo to .zip
+                            Invoke-WebRequest -Uri "https://github.com/pldmgg/PoshAwait/archive/master.zip" -OutFile "$HOME\PoshAwait.zip"
+                            $tempDirectory = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())
+                            $null = [IO.Directory]::CreateDirectory($tempDirectory)
+                            Unzip-File -PathToZip "$HOME\PoshAwait.zip" -TargetDir "$tempDirectory"
+                            if (!$(Test-Path "$HOME\Documents\WindowsPowerShell\Modules\Await")) {
+                                $null = New-Item -Type Directory "$HOME\Documents\WindowsPowerShell\Modules\Await"
+                            }
+                            Copy-Item -Recurse -Path "$tempDirectory\PoshAwait-master\*" -Destination "$HOME\Documents\WindowsPowerShell\Modules\Await"
+                            Remove-Item -Recurse -Path $tempDirectory -Force
+            
+                            if ($($env:PSModulePath -split ";") -notcontains "$HOME\Documents\WindowsPowerShell\Modules") {
+                                $env:PSModulePath = "$HOME\Documents\WindowsPowerShell\Modules" + ";" + $env:PSModulePath
+                            }
+                        }
+                    }
+            
+                    # Make private key password $null
+                    Import-Module Await
+                    if ($(Get-Module).Name -notcontains "Await") {
+                        Write-Error "Unable to load the Await Module! Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+            
+                    Start-AwaitSession
+                    Start-Sleep -Seconds 1
+                    Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
+                    $PSAwaitProcess = $($(Get-Process | ? {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
+                    Start-Sleep -Seconds 1
+                    Send-AwaitCommand "`$env:Path = '$env:Path'; Push-Location '$($SSHKeyGenPath | Split-Path -Parent)'"
+                    Start-Sleep -Seconds 1
+                    #Send-AwaitCommand "Invoke-Expression `"& '$SSHKeyGenPath' $SSHKeyGenArgumentsNoPwdString`""
+                    Send-AwaitCommand ".\ssh-keygen.exe $SSHKeyGenArgumentsNoPwdString"
+                    Start-Sleep -Seconds 2
+                    # The below is the equivalent of pressing [ENTER] to proceed with the ssh-keygen.exe interactive prompt
+                    Send-AwaitCommand ""
+                    Start-Sleep -Seconds 2
+                    # The below is the equivalent of pressing [ENTER] to proceed with the ssh-keygen.exe interactive prompt
+                    Send-AwaitCommand ""
+                    Start-Sleep -Seconds 1
+                    $SSHKeyGenConsoleOutput = Receive-AwaitResponse
+            
+                    # If Stop-AwaitSession errors for any reason, it doesn't return control, so we need to handle in try/catch block
+                    try {
+                        Stop-AwaitSession
+                    }
+                    catch {
+                        if ($PSAwaitProcess.Id -eq $PID) {
+                            Write-Error "The PSAwaitSession never spawned! Halting!"
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                        else {
+                            Stop-Process -Id $PSAwaitProcess.Id
+                            while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
+                                Write-Host "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
+                                Start-Sleep -Seconds 1
+                            }
+                        }
+                    }
+                }
+
+                if (!$(Test-Path "$HOME\.ssh\$NewSSHKeyName")) {
+                    Write-Error "ssh-keygen did not successfully create the public/private keypair! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                else {
+                    $ExistingSSHPrivateKeyPath = "$HOME\.ssh\$NewSSHKeyName"
+                }
+            }
+        }
+
+        $null = git config core.sshCommand "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath)) -F /dev/null" 2>&1
+        $env:GIT_SSH_COMMAND = "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath))"
+
+        # Check To Make Sure Online GitHub Account is aware of Existing Public Key
+        $GitHubAuthSuccess = Test-GitAuthentication -GitHubUserName $GitHubUserName -AuthMethod $AuthMethod -ExistingSSHPrivateKeyPath $ExistingSSHPrivateKeyPath
+        if (!$GitHubAuthSuccess) {
+            Write-Host ""
+            Write-Host "GitHub Authentication was successfully configured on the client machine, however, we were not able to successfully authenticate to GitHub using '$ExistingSSHPrivateKeyPath'"
+            Write-Host "Please add '$HOME\.ssh\$ExistingSSHPrivateKeyPath.pub' to your GitHub Account via Web Browser by:"
+            Write-Host "    1) Navigating to Settings"
+            Write-Host "    2) In the user settings sidebar, click SSH and GPG keys."
+            Write-Host "    3) Add SSH Key"
+            Write-Host "    4) Enter a descriptive Title like: SSH Key for Paul-MacBookPro auth"
+            Write-Host "    5) Paste your key into the Key field."
+            Write-Host "    6) Click Add SSH key."
+        }
+        else {
+            $env:GitCmdLineConfigured = "True"
+        }
+    }
+
+    ##### END Main Body #####
+}
+
+function Test-GitAuthentication {
+    [CmdletBinding(DefaultParameterSetName='ssh')]
+    Param (
+        [Parameter(Mandatory=$True)]
+        [string]$GitHubUserName,
+
+        [Parameter(Mandatory=$True)]
+        [ValidateSet("https","ssh")]
+        [string]$AuthMethod,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='ssh'
+        )]
+        [string]$ExistingSSHPrivateKeyPath,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='http'
+        )]
+        [securestring]$PersonalAccessToken
+    )
+
+    if ($AuthMethod -eq "ssh") {
+        if (!$ExistingSSHPrivateKeyPath) {
+            if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
+                $ExistingSSHPrivateKeyPath = Read-Host -Prompt "Please enter the full path to your github_rsa ssh private key."
+            }
+        }
+        if (!$(Test-Path $ExistingSSHPrivateKeyPath)) {
+            Write-Error "Unable to find path to existing Private Key '$ExistingSSHPrivateKeyPath'! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $SSHKeyGenPath = $(Get-ChildItem "C:\Program Files\Git" -Recurse -Filter "*ssh-keygen.exe").FullName
+        if (!$SSHKeyGenPath) {
+            Write-Error "Unable to fing git CmdLine instance of ssh-keygen.exe! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        $SSHExePath = $(Get-ChildItem "C:\Program Files\Git" -Recurse -Filter "ssh.exe").FullName
+        if (!$SSHExePath) {
+            Write-Error "Unable to fing git CmdLine instance of ssh.exe! Halting!"
+            $global:FunctionResult = "1"
+            return
         }
 
         # Check To Make Sure Online GitHub Account is aware of Existing Public Key
@@ -3814,7 +3547,7 @@ function Setup-GitCmdLine {
             $tempfileLocations +=, $tmpFile
         }
         $SSHPubKeyFingerPrintsFromGitHub = foreach ($TempPubSSHKeyFile in $tempfileLocations) {
-            $PubKeyFingerPrintPrep = ssh-keygen -E md5 -lf $TempPubSSHKeyFile
+            $PubKeyFingerPrintPrep = & "$SSHKeyGenPath" -E md5 -lf "$TempPubSSHKeyFile"
             $PubKeyFingerPrint = $($PubKeyFingerPrintPrep -split " ")[1] -replace "MD5:",""
             $PubKeyFingerPrint
         }
@@ -3825,8 +3558,8 @@ function Setup-GitCmdLine {
 
         $GitHubOnlineIsAware = @()
         foreach ($fingerprint in $SSHPubKeyFingerPrintsFromGitHub) {
-            $ExistingSSHPubKeyPath = "$FinalPrivateKeyLocation.pub"
-            $LocalPubKeyFingerPrintPrep = ssh-keygen -E md5 -lf $ExistingSSHPubKeyPath
+            $ExistingSSHPubKeyPath = "$ExistingSSHPrivateKeyPath.pub"
+            $LocalPubKeyFingerPrintPrep = & "$SSHKeyGenPath" -E md5 -lf "$ExistingSSHPubKeyPath"
             $LocalPubKeyFingerPrint = $($LocalPubKeyFingerPrintPrep -split " ")[1] -replace "MD5:",""
             if ($fingerprint -eq $LocalPubKeyFingerPrint) {
                 $GitHubOnlineIsAware +=, $fingerprint
@@ -3834,15 +3567,18 @@ function Setup-GitCmdLine {
         }
 
         if ($GitHubOnlineIsAware.Count -gt 0) {
-            Write-Host "GitHub Online Account is aware of existing public key $ExistingSSHPubKeyPath. Testing the connection..."
+            Write-Host "GitHub Online Account is aware of existing public key $ExistingSSHPubKeyPath. Testing the connection..." -ForegroundColor Green
+
+            $null = git config core.sshCommand "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath)) -F /dev/null" 2>&1
+            $env:GIT_SSH_COMMAND = "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath))"
 
             # Test the connection
             $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-            $ProcessInfo.FileName = "ssh.exe"
+            $ProcessInfo.FileName = $SSHExePath
             $ProcessInfo.RedirectStandardError = $true
             $ProcessInfo.RedirectStandardOutput = $true
             $ProcessInfo.UseShellExecute = $false
-            $ProcessInfo.Arguments = "-T git@github.com"
+            $ProcessInfo.Arguments = "-o `"StrictHostKeyChecking=no`" -i `"$ExistingSSHPrivateKeyPath`" -T git@github.com"
             $Process = New-Object System.Diagnostics.Process
             $Process.StartInfo = $ProcessInfo
             $Process.Start() | Out-Null
@@ -3852,441 +3588,208 @@ function Setup-GitCmdLine {
             $AllOutput = $stdout + $stderr
 
             if ($AllOutput -match $GitHubUserName) {
-                Write-Host "GitHub Authentication for $GitHubUserName using SSH was successful."
+                Write-Host "GitHub Authentication via SSH for $GitHubUserName using '$ExistingSSHPrivateKeyPath' was successful." -ForegroundColor Green
+                $True
             }
             else {
                 Write-Warning "GitHub Authentication for $GitHubUserName using SSH was NOT successful. Please check your connection and/or keys."
+                $False
             }
         }
-        if ($GitHubOnlineIsAware.Count -eq 0 -or $NewSSHKeyName) {
-            Write-Host ""
-            Write-Host "GitHub Authentication was successfully configured on the client machine, however, the GitHub Online Account is not aware of the local public SSH key $FinalPrivateKeyLocation.pub"
-            Write-Host "Please add $HOME\.ssh\$FinalPrivateKeyLocation.pub to your GitHub Account via Web Browser by:"
-            Write-Host "    1) Navigating to Settings"
-            Write-Host "    2) In the user settings sidebar, click SSH and GPG keys."
-            Write-Host "    3) Add SSH Key"
-            Write-Host "    4) Enter a descriptive Title like: SSH Key for Paul-MacBookPro auth"
-            Write-Host "    5) Paste your key into the Key field."
-            Write-Host "    6) Click Add SSH key."
+    }
+    if ($AuthMethod -eq "https") {
+        if (!$PersonalAccessToken) {
+            $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
+        }
+
+        # Convert SecureString to PlainText
+        $PersonalAccessTokenPT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+
+        $Token = "$GitHubUserName`:$PersonalAccessTokenPT"
+        $Base64Token = [System.Convert]::ToBase64String([char[]]$Token)
+        $Headers = @{
+            Authorization = "Basic {0}" -f $Base64Token
+        }
+        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessTokenPT").Name
+
+        if ($PublicAndPrivateRepos -ne $null) {
+            Write-Host "GitHub Authentication via https for $GitHubUserName was successful!" -ForegroundColor Green
+            $True
+        }
+        else {
+            Write-Warning "GitHub Authentication via https for $GitHubUserName was NOT successful. Please check your Personal Authentication Token."
+            $False
         }
     }
-
-    ##### END Main Body #####
-
 }
 
-function Install-GitDesktop {
-    [CmdletBinding(DefaultParameterSetname='AuthSetup')]
-    Param(
+function New-GitRepo {
+    [CmdletBinding(DefaultParameterSetName="https")]
+    Param (
         [Parameter(Mandatory=$False)]
-        [string]$GitHubUserName = $(Read-Host -Prompt "Please enter your GitHub Username"),
+        [string]$NewRepoLocalPath = $($(Get-Location).Path),
+
+        [Parameter(Mandatory=$True)]
+        [string]$NewRepoDescription,
+
+        [Parameter(Mandatory=$True)]
+        [ValidateSet("Public","Private")]
+        [string]$PublicOrPrivate,
 
         [Parameter(Mandatory=$False)]
-        [string]$GitHubEmail = $(Read-Host -Prompt "Please the primary GitHub email address associated with $GitHubUserName"),
+        [string]$GitHubUserName = "pldmgg",
 
         [Parameter(Mandatory=$False)]
-        [ValidateSet("https","ssh")]
-        [string]$AuthMethod = $(Read-Host -Prompt "Please select the Authentication Method you would like to use. [https/ssh]"),
+        [string]$GitHubEmail = "pldmgg@mykolab.com",
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("https")]
+        [string]$AuthMethod = "https",
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='SSH Auth'
+            ParameterSetName='ssh'
         )]
         [string]$ExistingSSHPrivateKeyPath,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='SSH Auth'
+            ParameterSetName='http'
         )]
-        [string]$NewSSHKeyName,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='SSH Auth'
-        )]
-        $NewSSHKeyPwd,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='SSH Auth'
-        )]
-        [switch]$DownloadAndSetupDependencies,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='HTTPS Auth'
-        )]
-        $PersonalAccessToken,
-
-        [Parameter(Mandatory=$False)]
-        [ValidateSet("Stable", "Beta")]
-        [string]$Channel = "Stable",
-
-        [Parameter(Mandatory=$False)]
-        [ValidateSet("exe", "msi")]
-        [string]$InstallerType
+        [securestring]$PersonalAccessToken
     )
 
-    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
-
-    if ($PersonalAccessToken) {
-        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
-            # Convert SecureString to PlainText
-            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
-        }
+    if (!$GitHubUserName) {
+        $GitHubUserName = Read-Host -Prompt "Please enter your GitHub Username"
+    }
+    if (!$AuthMethod) {
+        $AuthMethod = Read-Host -Prompt "Please select the Authentication Method you would like to use. [https/ssh]"
     }
 
-    $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
+    if ($AuthMethod -eq "https") {
+        if (!$PersonalAccessToken) {
+            $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
+        }
 
-    if ($ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd -or $DownloadAndSetupDependencies) {
-        $AuthMethod = "ssh"
+        # Convert SecureString to PlainText
+        $PersonalAccessTokenPT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
     }
-    if ($PersonalAccessToken) {
-        $AuthMethod = "https"
-    }
-    if ($AuthMethod -eq "https" -and $($DownloadAndSetupDependencies -or $ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
-        Write-Verbose "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
-        Write-Error "The parameters -DownloadAndSetupDependencies, -ExistingSSHPrivateKeyPath, -NewSSHKeyName, and -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
-    # because Setup-GitCmdLine function can handle things if neither are provided
-    if ($AuthMethod -eq "https" -and !$PersonalAccessToken) {
-        $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
-    }
-    if ($ExistingSSHPrivateKeyPath) {
-        $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction SilentlyContinue).Path
-        if (!$(Test-Path "$ExistingSSHPrivateKeyPath")) {
-            Write-Verbose "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
-            Write-Error "Unable to find $ExistingSSHPrivateKeyPath! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    if ($NewSSHKeyPwd) {
-        if ($NewSSHKeyPwd.GetType().FullName -eq "System.Security.SecureString") {
-            # Convert SecureString to PlainText
-            $NewSSHKeyPwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($NewSSHKeyPwd))
-        }
-        if (!$NewSSHKeyName) {
-            $NewSSHKeyName = "GitAuthFor$CurrentUser"
-        }
-    }
-
-    if ($Channel -eq "Stable" -and $InstallerType -eq "msi") {
-        Write-Host "Currently, there is no .msi installer available for GitHub Desktop on Windows. Installing using .exe..."
-        $InstallerType = "exe"
-    }
-
-    if (!$(Check-Elevation)) {
-        $UserName = $($([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).split("\"))[1]
-        $Psswd = Read-Host -Prompt "Please enter the password for $UserName" -AsSecureString
-        $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $UserName, $Psswd
-    }
-
-    ##### END Variable/Parameter Transforms and PreRun Prep #####
-
-
-    ##### BEGIN Main Body #####
-
-    # For more info on SendKeys method, see: https://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
-    # https://desktop.githubusercontent.com/releases/0.5.8-e55db469/GitHubDesktopSetup.exe
-    if ($Channel -eq "Beta") {
-        $SpecificReleaseNumber = "0.5.8-e55db469"
-        # For latest release, use the below URLs
-        # Invoke-WebRequest -Uri "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi" -OutFile "$HOME\Downloads\GitHubDesktopSetup.msi"
-        # Invoke-WebRequest -Uri "https://central.github.com/deployments/desktop/desktop/latest/win32" -OutFile "$HOME\Downloads\GitHubDesktopSetup.exe"
-        
-        if ($InstallerType -eq "exe") {
-            Invoke-WebRequest -Uri "https://desktop.githubusercontent.com/releases/$SpecificReleaseNumber/GitHubDesktopSetup.exe" -OutFile "$HOME\Downloads\GitHubDesktopSetup.exe"
-            if (!$?) {
-                Write-Verbose "Unable to download file! Halting!"
-                Write-Error "Unable to download file! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-            $GitHubDesktopVersion = $(Get-ChildItem $HOME\Downloads\GitHubDesktopSetup.exe).VersionInfo.ProductVersion
-            & "$HOME\Downloads\GitHubDesktopSetup.exe"
-        }
-        if ($InstallerType -eq "msi") {
-            Invoke-WebRequest -Uri "https://desktop.githubusercontent.com/releases/$SpecificReleaseNumber/GitHubDesktopSetup.msi" -OutFile "$HOME\Downloads\GitHubDesktopSetup.msi"
-            if (!$?) {
-                Write-Verbose "Unable to download file! Halting!"
-                Write-Error "Unable to download file! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-
-            # We're going to need Elevated privileges for to install the .msi if PowerShell wasn't Run As Administrator, Start-SudoSession
-            if (!$(Check-Elevation)) {
-                if (!$global:ElevatedPSSession) {
-                    try {
-                        $global:ElevatedPSSession = New-PSSession -Name "TempElevatedSession "-Authentication CredSSP -Credential $Credentials -ErrorAction SilentlyContinue
-                        if (!$ElevatedPSSession) {
-                            throw
-                        }
-                        $CredSSPAlreadyConfigured = $true
-                    }
-                    catch {
-                        $SudoSession = New-SudoSession -Credentials $Credentials
-                        $global:ElevatedPSSession = $SudoSession.ElevatedPSSession
-                        $NeedToRevertAdminChangesIfAny = $true
-                    }
-                }
-            }
-
-            $DataStamp = Get-Date -Format yyyyMMddTHHmmss
-            $MSIFullPath = "$HOME\Downloads\GitHubDesktopSetup.msi"
-            $MSIParentDir = $MSIFullPath | Split-Path -Parent
-            $MSIFileName = $MSIFullPath | Split-Path -Leaf
-            $MSIFileNameOnly = $MSIFileName -replace "\.msi",""
-            $logFile = "$HOME\$MSIFileNameOnly$DataStamp.log"
-            $MSIArguments = @(
-                "/i"
-                $MSIFullPath
-                "/qn"
-                "/norestart"
-                "/L*v"
-                $logFile
-            )
-
-            if ($ElevatedPSSession) {
-                $MSIExecOutput = Invoke-Command -Session $ElevatedPSSession -Scriptblock {
-                    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-                    $ProcessInfo.FileName = "msiexec.exe"
-                    $ProcessInfo.RedirectStandardError = $true
-                    $ProcessInfo.RedirectStandardOutput = $true
-                    $ProcessInfo.UseShellExecute = $false
-                    $ProcessInfo.Arguments = $using:MSIArguments
-                    $Process = New-Object System.Diagnostics.Process
-                    $Process.StartInfo = $ProcessInfo
-                    $Process.Start() | Out-Null
-                    $Process.WaitForExit()
-                    $stdout = $Process.StandardOutput.ReadToEnd()
-                    $stderr = $Process.StandardError.ReadToEnd()
-                    $AllOutput = $stdout + $stderr
-                    $AllOutput
-                }
-            }
-            else {
-                $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-                $ProcessInfo.FileName = "msiexec.exe"
-                $ProcessInfo.RedirectStandardError = $true
-                $ProcessInfo.RedirectStandardOutput = $true
-                $ProcessInfo.UseShellExecute = $false
-                $ProcessInfo.Arguments = $MSIArguments
-                $Process = New-Object System.Diagnostics.Process
-                $Process.StartInfo = $ProcessInfo
-                $Process.Start() | Out-Null
-                $Process.WaitForExit()
-                $stdout = $Process.StandardOutput.ReadToEnd()
-                $stderr = $Process.StandardError.ReadToEnd()
-                $AllOutput = $stdout + $stderr
-                $MSIExecOutput = $AllOutput
-            }
-
-            while ($(Test-Path "C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe").VersionInfo.ProductVersion) {
-                Write-Host "Waiting for C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe to be extracted from .msi..."
-                Start-Sleep -Seconds 1
-            }
-            $GitHubDesktopVersion = $(Get-ChildItem "C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe").VersionInfo.ProductVersion
-
-            # Wait for 5 seconds to see if the Process with ProcessName "GitHubDesktop" spawns.
-            # NOTE: The process "GitHubDesktop" (i.e. no space between characters) is the intial install process, and
-            # the processes "GitHub Desktop" (i.e. with a space) are the Electron processes running when the program launches
-             for ($i=0; $i -lt $(0..4).Count; $i++) {
-                 Write-Host "Waiting $($(0..4).Count - $i) seconds for GitHubDesktop initial install process to start..."
-                 Start-Sleep -Seconds 1
-                 if (Get-Process | ? {$_.ProcessName -eq "GitHubDesktop"}) {
-                    Write-Host "GitHubDesktop initial install process started...Continuing..."
-                    $GitHubInitialInstallStarted = $true
-                    break
-                 }
-             }
-             if ($GitHubInitialInstallStarted -ne $true) {
-                Write-Host "Starting C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe manually..."
-                & "C:\Program Files (x86)\GitHub Desktop Installer\GitHubDesktop.exe"
-             }
-        }
-
-        $GitHubDesktopLaunchWindow = Get-Process | Where-Object {$_.ProcessName -eq "GitHub Desktop" -and $_.MainWindowTitle -eq "GitHub Desktop"}
-        while ($GitHubDesktopLaunchWindow -eq $null) {
-            Write-Host "Waiting for GitHub Desktop to launch..."
-            $GitHubDesktopLaunchWindow = Get-Process | Where-Object {$_.ProcessName -eq "GitHub Desktop" -and $_.MainWindowTitle -eq "GitHub Desktop"}
-            Start-Sleep -Seconds 2
-        }
-
-        Write-Host "Finished Installing GitHub Desktop"
-
-        while (!$(Resolve-Path "$env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersion\resources\app\git\cmd\git.exe" -ErrorAction SilentlyContinue)) {
-            Write-Host "Waiting for $env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersion\resources\app\git\cmd\git.exe"
-            Write-Host "This could take up to 1 minute..."
-            Start-Sleep -Seconds 2
-        }
-        if (Test-Path $(Resolve-Path "$env:LocalAppData\GitHubDesktop\app-$GitHubDesktopVersion\resources\app\git\cmd\git.exe" -ErrorAction SilentlyContinue).Path) {
-            Write-Host "Local App Data GitHub Directory is ready."
-            Write-Host "Closing GitDesktop..."
-        }
-
-        # Redefine $GitHubDesktopLaunchWindow again because Electron makes PID of active window slippery
-        $GitHubDesktopLaunchWindow = Get-Process | Where-Object {$_.ProcessName -eq "GitHub Desktop" -and $_.MainWindowTitle -eq "GitHub Desktop"}
-        Stop-Process -Id $GitHubDesktopLaunchWindow.Id
-    }
-    if ($Channel -eq "Stable") {
-        Invoke-WebRequest -Uri "https://github-windows.s3.amazonaws.com/GitHubSetup.exe" -OutFile "$HOME\Downloads\GitHubSetup.exe"
-        if (!$?) {
-            Write-Verbose "Unable to download file! Halting!"
-            Write-Error "Unable to download file! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        & "$HOME\Downloads\GitHubSetup.exe"
-
-        # Setup Potential GUI menus we may/may not have to step through
-        $AppInstallSecWarnWindow = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*Install - Security Warning*"}).MainWindowTitle
-        $OpenFileWarning = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*File - Security Warning*"}).MainWindowTitle
-        $GitHubDesktop = Get-Process | Where-Object {$_.MainWindowTitle -eq "GitHub" -and $_.ProcessName -eq "GitHub"}
-
-        while (!$AppInstallSecWarnWindow -and !$OpenFileWarning) {
-            Write-Host "Waiting For Download to finish..."
-            Start-Sleep -Seconds 2
-            $AppInstallSecWarnWindow = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*Install - Security Warning*"}).MainWindowTitle
-            $OpenFileWarning = $(Get-Process | Where-Object {$_.MainWindowTitle -like "*File - Security Warning*"}).MainWindowTitle
-        }
-        if ($AppInstallSecWarnWindow -or $OpenFileWarning) {
-            Write-Host "Download finished. Installing..."
-        }
-
-        if ($AppInstallSecWarnWindow) {
-            $wshell = New-Object -ComObject wscript.shell
-            $wshell.AppActivate("$AppInstallSecWarnWindow") | Out-Null
-            #1..4 | foreach {$wshell.SendKeys('{TAB}')}
-            $wshell.SendKeys('{i}')
-        }
-
-        if ($OpenFileWarning) {
-            $wshell = New-Object -ComObject wscript.shell
-            $wshell.AppActivate("$OpenFileWarning") | Out-Null
-            #1..4 | foreach {$wshell.SendKeys('{TAB}')}
-            $wshell.SendKeys('{r}')
-        }
-        
-        while (!$GitHubDesktop) {
-            Write-Host "Waiting For GitDesktop to launch..."
-            Start-Sleep -Seconds 2
-            $GitHubDesktop = Get-Process | Where-Object {$_.MainWindowTitle -eq "GitHub" -and $_.ProcessName -eq "GitHub"}
-        }
-        if ($GitHubDesktop) {
-            Write-Host "GitDesktop launched."
-            Start-Sleep -Seconds 2
-            $GitHubDesktop | Set-WindowStyle -Style MINIMIZE
-        }
-
-        while (!$(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe" -ErrorAction SilentlyContinue)) {
-            Write-Host "Waiting for $env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe"
-            Write-Host "This could take up to 1 minute..."
-            Start-Sleep -Seconds 2
-        }
-        if (Test-Path $(Resolve-Path "$env:LocalAppData\GitHub\PortableGit_*\cmd\git.exe" -ErrorAction SilentlyContinue).Path) {
-            Write-Host "Local App Data GitHub Directory is ready."
-            Write-Host "Closing GitDesktop..."
-        }
-
-        Start-Sleep -Seconds 5
-
-        $GitHubDesktopPID = $(Get-Process | Where-Object {$_.MainWindowTitle -eq "GitHub" -and $_.ProcessName -eq "GitHub"}).Id
-        Stop-Process -Id $GitHubDesktopPID
-
-    }
-    if (!$(Test-Path "$HOME\Documents\GitHub")) {
-        New-Item -Type Directory -Path "$HOME\Documents\GitHub"
-    }
-
-    <#
-    if ($(Get-Module -ListAvailable).Name -notcontains "posh-git") {
-        #Update-PackageManagement
-        Install-Module posh-git -Scope CurrentUser
-    }
-    if ($(Get-Module).Name -notcontains "posh-git") {
-        Import-Module posh-git -Verbose
-    }
-    #>
-
-    if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
-        $InstallGitExeResult = Install-Program -ProgramName git -CommandName git.exe
-    }
-
-    # Set the Git PowerShell Environment
-    Initialize-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
-
     if ($AuthMethod -eq "ssh") {
-        $GitAuthParams = @{
+        if (!$ExistingSSHPrivateKeyPath) {
+            if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
+                $ExistingSSHPrivateKeyPath = Read-Host -Prompt "Please enter the full path to your github_rsa ssh private key."
+            }
+        }
+        if (!$(Test-Path $ExistingSSHPrivateKeyPath)) {
+            Write-Error "Unable to find path to existing Private Key '$ExistingSSHPrivateKeyPath'! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    if ($env:GitCmdLineConfigured -ne "True" -or ![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
+        $ConfigGitCmdLineSplatParams = @{
             GitHubUserName      = $GitHubUserName
             GitHubEmail         = $GitHubEmail
             AuthMethod          = $AuthMethod
         }
-        if (!$ExistingSSHPrivateKeyPath -and !$NewSSHKeyName) {
-            $GitAuthParams = $GitAuthParams
+        if ($AuthMethod -eq "https") {
+            $ConfigGitCmdLineSplatParams.Add("PersonalAccessToken",$PersonalAccessToken)
         }
-        if ($ExistingSSHPrivateKeyPath) {
-            $GitAuthParams = $GitAuthParams.Add("ExistingSSHPrivateKeyPath",$ExistingSSHPrivateKeyPath)
+        if ($AuthMethod -eq "ssh") {
+            $ConfigGitCmdLineSplatParams.Add("ExistingSSHPrivateKeyPath",$ExistingSSHPrivateKeyPath)
         }
-        if ($NewSSHKeyName) {
-            if (!$NewSSHKeyPwd) {
-                $GitAuthParams = $GitAuthParams.Add("NewSSHKeyName",$NewSSHKeyName)
-            }
-            else {
-                $GitAuthParams = $GitAuthParams.Add("NewSSHKeyName",$NewSSHKeyName)
-                $GitAuthParams = $GitAuthParams.Add("NewSSHKeyPwd",$NewSSHKeyPwd)
-            }
+
+        Configure-GitCmdLine @ConfigGitCmdLineSplatParams
+    }
+
+    $NewRepoName = $NewRepoLocalPath | Split-Path -Leaf
+
+    if (!$(Test-Path $NewRepoLocalPath)) {
+        $null = New-Item -Type Directory -Path $NewRepoLocalPath -Force
+    }
+
+    Push-Location $NewRepoLocalPath
+
+    $ReadMeDefaultContent = @"
+[![Build status](https://ci.appveyor.com/api/projects/status/github/$GitHubUserName/$NewRepoName?branch=master&svg=true)](https://ci.appveyor.com/project/$GitHubUserName/sudo/branch/master)
+
+
+# $NewRepoName
+<Synopsis>
+
+## Getting Started
+
+``````powershell
+# One time setup
+    # Download the repository
+    # Unblock the zip
+    # Extract the $NewRepoName folder to a module path (e.g. `$env:USERPROFILE\Documents\WindowsPowerShell\Modules\)
+# Or, with PowerShell 5 or later or PowerShellGet:
+    Install-Module $NewRepoName
+
+# Import the module.
+    Import-Module $NewRepoName    # Alternatively, Import-Module <PathToModuleFolder>
+
+# Get commands in the module
+    Get-Command -Module $NewRepoName
+
+# Get help
+    Get-Help <$NewRepoName Function> -Full
+    Get-Help about_$NewRepoName
+``````
+
+## Examples
+
+### Scenario 1
+
+``````powershell
+powershell code
+``````
+
+## Notes
+
+* PSGallery: 
+"@
+    Set-Content -Value $ReadMeDefaultContent -Path .\README.md
+
+    if ($AuthMethod -eq "https") {
+        $Headers = @{
+            Authorization = "token $PersonalAccessTokenPT"
         }
-        if ($DownloadAndSetupDependencies) {
-            $global:FunctionResult = "0"
-            Setup-GitCmdLine @GitAuthParams -DownloadAndSetupDependencies
-            if ($global:FunctionResult -eq "1") {
-                Write-Verbose "The Setup-GitCmdLine function failed. Halting!"
-                Write-Error "The Setup-GitCmdLine function failed. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
+
+        # More info on JSON Options: https://developer.github.com/v3/repos/#create
+        if ($PublicOrPrivate -eq "Public") {
+            $PrivateBool = "false"
         }
         else {
-            $global:FunctionResult = "0"
-            Setup-GitCmdLine @GitAuthParams
-            if ($global:FunctionResult -eq "1") {
-                Write-Verbose "The Setup-GitCmdLine function failed. Halting!"
-                Write-Error "The Setup-GitCmdLine function failed. Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
+            $PrivateBool = "true"
         }
-    }
-    # Setup https
-    if ($AuthMethod -eq "https") {
-        $GitAuthParams = @{
-            GitHubUserName = $GitHubUserName
-            GitHubEmail = $GitHubEmail
-            AuthMethod = $AuthMethod
-            PersonalAccessToken = $PersonalAccessToken
+        
+        $jsonRequest = @(
+            '{'
+            "    `"name`": `"$NewRepoName`","
+            "    `"description`": `"$NewRepoDescription`","
+            "    `"private`": `"$PrivateBool`""
+            '}'
+        )
+
+        try {
+            $JsonCompressed = $jsonRequest | ConvertFrom-Json -EA Stop | ConvertTo-Json -Compress -EA Stop
         }
-        $global:FunctionResult = "0"
-        Setup-GitCmdLine @GitAuthParams
-        if ($global:FunctionResult -eq "1") {
-            Write-Verbose "The Setup-GitCmdLine function failed. Halting!"
-            Write-Error "The Setup-GitCmdLine function failed. Halting!"
+        catch {
+            Write-Error $_
             $global:FunctionResult = "1"
             return
         }
+        $NewRepoCreationResult = Invoke-RestMethod -Uri "https://api.github.com/user/repos" -Headers $Headers -Body $JsonCompressed -Method Post
+        
+        git init
+        git add -A
+        git commit -am "first commit"
+        git remote add origin "https://github.com/$GitHubUserName/$NewRepoName.git"
+        git push -u origin master
     }
-    if (!$AuthMethod) {
-        Write-Host "GitHub Authentication still needs to be setup. Use the Setup-GitCmdLine function in the GitEnv Module."
-    }
-
-    Write-Host "Git Environment is ready."
-
-    # Write-Host "See the following site for next steps:"
-    # Write-Host "https://help.github.com/articles/set-up-git/"
 }
 
 function Clone-GitRepo {
@@ -4719,7 +4222,6 @@ function Clone-GitRepo {
 
 }
 
-
 <#
     .SYNOPSIS
         Copy script from working directory to local github repository. Optionally commit and push to GitHub.
@@ -4792,7 +4294,6 @@ function Clone-GitRepo {
 #>
 
 function Publish-MyGitRepo {
-
     [CmdletBinding(
         DefaultParameterSetName='Parameter Set 1', 
         SupportsShouldProcess=$true,
@@ -4927,24 +4428,11 @@ function Publish-MyGitRepo {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkjsX3L92AlBA1KEz0VYHiad1
-# 7ZSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUoOMRi4XvfTcWQ1x9+uAgBBIL
+# s3igggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -5001,11 +4489,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEm3I2/6nvW6olvj
-# qG4QhuZRz9JpMA0GCSqGSIb3DQEBAQUABIIBAIdmfIGo1eS2zsrpqjX7ea4Sp5Jj
-# MmJzq1SgrAEpvqlONjg/EnJ8QSCjhuM7jhG+0A1soR6xgf/xiKMcTzyJkz8d1+ve
-# ALH7Xod8jxxMpmqgpQ0xmvef0/1y5V5syCEcaV7GLgPb8zPIl+jDalacvoTudTKx
-# kkE317BKEw0NKZpGUmP1pHZaec3muNy10kJ4334aA0J8jbI6d301xGiDoJ92Fu8P
-# WiSalc2ZGDjkh26m18Ixv5STn/u36FTtr6q2HGTgWcvybCY7xiuOxMttLD7MPsR0
-# KBCIjkjy/o6TuXifR2nopl28f19Zmi7b2GvwD9iky3WnARXb2jPvrZeR6Pc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFB0PNMxm/B9tCqK/
+# 9MpGO8JcCw+xMA0GCSqGSIb3DQEBAQUABIIBAF4RXMAogW3YkyKBugSNNdJ/XKeS
+# YMN+OGwhWQY1Ol31IuHZeyv/BsLxbPHwfoM31ThyXysR71iQeTqPTCoBgs+glFhl
+# nAO3ZE8ChetLNt5Q97sLBgCrVCCokvlinwU4YD4kIWMHLoC6eEKnOv4EmVFB3sRV
+# wmiiTpuSWFYrYxrgciSuT9bkznuXxu11dCug+VxAlWvjs1uPktqMd36Ja6rBpGYV
+# ebax11YvB6xz6aIt7apMu7XT/LZSmHV0Pfp1XrGobpd+10ey48prYHgOIU5kl83R
+# JuAePoioL/IWpLvJoI74jsNYtBFSA6r2PSKdo0J7pScOhPo8VSfIHSY6i2E=
 # SIG # End signature block
