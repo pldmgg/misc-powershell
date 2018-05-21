@@ -1,6 +1,6 @@
 function New-SelfSignedCertificateEx {
 	[OutputType('[System.Security.Cryptography.X509Certificates.X509Certificate2]')]
-[	CmdletBinding(DefaultParameterSetName = '__store')]
+	[CmdletBinding(DefaultParameterSetName = '__store')]
 	param (
 		[Parameter(Mandatory = $true, Position = 0)]
 		[string]$Subject,
@@ -245,8 +245,8 @@ function New-SelfSignedCertificateEx {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUaLgIUVIEOrHm+lhwPddUKHa5
-# kWygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7G+5m+CNF6CvZXgyDbki4IQb
+# vEqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -303,11 +303,11 @@ function New-SelfSignedCertificateEx {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKiGVixsQWRBw7ha
-# EuEk1uLo7MkAMA0GCSqGSIb3DQEBAQUABIIBAGl+ZyL0ZKA2wzGwWUIc0Xj36+1O
-# VcXwN7j0R1fW93ffW2jm1L02a+PunVgQnkoNBFa4gP+RLxBrWD3sa2i41Oo9aRkO
-# fce2wrwcWYs4x58l5d5Ds4juL5dSyntBzbNJtAqNcDTS+BEJfAdGV+7Rlcv22JlA
-# GjVJKA/nqVl2Fh1GHTtw9bgTftLfDA/FXbQtlnjSXyTaU4K+qQ0gB/eCQnlZNQqj
-# zbPqaE04vSQY/xN9wQrnkAAV/AsOrroEVAlZEFc6CiLiAHeBHVpUYWMk9bHclC+E
-# 9FWKqDstHbTiWT/7V3F9Dxv0SxjsB9NEToX4uTFmhqkAPMz3GfZDcWuCsoc=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIuJzohxeFuPISWs
+# a/QcbuQnX0KJMA0GCSqGSIb3DQEBAQUABIIBAE0kGQ9DbRUd4KBcA/4jwAsKH+4W
+# IDGsV1iAwXyPoSVX1igiC644sZRLxzRQGP/wCq+wpV28+2fFRybT2IbnKx1nwJZ5
+# iFp4PILzfOj7SNjmEKE9q2ZAJaqoPrjujvdvFu+uaonwUDxPEAIe/Gz0YjV2OgeT
+# PJFyiN4GIiIEY3WhU/xNAHE/kiv0HH7tm/nXK7iCpqBfvteqc0D0GLCpYxvOjvxQ
+# N5/2M55gYe/5+tXaqelmj8Dh7gz8Qk1mL/K/n8yr4x9CQwUCBZPKboUypNUGRUR5
+# tyGbeLqOSrnLGU/R5yNcv+u0Buold+aHP0ykr4PfljIHkvnsbg5NIiEbOgo=
 # SIG # End signature block
