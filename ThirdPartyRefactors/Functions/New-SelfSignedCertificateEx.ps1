@@ -1,6 +1,157 @@
+<#
+    .Synopsis
+        This cmdlet generates a self-signed certificate.
+    .Description
+        This cmdlet generates a self-signed certificate with the required data.
+    .NOTES
+        New-SelfSignedCertificateEx.ps1
+        Version 1.0
+        
+        Creates self-signed certificate. This tool is a base replacement
+        for deprecated makecert.exe
+        
+        Vadims Podans (c) 2013
+        http://en-us.sysadmins.lv/
+
+    .Parameter Subject
+        Specifies the certificate subject in a X500 distinguished name format.
+        Example: CN=Test Cert, OU=Sandbox
+    .Parameter NotBefore
+        Specifies the date and time when the certificate become valid. By default previous day
+        date is used.
+    .Parameter NotAfter
+        Specifies the date and time when the certificate expires. By default, the certificate is
+        valid for 1 year.
+    .Parameter SerialNumber
+        Specifies the desired serial number in a hex format.
+        Example: 01a4ff2
+    .Parameter ProviderName
+        Specifies the Cryptography Service Provider (CSP) name. You can use either legacy CSP
+        and Key Storage Providers (KSP). By default "Microsoft Enhanced Cryptographic Provider v1.0"
+        CSP is used.
+    .Parameter AlgorithmName
+        Specifies the public key algorithm. By default RSA algorithm is used. RSA is the only
+        algorithm supported by legacy CSPs. With key storage providers (KSP) you can use CNG
+        algorithms, like ECDH. For CNG algorithms you must use full name:
+        ECDH_P256
+        ECDH_P384
+        ECDH_P521
+        
+        In addition, KeyLength parameter must be specified explicitly when non-RSA algorithm is used.
+    .Parameter KeyLength
+        Specifies the key length to generate. By default 2048-bit key is generated.
+    .Parameter KeySpec
+        Specifies the public key operations type. The possible values are: Exchange and Signature.
+        Default value is Exchange.
+    .Parameter EnhancedKeyUsage
+        Specifies the intended uses of the public key contained in a certificate. You can
+        specify either, EKU friendly name (for example 'Server Authentication') or
+        object identifier (OID) value (for example '1.3.6.1.5.5.7.3.1').
+    .Parameter KeyUsages
+        Specifies restrictions on the operations that can be performed by the public key contained in the certificate.
+        Possible values (and their respective integer values to make bitwise operations) are:
+        EncipherOnly
+        CrlSign
+        KeyCertSign
+        KeyAgreement
+        DataEncipherment
+        KeyEncipherment
+        NonRepudiation
+        DigitalSignature
+        DecipherOnly
+        
+        you can combine key usages values by using bitwise OR operation. when combining multiple
+        flags, they must be enclosed in quotes and separated by a comma character. For example,
+        to combine KeyEncipherment and DigitalSignature flags you should type:
+        "KeyEncipherment, DigitalSignature".
+        
+        If the certificate is CA certificate (see IsCA parameter), key usages extension is generated
+        automatically with the following key usages: Certificate Signing, Off-line CRL Signing, CRL Signing.
+    .Parameter SubjectAlternativeName
+        Specifies alternative names for the subject. Unlike Subject field, this extension
+        allows to specify more than one name. Also, multiple types of alternative names
+        are supported. The cmdlet supports the following SAN types:
+        RFC822 Name
+        IP address (both, IPv4 and IPv6)
+        Guid
+        Directory name
+        DNS name
+    .Parameter IsCA
+        Specifies whether the certificate is CA (IsCA = $true) or end entity (IsCA = $false)
+        certificate. If this parameter is set to $false, PathLength parameter is ignored.
+        Basic Constraints extension is marked as critical.
+    .PathLength
+        Specifies the number of additional CA certificates in the chain under this certificate. If
+        PathLength parameter is set to zero, then no additional (subordinate) CA certificates are
+        permitted under this CA.
+    .CustomExtension
+        Specifies the custom extension to include to a self-signed certificate. This parameter
+        must not be used to specify the extension that is supported via other parameters. In order
+        to use this parameter, the extension must be formed in a collection of initialized
+        System.Security.Cryptography.X509Certificates.X509Extension objects.
+    .Parameter SignatureAlgorithm
+        Specifies signature algorithm used to sign the certificate. By default 'SHA1'
+        algorithm is used.
+    .Parameter FriendlyName
+        Specifies friendly name for the certificate.
+    .Parameter StoreLocation
+        Specifies the store location to store self-signed certificate. Possible values are:
+        'CurrentUser' and 'LocalMachine'. 'CurrentUser' store is intended for user certificates
+        and computer (as well as CA) certificates must be stored in 'LocalMachine' store.
+    .Parameter StoreName
+        Specifies the container name in the certificate store. Possible container names are:
+        AddressBook
+        AuthRoot
+        CertificateAuthority
+        Disallowed
+        My
+        Root
+        TrustedPeople
+        TrustedPublisher
+    .Parameter Path
+        Specifies the path to a PFX file to export a self-signed certificate.
+    .Parameter Password
+        Specifies the password for PFX file.
+    .Parameter AllowSMIME
+        Enables Secure/Multipurpose Internet Mail Extensions for the certificate.
+    .Parameter Exportable
+        Marks private key as exportable. Smart card providers usually do not allow
+        exportable keys.
+    .Example
+        New-SelfsignedCertificateEx -Subject "CN=Test Code Signing" -EKU "Code Signing" -KeySpec "Signature" `
+        -KeyUsage "DigitalSignature" -FriendlyName "Test code signing" -NotAfter [datetime]::now.AddYears(5)
+        
+        Creates a self-signed certificate intended for code signing and which is valid for 5 years. Certificate
+        is saved in the Personal store of the current user account.
+    .Example
+        New-SelfsignedCertificateEx -Subject "CN=www.domain.com" -EKU "Server Authentication", "Client authentication" `
+        -KeyUsage "KeyEcipherment, DigitalSignature" -SAN "sub.domain.com","www.domain.com","192.168.1.1" `
+        -AllowSMIME -Path C:\test\ssl.pfx -Password (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) -Exportable `
+        -StoreLocation "LocalMachine"
+        
+        Creates a self-signed SSL certificate with multiple subject names and saves it to a file. Additionally, the
+        certificate is saved in the Personal store of the Local Machine store. Private key is marked as exportable,
+        so you can export the certificate with a associated private key to a file at any time. The certificate
+        includes SMIME capabilities.
+    .Example
+        New-SelfsignedCertificateEx -Subject "CN=www.domain.com" -EKU "Server Authentication", "Client authentication" `
+        -KeyUsage "KeyEcipherment, DigitalSignature" -SAN "sub.domain.com","www.domain.com","192.168.1.1" `
+        -StoreLocation "LocalMachine" -ProviderName "Microsoft Software Key Storae Provider" -AlgorithmName ecdh_256 `
+        -KeyLength 256 -SignatureAlgorithm sha256
+        
+        Creates a self-signed SSL certificate with multiple subject names and saves it to a file. Additionally, the
+        certificate is saved in the Personal store of the Local Machine store. Private key is marked as exportable,
+        so you can export the certificate with a associated private key to a file at any time. Certificate uses
+        Ellyptic Curve Cryptography (ECC) key algorithm ECDH with 256-bit key. The certificate is signed by using
+        SHA256 algorithm.
+    .Example
+        New-SelfsignedCertificateEx -Subject "CN=Test Root CA, OU=Sandbox" -IsCA $true -ProviderName `
+        "Microsoft Software Key Storage Provider" -Exportable
+        
+        Creates self-signed root CA certificate.
+#>
 function New-SelfSignedCertificateEx {
-	[OutputType('[System.Security.Cryptography.X509Certificates.X509Certificate2]')]
-	[CmdletBinding(DefaultParameterSetName = '__store')]
+    [CmdletBinding(DefaultParameterSetName = '__store')]
 	param (
 		[Parameter(Mandatory = $true, Position = 0)]
 		[string]$Subject,
@@ -10,7 +161,7 @@ function New-SelfSignedCertificateEx {
 		[datetime]$NotAfter = $NotBefore.AddDays(365),
 		[string]$SerialNumber,
 		[Alias('CSP')]
-		[string]$ProviderName = "Microsoft Enhanced RSA and AES Cryptographic Provider",
+		[string]$ProviderName = "Microsoft Enhanced Cryptographic Provider v1.0",
 		[string]$AlgorithmName = "RSA",
 		[int]$KeyLength = 2048,
 		[validateSet("Exchange","Signature")]
@@ -25,10 +176,12 @@ function New-SelfSignedCertificateEx {
 		[int]$PathLength = -1,
 		[Security.Cryptography.X509Certificates.X509ExtensionCollection]$CustomExtension,
 		[ValidateSet('MD5','SHA1','SHA256','SHA384','SHA512')]
-		[string]$SignatureAlgorithm = "SHA256",
+		[string]$SignatureAlgorithm = "SHA1",
 		[string]$FriendlyName,
 		[Parameter(ParameterSetName = '__store')]
 		[Security.Cryptography.X509Certificates.StoreLocation]$StoreLocation = "CurrentUser",
+		[Parameter(ParameterSetName = '__store')]
+		[Security.Cryptography.X509Certificates.StoreName]$StoreName = "My",
 		[Parameter(Mandatory = $true, ParameterSetName = '__file')]
 		[Alias('OutFile','OutPath','Out')]
 		[IO.FileInfo]$Path,
@@ -37,6 +190,7 @@ function New-SelfSignedCertificateEx {
 		[switch]$AllowSMIME,
 		[switch]$Exportable
 	)
+
 	$ErrorActionPreference = "Stop"
 	if ([Environment]::OSVersion.Version.Major -lt 6) {
 		$NotSupported = New-Object NotSupportedException -ArgumentList "Windows XP and Windows Server 2003 are not supported!"
@@ -44,7 +198,7 @@ function New-SelfSignedCertificateEx {
 	}
 	$ExtensionsToAdd = @()
 
-	#region constants
+    #region >> Constants
 	# contexts
 	New-Variable -Name UserContext -Value 0x1 -Option Constant
 	New-Variable -Name MachineContext -Value 0x2 -Option Constant
@@ -72,18 +226,20 @@ function New-SelfSignedCertificateEx {
 	New-Variable -Name PFXExportEEOnly -Value 0x0 -Option Constant
 	New-Variable -Name PFXExportChainNoRoot -Value 0x1 -Option Constant
 	New-Variable -Name PFXExportChainWithRoot -Value 0x2 -Option Constant
-	#endregion
-
+    #endregion >> Constants
+	
+    #region >> Subject Processing
 	# http://msdn.microsoft.com/en-us/library/aa377051(VS.85).aspx
 	$SubjectDN = New-Object -ComObject X509Enrollment.CX500DistinguishedName
 	$SubjectDN.Encode($Subject, 0x0)
-	
-	#region Extensions
+    #endregion >> Subject Processing
 
-	#region Enhanced Key Usages processing
+    #region >> Extensions
+
+    #region >> Enhanced Key Usages Processing
 	if ($EnhancedKeyUsage) {
 		$OIDs = New-Object -ComObject X509Enrollment.CObjectIDs
-		$EnhancedKeyUsage | ForEach-Object {
+		$EnhancedKeyUsage | %{
 			$OID = New-Object -ComObject X509Enrollment.CObjectID
 			$OID.InitializeFromValue($_.Value)
 			# http://msdn.microsoft.com/en-us/library/aa376785(VS.85).aspx
@@ -94,18 +250,18 @@ function New-SelfSignedCertificateEx {
 		$EKU.InitializeEncode($OIDs)
 		$ExtensionsToAdd += "EKU"
 	}
-	#endregion
+    #endregion >> Enhanced Key Usages Processing
 
-	#region Key Usages processing
+    #region >> Key Usages Processing
 	if ($KeyUsage -ne $null) {
 		$KU = New-Object -ComObject X509Enrollment.CX509ExtensionKeyUsage
 		$KU.InitializeEncode([int]$KeyUsage)
 		$KU.Critical = $true
 		$ExtensionsToAdd += "KU"
 	}
-	#endregion
+    #endregion >> Key Usages Processing
 
-	#region Basic Constraints processing
+    #region >> Basic Constraints Processing
 	if ($PSBoundParameters.Keys.Contains("IsCA")) {
 		# http://msdn.microsoft.com/en-us/library/aa378108(v=vs.85).aspx
 		$BasicConstraints = New-Object -ComObject X509Enrollment.CX509ExtensionBasicConstraints
@@ -114,34 +270,30 @@ function New-SelfSignedCertificateEx {
 		$BasicConstraints.Critical = $IsCA
 		$ExtensionsToAdd += "BasicConstraints"
 	}
-	#endregion
+    #endregion >> Basic Constraints Processing
 
-	#region SAN processing
+    #region >> SAN Processing
 	if ($SubjectAlternativeName) {
 		$SAN = New-Object -ComObject X509Enrollment.CX509ExtensionAlternativeNames
 		$Names = New-Object -ComObject X509Enrollment.CAlternativeNames
 		foreach ($altname in $SubjectAlternativeName) {
 			$Name = New-Object -ComObject X509Enrollment.CAlternativeName
-			switch -Regex ($altname) {
-				"^dns:(.+)" {$Name.InitializeFromString($DNSName,$Matches[1])}
-				"^email:(.+)" {$Name.InitializeFromString($RFC822Name,$Matches[1])}
-				"^upn:(.+)" {$Name.InitializeFromString($UPN,$Matches[1])}
-				"^ip:(.+)" {
-					$Bytes = [Net.IPAddress]::Parse($Matches[1]).GetAddressBytes()
+			if ($altname.Contains("@")) {
+				$Name.InitializeFromString($RFC822Name,$altname)
+			} else {
+				try {
+					$Bytes = [Net.IPAddress]::Parse($altname).GetAddressBytes()
 					$Name.InitializeFromRawData($IPAddress,$Base64,[Convert]::ToBase64String($Bytes))
-				}
-				"^dn:(.+)" {
-					$Bytes = ([Security.Cryptography.X509Certificates.X500DistinguishedName]$Matches[1]).RawData
-					$Name.InitializeFromRawData($DirectoryName,$Base64,[Convert]::ToBase64String($Bytes))
-				}
-				"^oid:(.+)" {$Name.InitializeFromString($RegisteredID,$Matches[1])}
-				"^url:(.+)" {$Name.InitializeFromString($URL,$Matches[1])}
-				"^guid:(.+)" {
-					$Bytes = [Guid]::Parse($Matches[1]).ToByteArray()
-					$Name.InitializeFromRawData($Guid,$Base64,[Convert]::ToBase64String($Bytes))
-				}
-				"other:(.+):(.+)" {
-					$Name.InitializeFromOtherName($matches[1],$base64,$Matches[2],$false)
+				} catch {
+					try {
+						$Bytes = [Guid]::Parse($altname).ToByteArray()
+						$Name.InitializeFromRawData($Guid,$Base64,[Convert]::ToBase64String($Bytes))
+					} catch {
+						try {
+							$Bytes = ([Security.Cryptography.X509Certificates.X500DistinguishedName]$altname).RawData
+							$Name.InitializeFromRawData($DirectoryName,$Base64,[Convert]::ToBase64String($Bytes))
+						} catch {$Name.InitializeFromString($DNSName,$altname)}
+					}
 				}
 			}
 			$Names.Add($Name)
@@ -149,9 +301,9 @@ function New-SelfSignedCertificateEx {
 		$SAN.InitializeEncode($Names)
 		$ExtensionsToAdd += "SAN"
 	}
-	#endregion
+    #endregion >> SAN Processing
 
-	#region Custom Extensions
+    #region >> Custom Extensions
 	if ($CustomExtension) {
 		$count = 0
 		foreach ($ext in $CustomExtension) {
@@ -167,11 +319,11 @@ function New-SelfSignedCertificateEx {
 			$count++
 		}
 	}
-	#endregion
+    #endregion >> Custom Extensions
 
-	#endregion
+    #endregion >> Extensions
 
-	#region Private Key
+    #region >> Private Key
 	# http://msdn.microsoft.com/en-us/library/aa378921(VS.85).aspx
 	$PrivateKey = New-Object -ComObject X509Enrollment.CX509PrivateKey
 	$PrivateKey.ProviderName = $ProviderName
@@ -192,7 +344,7 @@ function New-SelfSignedCertificateEx {
 	}
 	$PrivateKey.ExportPolicy = if ($Exportable) {1} else {0}
 	$PrivateKey.Create()
-	#endregion
+    #endregion >> Private Key
 
 	# http://msdn.microsoft.com/en-us/library/aa377124(VS.85).aspx
 	$Cert = New-Object -ComObject X509Enrollment.CX509CertificateRequestCertificate
@@ -201,9 +353,6 @@ function New-SelfSignedCertificateEx {
 	} else {
 		$Cert.InitializeFromPrivateKey($UserContext,$PrivateKey,"")
 	}
-	#region Subject processing
-
-	#endregion
 	$Cert.Subject = $SubjectDN
 	$Cert.Issuer = $Cert.Subject
 	$Cert.NotBefore = $NotBefore
@@ -212,7 +361,7 @@ function New-SelfSignedCertificateEx {
 	if (![string]::IsNullOrEmpty($SerialNumber)) {
 		if ($SerialNumber -match "[^0-9a-fA-F]") {throw "Invalid serial number specified."}
 		if ($SerialNumber.Length % 2) {$SerialNumber = "0" + $SerialNumber}
-		$Bytes = $SerialNumber -split "(.{2})" | Where-Object {$_} | ForEach-Object{[Convert]::ToByte($_,16)}
+		$Bytes = $SerialNumber -split "(.{2})" | ?{$_} | %{[Convert]::ToByte($_,16)}
 		$ByteString = [Convert]::ToBase64String($Bytes)
 		$Cert.SerialNumber.InvokeSet($ByteString,1)
 	}
@@ -239,14 +388,13 @@ function New-SelfSignedCertificateEx {
 			Set-Content -Path $Path -Value ([Convert]::FromBase64String($PFXString)) -Encoding Byte
 		}
 	}
-	[Byte[]]$CertBytes = [Convert]::FromBase64String($endCert)
-	New-Object Security.Cryptography.X509Certificates.X509Certificate2 @(,$CertBytes)
 }
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7G+5m+CNF6CvZXgyDbki4IQb
-# vEqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5pDEUlvsWKrfNUiwzM//U5LO
+# r5mgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -303,11 +451,11 @@ function New-SelfSignedCertificateEx {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIuJzohxeFuPISWs
-# a/QcbuQnX0KJMA0GCSqGSIb3DQEBAQUABIIBAE0kGQ9DbRUd4KBcA/4jwAsKH+4W
-# IDGsV1iAwXyPoSVX1igiC644sZRLxzRQGP/wCq+wpV28+2fFRybT2IbnKx1nwJZ5
-# iFp4PILzfOj7SNjmEKE9q2ZAJaqoPrjujvdvFu+uaonwUDxPEAIe/Gz0YjV2OgeT
-# PJFyiN4GIiIEY3WhU/xNAHE/kiv0HH7tm/nXK7iCpqBfvteqc0D0GLCpYxvOjvxQ
-# N5/2M55gYe/5+tXaqelmj8Dh7gz8Qk1mL/K/n8yr4x9CQwUCBZPKboUypNUGRUR5
-# tyGbeLqOSrnLGU/R5yNcv+u0Buold+aHP0ykr4PfljIHkvnsbg5NIiEbOgo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKCg98+gBfmD2HBv
+# ee0BY4cdU7CWMA0GCSqGSIb3DQEBAQUABIIBAEv5e6DwILQcPSImY08OOVfzWK1U
+# EquKeqfWvXPM4usAdLycIaK4s2C6L8tb6stdjIh0PBmnEuAF2XnvvhS6QauZKmNU
+# zB3efmeEr+LbsjAarcJmAwaz7algwFWbbakCI8I1RZ+TYDqyEF+qi6Oolf1VeQuN
+# rbtb3oTGDVrb9jAuUnP4Av9sb95JJWwZKShEAEeFuOuiZlKrJAFjvN892D/y8EVZ
+# Zj9E7Sni5GqRPhsPxYrUGikfFG2L895DEb3bZDfMGv7+oMgJXEU3eASYS4uAWn8y
+# y+utk6A57r5MUU9UHgx2sdaXblD++qmPgHygJM2lVQi0wlIuzS8dydkk6qo=
 # SIG # End signature block
