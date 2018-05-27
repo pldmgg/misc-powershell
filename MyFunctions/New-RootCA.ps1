@@ -487,20 +487,28 @@ function New-RootCA {
         # See: https://giritharan.com/time-synchronization-in-active-directory-domain/
         $null = W32tm /resync /rediscover /nowait
 
+        if (!$FileOutputDirectory) {
+            $FileOutputDirectory = "C:\NewRootCAOutput"
+        }
         if (!$(Test-Path $FileOutputDirectory)) {
             $null = New-Item -ItemType Directory -Path $FileOutputDirectory 
         }
 
         try {
-            $null = Install-PackageProvider -Name Nuget -Force -Confirm:$False
-            $null = Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-            Install-Module PSPKI -ErrorAction Stop
             Import-Module PSPKI -ErrorAction Stop
         }
         catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
+            try {
+                $null = Install-PackageProvider -Name Nuget -Force -Confirm:$False
+                $null = Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+                Install-Module PSPKI -ErrorAction Stop -WarningAction SilentlyContinue
+                Import-Module PSPKI -ErrorAction Stop
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
         }
         
         try {
@@ -657,6 +665,7 @@ function New-RootCA {
         #endregion >> Install ADCSCA
 
         #region >> New Computer/Machine Template
+
         Write-Host "Creating new Machine Certificate Template..."
 
         while (!$WebServTempl -or !$ComputerTempl) {
@@ -717,6 +726,7 @@ function New-RootCA {
         #endregion >> New Computer/Machine Template
 
         #region >> New WebServer Template
+
         Write-Host "Creating new WebServer Certificate Template..."
 
         $OIDRandWebServ = (Get-Random -Maximum 999999999999999).tostring('d15')
@@ -756,12 +766,12 @@ function New-RootCA {
 
         #endregion >> New WebServer Template
 
-        #region >> Finish
+        #region >> Finish Up
 
         # Add the newly created custom Computer and WebServer Certificate Templates to List of Certificate Templates to Issue
         # For this to be (relatively) painless, we need the following PSPKI Module cmdlets
-        Get-CertificationAuthority -Name $env:ComputerName | Get-CATemplate | Add-CATemplate -Name $NewComputerTemplateCommonName | Set-CATemplate
-        Get-CertificationAuthority -Name $env:ComputerName | Get-CATemplate | Add-CATemplate -Name $NewWebServerTemplateCommonName | Set-CATemplate
+        $null = Get-CertificationAuthority -Name $env:ComputerName | Get-CATemplate | Add-CATemplate -Name $NewComputerTemplateCommonName | Set-CATemplate
+        $null = Get-CertificationAuthority -Name $env:ComputerName | Get-CATemplate | Add-CATemplate -Name $NewWebServerTemplateCommonName | Set-CATemplate
 
         # Export New Certificate Templates to NewCert-Templates Directory
         $ldifdeUserName = $($DomainAdminCredentials.UserName -split "\\")[-1]
@@ -797,12 +807,12 @@ function New-RootCA {
         Write-Host "Successfully configured Root Certificate Authority" -ForegroundColor Green
         Write-Host "RootCA Files needed by the new Subordinate/Issuing/Intermediate CA Server(s) are now TEMPORARILY available at SMB Share located:`n$RootCASMBShareFQDNLocation`nOR`n$RootCASMBShareIPLocation" -ForegroundColor Green
         
+        #endregion >> Finish Up
+
         [pscustomobject] @{
             SMBShareIPLocation = $RootCASMBShareIPLocation
             SMBShareFQDNLocation = $RootCASMBShareFQDNLocation
         }
-        
-        #endregion >> Finish
     }
 
     #endregion >> Helper Functions
@@ -915,15 +925,19 @@ function New-RootCA {
         $null = $NetworkInfoPSObjects.Add($PSObj)
     }
 
+    $RelevantRootCANetworkInfo = $NetworkInfoPSObjects | Where-Object {$_.ServerPurpose -eq "RootCA"}
+
     # Set some defaults if certain paramters are not used
     if (!$CAType) {
         $CAType = "EnterpriseRootCA"
     }
     if (!$NewComputerTemplateCommonName) {
-        $NewComputerTemplateCommonName = $DomainShortName + "Computer"
+        #$NewComputerTemplateCommonName = $DomainShortName + "Computer"
+        $NewComputerTemplateCommonName = "Machine"
     }
     if (!$NewWebServerTemplateCommonName) {
-        $NewWebServerTemplateCommonName = $DomainShortName + "WebServer"
+        #$NewWebServerTemplateCommonName = $DomainShortName + "WebServer"
+        $NewWebServerTemplateCommonName = "WebServer"
     }
     if (!$FileOutputDirectory) {
         $FileOutputDirectory = "C:\NewRootCAOutput"
@@ -963,7 +977,29 @@ function New-RootCA {
         AIAUrl                              = $AIAUrl
     }
 
-    $RelevantRootCANetworkInfo = $NetworkInfoPSObjects | Where-Object {$_.ServerPurpose -eq "RootCA"}
+    # Install any required PowerShell Modules...
+    [array]$NeededModules = @(
+        "PSPKI"
+    )
+    $null = Install-PackageProvider -Name Nuget -Force -Confirm:$False
+    $null = Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+    [System.Collections.ArrayList]$FailedModuleInstall = @()
+    foreach ($ModuleResource in $NeededModules) {
+        try {
+            $null = Install-Module $ModuleResource -ErrorAction Stop
+        }
+        catch {
+            Write-Error $_
+            $null = $FailedModuleInstall.Add($ModuleResource)
+            continue
+        }
+    }
+    if ($FailedModuleInstall.Count -gt 0) {
+        Write-Error "Problem installing the following DSC Modules:`n$($FailedModuleInstall -join "`n")"
+        $global:FunctionResult = "1"
+        return
+    }
 
     #endregion >> Initial Prep
 
@@ -1000,18 +1036,38 @@ function New-RootCA {
             return
         }
 
+        # Transfer any required PowerShell Modules
+        [array]$ModulesToTransfer = foreach ($ModuleResource in $NeededModules) {
+            $Module = Get-Module -ListAvailable $ModuleResource
+            "$($($Module.ModuleBase -split $ModuleResource)[0])\$ModuleResource"
+        }
+        
+        $ProgramFilesPSModulePath = "C:\Program Files\WindowsPowerShell\Modules"
+        foreach ($ModuleDirPath in $ModulesToTransfer) {
+            $CopyItemSplatParams = @{
+                Path            = $ModuleDirPath
+                Recurse         = $True
+                Destination     = "$ProgramFilesPSModulePath\$($ModuleDirPath | Split-Path -Leaf)"
+                ToSession       = $RootCAPSSession
+                Force           = $True
+            }
+            Copy-Item @CopyItemSplatParams
+        }
+
         $FunctionsForRemoteUse = @(
             ${Function:GetDomainController}.Ast.Extent.Text
             ${Function:SetupRootCA}.Ast.Extent.Text
         )
-        Invoke-Command -Session $RootCAPSSession -ScriptBlock {
+        $Output = Invoke-Command -Session $RootCAPSSession -ScriptBlock {
             $using:FunctionsForRemoteUse | foreach { Invoke-Expression $_ }
             SetupRootCA @using:SetupRootCASplatParams
         }
     }
     else {
-        SetupRootCA @SetupRootCASplatParams
+        $Output = SetupRootCA @SetupRootCASplatParams
     }
+
+    $Output
 
     #endregion >> Do RootCA Install
 }
@@ -1021,8 +1077,8 @@ function New-RootCA {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfetX9eZlyMG0hL/M+e0gY/DD
-# j1mgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVjE86HXUpAsyM2bZMwQerZny
+# 0rugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1079,11 +1135,11 @@ function New-RootCA {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFN2r1jrTLBPub9xv
-# ZYoxJ+La9wg2MA0GCSqGSIb3DQEBAQUABIIBACKeZy0HOSujWu1i+IgRsSLwVbiv
-# hkt838l+DuySTxq66Fvz5Z1Dx6f8cdPaxxJp6EO5LTm1//vCs0uI+hL3rYY40igw
-# Vx7p7xiVMP9T/bNF416ATJ59BCZnUNyg0zAFtrDw+bylGIjmVNUCjbuse9TlasjH
-# nr6q8IGYo4MeKqnRZaZuOvmG5oh20RsJuLXfl392SDpnOiu8QCIIgYHThKhy5MSU
-# Gd17nDqR9YZ//zomg0DmOQ1MrqOdWsVpel6xdlBLcydo2j3qOSrpwKZZbFIWMGsI
-# TPZ7hggTFsgPTlibwDeVIV6zJb9XCJ0mehG6TZfokh2zC9+I+3FvplUQAW8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIOHgtW/ZdTrWKZz
+# iTEHvGhbBibDMA0GCSqGSIb3DQEBAQUABIIBAKpbsHnEi+TDHbn8Nuf6z0sxiBG4
+# wIKFOewK5hQ5bzvI+kOO/HvV/ZQPjpP3z+dZ4mJstuGdGejkotfGxT7ai+dyVaeX
+# GyciJ8USQrh4jrQsAkaK+RhIJDb33z1er7iJ9J4EltRXCKBfcleF0HlHqPo7LGgG
+# 72J7vR6XbgkpMGkS8WqZfotaJUgekuXFnW0VLUY1+9ffPZIwKv/K6y+8ixUhbCBs
+# WoLz8KLJnOrbaS6JUe048HP7RIyVPYeD5SxRElBqNYC/W/F3opU6l/SmAy20zq5R
+# Z85J0hYHvqnD7oN0ofdggpD1OBUthZkjVKgRJfNfXvwNWk/5Xw5HeonX3G8=
 # SIG # End signature block

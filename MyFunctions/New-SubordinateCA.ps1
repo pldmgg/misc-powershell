@@ -474,6 +474,8 @@ function New-SubordinateCA {
             [string]$AIAUrl
         )
 
+        #region >> Prep
+
         # Make sure we can find the Domain Controller(s)
         try {
             $DomainControllerInfo = GetDomainController -Domain $(Get-CimInstance win32_computersystem).Domain -UseLogonServer -WarningAction SilentlyContinue
@@ -488,6 +490,65 @@ function New-SubordinateCA {
         # Make sure time is synchronized with NTP Servers/Domain Controllers (i.e. might be using NT5DS instead of NTP)
         # See: https://giritharan.com/time-synchronization-in-active-directory-domain/
         $null = W32tm /resync /rediscover /nowait
+
+        if (!$FileOutputDirectory) {
+            $FileOutputDirectory = "C:\NewSubCAOutput"
+        }
+        if (!$(Test-Path $FileOutputDirectory)) {
+            $null = New-Item -ItemType Directory -Path $FileOutputDirectory 
+        }
+
+        try {
+            Import-Module PSPKI -ErrorAction Stop
+        }
+        catch {
+            try {
+                $null = Install-PackageProvider -Name Nuget -Force -Confirm:$False
+                $null = Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+                Install-Module PSPKI -ErrorAction Stop -WarningAction SilentlyContinue
+                Import-Module PSPKI -ErrorAction Stop
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+
+        try {
+            Import-Module ServerManager -ErrorAction Stop
+        }
+        catch {
+            Write-Error "Problem importing the ServerManager Module! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        $WindowsFeaturesToAdd = @(
+            "Adcs-Cert-Authority"
+            "Adcs-Web-Enrollment"
+            "Adcs-Enroll-Web-Pol"
+            "Adcs-Enroll-Web-Svc"
+            "Web-Mgmt-Console"
+            "RSAT-AD-Tools"
+        )
+        foreach ($FeatureName in $WindowsFeaturesToAdd) {
+            $SplatParams = @{
+                Name    = $FeatureName
+            }
+            if ($FeatureName -eq "Adcs-Cert-Authority") {
+                $SplatParams.Add("IncludeManagementTools",$True)
+            }
+
+            try {
+                $null = Add-WindowsFeature @SplatParams
+            }
+            catch {
+                Write-Error "Problem with 'Add-WindowsFeature $FeatureName'! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
 
         $RelevantRootCANetworkInfo = $NetworkInfoPSObjects | Where-Object {$_.ServerPurpose -eq "RootCA"}
         $RelevantSubCANetworkInfo = $NetworkInfoPSObjects | Where-Object {$_.ServerPurpose -eq "SubCA"}
@@ -557,72 +618,15 @@ function New-SubordinateCA {
             $RootCASMBShareMount = New-PSDrive @NewPSDriveSplatParams
 
             if (!$RootCASMBShareMount) {
-                $NewPSDriveSplatParams
                 Write-Host "Waiting for RootCA SMB Share to become available. Sleeping for 15 seconds..."
                 Start-Sleep -Seconds 15
             }
         }
 
-        if (!$FileOutputDirectory) {
-            $FileOutputDirectory = "C:\NewSubCAOutput"
-        }
-        if (!$(Test-Path $FileOutputDirectory)) {
-            $null = New-Item -ItemType Directory -Path $FileOutputDirectory 
-        }
-        
-        try {
-            Import-Module PSPKI -ErrorAction Stop
-        }
-        catch {
-            try {
-                $null = Install-PackageProvider -Name Nuget -Force -Confirm:$False
-                $null = Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-                Install-Module PSPKI -ErrorAction Stop
-                Import-Module PSPKI -ErrorAction Stop
-            }
-            catch {
-                Write-Error $_
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-        
-        try {
-            Import-Module ServerManager -ErrorAction Stop
-        }
-        catch {
-            Write-Error "Problem importing the ServerManager Module! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        $WindowsFeaturesToAdd = @(
-            "Adcs-Cert-Authority"
-            "Adcs-Web-Enrollment"
-            "Adcs-Enroll-Web-Pol"
-            "Adcs-Enroll-Web-Svc"
-            "Web-Mgmt-Console"
-            "RSAT-AD-Tools"
-        )
-        foreach ($FeatureName in $WindowsFeaturesToAdd) {
-            $SplatParams = @{
-                Name    = $FeatureName
-            }
-            if ($FeatureName -eq "Adcs-Cert-Authority") {
-                $SplatParams.Add("IncludeManagementTools",$True)
-            }
-
-            try {
-                $null = Add-WindowsFeature @SplatParams
-            }
-            catch {
-                Write-Error "Problem with 'Add-WindowsFeature $FeatureName'! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
+        #endregion >> Prep
 
         #region >> Install ADCSCA
+
         try {
             $CertRequestFile = $FileOutputDirectory + "\" + $RelevantSubCANetworkInfo.FQDN + "_" + $RelevantSubCANetworkInfo.HostName + ".csr"
             $FinalCryptoProvider = $KeyAlgorithmValue + "#" + $CryptoProvider
@@ -1021,6 +1025,10 @@ _continue_ = "ipaddress=$($RelevantSubCANetworkInfo.IPAddress)&"
             Start-Sleep -Seconds 5
         }
 
+        #endregion >> Install ADCSCA
+
+        #region >> Finish IIS Config
+
         # Configure HTTPS Binding
         try {
             Write-Host "Configuring IIS https binding to use $PKIWebsiteCertFileOut..."
@@ -1065,6 +1073,8 @@ _continue_ = "ipaddress=$($RelevantSubCANetworkInfo.IPAddress)&"
             Write-Host "Waiting for the 'iis' service to start..."
             Start-Sleep -Seconds 5
         }
+
+        #endregion >> Finish IIS Config
 
         [pscustomobject]@{
             PKIWebsiteUrls                  = @("https://pki.$($RelevantSubCANetworkInfo.DomainName)/certsrv","https://pki.$($RelevantSubCANetworkInfo.IPAddress)/certsrv")
@@ -1265,11 +1275,6 @@ _continue_ = "ipaddress=$($RelevantSubCANetworkInfo.IPAddress)&"
         return
     }
 
-    [array]$ModulesToTransfer = foreach ($ModuleResource in $NeededModules) {
-        $Module = Get-Module -ListAvailable $ModuleResource
-        "$($($Module.ModuleBase -split $ModuleResource)[0])\$ModuleResource"
-    }
-
     #endregion >> Initial Prep
 
 
@@ -1306,6 +1311,11 @@ _continue_ = "ipaddress=$($RelevantSubCANetworkInfo.IPAddress)&"
         }
 
         # Transfer any required PowerShell Modules
+        [array]$ModulesToTransfer = foreach ($ModuleResource in $NeededModules) {
+            $Module = Get-Module -ListAvailable $ModuleResource
+            "$($($Module.ModuleBase -split $ModuleResource)[0])\$ModuleResource"
+        }
+
         $ProgramFilesPSModulePath = "C:\Program Files\WindowsPowerShell\Modules"
         foreach ($ModuleDirPath in $ModulesToTransfer) {
             $CopyItemSplatParams = @{
@@ -1318,7 +1328,8 @@ _continue_ = "ipaddress=$($RelevantSubCANetworkInfo.IPAddress)&"
             Copy-Item @CopyItemSplatParams
         }
 
-        # Get ready to run SetupSubCA function remotely as a Scheduled task to that certreq/certutil don't hang due to double-hop issue...
+        # Get ready to run SetupSubCA function remotely as a Scheduled task to that certreq/certutil don't hang due
+        # to double-hop issue when requesting a Certificate from the Root CA ...
 
         $FunctionsForRemoteUse = @(
             ${Function:GetDomainController}.Ast.Extent.Text
@@ -1379,7 +1390,7 @@ _continue_ = "ipaddress=$($RelevantSubCANetworkInfo.IPAddress)&"
         } -As $DomainAdminCredentials
         #>
 
-        Write-Host "This will take about 2 hours...go grab a coffee...or 2..."
+        Write-Host "This will take about 1 hour...go grab a coffee..."
 
         $DomainAdminAccount = $DomainAdminCredentials.UserName
         $DomainAdminPwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($DomainAdminCredentials.Password))
@@ -1429,7 +1440,7 @@ $SetupSubCASplatParams = @{
 
     if ($NewSubCAErrs) {
         Write-Warning "Ignored errors are as follows:"
-        Write-Error ($NewSubCAErrs | Out-String)
+        Write-Error ($NewSubCAErrs | Select-Object -Unique | Out-String)
     }
 
     Stop-Transcript
@@ -1444,7 +1455,7 @@ $SetupSubCASplatParams = @{
             $Trigger.EndBoundary = $(Get-Date).AddHours(4).ToString('s')
             # IMPORTANT NORE: The double quotes around the -File value are MANDATORY. They CANNOT be single quotes or without quotes
             # or the Scheduled Task will error out!
-            Register-ScheduledTask -Force -TaskName NewSubCA -User $using:DomainAdminCredentials.UserName -Password $using:DomainAdminPwd -Action $(
+            $null = Register-ScheduledTask -Force -TaskName NewSubCA -User $using:DomainAdminCredentials.UserName -Password $using:DomainAdminPwd -Action $(
                 New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NoLogo -NonInteractive -ExecutionPolicy Bypass -File `"$HOME\NewSubCAExecutionScript.ps1`""
             ) -Trigger $Trigger -Settings $(New-ScheduledTaskSettingsSet -DeleteExpiredTaskAfter 00:00:01)
 
@@ -1454,20 +1465,54 @@ $SetupSubCASplatParams = @{
                 Start-ScheduledTask -TaskName "NewSubCA"
             }
 
-            $Counter = 1
-            while ((Get-ScheduledTask -TaskName 'NewSubCA').State  -ne 'Ready') {
-                Write-Host "Waiting for Scheduled Task 'NewSubCA' to complete..."
-                Write-Host "We have waited for $($Counter*15/60) minutes..."
-                Start-Sleep -Seconds 15
+            # Wait 60 minutes...
+            $Counter = 0
+            while ($(Get-ScheduledTask -TaskName 'NewSubCA').State  -ne 'Ready' -and $Counter -le 100) {
+                $PercentComplete = [Math]::Round(($Counter/60)*100)
+                Write-Progress -Activity "Running Scheduled Task 'NewSubCA'" -Status "$PercentComplete% Complete:" -PercentComplete $PercentComplete
+                Start-Sleep -Seconds 60
                 $Counter++
             }
 
-            Unregister-ScheduledTask -TaskName "NewSubCA" -Confirm:$False
+            # Wait another 30 minutes for up to 2 more hours...
+            $FinalCounter = 0
+            while ($(Get-ScheduledTask -TaskName 'NewSubCA').State  -ne 'Ready' -and $FinalCounter -le 4) {
+                $Counter = 0
+                while ($(Get-ScheduledTask -TaskName 'NewSubCA').State  -ne 'Ready' -and $Counter -le 100) {
+                    if ($Counter -eq 0) {Write-Host "The Scheduled Task 'NewSubCA' needs a little more time to finish..."}
+                    $PercentComplete = [Math]::Round(($Counter/30)*100)
+                    Write-Progress -Activity "Running Scheduled Task 'NewSubCA'" -Status "$PercentComplete% Complete:" -PercentComplete $PercentComplete
+                    Start-Sleep -Seconds 60
+                    $Counter++
+                }
+                $FinalCounter++
+            }
 
-            Import-CliXML "$HOME\SetupSubCAOutput.xml"
+            if ($(Get-ScheduledTask -TaskName 'NewSubCA').State  -ne 'Ready') {
+                Write-Warning "The Scheduled Task 'NewSubCA' has been running for over 3 hours and has not finished! Stopping and removing..."
+                Stop-ScheduledTask -TaskName "NewSubCA"
+            }
+
+            $null = Unregister-ScheduledTask -TaskName "NewSubCA" -Confirm:$False
+
+            if (Test-Path "$HOME\SetupSubCAOutput.xml") {
+                Write-Host "The Subordinate CA has been configured successfully!" -ForegroundColor Green
+                Import-CliXML "$HOME\SetupSubCAOutput.xml"
+            }
+            elseif (Test-Path "$HOME\NewSubCATask.log") {
+                Write-Warning "The Subordinate CA was NOT configured within 3 hours! Please review the below log output"
+                Get-Content "$HOME\NewSubCATask.log"
+            }
+            else {
+                Write-Warning "The Subordinate CA was NOT configured within 3 hours and no log file indicating progress was generated!"
+                Write-Warning "Please review the content of the following files:"
+                [array]$FilesToReview = Get-ChildItem $HOME -File | Where-Object {$_.Extension -match '\.ps1|\.log|\.xml'}
+                $FilesToReview.FullName
+            }
         }
     }
     else {
+        Write-Host "This will take about 1 hour...go grab a coffee..."
         $Output = SetupSubCA @SetupSubCASplatParams
     }
 
@@ -1483,8 +1528,8 @@ $SetupSubCASplatParams = @{
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUaiOaA46R9llBtK8eLw1ZCw41
-# Vougggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAia95yub4BNhA5n/UFBOeqjY
+# 1fegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1541,11 +1586,11 @@ $SetupSubCASplatParams = @{
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFL2aWMeLtkw5AEW9
-# nfMM8I6x+PgzMA0GCSqGSIb3DQEBAQUABIIBABlOHjS+GeUp7HO+kPnLnkHg5BFT
-# I4/p6PptZNVsfZMzbn/HUy3QuSrgKKRb6lEmAI96IdKcNh6BDEz9i8Dzok/gJTe5
-# DoxmKUv+hko6Bz1jWRDhHt+Vb5my1aERPYQVnlZTfFLc5DCo6bvCCK4hIx65itvC
-# Dqk8J0OEDJeK2ERUCyyNWQTo1pQJ5EI9ZYrBc/pZuLtAm1FW7jCgdIT+YIzVUEJ7
-# jzF4wuCk+QMe/K2PH/s2Uzf96sCThjdI9/q3BeVyQwxnJ3EAQJdhe7UNFKpD0/Zl
-# XvIPYKAE3i81sXhqponK7x/DHCeqba2MU971GaS0PtEkrqgo42n9mYXOaQw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKqJiOiP0tEYjgcd
+# FOKBNH1/bhb4MA0GCSqGSIb3DQEBAQUABIIBALKw1v0C/W/RDPV9EcPoSg4G2LHq
+# zZTHKExcftYn5bSxXO7UzuIrwrRtz3hWADxRQ0OkVs/X6LumiWcf+tiz57lYSJmM
+# YoKDfxpMsBhQT4llbKWydZkgcyf76E3aR/dWKXqRFuGAHrjqG9CDpioEfH9rbRxe
+# 5/uPPSsxsBSrrZ/34pFYA0T03heEqdQwNIN9muHfEy1XjZRzR94BeONxVSL9bdcl
+# wBP8kjZEL7somZJrIIcV6PzDmei4tfB3Vu7zOB/E71+MQM7mweDQ2P0peCNj/GqG
+# sEq1XwbkCz8AzqskkH8MgIdthhT4oh/nb+tScy+nME08Ilpy+n2GxjDMOuk=
 # SIG # End signature block
