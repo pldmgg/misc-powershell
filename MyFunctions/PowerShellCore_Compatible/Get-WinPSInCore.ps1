@@ -1,7 +1,12 @@
 function Get-WinPSInCore {
     [CmdletBinding()]
+    [Alias('shim')]
     Param (
-        [Parameter(Mandatory=$True)]
+        [Parameter(
+            Mandatory=$True,
+            Position=0
+        )]
+        [Alias("sb")]
         [scriptblock]$ScriptBlock,
 
         [Parameter(Mandatory=$False)]
@@ -229,7 +234,25 @@ $args | foreach {
     $FinalSB = [scriptblock]::Create($FinalSBAsString)
 
     # Output
-    powershell.exe -NoProfile -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command $FinalSB
+    #powershell.exe -NoProfile -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command $FinalSB
+    if (!$global:WinPSSession) {
+        $NewPSSessionSplatParams = @{
+            ConfigurationName   = 'Microsoft.PowerShell'
+            Name                = 'WinPSSession'
+            EnableNetworkAccess = $True
+        }
+        $global:WinPSSession = New-PSSession @NewPSSessionSplatParams
+        
+        if (!$global:WinPSSession) {
+            Write-Error "There was a problem creating the New-PSSession named 'WinPSSession'! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        else {
+            Write-Host "A new PSSession called 'WinPSSession' has been created along with a Global Variable referencing it called `$global:WinPSSession." -ForegroundColor Green
+        }
+    }
+    Invoke-Command -Session $global:WinPSSession -ScriptBlock $FinalSB -HideComputerName
 
     # Cleanup
     if ($SetEnvStringArrayPath) {
@@ -245,8 +268,8 @@ $args | foreach {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU2Tyjk95MetGDuVpUeosdTbGu
-# Z0Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIH+JrdvQ8WUSI5/m97wkaJL5
+# +WKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -303,11 +326,11 @@ $args | foreach {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGDtTPTRtHKlQ2u8
-# nwM71SFIkoCyMA0GCSqGSIb3DQEBAQUABIIBAI32gan3TQwoK4Pf1Hdb/Q5Cx3MK
-# KHiHmvQKnukaw6HYktPb44GQbvrkMEdrFNiU63QeRAu6DXoR8QBb+LrIVhDFmPc7
-# HMV5tHIyxfgEmakdx/IawFcdMILYtyzQpIWECAiq9T28GDaCcWiUAuugQNk0akAO
-# U3X+vZYzv9oTWmQ1Lp79HbX0nqDyeHME/aatvyeBzXBgF1L9i6VMd28e2YwhnH7I
-# RqMKbmj56jQirwpp7ayk5xMKewulGP2AQmbvv2dQLloWtL62Ntq+nmLEh6HhoWhO
-# cxfQtsIoI4mjCpmYnCW8ToXImAnf0UvjipnVt2qzpttzRL07jkOPmaSoE0E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLYRCSqIYRgDVKkM
+# 2swUZWFZz6QUMA0GCSqGSIb3DQEBAQUABIIBALUGYpwbTEn4f++XLIJxpk5aIPVW
+# J16pix4xOyA+E8VtfRYslgmjEcHORQa8bTeURSmK4WTJOWhVxqcYepHc0n2Tmdx6
+# XFHhR2lv6KiQ0G5IN/IIfbxI0ZL8Bwnwun08WC3lp21YsGNchSjNd1LC8MtIVnxM
+# dGBCuWOWdmANM0v33FIUeYzbtYG1H1sDyaDRy8VK4/OASRU6il1is5CaPHvKbiz9
+# YvpVkoTvuRrr1BjlPSqXNDPH9xrH16vcBlHEH4bWV8osQFfLsi2XonGmGqCvOKch
+# aP2lJYDvDpfsCWorBHN53Ux4f8X5ypoBQ+FKs1x3ZgE5kVoSVn7+OWGGzaM=
 # SIG # End signature block
