@@ -22,7 +22,7 @@ function Get-WinPSInCore {
         [string[]]$ModulesToForward,
 
         [Parameter(Mandatory=$False)]
-        [switch]$Wait
+        [switch]$NoWinRM
     )
 
     if ($PSVersionTable.PSEdition -ne "Core" -or $PSVersionTable.Platform -ne "Win32NT") {
@@ -234,25 +234,29 @@ $args | foreach {
     $FinalSB = [scriptblock]::Create($FinalSBAsString)
 
     # Output
-    #powershell.exe -NoProfile -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command $FinalSB
-    if (!$global:WinPSSession) {
-        $NewPSSessionSplatParams = @{
-            ConfigurationName   = 'Microsoft.PowerShell'
-            Name                = 'WinPSSession'
-            EnableNetworkAccess = $True
-        }
-        $global:WinPSSession = New-PSSession @NewPSSessionSplatParams
-        
-        if (!$global:WinPSSession) {
-            Write-Error "There was a problem creating the New-PSSession named 'WinPSSession'! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        else {
-            Write-Host "A new PSSession called 'WinPSSession' has been created along with a Global Variable referencing it called `$global:WinPSSession." -ForegroundColor Green
-        }
+    if (!$NoWinRM) {
+        powershell.exe -NoProfile -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command $FinalSB
     }
-    Invoke-Command -Session $global:WinPSSession -ScriptBlock $FinalSB -HideComputerName
+    else {
+        if (!$global:WinPSSession) {
+            $NewPSSessionSplatParams = @{
+                ConfigurationName   = 'Microsoft.PowerShell'
+                Name                = 'WinPSSession'
+                EnableNetworkAccess = $True
+            }
+            $global:WinPSSession = New-PSSession @NewPSSessionSplatParams
+            
+            if (!$global:WinPSSession) {
+                Write-Error "There was a problem creating the New-PSSession named 'WinPSSession'! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+            else {
+                Write-Host "A new PSSession called 'WinPSSession' has been created along with a Global Variable referencing it called `$global:WinPSSession." -ForegroundColor Green
+            }
+        }
+        Invoke-Command -Session $global:WinPSSession -ScriptBlock $FinalSB -HideComputerName
+    }
 
     # Cleanup
     if ($SetEnvStringArrayPath) {
@@ -268,8 +272,8 @@ $args | foreach {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIH+JrdvQ8WUSI5/m97wkaJL5
-# +WKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGuX3NeUwhrEjOMr8tdsL/TKK
+# isegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -326,11 +330,11 @@ $args | foreach {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLYRCSqIYRgDVKkM
-# 2swUZWFZz6QUMA0GCSqGSIb3DQEBAQUABIIBALUGYpwbTEn4f++XLIJxpk5aIPVW
-# J16pix4xOyA+E8VtfRYslgmjEcHORQa8bTeURSmK4WTJOWhVxqcYepHc0n2Tmdx6
-# XFHhR2lv6KiQ0G5IN/IIfbxI0ZL8Bwnwun08WC3lp21YsGNchSjNd1LC8MtIVnxM
-# dGBCuWOWdmANM0v33FIUeYzbtYG1H1sDyaDRy8VK4/OASRU6il1is5CaPHvKbiz9
-# YvpVkoTvuRrr1BjlPSqXNDPH9xrH16vcBlHEH4bWV8osQFfLsi2XonGmGqCvOKch
-# aP2lJYDvDpfsCWorBHN53Ux4f8X5ypoBQ+FKs1x3ZgE5kVoSVn7+OWGGzaM=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKb73TtUlPJhBS6N
+# 4NkdgrA4Y/LBMA0GCSqGSIb3DQEBAQUABIIBAB6ogfUTzF8TJo+r47pNamJaps44
+# Bcf2/YEv4rUL9Th6HHx2rJK/RfzHAaISA0PQU+L9XfW40OpPwrxGVcEGEpS1pHQI
+# HNVjI3lGNglKDi0cLVe2WwY3pTp6xrSEZFJ0tPVv7D2EI4XoYs33esnunAB0e2ei
+# 6K1gbydU+hcZWYYo///uII7RPDnCvbxyiy+e3weeKd6URj2mIVoIaav/XK241wgx
+# VMOjRwxVby2VjhxSRjpz6TvU5e3FeyQd6bdm367LuDYqppoFcRIblHfq57Fp6BJ8
+# h+/U3DDE4EpEE3A/GZs91KenAHH0CZKKrtDYWWNL6T+YUgtquMeA4n7OmJU=
 # SIG # End signature block
