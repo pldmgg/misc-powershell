@@ -52,6 +52,7 @@ function New-RunSpace {
     if ($ExistingGlobalVariables.Name -notcontains 'RSSyncHash') {
         $GlobalRSSyncHashName = NewUniqueString -PossibleNewUniqueString "RSSyncHash" -ArrayOfStrings $ExistingGlobalVariables.Name
         Invoke-Expression "`$global:$GlobalRSSyncHashName = [hashtable]::Synchronized(@{})"
+        $globalRSSyncHash = Get-Variable -Name $GlobalRSSyncHashName -Scope Global -ValueOnly
     }
     else {
         $GlobalRSSyncHashName = 'RSSyncHash'
@@ -64,26 +65,32 @@ function New-RunSpace {
                 Write-Warning "The RunspaceName '$RSNameOriginal' already exists. Your new RunspaceName will be '$RunSpaceName'"
             }
         }
+
+        $globalRSSyncHash = $global:RSSyncHash
     }
     if ($ExistingGlobalVariables.Name -notcontains 'RSJobCleanup') {
         $GlobalRSJobCleanupName = NewUniqueString -PossibleNewUniqueString "RSJobCleanup" -ArrayOfStrings $ExistingGlobalVariables.Name
         Invoke-Expression "`$global:$GlobalRSJobCleanupName = [hashtable]::Synchronized(@{})"
+        $globalRSJobCleanup = Get-Variable -Name $GlobalRSJobCleanupName -Scope Global -ValueOnly
     }
     else {
         $GlobalRSJobCleanupName = 'RSJobCleanup'
+        $globalRSJobCleanup = $global:RSJobCleanup
     }
     if ($ExistingGlobalVariables.Name -notcontains 'RSJobs') {
         $GlobalRSJobsName = NewUniqueString -PossibleNewUniqueString "RSJobs" -ArrayOfStrings $ExistingGlobalVariables.Name
         Invoke-Expression "`$global:$GlobalRSJobsName = [System.Collections.ArrayList]::Synchronized([System.Collections.ArrayList]::new())"
+        $globalRSJobs = Get-Variable -Name $GlobalRSJobsName -Scope Global -ValueOnly
     }
     else {
         $GlobalRSJobsName = 'RSJobs'
+        $globalRSJobs = $global:RSJobs
     }
     $GlobalVariables = @($GlobalSyncHashName,$GlobalRSJobCleanupName,$GlobalRSJobsName)
     #Write-Host "Global Variable names are: $($GlobalVariables -join ", ")"
-    $globalRSSyncHash = Get-Variable -Name $GlobalRSSyncHashName -Scope Global -ValueOnly
-    $globalRSJobCleanup = Get-Variable -Name $GlobalRSJobCleanupName -Scope Global -ValueOnly
-    $globalRSJobs = Get-Variable -Name $GlobalRSJobsName -Scope Global -ValueOnly
+
+    # Prep an empty pscustomobject for the RunspaceNameResult Key in $globalRSSyncHash
+    $globalRSSyncHash."$RunspaceName`Result" = [pscustomobject]@{}
 
     #endregion >> Runspace Prep
 
@@ -93,6 +100,7 @@ function New-RunSpace {
     $globalRSJobCleanup.Flag = $True
 
     if ($ExistingGlobalVariables.Name -notcontains 'RSJobCleanup') {
+        Write-Host '$global:RSJobCleanup does NOT already exists. Creating New Runspace Manager Runspace...'
         $RunspaceMgrRunspace = [runspacefactory]::CreateRunspace()
         if ($PSVersionTable.PSEdition -ne "Core") {
             $RunspaceMgrRunspace.ApartmentState = "STA"
@@ -152,7 +160,7 @@ function New-RunSpace {
                     }
                     #>
 
-                    Start-Sleep -Seconds 2
+                    Start-Sleep -Seconds 5
 
                     # Optional -
                     # For realtime updates to a GUI depending on changes in data within the $globalRSSyncHash, use
@@ -192,8 +200,6 @@ function New-RunSpace {
     # Pass $globalRSJobCleanup and $globalRSJobs to the Generic Runspace so that the Runspace Manager Runspace can manage it
     $GenericRunspace.SessionStateProxy.SetVariable("JobCleanup",$globalRSJobCleanup)
     $GenericRunspace.SessionStateProxy.SetVariable("Jobs",$globalRSJobs)
-
-    # Pass Environment to the Generic Runspace
     $GenericRunspace.SessionStateProxy.SetVariable("ScriptBlock",$ScriptBlock)
 
     # Pass all other notable environment characteristics 
@@ -203,7 +209,7 @@ function New-RunSpace {
         $VariablesNotToForward = @('globalRSSyncHash','RSSyncHash','globalRSJobCleanUp','RSJobCleanup',
         'globalRSJobs','RSJobs','ExistingGlobalVariables','DesiredGlobalVariables','$GlobalRSSyncHashName',
         'RSNameOriginal','GlobalRSJobCleanupName','GlobalRSJobsName','GlobalVariables','RunspaceMgrRunspace',
-        'GenericRunspace')
+        'GenericRunspace','ScriptBlock')
 
         $Variables = Get-Variable
         foreach ($VarObj in $Variables) {
@@ -324,19 +330,20 @@ function New-RunSpace {
 
     # Define the main PowerShell Script that will run the $ScriptBlock
     $null = $GenericPSInstance.AddScript({
-        $SyncHash."$RunSpaceName`Done" = $False
+        $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Done -Value $False
+        $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Errors -Value $([System.Collections.ArrayList]::new())
         
         ##### BEGIN Generic Runspace Helper Functions #####
 
         # Load the environment we packed up
         if ($SetEnvStringArray) {
-            $SetEnvStringArray | foreach {
-                if (![string]::IsNullOrWhiteSpace($_)) {
+            foreach ($obj in $SetEnvStringArray) {
+                if (![string]::IsNullOrWhiteSpace($obj)) {
                     try {
-                        Invoke-Expression $_
+                        Invoke-Expression $obj
                     }
                     catch {
-                        $SyncHash."$RunSpaceName`Error" = $_
+                        $null = $SyncHash."$RunSpaceName`Result".Errors.Add($_)
                     }
                 }
             }
@@ -347,20 +354,26 @@ function New-RunSpace {
         ##### BEGIN Script To Run #####
 
         try {
-            $ScriptBlock.InvokeReturnAsIs()
+            #$Result = $ScriptBlock.InvokeReturnAsIs()
+            #$Result = Invoke-Command -ScriptBlock $ScriptBlock
+            #$ScriptBlock.ToString() | Export-CliXml -Path "$HOME\SBToString.xml"
+            $Result = Invoke-Expression $ScriptBlock.ToString()
+            $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Output -Value $Result
         }
         catch {
-            $SyncHash."$RunSpaceName`Error" = $_
+            $null = $SyncHash."$RunSpaceName`Result".Errors.Add($_)
         }
 
         ##### END Script To Run #####
 
-        $SyncHash."$RunSpaceName`Done" = $True
+        $SyncHash."$RunSpaceName`Result".Done = $True
     })
 
     # Start the Generic Runspace
     $GenericPSInstance.Runspace = $GenericRunspace
+
     if ($Wait) {
+        # The below will make any output of $GenericRunspace available in $Object in current scope
         $Object = New-Object 'System.Management.Automation.PSDataCollection[psobject]'
         $GenericAsyncHandle = $GenericPSInstance.BeginInvoke($Object,$Object)
 
@@ -372,14 +385,14 @@ function New-RunSpace {
         }
         $null = $globalRSJobs.Add($GenericRunspaceInfo)
 
-        while ($globalRSSyncHash."$RunSpaceName`Done" -ne $True) {
+        #while ($globalRSSyncHash."$RunSpaceName`Done" -ne $True) {
+        while ($GenericAsyncHandle.IsCompleted -ne $True) {
             #Write-Host "Waiting for -ScriptBlock to finish..."
             Start-Sleep -Milliseconds 10
         }
 
-        $globalRSSyncHash.Add($RunSpaceName,$Object)
-
-        $Object
+        $globalRSSyncHash."$RunspaceName`Result".Output
+        #$Object
     }
     else {
         $HelperRunspace = [runspacefactory]::CreateRunspace()
@@ -408,6 +421,7 @@ function New-RunSpace {
         $null = $HelperPSInstance.AddScript({
             ##### BEGIN Script To Run #####
 
+            # The below will make any output of $GenericRunspace available in $Object in current scope
             $Object = New-Object 'System.Management.Automation.PSDataCollection[psobject]'
             $GenericAsyncHandle = $GenericPSInstance.BeginInvoke($Object,$Object)
 
@@ -419,12 +433,11 @@ function New-RunSpace {
             }
             $null = $Jobs.Add($GenericRunspaceInfo)
 
-            while ($SyncHash."$RunSpaceName`Done" -ne $True) {
+            #while ($SyncHash."$RunSpaceName`Done" -ne $True) {
+            while ($GenericAsyncHandle.IsCompleted -ne $True) {
                 #Write-Host "Waiting for -ScriptBlock to finish..."
                 Start-Sleep -Milliseconds 10
             }
-
-            $SyncHash.Add($RunSpaceName,$Object)
 
             ##### END Script To Run #####
         })
@@ -449,8 +462,8 @@ function New-RunSpace {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8t3oSW5uipJQHqyCtddbxs+V
-# AC+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfI5mxQDP57+LdoDHgG26GgX0
+# tWCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -507,11 +520,11 @@ function New-RunSpace {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIvkBKaUlUI7ZVPc
-# T022PCGntCfpMA0GCSqGSIb3DQEBAQUABIIBAG36odWj4NYxV5UYgcAH0mcTgY0g
-# 9qa1alzhFOnu0FmhVaDZp8X60ArM/9u1L+mko3XqPk9TQIv77jYMZQd5+CiJHcun
-# lbdgSwcWWnAjVmAjzJIVdxvRSImDqi01DkqtZ6EeZsI6WkG54QcqaoLTcEBTQKTT
-# mUdeMLbA2Ka12MryLk654o9X29N7YZZsfhUy4tbIXNmB37aZyVSbrsb92llKbFkr
-# 0/nl2yrnyW3xvTH32QdJt71lUNXMUhLeX2k+8eKWGHl4ugi1Trtn8WAKOsQGkW+s
-# r1nFwSWvsB1EzCMiwZtFCiZLpFKLxEgLOzQ90O19saFA49h/uzxG3HXmi3s=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHExlVEi8CrU6PHS
+# q1A/+1s59NsoMA0GCSqGSIb3DQEBAQUABIIBAMRg8Y7Dn9ka80sF/eKcWne6BpBr
+# QQ26czH08+sTHSPiwmWIS9Lx1vbZELXcfW76aheUHktMv1BjdGL3+jf+xrrdet5Z
+# EY1cyZjkFClFD1b2gWLfj/vFfJBHbuBGVIdQns+TGydCihzs3LZGFLxoh2zktSiO
+# /nkmqBDUGLP/y1GxNDDs67AJCSK1gHeyEpak+wdJutcspffVrMvQxaxLPAsb23az
+# LaQFWkypvCoYYLrNP8xnNFPqA9RRWRG1LfmFcYT833n+3sf7it1cpiaexQ+NbR78
+# TX1yTaQxogaXU6Yq8P3XThRIYC11m7JjSEk5JarnB0sw9U8faKPSH8qOk5E=
 # SIG # End signature block
