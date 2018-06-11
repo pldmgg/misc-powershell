@@ -104,8 +104,6 @@ function New-RunSpace {
         $RunspaceMgrRunspace.SessionStateProxy.SetVariable("JobCleanup",$globalRSJobCleanup)
         $RunspaceMgrRunspace.SessionStateProxy.SetVariable("jobs",$globalRSJobs)
         $RunspaceMgrRunspace.SessionStateProxy.SetVariable("SyncHash",$globalRSSyncHash)
-        # Pass Update-Window function to Runspace Manager Runspace
-        
 
         $globalRSJobCleanup.PowerShell = [PowerShell]::Create().AddScript({
 
@@ -200,40 +198,124 @@ function New-RunSpace {
 
     # Pass all other notable environment characteristics 
     if ($MirrorCurrentEnv) {
+        [System.Collections.ArrayList]$SetEnvStringArray = @()
+
+        $VariablesNotToForward = @('globalRSSyncHash','RSSyncHash','globalRSJobCleanUp','RSJobCleanup',
+        'globalRSJobs','RSJobs','ExistingGlobalVariables','DesiredGlobalVariables','$GlobalRSSyncHashName',
+        'RSNameOriginal','GlobalRSJobCleanupName','GlobalRSJobsName','GlobalVariables','RunspaceMgrRunspace',
+        'GenericRunspace')
+
         $Variables = Get-Variable
         foreach ($VarObj in $Variables) {
-            try {
-                $GenericRunspace.SessionStateProxy.SetVariable($VarObj.Name,$VarObj.Value)
-            }
-            catch {
-                Write-Verbose "Skipping `$$($VarObj.Name)..."
+            if ($VariablesNotToForward -notcontains $VarObj.Name) {
+                try {
+                    $GenericRunspace.SessionStateProxy.SetVariable($VarObj.Name,$VarObj.Value)
+                }
+                catch {
+                    Write-Verbose "Skipping `$$($VarObj.Name)..."
+                }
             }
         }
 
+        # Set Environment Variables
         $EnvVariables = Get-ChildItem Env:\
+        if ($EnvironmentVariablesToForward -notcontains '*') {
+            $EnvVariables = foreach ($VarObj in $EnvVariables) {
+                if ($EnvironmentVariablesToForward -contains $VarObj.Name) {
+                    $VarObj
+                }
+            }
+        }
         $SetEnvVarsPrep = foreach ($VarObj in $EnvVariables) {
             if ([char[]]$VarObj.Name -contains '(' -or [char[]]$VarObj.Name -contains ' ') {
-                '${env:' + $VarObj.Name + '}' + ' = ' + "'$($VarObj.Value)'"
+                $EnvStringArr = @(
+                    'try {'
+                    $('    ${env:' + $VarObj.Name + '} = ' + "@'`n$($VarObj.Value)`n'@")
+                    '}'
+                    'catch {'
+                    "    Write-Verbose 'Unable to forward environment variable $($VarObj.Name)'"
+                    '}'
+                )
             }
             else {
-                '$env:' + $VarObj.Name + ' = ' + "'$($VarObj.Value)'"
+                $EnvStringArr = @(
+                    'try {'
+                    $('    $env:' + $VarObj.Name + ' = ' + "@'`n$($VarObj.Value)`n'@")
+                    '}'
+                    'catch {'
+                    "    Write-Verbose 'Unable to forward environment variable $($VarObj.Name)'"
+                    '}'
+                )
             }
+            $EnvStringArr -join "`n"
         }
         $SetEnvVarsString = $SetEnvVarsPrep -join "`n"
 
-        $Modules = $(Get-Module).Name
-        $SetModulesPrep = foreach ($Mod in $Modules) {
-            'Import-Module ' + $Mod
+        $null = $SetEnvStringArray.Add($SetEnvVarsString)
+
+        # Set Modules
+        $Modules = Get-Module
+        if ($ModulesToForward -notcontains '*') {
+            $Modules = foreach ($ModObj in $Modules) {
+                if ($ModulesToForward -contains $ModObj.Name) {
+                    $ModObj
+                }
+            }
+        }
+        $SetModulesPrep = foreach ($ModObj in $Modules) {
+            $ModuleManifestFullPath = $(Get-ChildItem -Path $ModObj.ModuleBase -Recurse -File | Where-Object {
+                $_.Name -eq "$($ModObj.Name).psd1"
+            }).FullName
+
+            $ModStringArray = @(
+                'try {'
+                "    Import-Module '$($ModObj.Name)' -ErrorAction Stop"
+                '}'
+                'catch {'
+                '    try {'
+                "        Import-Module '$ModuleManifestFullPath' -ErrorAction Stop"
+                '    }'
+                '    catch {'
+                "        Write-Warning 'Unable to Import-Module $($ModObj.Name)'"
+                '    }'
+                '}'
+            )
+            $ModStringArray -join "`n"
         }
         $SetModulesString = $SetModulesPrep -join "`n"
 
-        $Functions = Get-ChildItem Function:\ | Where-Object {[System.String]::IsNullOrWhiteSpace($_)}
-        $SetFunctionsPrep = foreach ($Func in $Functions) {
-            'Invoke-Expression ' + '${Function:' + $Func.Name + '}.Ast.Extent.Text'
+        $null = $SetEnvStringArray.Add($SetModulesString)
+    
+        # Set Functions
+        $Functions = Get-ChildItem Function:\ | Where-Object {![System.String]::IsNullOrWhiteSpace($_.Name)}
+        if ($FunctionsToForward -notcontains '*') {
+            $Functions = foreach ($FuncObj in $Functions) {
+                if ($FunctionsToForward -contains $FuncObj.Name) {
+                    $FuncObj
+                }
+            }
+        }
+        $SetFunctionsPrep = foreach ($FuncObj in $Functions) {
+            $FunctionText = Invoke-Expression $('@(${Function:' + $FuncObj.Name + '}.Ast.Extent.Text)')
+            if ($($FunctionText -split "`n").Count -gt 1) {
+                if ($($FunctionText -split "`n")[0] -match "^function ") {
+                    if ($($FunctionText -split "`n") -match "'@") {
+                        Write-Warning "Unable to forward function $($FuncObj.Name) due to heredoc string: '@"
+                    }
+                    else {
+                        'Invoke-Expression ' + "@'`n$FunctionText`n'@"
+                    }
+                }
+            }
+            elseif ($($FunctionText -split "`n").Count -eq 1) {
+                if ($FunctionText -match "^function ") {
+                    'Invoke-Expression ' + "@'`n$FunctionText`n'@"
+                }
+            }
         }
         $SetFunctionsString = $SetFunctionsPrep -join "`n"
 
-        $SetEnvStringArray = @($SetEnvVarsString,$SetModulesString,$SetFunctionsString)
+        $null = $SetEnvStringArray.Add($SetFunctionsString)
 
         $GenericRunspace.SessionStateProxy.SetVariable("SetEnvStringArray",$SetEnvStringArray)
     }
@@ -242,20 +324,38 @@ function New-RunSpace {
 
     # Define the main PowerShell Script that will run the $ScriptBlock
     $null = $GenericPSInstance.AddScript({
+        $SyncHash."$RunSpaceName`Done" = $False
+        
         ##### BEGIN Generic Runspace Helper Functions #####
 
         # Load the environment we packed up
         if ($SetEnvStringArray) {
-            $SetEnvStringArray | foreach {if (![string]::IsNullOrWhiteSpace($_)) {Invoke-Expression $_}}
+            $SetEnvStringArray | foreach {
+                if (![string]::IsNullOrWhiteSpace($_)) {
+                    try {
+                        Invoke-Expression $_
+                    }
+                    catch {
+                        $SyncHash."$RunSpaceName`Error" = $_
+                    }
+                }
+            }
         }
 
         ##### END Generic Runspace Helper Functions #####
 
         ##### BEGIN Script To Run #####
 
-        $ScriptBlock.InvokeReturnAsIs()
+        try {
+            $ScriptBlock.InvokeReturnAsIs()
+        }
+        catch {
+            $SyncHash."$RunSpaceName`Error" = $_
+        }
 
         ##### END Script To Run #####
+
+        $SyncHash."$RunSpaceName`Done" = $True
     })
 
     # Start the Generic Runspace
@@ -272,8 +372,8 @@ function New-RunSpace {
         }
         $null = $globalRSJobs.Add($GenericRunspaceInfo)
 
-        while ($GenericAsyncHandle.IsCompleted -ne $True) {
-            #Write-Verbose "Waiting for -ScriptBlock to finish..."
+        while ($globalRSSyncHash."$RunSpaceName`Done" -ne $True) {
+            #Write-Host "Waiting for -ScriptBlock to finish..."
             Start-Sleep -Milliseconds 10
         }
 
@@ -300,7 +400,7 @@ function New-RunSpace {
         # Set any other needed variables in the $HelperRunspace
         $HelperRunspace.SessionStateProxy.SetVariable("GenericRunspace",$GenericRunspace)
         $HelperRunspace.SessionStateProxy.SetVariable("GenericPSInstance",$GenericPSInstance)
-        $HelperRunspace.SessionStateProxy.SetVariable("RunSpacename",$RunSpaceName)
+        $HelperRunspace.SessionStateProxy.SetVariable("RunSpaceName",$RunSpaceName)
 
         $HelperPSInstance = [powershell]::Create()
 
@@ -319,9 +419,9 @@ function New-RunSpace {
             }
             $null = $Jobs.Add($GenericRunspaceInfo)
 
-            while ($GenericAsyncHandle.IsCompleted -ne $True) {
+            while ($SyncHash."$RunSpaceName`Done" -ne $True) {
                 #Write-Host "Waiting for -ScriptBlock to finish..."
-                Start-Sleep -Seconds 2
+                Start-Sleep -Milliseconds 10
             }
 
             $SyncHash.Add($RunSpaceName,$Object)
@@ -341,7 +441,6 @@ function New-RunSpace {
         }
         $null = $globalRSJobs.Add($HelperRunspaceInfo)
     }
-    
 
     ##### END Generic Runspace
 }
@@ -350,8 +449,8 @@ function New-RunSpace {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURffjUNMmzWs2E2POpUA+t3Rt
-# LpOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8t3oSW5uipJQHqyCtddbxs+V
+# AC+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -408,11 +507,11 @@ function New-RunSpace {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFG2ZzdmzfnCHT11q
-# /HXWMW+d3/RQMA0GCSqGSIb3DQEBAQUABIIBAKnkYVn3B0/qqU+hCtSy/nnETIbw
-# gB6HH00UHXYrNnxC+MxzyA/i4tD06goHqORvmNDJugTeuVqz9xDsv0tBAlZSjhkN
-# Hy/op5DZSIHa/+LXg795FVkNbuvuruOlYIcJZablwGWf2HYtkgilaQR9mstcL3Jm
-# YE5Mk2iIOHkqjlRJjtlqrDXPkkfPgH3BecqDWOsFv5D6NOwdkxBThrXfMsHrmidl
-# 5FUXpuDKL1Ec+fHWocWDkDUatZBXnZ68MAe9v3uUUwIVUsJRg/Auu8paMBcxIEc2
-# h/oldez1iIQQelHks1/3f17azuINGeQ3iz8bomzHfUONHnjhp6VxwtwDRLQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIvkBKaUlUI7ZVPc
+# T022PCGntCfpMA0GCSqGSIb3DQEBAQUABIIBAG36odWj4NYxV5UYgcAH0mcTgY0g
+# 9qa1alzhFOnu0FmhVaDZp8X60ArM/9u1L+mko3XqPk9TQIv77jYMZQd5+CiJHcun
+# lbdgSwcWWnAjVmAjzJIVdxvRSImDqi01DkqtZ6EeZsI6WkG54QcqaoLTcEBTQKTT
+# mUdeMLbA2Ka12MryLk654o9X29N7YZZsfhUy4tbIXNmB37aZyVSbrsb92llKbFkr
+# 0/nl2yrnyW3xvTH32QdJt71lUNXMUhLeX2k+8eKWGHl4ugi1Trtn8WAKOsQGkW+s
+# r1nFwSWvsB1EzCMiwZtFCiZLpFKLxEgLOzQ90O19saFA49h/uzxG3HXmi3s=
 # SIG # End signature block
