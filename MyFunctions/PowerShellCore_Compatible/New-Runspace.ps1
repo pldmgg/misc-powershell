@@ -129,7 +129,7 @@ function New-RunSpace {
                 if ($jobs.Count -gt 0) {
                     $Counter = 0
                     foreach($job in $jobs) { 
-                        if ($ProcessedJobRecords.Runspace.InstanceId -notcontains $job.Runspace.Id) {
+                        if ($ProcessedJobRecords.Runspace.InstanceId.Guid -notcontains $job.Runspace.InstanceId.Guid) {
                             $job | Export-CliXml "$HOME\job$Counter.xml" -Force
                             $CollectJobRecordPrep = Import-CliXML -Path "$HOME\job$Counter.xml"
                             Remove-Item -Path "$HOME\job$Counter.xml" -Force
@@ -225,7 +225,7 @@ function New-RunSpace {
 
         # Set Environment Variables
         $EnvVariables = Get-ChildItem Env:\
-        if ($EnvironmentVariablesToForward -notcontains '*') {
+        if ($PSBoundParameters['EnvironmentVariablesToForward'] -and $EnvironmentVariablesToForward -notcontains '*') {
             $EnvVariables = foreach ($VarObj in $EnvVariables) {
                 if ($EnvironmentVariablesToForward -contains $VarObj.Name) {
                     $VarObj
@@ -294,7 +294,7 @@ function New-RunSpace {
     
         # Set Functions
         $Functions = Get-ChildItem Function:\ | Where-Object {![System.String]::IsNullOrWhiteSpace($_.Name)}
-        if ($FunctionsToForward -notcontains '*') {
+        if ($PSBoundParameters['FunctionsToForward'] -and $FunctionsToForward -notcontains '*') {
             $Functions = foreach ($FuncObj in $Functions) {
                 if ($FunctionsToForward -contains $FuncObj.Name) {
                     $FuncObj
@@ -305,7 +305,7 @@ function New-RunSpace {
             $FunctionText = Invoke-Expression $('@(${Function:' + $FuncObj.Name + '}.Ast.Extent.Text)')
             if ($($FunctionText -split "`n").Count -gt 1) {
                 if ($($FunctionText -split "`n")[0] -match "^function ") {
-                    if ($($FunctionText -split "`n") -match "'@") {
+                    if ($($FunctionText -split "`n") -match "^'@") {
                         Write-Warning "Unable to forward function $($FuncObj.Name) due to heredoc string: '@"
                     }
                     else {
@@ -325,6 +325,8 @@ function New-RunSpace {
 
         $GenericRunspace.SessionStateProxy.SetVariable("SetEnvStringArray",$SetEnvStringArray)
     }
+
+    $SetEnvStringArray | Export-CliXml -Path "$HOME\SetEnvStringArray.xml" -Force 
 
     $GenericPSInstance = [powershell]::Create()
 
@@ -363,6 +365,7 @@ function New-RunSpace {
             $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Output -Value $Result
         }
         catch {
+            $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Output -Value $Result
             $null = $SyncHash."$RunSpaceName`Result".Errors.Add($_)
         }
 
@@ -464,8 +467,8 @@ function New-RunSpace {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUA2xIpFQQhc6Ih9r+dGPnyah9
-# DC6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBF4+ioBD9mizxauOrEBQnDF+
+# XNCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -522,11 +525,11 @@ function New-RunSpace {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPCfYXUqZjEaYD5Z
-# 3AtHUY1Y3OM+MA0GCSqGSIb3DQEBAQUABIIBAG3ebk4A8JJ1pEIHc0dLiFY1IZuW
-# 92L0vCtdWyzsLNTpazFLfh/bHWH2olZluqiu2T7Ma+lNxFoS0Q9NLGWttVyAtmNN
-# EQB8TT7JxqWzibfjpE9pASBIbBw5zaQGqOD67iYfnbkE9KCnMBqXu4S5p557eVR9
-# KpX7//PSNvcuXBQD4URgtaaowXeHf1KtU8FR8L40ACcSjaSCVg4CQEQkRywMVaXC
-# /kkeZ+y7j1alELhs9xFF95wSxXan6y8AOyynG0YOiFnGppIeLUxNgv9bZkHwOKnI
-# b3X0VetDQy/JOUXFhrWjC1KiIl+wvYy+0vEdijljO9/aJUG+l1E7rpkOw34=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI+05LdPZYss5Au9
+# Gsc3ELlrhTCjMA0GCSqGSIb3DQEBAQUABIIBACj+PKHqqzA76jfHAmaUuOo18PDh
+# 94ahSlLswKhwkXssBzewHmkaUVnwnrM5FlAdRIGxMMErv3r5CiSf4XwGvD1Aw9dL
+# wqmQi2lUUf/L4vcA8ilOEHNCM4Kx+aInJ3psrtHRozjKYRsQQtHAFnUaOQvMHU1K
+# r/4BQJAtEop7puSG2Fcs3gCpDuTucEeI9JxDLcNs9u4HdTf8AT0vwD96YQ7oIya1
+# nLbpJyBveYj2C0pUdIdldVVPlOuE0G0wNfH30eTAGiqzoRD3qrAzGTX0ev3rnDQ1
+# L7aow5cAHQ1Lb7pbF3K9H3gSb9c2BBrc7rdzUuKA38PIDhEIOdtaJy9uTJk=
 # SIG # End signature block
