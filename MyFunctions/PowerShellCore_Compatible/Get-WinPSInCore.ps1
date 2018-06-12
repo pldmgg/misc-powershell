@@ -164,7 +164,7 @@ function Get-WinPSInCore {
             $FunctionText = Invoke-Expression $('@(${Function:' + $FuncObj.Name + '}.Ast.Extent.Text)')
             if ($($FunctionText -split "`n").Count -gt 1) {
                 if ($($FunctionText -split "`n")[0] -match "^function ") {
-                    if ($($FunctionText -split "`n") -match "'@") {
+                    if ($($FunctionText -split "`n") -match "^'@") {
                         Write-Warning "Unable to forward function $($FuncObj.Name) due to heredoc string: '@"
                     }
                     else {
@@ -272,8 +272,8 @@ $args | foreach {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0b3Y/ua5E6KRkUALMQQG4KPz
-# Bd6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdDvG23UyjnLTaNaroXvJ4EHR
+# ie+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -330,11 +330,11 @@ $args | foreach {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDN9FiFx5enrebYT
-# aOSE12Zy/Q5bMA0GCSqGSIb3DQEBAQUABIIBABEKISTOFx2ovwNiToQeLJWTjWZA
-# aycm03qhn168gSFsTU1VKhUx2odwFPmBtFirqryUEG+gSaNCQuxobKqvQhrJ51KW
-# hEXqt5xEhyH/eJYOW0fhQeaxygXt2tsjll7Tz97NNCQtWizUou6nFb56PyAh1pWi
-# 0hbMwadvAJW1S1Qk60AdXX3t4Fe71kQT3vtI2E/zSarcNkTG8QfFEg2BThhc7oEs
-# Ixbpkd9UwSbCv/E3BV5UU45WPYMaueECF5qSbYgMkS5vkU21TV/eYIk0Os8yjUgn
-# bvXnL3Imwpi8eCNp2nKkExWy79mrhmREsnTB3vnB7R9P+K2A1V47xhk+1zY=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMHUcYRcT1HnKcs9
+# aglV/JLI63L8MA0GCSqGSIb3DQEBAQUABIIBAB9WvlXDpUDiNmlENROpfQ/3IB7n
+# VrgcgAUPVa86uOv4oEqd93q8nxSbiruqINmpnRkboPqaFWAhlcuePKzBligqdR8K
+# c18ezq4bg42p0PoZkBZX+UilKBNfrjuZyJBbMBeeZxE8MZ3G9bu9KcGOuec6BWaI
+# rTU4EwdjE/nyvIpLfBuvTGWhwSGt8I34Dx2CxFH0cxCKNJ6IF/zn8JOZdxtC9jWg
+# SAGzZKZvmgZr/HDpHKw+4pIkQlDlpqDKbQAniStXhnR/fHUzEYMXIq/1ebe827f1
+# aSh/cutAsfaBPFsfsF9y6WXmT3bk/oCUKxj6+VrTUVTp95lKVyW8fSQSZh4=
 # SIG # End signature block
