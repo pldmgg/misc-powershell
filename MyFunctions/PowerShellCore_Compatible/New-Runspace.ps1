@@ -100,7 +100,7 @@ function New-RunSpace {
     $globalRSJobCleanup.Flag = $True
 
     if ($ExistingGlobalVariables.Name -notcontains 'RSJobCleanup') {
-        Write-Host '$global:RSJobCleanup does NOT already exists. Creating New Runspace Manager Runspace...'
+        #Write-Host '$global:RSJobCleanup does NOT already exists. Creating New Runspace Manager Runspace...'
         $RunspaceMgrRunspace = [runspacefactory]::CreateRunspace()
         if ($PSVersionTable.PSEdition -ne "Core") {
             $RunspaceMgrRunspace.ApartmentState = "STA"
@@ -354,6 +354,8 @@ function New-RunSpace {
         ##### BEGIN Script To Run #####
 
         try {
+            # NOTE: Depending on the content of the scriptblock, InvokeReturnAsIs() and Invoke-Command can cause
+            # the Runspace to hang. Invoke-Expression works all the time.
             #$Result = $ScriptBlock.InvokeReturnAsIs()
             #$Result = Invoke-Command -ScriptBlock $ScriptBlock
             #$ScriptBlock.ToString() | Export-CliXml -Path "$HOME\SBToString.xml"
@@ -462,8 +464,8 @@ function New-RunSpace {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfI5mxQDP57+LdoDHgG26GgX0
-# tWCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUA2xIpFQQhc6Ih9r+dGPnyah9
+# DC6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -520,11 +522,11 @@ function New-RunSpace {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHExlVEi8CrU6PHS
-# q1A/+1s59NsoMA0GCSqGSIb3DQEBAQUABIIBAMRg8Y7Dn9ka80sF/eKcWne6BpBr
-# QQ26czH08+sTHSPiwmWIS9Lx1vbZELXcfW76aheUHktMv1BjdGL3+jf+xrrdet5Z
-# EY1cyZjkFClFD1b2gWLfj/vFfJBHbuBGVIdQns+TGydCihzs3LZGFLxoh2zktSiO
-# /nkmqBDUGLP/y1GxNDDs67AJCSK1gHeyEpak+wdJutcspffVrMvQxaxLPAsb23az
-# LaQFWkypvCoYYLrNP8xnNFPqA9RRWRG1LfmFcYT833n+3sf7it1cpiaexQ+NbR78
-# TX1yTaQxogaXU6Yq8P3XThRIYC11m7JjSEk5JarnB0sw9U8faKPSH8qOk5E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPCfYXUqZjEaYD5Z
+# 3AtHUY1Y3OM+MA0GCSqGSIb3DQEBAQUABIIBAG3ebk4A8JJ1pEIHc0dLiFY1IZuW
+# 92L0vCtdWyzsLNTpazFLfh/bHWH2olZluqiu2T7Ma+lNxFoS0Q9NLGWttVyAtmNN
+# EQB8TT7JxqWzibfjpE9pASBIbBw5zaQGqOD67iYfnbkE9KCnMBqXu4S5p557eVR9
+# KpX7//PSNvcuXBQD4URgtaaowXeHf1KtU8FR8L40ACcSjaSCVg4CQEQkRywMVaXC
+# /kkeZ+y7j1alELhs9xFF95wSxXan6y8AOyynG0YOiFnGppIeLUxNgv9bZkHwOKnI
+# b3X0VetDQy/JOUXFhrWjC1KiIl+wvYy+0vEdijljO9/aJUG+l1E7rpkOw34=
 # SIG # End signature block
