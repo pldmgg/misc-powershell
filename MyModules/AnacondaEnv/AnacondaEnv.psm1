@@ -89,6 +89,10 @@ function Set-AnacondaEnv {
         [string]$AnacondaDirectoryPath,
 
         [Parameter(Mandatory=$False)]
+        [Alias("env")]
+        [string]$Environment,
+
+        [Parameter(Mandatory=$False)]
         [switch]$HideOutput,
 
         [Parameter(Mandatory=$False)]
@@ -106,7 +110,15 @@ function Set-AnacondaEnv {
 
 
     if ($AnacondaDirectoryPath) {
-        $AnacondaDirectoryName = $AnacondaDirectoryPath | Split-Path -Leaf
+        $RegexTestA = $($AnacondaDirectoryPath | Select-String -Pattern "\\Anaconda[a-zA-Z0-9]+\\").Matches.Value
+        $RegexTestB = $($AnacondaDirectoryPath | Select-String -Pattern "\\Anaconda[a-zA-Z0-9]+$").Matches.Value
+
+        if ($RegexTestA) {
+            $AnacondaDirectoryName = $($RegexTestA -replace '\\','').Trim()
+        }
+        elseif ($RegexTestB) {
+            $AnacondaDirectoryName = $($RegexTestB -replace '\\','').Trim()
+        }
     }
     else {
         $AnacondaDirectoryName = "Anaconda3"
@@ -120,7 +132,7 @@ function Set-AnacondaEnv {
             "$HOME\$AnacondaDirectoryName"
         )
 
-        $DirectoriesToSearch = $PotentialDirectoriesToSearch | foreach {
+        [array]$DirectoriesToSearch = $PotentialDirectoriesToSearch | foreach {
             if (Test-Path $_) {
                 $_
             }
@@ -133,7 +145,19 @@ function Set-AnacondaEnv {
             return
         }
 
-        $DirectoriesToSearch = $AnacondaDirectoryPath
+        [array]$DirectoriesToSearch = @($AnacondaDirectoryPath)
+    }
+
+    if ($Environment) {
+        [array]$DirectoriesToSearch = foreach ($Dir in $DirectoriesToSearch) {
+            $(Get-ChildItem -Path $Dir -Directory -Recurse -Filter $Environment).FullName
+        }
+
+        if ($DirectoriesToSearch.Count -eq 0) {
+            Write-Error "Unable to find Anaconda Environment '$Environment'! Try again without the -Environment parameter. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
 
     # Find python.exe
@@ -142,6 +166,8 @@ function Set-AnacondaEnv {
         if (!$PythonExePath) {throw "The Get-FilePath function failed! Halting!"}
         $PythonParentDir = $PythonExePath | Split-Path -Parent
         $PythonCmd = $PythonExePath | Split-Path -Leaf
+
+        $FinalAnacondaDirectoryPath = $($PythonExePath -split "\\$AnacondaDirectoryName\\")[0] + "\$AnacondaDirectoryName"
     }
     catch {
         Write-Error $_
@@ -189,7 +215,9 @@ function Set-AnacondaEnv {
 
     # Find conda.exe
     try {
-        $CondaExePath = Get-FilePath -FileNameWExtension "conda.exe" -DirectoriesToSearch $DirectoriesToSearch -ErrorAction Stop
+        # Ensure -DirectoriesToSearch is NOT environment specific, because conda.exe isn't environment specific
+        # So use -DirectoriesToSearch $FinalAnacondaDirectoryPath...
+        $CondaExePath = Get-FilePath -FileNameWExtension "conda.exe" -DirectoriesToSearch $FinalAnacondaDirectoryPath -ErrorAction Stop
         if (!$CondaExePath) {throw "The Get-FilePath function failed! Halting!"}
         $CondaParentDir = $CondaExePath | Split-Path -Parent
         $CondaCmd = $CondaExePath | Split-Path -Leaf
@@ -457,8 +485,8 @@ function Revert-AnacondaEnv {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/KPGKjFWrU27oJqRgncv5yVh
-# +segggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqjpijaQ75lOH/N2pbwS31m1n
+# CbGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -515,11 +543,11 @@ function Revert-AnacondaEnv {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFP4oVpvX62pWnqnG
-# KFvP3+XPSjtuMA0GCSqGSIb3DQEBAQUABIIBAKiKSkFhC74rn49aHpdgEl0Q429W
-# zX5VKhvj51QLRJCmDBTsLR7rzPdRQDu5oz7Lo5KNbpQ5z/alp5jvFRaNfUwLY3rj
-# nJWpfaJEjAztmNKxzP4dMWBm95eAjz84T5fWy5bl30olbFbh77wxMoBQZEBvxzAi
-# 2ons48IMxIaD+01UNiF2iQxP9wqi9zYVc9o91q37UV4XiC40L4K4ILxzsHayBuld
-# Lw/VraSlcWcSxd8PWWPlGhsLSynWfO6J+f2c+FYMszd35Diynw98FNIKuUBIzF6Z
-# lG+FP6WAd7et01nRlQE8uztz8H+JBlg0KnDWEuR8yMauzOya4P5hLvUd0W8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFESmXFzSnf6NqYYU
+# p7kvJV8aKGi4MA0GCSqGSIb3DQEBAQUABIIBAEuqiFkyCc4RYqG5Qge++TqXyGaP
+# IoynAE5R5Ks3jHuaiFfytQjeNeGMBpCJT/39qk4U9Nx2qDv/gw89g0eW0Rmy4Lcw
+# yVrNDb3SeLugGgBxP1tYIS6gB7I6j0p/SasiJVLPsk2JKNlgY2vm5MeQsQ300sfS
+# pLMW1i+YhzyrsK+tfj22aibaqYfZJy6XpTCAtRigss1UPShkiWjqODLgj4WwMsPF
+# EMVjUJknnwDozy+Q9cHaxPgOmBCsr0ByBF7G351n9dTmEFWjQcyFoCj+e3SDYYVQ
+# LAvpoltGXniZA+IRnIrAx9t5c1E7gN3nYmbudCenVno4FDP+Q5+BYR29qCE=
 # SIG # End signature block
