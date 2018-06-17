@@ -82,6 +82,85 @@ function Add-ToPath {
 
 #endregion >> Helper Functions
 
+
+<#
+    .SYNOPSIS
+        This function both initializes and sets environment variables ($env:Path, $env:CONDA_EXE,
+        etc) in order such that all features of the Anaconda Prompt can be used from within PowerShell
+        (as opposed to the Windows Command Prompt).
+
+    .DESCRIPTION
+        See .SYNOPSIS
+
+    .PARAMETER AnacondaDirectoryPath
+        This parameter is OPTIONAL.
+
+        This parameter takes a string that represents the full path to the Anaconda installation directory.
+        This directory can be in a number of different places on your Windows machine, but it is usually in
+        one of the following locations:
+            "C:\tools\Anaconda3"
+            "C:\ProgramData\Anaconda3"
+            "C:\Users\<YourUserName>\Anaconda3"
+
+        It is highly recommended that you use this parameter even though it is optional. If you do not use it,
+        the function will search for the above directories. If none are found, the function halts.
+
+    .PARAMETER Environment
+        This parameter is OPTIONAL..
+
+        This parameter takes a string that represents the conda environment you would like to switch to.
+        
+        IMPORTANT NOTE: Before using the Set-AnacondaEnv function with this parameter, you must initialize
+        the Anaconda Environment (once per PowerShell Session) by doing:
+            $SetAnacondaEnvResult = Set-AnacondaEnv -AnacondaDirectoryPath "C:\ProgramData\Anaconda3"
+
+        After you have initialized the Anaconda Environment for your current PowerShell Session, you can
+        use the Set-AnacondaEnv function again with this parameter in order to actually switch to that
+        environment:
+            $SetAnacondaEnvResult = Set-AnacondaEnv -AnacondaDirectoryPath "C:\ProgramData\Anaconda3" -Environment py35
+
+    .PARAMETER HideOutput
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. If used, output describing specifically what was changed about the Anaconda
+        environment will NOT be generated.
+
+    .PARAMETER ChangeMachineEnv
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. If used System/Machine Environment Path/Variable will be changed.
+        These changes will persist across PowerShell Sessions.
+
+    .EXAMPLE
+        # Initialize your Anaconda Environment (do this once per PowerShell Session)
+        PS C:\Users\zeroadmin> $SetAnacondaEnvResult = Set-AnacondaEnv -AnacondaDirectoryPath "C:\ProgramData\Anaconda3"
+        Environment set successfully!
+
+        # You can review exactly what (if anything) was changed about your environment by exploring
+        # $SetAnacondaEnvResult (or whatever you end up calling the output variable)
+        PS C:\Users\zeroadmin> $SetAnacondaEnvResult
+
+        SystemPathChanges : {New, Original}
+        PSEnvPathChanges  : {New, Original}
+        PYTHONIOENCODING  : {New, Original}
+        CONDA_EXE         : {New, Original}
+        CONDA_NEW_ENV     : {New, Original}
+        CONDA_PS1_BACKUP  : {New, Original}
+
+        PS C:\Users\zeroadmin> $SetAnacondaEnvResult.SystemPathChanges
+
+        Name                           Value
+        ----                           -----
+        New                            NoChange
+        Original                       C:\ProgramData\Anaconda3\Scripts;C:\ProgramData\Anaconda3;C:\Chocolatey;C:\Chocolatey\lib\NuGet.CommandLine.4.1.0\tools;C:\Ch...
+
+        # If you previously created an environment via something like...
+        #     conda create --name py35 python=3.5
+        # ...then you can switch to that environment via...
+        PS C:\Users\zeroadmin> $SetAnacondaEnvResult = Set-AnacondaEnv -AnacondaDirectoryPath "C:\ProgramData\Anaconda3" -Environment py35
+        Environment set successfully!
+        
+#>
 function Set-AnacondaEnv {
     [CmdletBinding()]
     Param (
@@ -289,6 +368,27 @@ function Set-AnacondaEnv {
     }
 }
 
+<#
+    .SYNOPSIS
+        This function can undo any changes made to your environment by the Set-AnacondaEnv function.
+
+    .DESCRIPTION
+        See .SYNOPSIS
+
+    .PARAMETER SetAnacondaEnvOutput
+        This parameter is MANDATORY.
+
+        This parameter takes a pscustomobject that was created via the Set-AnacondaEnv function.
+
+    .EXAMPLE
+        # Set your Anaconda Environment
+        PS C:\Users\zeroadmin> $SetAnacondaEnvResult = Set-AnacondaEnv -AnacondaDirectoryPath "C:\ProgramData\Anaconda3"
+        Environment set successfully!
+
+        # Revert any changes made by the Set-AnacondaEnv function
+        PS C:\Users\zeroadmin> $RevertAnacondaEnvResult = Revert-AnacondaEnv -SetAnacondaEnvOutput $SetAnacondaEnvResult       
+        
+#>
 function Revert-AnacondaEnv {
     [CmdletBinding()]
     Param (
@@ -485,8 +585,8 @@ function Revert-AnacondaEnv {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqjpijaQ75lOH/N2pbwS31m1n
-# CbGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUM1eLXf+R+cTmhDNSdPslXDLr
+# 2Oagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -543,11 +643,11 @@ function Revert-AnacondaEnv {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFESmXFzSnf6NqYYU
-# p7kvJV8aKGi4MA0GCSqGSIb3DQEBAQUABIIBAEuqiFkyCc4RYqG5Qge++TqXyGaP
-# IoynAE5R5Ks3jHuaiFfytQjeNeGMBpCJT/39qk4U9Nx2qDv/gw89g0eW0Rmy4Lcw
-# yVrNDb3SeLugGgBxP1tYIS6gB7I6j0p/SasiJVLPsk2JKNlgY2vm5MeQsQ300sfS
-# pLMW1i+YhzyrsK+tfj22aibaqYfZJy6XpTCAtRigss1UPShkiWjqODLgj4WwMsPF
-# EMVjUJknnwDozy+Q9cHaxPgOmBCsr0ByBF7G351n9dTmEFWjQcyFoCj+e3SDYYVQ
-# LAvpoltGXniZA+IRnIrAx9t5c1E7gN3nYmbudCenVno4FDP+Q5+BYR29qCE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDjScNz+tcRYUvyl
+# nA5/BXQBwCXoMA0GCSqGSIb3DQEBAQUABIIBAKG8WZdJ6qfqHlpRsDKxZ4DSDDbu
+# E5G9dHENleWoEfJ1Kg98e+7vCOVRAYNL7GbH5OJqBzQtbBTACGY+mCuOXyc2xFmD
+# g6z1WlvzLcXXOPdVYwEcvlX3JgA9fo70iqHPTCsou6XwKm5Uwbvz/09+zYRkvQFa
+# 3RDMPlLpipB2BVTOMPjQLXDQDINXZVX4hilAKzB+djwcfSzib/KJkHBpmc6kuaTt
+# TkZYlXq4/sc7t/HkjBNVg7VGvVr0wq0t/0Oszq2BEsDa2N2LWm9q0cNfLxVk7PXz
+# ds6cNwRXLqpjhqJna024j39XWY9f3Rnp1ZlpuqLC1poKNO/mlvYrQVa+Qg0=
 # SIG # End signature block
