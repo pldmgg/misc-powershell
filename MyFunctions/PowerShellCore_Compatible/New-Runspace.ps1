@@ -2,7 +2,7 @@ function New-RunSpace {
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$True)]
-        [string]$RunSpaceName,
+        [string]$RunspaceName,
 
         [Parameter(Mandatory=$True)]
         [scriptblock]$ScriptBlock,
@@ -261,7 +261,7 @@ function New-RunSpace {
 
         # Set Modules
         $Modules = Get-Module
-        if ($ModulesToForward -notcontains '*') {
+        if ($PSBoundParameters['ModulesToForward'] -and $ModulesToForward -notcontains '*') {
             $Modules = foreach ($ModObj in $Modules) {
                 if ($ModulesToForward -contains $ModObj.Name) {
                     $ModObj
@@ -274,15 +274,17 @@ function New-RunSpace {
             }).FullName
 
             $ModStringArray = @(
-                'try {'
-                "    Import-Module '$($ModObj.Name)' -ErrorAction Stop"
-                '}'
-                'catch {'
+                "if (![bool]('$($ModObj.Name)' -match '\.WinModule')) {"
                 '    try {'
-                "        Import-Module '$ModuleManifestFullPath' -ErrorAction Stop"
+                "        Import-Module '$($ModObj.Name)' -ErrorAction Stop"
                 '    }'
                 '    catch {'
-                "        Write-Warning 'Unable to Import-Module $($ModObj.Name)'"
+                '        try {'
+                "            Import-Module '$ModuleManifestFullPath' -ErrorAction Stop"
+                '        }'
+                '        catch {'
+                "            Write-Warning 'Unable to Import-Module $($ModObj.Name)'"
+                '        }'
                 '    }'
                 '}'
             )
@@ -360,7 +362,7 @@ function New-RunSpace {
             # the Runspace to hang. Invoke-Expression works all the time.
             #$Result = $ScriptBlock.InvokeReturnAsIs()
             #$Result = Invoke-Command -ScriptBlock $ScriptBlock
-            #$ScriptBlock.ToString() | Export-CliXml -Path "$HOME\SBToString.xml"
+            $ScriptBlock.ToString() | Export-CliXml -Path "$HOME\SBToString.xml"
             $Result = Invoke-Expression $ScriptBlock.ToString()
             $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Output -Value $Result
         }
@@ -467,8 +469,8 @@ function New-RunSpace {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBF4+ioBD9mizxauOrEBQnDF+
-# XNCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHqN/1Q3dGHZKEO9mQyfifcul
+# JHqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -525,11 +527,11 @@ function New-RunSpace {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI+05LdPZYss5Au9
-# Gsc3ELlrhTCjMA0GCSqGSIb3DQEBAQUABIIBACj+PKHqqzA76jfHAmaUuOo18PDh
-# 94ahSlLswKhwkXssBzewHmkaUVnwnrM5FlAdRIGxMMErv3r5CiSf4XwGvD1Aw9dL
-# wqmQi2lUUf/L4vcA8ilOEHNCM4Kx+aInJ3psrtHRozjKYRsQQtHAFnUaOQvMHU1K
-# r/4BQJAtEop7puSG2Fcs3gCpDuTucEeI9JxDLcNs9u4HdTf8AT0vwD96YQ7oIya1
-# nLbpJyBveYj2C0pUdIdldVVPlOuE0G0wNfH30eTAGiqzoRD3qrAzGTX0ev3rnDQ1
-# L7aow5cAHQ1Lb7pbF3K9H3gSb9c2BBrc7rdzUuKA38PIDhEIOdtaJy9uTJk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJgtPAhZGhArVmY8
+# MSRfG/aTnGAxMA0GCSqGSIb3DQEBAQUABIIBAAR2D3t/8xDF8MLoI93yQSwNluwI
+# 93Q40RYbhlemQD3zqUQLT+7bDkVw1kFkwLA5PHbMv3vdAGYAQgeuO8k/PEFgFxyi
+# ONaZ9/52GLfmZDMYuGD6sEeT7OADxSPJuTSwFBHzWXZJEwRICDXk+0/qAqPSLlSv
+# WJMJX5O8M1BsfDk/pU6O2JLdST/fDmOcLS5SJ6dlQs8UpoEMn+NiDRTx80X7spV4
+# FIXpX3SbiJk7fwCj6LjyITbVfjx/BUFONFCO4fRmoxe4t0OmXiNMCQBFSy0ANIY3
+# 6yHo+2gIZFCiNYMwx4nBa/ocZ6yWGn10Lqyaix2TFHiGyNWUJuQUsVMNj1A=
 # SIG # End signature block
