@@ -1,4 +1,4 @@
-function Get-WinPSInCore {
+function GetWinPSInCore {
     [CmdletBinding()]
     [Alias('shim')]
     Param (
@@ -28,16 +28,50 @@ function Get-WinPSInCore {
         $VariablesNotToForward = @()
 
         $Variables = Get-Variable
-        foreach ($VarObj in $Variables) {
-            if ($VariablesNotToForward -notcontains $VarObj.Name) {
-                try {
-                    $GenericRunspace.SessionStateProxy.SetVariable($VarObj.Name,$VarObj.Value)
-                }
-                catch {
-                    Write-Verbose "Skipping `$$($VarObj.Name)..."
+        if ($PSBoundParameters['VariablesToForward'] -and $VariablesToForward -notcontains '*') {
+            $Variables = foreach ($VarObj in $Variables) {
+                if ($VariablesToForward -contains $VarObj.Name) {
+                    $VarObj
                 }
             }
         }
+        $SetVarsPrep = foreach ($VarObj in $Variables) {
+            if ($VariablesNotToForward -notcontains $VarObj.Name) {
+                try {
+                    $VarValueAsJSON = $VarObj.Value | ConvertTo-Json -Compress
+                }
+                catch {
+                    #Write-Warning "Unable to pass the variable '$($VarObj.Name)'..."
+                }
+
+                if ($VarValueAsJSON) {
+                    if ([char[]]$VarObj.Name -contains '(' -or [char[]]$VarObj.Name -contains ' ') {
+                        $VarStringArr = @(
+                            'try {'
+                            $('    ${' + $VarObj.Name + '}' + ' = ' + 'ConvertFrom-Json ' + "@'`n$VarValueAsJSON`n'@")
+                            '}'
+                            'catch {'
+                            "    Write-Verbose 'Unable to forward variable $($VarObj.Name)'"
+                            '}'
+                        )
+                    }
+                    else {
+                        $VarStringArr = @(
+                            'try {'
+                            $('    $' + $VarObj.Name + ' = ' + 'ConvertFrom-Json ' + "@'`n$VarValueAsJSON`n'@")
+                            '}'
+                            'catch {'
+                            "    Write-Verbose 'Unable to forward variable $($VarObj.Name)'"
+                            '}'
+                        )
+                    }
+                    $VarStringArr -join "`n"
+                }
+            }
+        }
+        $SetVarsString = $SetVarsPrep -join "`n"
+
+        $null = $SetEnvStringArray.Add($SetVarsString)
 
         # Set Environment Variables
         $EnvVariables = Get-ChildItem Env:\
@@ -92,14 +126,14 @@ function Get-WinPSInCore {
             $ModStringArray = @(
                 "if (![bool]('$($ModObj.Name)' -match '\.WinModule')) {"
                 '    try {'
-                "        Import-Module '$($ModObj.Name)' -ErrorAction Stop"
+                "        Import-Module '$($ModObj.Name)' -ErrorAction Stop -WarningAction SilentlyContinue"
                 '    }'
                 '    catch {'
                 '        try {'
-                "            Import-Module '$ModuleManifestFullPath' -ErrorAction Stop"
+                "            Import-Module '$ModuleManifestFullPath' -ErrorAction Stop -WarningAction SilentlyContinue"
                 '        }'
                 '        catch {'
-                "            Write-Warning 'Unable to Import-Module $($ModObj.Name)'"
+                "            Write-Verbose 'Unable to Import-Module $($ModObj.Name)'"
                 '        }'
                 '    }'
                 '}'
@@ -245,8 +279,8 @@ function Get-WinPSInCore {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUWTdUUzoLcVsOZuo+raaPoeVd
-# zSOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUy6hdQk4zCIjV4zj8XbQ53rG+
+# bRegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -303,11 +337,11 @@ function Get-WinPSInCore {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMIwf6zmmTnCnG/M
-# 0ae4jl7tkpSbMA0GCSqGSIb3DQEBAQUABIIBAEy4erKBVUhg30mx/lStxKGZ7Eck
-# wwmdRka9MqB1hW6TCp9ILBd5JPxCLm1EXxmqisWNLnZqC4a8uTKLTFrL5bM5tey8
-# SwAaPfdyJR2vkViPn7dYKTkdoqVTunbxT8B2TVQIWQE7M1J4VscocPp5/1uO24+K
-# /UXFnBVCTv3oBwx2MAaFbTErHu5tVVbOAKLvRZv3x3bHl157f1FLwo5drCTl1EE+
-# gHc9TYGI8TZFxmRkyuU5QrWdAdB93Z0oLxza68CkSBx8N0B1TTaz0M5T9aKIqfxy
-# d1mNRSuHY6pIPGy/DYDB734K9oKyuQBUTQMNkXXx7GWXQQ0nzbcZqKISQxo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCwjdVav74nIc7r4
+# GAFZrP6+lW6lMA0GCSqGSIb3DQEBAQUABIIBAMMFeXrr5JTeaM7jdX70XHhs98Lv
+# Ty/orOIhdtkc2y9KxHDIKmVABeUoQMNRkO0jwpsXDjIBf0FffAySknpciCmfWJt4
+# AukZMlQZjGMu9r1zYbvwygaEzkvKFq3ZcrpypFUYIv9nd6LDqB67AdJ8JAKRyAEp
+# eW9DXbfZYcL6Eev7mXJIhGzdd+halYzyQ7niI9B5bjozMEGe6OxgB7bqpet01pyV
+# 7JQy068xB/kHj4fowDh7RAthcoet3L/jJlgIawTWW7bsRuRD5twt/nEoAY0yAuXK
+# IhFr8Y9sEI7T3wYKn8GeeRlpPebVGWdrsJaGzjoUBHBZkXIOe4kbRXSSZJA=
 # SIG # End signature block
