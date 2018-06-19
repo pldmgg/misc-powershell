@@ -276,11 +276,11 @@ function New-RunSpace {
             $ModStringArray = @(
                 "if (![bool]('$($ModObj.Name)' -match '\.WinModule')) {"
                 '    try {'
-                "        Import-Module '$($ModObj.Name)' -ErrorAction Stop"
+                "        Import-Module '$($ModObj.Name)' -NoClobber -ErrorAction Stop"
                 '    }'
                 '    catch {'
                 '        try {'
-                "            Import-Module '$ModuleManifestFullPath' -ErrorAction Stop"
+                "            Import-Module '$ModuleManifestFullPath' -NoClobber -ErrorAction Stop"
                 '        }'
                 '        catch {'
                 "            Write-Warning 'Unable to Import-Module $($ModObj.Name)'"
@@ -328,14 +328,17 @@ function New-RunSpace {
         $GenericRunspace.SessionStateProxy.SetVariable("SetEnvStringArray",$SetEnvStringArray)
     }
 
-    $SetEnvStringArray | Export-CliXml -Path "$HOME\SetEnvStringArray.xml" -Force 
+    #$SetEnvStringArray | Export-CliXml -Path "$HOME\SetEnvStringArray.xml" -Force 
 
     $GenericPSInstance = [powershell]::Create()
 
     # Define the main PowerShell Script that will run the $ScriptBlock
     $null = $GenericPSInstance.AddScript({
         $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Done -Value $False
-        $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Errors -Value $([System.Collections.ArrayList]::new())
+        $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Errors -Value $null
+        $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name ErrorsDetailed -Value $null
+        $SyncHash."$RunspaceName`Result".Errors = [System.Collections.ArrayList]::new()
+        $SyncHash."$RunspaceName`Result".ErrorsDetailed = [System.Collections.ArrayList]::new()
         
         ##### BEGIN Generic Runspace Helper Functions #####
 
@@ -348,6 +351,9 @@ function New-RunSpace {
                     }
                     catch {
                         $null = $SyncHash."$RunSpaceName`Result".Errors.Add($_)
+
+                        $ErrMsg = "Problem with:`n$obj`nError Message:`n" + $($_ | Out-String)
+                        $null = $SyncHash."$RunSpaceName`Result".ErrorsDetailed.Add($ErrMsg)
                     }
                 }
             }
@@ -362,13 +368,17 @@ function New-RunSpace {
             # the Runspace to hang. Invoke-Expression works all the time.
             #$Result = $ScriptBlock.InvokeReturnAsIs()
             #$Result = Invoke-Command -ScriptBlock $ScriptBlock
-            $ScriptBlock.ToString() | Export-CliXml -Path "$HOME\SBToString.xml"
+            #$ScriptBlock.ToString() | Export-CliXml -Path "$HOME\SBToString.xml"
             $Result = Invoke-Expression $ScriptBlock.ToString()
             $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Output -Value $Result
         }
         catch {
             $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name Output -Value $Result
+
             $null = $SyncHash."$RunSpaceName`Result".Errors.Add($_)
+
+            $ErrMsg = "Problem with:`n$($ScriptBlock.ToString())`nError Message:`n" + $($_ | Out-String)
+            $null = $SyncHash."$RunSpaceName`Result".ErrorsDetailed.Add($ErrMsg)
         }
 
         ##### END Script To Run #####
@@ -465,12 +475,11 @@ function New-RunSpace {
     ##### END Generic Runspace
 }
 
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHqN/1Q3dGHZKEO9mQyfifcul
-# JHqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUf42Vb6UxnSY3gXwpi6DQm3xt
+# tDqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -527,11 +536,11 @@ function New-RunSpace {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJgtPAhZGhArVmY8
-# MSRfG/aTnGAxMA0GCSqGSIb3DQEBAQUABIIBAAR2D3t/8xDF8MLoI93yQSwNluwI
-# 93Q40RYbhlemQD3zqUQLT+7bDkVw1kFkwLA5PHbMv3vdAGYAQgeuO8k/PEFgFxyi
-# ONaZ9/52GLfmZDMYuGD6sEeT7OADxSPJuTSwFBHzWXZJEwRICDXk+0/qAqPSLlSv
-# WJMJX5O8M1BsfDk/pU6O2JLdST/fDmOcLS5SJ6dlQs8UpoEMn+NiDRTx80X7spV4
-# FIXpX3SbiJk7fwCj6LjyITbVfjx/BUFONFCO4fRmoxe4t0OmXiNMCQBFSy0ANIY3
-# 6yHo+2gIZFCiNYMwx4nBa/ocZ6yWGn10Lqyaix2TFHiGyNWUJuQUsVMNj1A=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFK7yMJa5Pj8ohP8w
+# tSON1nEnkVEmMA0GCSqGSIb3DQEBAQUABIIBAKU/0Id+cKPsxb9HmB15u6ik3PZK
+# jAnmJQ2LsKhMBCduKPr6McWha+IMaa13W2bko0WTi+p5GFgIRp/Dv/S32VVC1S1S
+# PFYacan35PMbHyT1is2pgM5VbGNXJJ48T9U+72Fhb6U03rUSMefWtZgwvTeN1Fnc
+# VKcKOzDLtjUs7DRWSS3Wjw18opQNO/NXtPwcT5LP2pj9cLmTznHsfEjt1qdYMvXC
+# 8K+krU3DfJrzpfL2nliq0XY2PU74gs0VYjKqIv6xrLNlUUdOt1v5FbeYT0PmLr3I
+# g4Fng+pBN1Ky8YFGIQwwhkciJUsYAeWGqFdyVDEJrTvzgB76u9joV/wABQ0=
 # SIG # End signature block
