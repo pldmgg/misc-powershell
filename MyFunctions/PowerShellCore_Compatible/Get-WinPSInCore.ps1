@@ -1,4 +1,4 @@
-function GetWinPSInCore {
+function Get-WinPSInCore {
     [CmdletBinding()]
     [Alias('shim')]
     Param (
@@ -118,27 +118,36 @@ function GetWinPSInCore {
                 }
             }
         }
-        $SetModulesPrep = foreach ($ModObj in $Modules) {
-            $ModuleManifestFullPath = $(Get-ChildItem -Path $ModObj.ModuleBase -Recurse -File | Where-Object {
-                $_.Name -eq "$($ModObj.Name).psd1"
-            }).FullName
 
-            $ModStringArray = @(
-                "if (![bool]('$($ModObj.Name)' -match '\.WinModule')) {"
-                '    try {'
-                "        Import-Module '$($ModObj.Name)' -ErrorAction Stop -WarningAction SilentlyContinue"
-                '    }'
-                '    catch {'
-                '        try {'
-                "            Import-Module '$ModuleManifestFullPath' -ErrorAction Stop -WarningAction SilentlyContinue"
-                '        }'
-                '        catch {'
-                "            Write-Verbose 'Unable to Import-Module $($ModObj.Name)'"
-                '        }'
-                '    }'
-                '}'
-            )
-            $ModStringArray -join "`n"
+        $ModulesNotToForward = @('MiniLab')
+
+        $SetModulesPrep = foreach ($ModObj in $Modules) {
+            if ($ModulesNotToForward -notcontains $ModObj.Name) {
+                $ModuleManifestFullPath = $(Get-ChildItem -Path $ModObj.ModuleBase -Recurse -File | Where-Object {
+                    $_.Name -eq "$($ModObj.Name).psd1"
+                }).FullName
+
+                $ModStringArray = @(
+                    '$tempfile = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())'
+                    "if (![bool]('$($ModObj.Name)' -match '\.WinModule')) {"
+                    '    try {'
+                    "        Import-Module '$($ModObj.Name)' -ErrorAction Stop -WarningAction SilentlyContinue 2>`$tempfile"
+                    '    }'
+                    '    catch {'
+                    '        try {'
+                    "            Import-Module '$ModuleManifestFullPath' -ErrorAction Stop -WarningAction SilentlyContinue 2>`$tempfile"
+                    '        }'
+                    '        catch {'
+                    "            Write-Verbose 'Unable to Import-Module $($ModObj.Name)'"
+                    '        }'
+                    '    }'
+                    '}'
+                    'if (Test-Path $tempfile) {'
+                    '    Remove-Item $tempfile -Force'
+                    '}'
+                )
+                $ModStringArray -join "`n"
+            }
         }
         $SetModulesString = $SetModulesPrep -join "`n"
 
@@ -225,7 +234,6 @@ function GetWinPSInCore {
 
     try {
         $FinalSB = [scriptblock]::Create($($FinalSBAsString -join "`n"))
-        #$FinalSB | Export-CliXml -path "$HOME\FinalSB.xml"
     }
     catch {
         Write-Error "Problem creating scriptblock `$FinalSB! Halting!"
@@ -240,30 +248,30 @@ function GetWinPSInCore {
     }
     else {
         # Check to see if there's a PSSession open from the WindowsCompatibility Module
+        <#
         if (!$global:WinPSSession) {
             $CurrentUser = $($(whoami) -split '\\')[-1]
             if ([bool]$(Get-PSSession -Name "win-$CurrentUser" -ErrorAction SilentlyContinue)) {
                 $global:WinPSSession = Get-PSSession -Name "win-$CurrentUser"
             }
         }
+        #>
 
-        # If no WindowsCompatibility PSSession was found, we'll make our own...
-        if (!$global:WinPSSession) {
-            $NewPSSessionSplatParams = @{
-                ConfigurationName   = 'Microsoft.PowerShell'
-                Name                = 'WinPSSession'
-                EnableNetworkAccess = $True
-            }
-            $global:WinPSSession = New-PSSession @NewPSSessionSplatParams
-            
-            if (!$global:WinPSSession) {
-                Write-Error "There was a problem creating the New-PSSession named 'WinPSSession'! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-            else {
-                Write-Host "A new PSSession called 'WinPSSession' has been created along with a Global Variable referencing it called `$global:WinPSSession." -ForegroundColor Green
-            }
+        $WinPSSessionName = NewUniqueString -PossibleNewUniqueString "WinPSSession" -ArrayOfStrings $(Get-PSSession).Name
+        $NewPSSessionSplatParams = @{
+            ConfigurationName   = 'Microsoft.PowerShell'
+            Name                = $WinPSSessionName
+            EnableNetworkAccess = $True
+        }
+        $WinPSSession = New-PSSession @NewPSSessionSplatParams
+        
+        if (!$WinPSSession) {
+            Write-Error "There was a problem creating the New-PSSession named 'WinPSSession'! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        else {
+            Write-Host "A new PSSession called 'WinPSSession' has been created along with a Global Variable referencing it called `$global:WinPSSession." -ForegroundColor Green
         }
         Invoke-Command -Session $global:WinPSSession -ScriptBlock $FinalSB -HideComputerName
     }
@@ -274,13 +282,15 @@ function GetWinPSInCore {
             #Remove-Item $SetEnvStringArrayPath -Force
         }
     }
+
+    $WinPSSession | Remove-PSSession
 }
 
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUy6hdQk4zCIjV4zj8XbQ53rG+
-# bRegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUrUmK99f/lnuuyOPWpbxmYWRv
+# 2yqgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -337,11 +347,11 @@ function GetWinPSInCore {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCwjdVav74nIc7r4
-# GAFZrP6+lW6lMA0GCSqGSIb3DQEBAQUABIIBAMMFeXrr5JTeaM7jdX70XHhs98Lv
-# Ty/orOIhdtkc2y9KxHDIKmVABeUoQMNRkO0jwpsXDjIBf0FffAySknpciCmfWJt4
-# AukZMlQZjGMu9r1zYbvwygaEzkvKFq3ZcrpypFUYIv9nd6LDqB67AdJ8JAKRyAEp
-# eW9DXbfZYcL6Eev7mXJIhGzdd+halYzyQ7niI9B5bjozMEGe6OxgB7bqpet01pyV
-# 7JQy068xB/kHj4fowDh7RAthcoet3L/jJlgIawTWW7bsRuRD5twt/nEoAY0yAuXK
-# IhFr8Y9sEI7T3wYKn8GeeRlpPebVGWdrsJaGzjoUBHBZkXIOe4kbRXSSZJA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGNX8TTUOl9vdCLW
+# 4CYpGS9vA5biMA0GCSqGSIb3DQEBAQUABIIBAIdIjkGGsBvtb+CKycVH83U0Qx6L
+# Uxeqhb8eOD/3GRSZYWvRymuym5moY9cFTIY/61BK66q2P00zl+z7bB416ibZMzFI
+# /ecQ8sjdxMm0jJt2RqZCzrOM1DTOc4eMl38PZhSrLkRBsxgjm1xKDFP3BslTXJCl
+# tfzJDZIvceVYFLLxFJbo9hBuIC9BgfHmiQ9zu8BsmKRAWyaDH6N6OhonLwnpiq2W
+# 04iBC0hwXjNc7zp+RGdUtPw+lg+ew3aZRKX95+XtwfpMzjMjvcDUV9VmOPdW6D2D
+# j0kiHV+OeHX5DkKVfkmABwVik9jaFTpeWBaEayPp3H8Y9kP7JJNeG8grjCs=
 # SIG # End signature block
