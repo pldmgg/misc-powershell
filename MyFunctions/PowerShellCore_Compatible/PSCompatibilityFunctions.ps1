@@ -250,12 +250,12 @@ function InvokePSCompatibility {
 
         if (![string]::IsNullOrWhitespace($InvocationMethod)) {
             if ($InvocationMethod -match "\.ps") {
-                if (!$(Test-Path $script:PSCommandPath)) {
-                    Write-Error "The `$script:PSCommandPath '$script:PSCommandPath' was not found! Halting!"
+                if (!$(Test-Path $PSCommandPath)) {
+                    Write-Error "The `$PSCommandPath '$PSCommandPath' was not found! Halting!"
                     $global:FunctionResult = "1"
                     return
                 }
-                $GetModDepsSplatParams.Add("PathToScriptFile",$script:PSCommandPath)
+                $GetModDepsSplatParams.Add("PathToScriptFile",$PSCommandPath)
             }
             else {
                 $GetModDepsSplatParams.Add("NameOfLoadedFunction",$InvocationMethod)
