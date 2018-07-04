@@ -177,7 +177,7 @@ function InvokePSCompatibility {
     Param (
         # $InvocationMethod determines if the GetModuleDependencies function scans a file or loaded function
         [Parameter(Mandatory=$False)]
-        [string]$InvocationMethod = $(Get-Variable "MyInvocation" -Scope 1 -ValueOnly).MyCommand.Name,
+        [string]$InvocationMethod,
 
         [Parameter(Mandatory=$False)]
         [string[]]$RequiredModules,
@@ -193,6 +193,24 @@ function InvokePSCompatibility {
         Write-Error "This function is only meant to be used with PowerShell Core on Windows! Halting!"
         $global:FunctionResult = "1"
         return
+    }
+
+    if (!$InvocationMethod) {
+        $MyInvParentScope = Get-Variable "MyInvocation" -Scope 1 -ValueOnly
+        $PathToFile = $MyInvParentScope.MyCommand.Source
+        $FunctionName = $MyInvParentScope.MyCommand.Name
+
+        if ($PathToFile) {
+            $InvocationMethod = $PathToFile
+        }
+        elseif ($FunctionName) {
+            $InvocationMethod = $FunctionName
+        }
+        else {
+            Write-Error "Unable to determine MyInvocation Source or Name! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
     }
 
     $AllWindowsPSModulePaths = @(
@@ -249,13 +267,15 @@ function InvokePSCompatibility {
         $GetModDepsSplatParams = @{}
 
         if (![string]::IsNullOrWhitespace($InvocationMethod)) {
-            if ($InvocationMethod -match "\.ps") {
-                if (!$(Test-Path $PSCommandPath)) {
-                    Write-Error "The `$PSCommandPath '$PSCommandPath' was not found! Halting!"
+            if ($PathToFile) {
+                if (Test-Path $InvocationMethod) {
+                    $GetModDepsSplatParams.Add("PathToScriptFile",$InvocationMethod)
+                }
+                else {
+                    Write-Error "'$InvocationMethod' was not found! Halting!"
                     $global:FunctionResult = "1"
                     return
                 }
-                $GetModDepsSplatParams.Add("PathToScriptFile",$PSCommandPath)
             }
             else {
                 $GetModDepsSplatParams.Add("NameOfLoadedFunction",$InvocationMethod)
@@ -275,6 +295,8 @@ function InvokePSCompatibility {
         $global:FunctionResult = "1"
         return
     }
+
+    #$RequiredLocallyAvailableModulesScan | Export-CliXml "$HOME\InitialRequiredLocallyAvailableModules.xml" -Force
 
     if (!$RequiredLocallyAvailableModulesScan) {
         Write-Host "InvokePSCompatibility reports that no additional modules need to be loaded." -ForegroundColor Green
@@ -403,6 +425,8 @@ function InvokePSCompatibility {
         }
     }
 
+    #$RequiredLocallyAvailableModulesScan | Export-CliXml "$HOME\RequiredLocallyAvailableModules.xml" -Force
+
     # Now all required modules are available locally, so let's filter to make sure we only try
     # to import the latest versions in case things are side-by-side install
     # Do for PSCoreModules...
@@ -497,7 +521,7 @@ function InvokePSCompatibility {
 
     #region >> Main
 
-    $RequiredLocallyAvailableModulesScan | Export-CliXml "$HOME\ReqModules.xml" -Force
+    #$RequiredLocallyAvailableModulesScan | Export-CliXml "$HOME\ReqModules.xml" -Force
     
     # Start Importing Modules...
     [System.Collections.ArrayList]$SuccessfulModuleImports = @()
@@ -649,8 +673,8 @@ function InvokePSCompatibility {
         }
     }
 
-    $SuccessfulModuleImports | Export-CliXml "$HOME\SuccessfulModImports.xml" -Force
-    $FailedModuleImports | Export-CliXml "$HOME\FailedModuleImports.xml" -Force
+    #$SuccessfulModuleImports | Export-CliXml "$HOME\SuccessfulModImports.xml" -Force
+    #$FailedModuleImports | Export-CliXml "$HOME\FailedModuleImports.xml" -Force
 
     # Now that Modules have been imported, we need to figure out which version of PowerShell we should use
     # for each Module. Modules might be able to be imported to PSCore, but NOT have all of their commands
@@ -721,7 +745,7 @@ function InvokePSCompatibility {
             }
         }
 
-        $UnacceptableUnloadedModules | Export-CliXml "$HOME\UnacceptableUnloadedModules.xml" -Force
+        #$UnacceptableUnloadedModules | Export-CliXml "$HOME\UnacceptableUnloadedModules.xml" -Force
 
         if ($UnacceptableUnloadedModules.Count -gt 0) {
             $WrnMsgA = "The following Modules were not able to be loaded via implicit remoting:`n$($UnacceptableUnloadedModules.ModuleName -join "`n")"
@@ -795,10 +819,26 @@ function InvokeModuleDependencies {
 
     if ($PSVersionTable.PSEdition -eq "Core") {
         $InvPSCompatSplatParams = @{
-            InvocationMethod                    = $(Get-Variable "MyInvocation" -Scope 1 -ValueOnly).MyCommand.Name
             ErrorAction                         = "SilentlyContinue"
             #WarningAction                       = "SilentlyContinue"
         }
+
+        $MyInvParentScope = Get-Variable "MyInvocation" -Scope 1 -ValueOnly
+        $PathToFile = $MyInvParentScope.MyCommand.Source
+        $FunctionName = $MyInvParentScope.MyCommand.Name
+
+        if ($PathToFile) {
+            $InvPSCompatSplatParams.Add("InvocationMethod",$PathToFile)
+        }
+        elseif ($FunctionName) {
+            $InvPSCompatSplatParams.Add("InvocationMethod",$FunctionName)
+        }
+        else {
+            Write-Error "Unable to determine MyInvocation Source or Name! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
         if ($PSBoundParameters['InstallModulesNotAvailableLocally']) {
             $InvPSCompatSplatParams.Add("InstallModulesNotAvailableLocally",$True)
         }
@@ -866,8 +906,8 @@ function InvokeModuleDependencies {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8VbrKxomYgjI/UdQtQcg2GhS
-# PRugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUFJclEev2BWs2nPhruU2N3QQu
+# abygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -924,11 +964,11 @@ function InvokeModuleDependencies {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCLSeF6S1vo6Z59Z
-# 1zaPX7dj2dmPMA0GCSqGSIb3DQEBAQUABIIBAEgwQgY1m/XCBjf2ziwS3m/TC6PO
-# Gx3e+px9Sy6Xq+8duJUtyYvqJepv97X63+nddPaDoIVbxbaywdhuEijb/D9FYj4Q
-# JZa7oxNzUUYMeFoAOjroBtP2eYYyzCIqgSHhkvxRVwRK4OuhPixI77b9zb5fkpyM
-# s+4KOh7uTK6YSGnGoSVBdKLwXaTdHyty72Gs7+zNMPGswYrqITLTsJPBDWP0vlnZ
-# FCDCw1G37UGRF+2K2sagJQGGS2ODO3seKyToFh4h2hil3KMTCJtUPVNZu6TVPYAS
-# It62rRo8qY/GU8QHDtu/MAOcIGu34JMHc4odWYCexi6x1F8rtlqEQy94Wq4=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDhi0itxMrwvWxJH
+# dEPbFSHFlOESMA0GCSqGSIb3DQEBAQUABIIBAGk/dUeDH1eXfnxz0IHLaB3s798E
+# hp7ch24xX0WKzKTnqML4Lg0LwiFRGzDRHWBCeff1wjRIn+udYYwSpf3wQLQeL18Y
+# R8bBpRF2+oIIoHx4HAqvDHuXpqrnloUIqAmb+QrORuRlOots5Ja2T8Mgf11HB9oK
+# Q0gRZR8Yql4r6kaI89e4Yrn/4MSykgEq5uFy8o8tQs8V/HOugNoIcuQ4tWS+P0TZ
+# fzWCz19dNoiOdx/aC0rhszeMtc7aqoMwYoF2V/gWFvRvJdR24uvmIvQL52JJkhkC
+# n1/Da/SUdvlEASORw3vqIHX8SZcvpZTfha2YRdNoOfSQXRhWkircnLJICdI=
 # SIG # End signature block
