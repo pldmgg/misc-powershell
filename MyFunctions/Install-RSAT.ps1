@@ -78,18 +78,71 @@ function Install-RSAT {
 
                 Write-Host "Beginning installation..."
                 if ($AllowRestart) {
-                    Start-Process -FilePath $(Get-Command wusa.exe).Source -ArgumentList "`"$DownloadDirectory\$OutFileName`" /quiet" -NoNewWindow -Wait
-                    Restart-Computer -Confirm:$false -Force
+                    $Arguments = "`"$DownloadDirectory\$OutFileName`" /quiet /log:`"$DownloadDirectory\wusaRSATInstall.log`""
                 }
                 else {
-                    Start-Process -FilePath $(Get-Command wusa.exe).Source -ArgumentList "`"$DownloadDirectory\$OutFileName`" /quiet /norestart" -NoNewWindow -Wait
+                    $Arguments = "`"$DownloadDirectory\$OutFileName`" /quiet /norestart /log:`"$DownloadDirectory\wusaRSATInstall.log`""
+                }
+                #Start-Process -FilePath $(Get-Command wusa.exe).Source -ArgumentList "`"$DownloadDirectory\$OutFileName`" /quiet /log:`"$DownloadDirectory\wusaRSATInstall.log`"" -NoNewWindow -Wait
+
+                $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                #$ProcessInfo.WorkingDirectory = $BinaryPath | Split-Path -Parent
+                $ProcessInfo.FileName = $(Get-Command wusa.exe).Source
+                $ProcessInfo.RedirectStandardError = $true
+                $ProcessInfo.RedirectStandardOutput = $true
+                #$ProcessInfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
+                #$ProcessInfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
+                $ProcessInfo.UseShellExecute = $false
+                $ProcessInfo.Arguments = $Arguments
+                $Process = New-Object System.Diagnostics.Process
+                $Process.StartInfo = $ProcessInfo
+                $Process.Start() | Out-Null
+                # Below $FinishedInAlottedTime returns boolean true/false
+                # Wait 20 seconds for wusa to finish...
+                $FinishedInAlottedTime = $Process.WaitForExit(20000)
+                if (!$FinishedInAlottedTime) {
+                    $Process.Kill()
+                }
+                $stdout = $Process.StandardOutput.ReadToEnd()
+                $stderr = $Process.StandardError.ReadToEnd()
+                $AllOutput = $stdout + $stderr
+
+                # Check the log to make sure there weren't any errors
+                # NOTE: Get-WinEvent cmdlet does NOT work consistently on all Windows Operating Systems...
+                Write-Host "Reviewing wusa.exe logs..."
+                $EventLogReader = [System.Diagnostics.Eventing.Reader.EventLogReader]::new("$DownloadDirectory\wusaRSATInstall.log", [System.Diagnostics.Eventing.Reader.PathType]::FilePath)
+                [System.Collections.ArrayList]$EventsFromLog = @()
+                
+                $Event = $EventLogReader.ReadEvent()
+                $null = $EventsFromLog.Add($Event)
+                while ($Event -ne $null) {
+                    $Event = $EventLogReader.ReadEvent()
+                    $null = $EventsFromLog.Add($Event)
+                }
+
+                if ($EventsFromLog.LevelDisplayName -contains "Error") {
+                    $ErrorRecord = $EventsFromLog | Where-Object {$_.LevelDisplayName -eq "Error"}
+                    $ProblemDetails = $ErrorRecord.Properties.Value | Where-Object {$_ -match "[\w]"}
+                    $ProblemDetailsString = $ProblemDetails[0..$($ProblemDetails.Count-2)] -join ": "
+
+                    $ErrMsg = "wusa.exe failed to install '$DownloadDirectory\$OutFileName' due to '$ProblemDetailsString'. " +
+                    "This could be because of a pending restart. Please restart $env:ComputerName and try the Install-RSAT function again."
+                    Write-Error $ErrMsg
+                    $global:FunctionResult = "1"
+                    return
+                }
+
+                if ($AllowRestart) {
+                    Restart-Computer -Confirm:$false -Force
+                }
+                else{
                     $Output = "RestartNeeded"
                 }
             }
         }
         if ($OSInfo.ProductName -like "*Server*") {
-            Import-Module ServerManager
-            if (!$(Get-WindowsFeature RSAT).Installed) {
+            #Import-Module ServerManager
+            if (!$(Get-WindowsFeature RSAT-AD-Tools).Installed) {
                 Write-Host "Beginning installation..."
                 if ($AllowRestart) {
                     Install-WindowsFeature -Name RSAT -IncludeAllSubFeature -IncludeManagementTools -Restart
@@ -111,24 +164,11 @@ function Install-RSAT {
 
     $Output
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUEFvPdR/FJTcIuUovsfwX67dp
-# +pCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUrE8JFZw3N7iV07aR4YOnKoMV
+# 1+agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -185,11 +225,11 @@ function Install-RSAT {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFEf81b+wdorFGJpI
-# 7emAyAoDkkI3MA0GCSqGSIb3DQEBAQUABIIBACuEmgH4HwODSIn62VbC0wPbCwq7
-# YP2N3Hb238x4xWsPmJWx7cGqIcURMoY6FwH9Q3DJ2JqyRLGISYWOJKVUm9aEfYNs
-# 2FxCr2VgZhvjnSszk0qNeYNFFX/8HWiLXp62Wz7mZ36SbLuP7cU3pt2XUIeEJJ1O
-# DEtbAPRYHIOjaD7Iy+WB+uoBVL8LkPhk1fR8s/H41myNRpPfyKdl0biZnHA+GVG4
-# 4a+W9zDO41dofiRH/J3EdkxhXTwirl073LZx12JkZAL8Nz2g2s7GptgvpYpZK3e9
-# TvnpuikpqimQdxbPCEds2zS0qornbInA1RO8y+5xV3tdokJZE+Kvyd/FDwo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGSJKLqaGUtQKOPm
+# AWglXYg7qSTFMA0GCSqGSIb3DQEBAQUABIIBAE/0MBEYlm7Yeq+Z3nqhI8F+MEAN
+# mH3FGjMNy0iWoWgDLyTynQ+bENcjEwLvLzdthSp+4wmtP7POz77xzeoE1AgfM/zJ
+# YXAW5nMvSL9zkWpzla5DNlzWphufWRlx6LM9UFDPSuYKNmlbqREr1Q7kLlb8l4XY
+# 662tCfLUP6UhfyD6iEmf7MkItmdClBOxXYoAJ7AgbaGCLcbBoBrU+wxlC4U4vTbT
+# BbPACZ9QcNY9xib4F+WprJnc0Azi2SD9HDrz8xFlBgRE8B/heODJhDudBaNpV0eP
+# hXuIpf/2PXDS+S+8bPKWnWEiQkAfgfn8wIfwWgHXQFw1wX1ALucHAYt1be8=
 # SIG # End signature block
