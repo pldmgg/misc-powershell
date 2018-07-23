@@ -466,6 +466,11 @@ function New-RunSpace {
         $SyncHash."$RunSpaceName`Result" | Add-Member -Type NoteProperty -Name ErrorsDetailed -Value $null
         $SyncHash."$RunspaceName`Result".Errors = [System.Collections.ArrayList]::new()
         $SyncHash."$RunspaceName`Result".ErrorsDetailed = [System.Collections.ArrayList]::new()
+        $SyncHash."$RunspaceName`Result" | Add-Member -Type NoteProperty -Name ThisRunspace -Value $($(Get-Runspace)[-1])
+        [System.Collections.ArrayList]$LiveOutput = @()
+        $SyncHash."$RunspaceName`Result" | Add-Member -Type NoteProperty -Name LiveOutput -Value $LiveOutput
+        
+
         
         ##### BEGIN Generic Runspace Helper Functions #####
 
@@ -605,8 +610,8 @@ function New-RunSpace {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0GHSM2lXHD+S+Pbjf6P9JWTS
-# KTOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYtumhJmmxeaPbVkdxry23aR0
+# 8zCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -663,11 +668,11 @@ function New-RunSpace {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBpbuCYYFw2p/RBg
-# 4YTO+WNYlDn2MA0GCSqGSIb3DQEBAQUABIIBAKZu+QZYCMak6WLSdR0hqy+Iccop
-# c8PC92w8PPBHotO9In3qCuMniYLClDJAjPmSS4MaQhazZUvcoz7pzxLi3kjtkbUG
-# FvTiiwFDsJ8ci65MpvkpwCnEzwdvm1eTYMR9Rl/TLwZrQE5eDDulfSRTU11ZWiYp
-# cNgsL4uZwNySkFOy/R2gw283X0TZ8/CUNDqnIiD+HkJzsWe5rm6ANJT++lYLDw6u
-# pTJsz0Z6JLGJU5gxJb9UGmuw/psLI/rHr8VST3MUpiXOTPP0wT5ICTVcKurfJUo+
-# We8JI9wkveEF/trvQVNX5Yk9xHDVA13EL3lhpT1aM8x2o4sxCUwa2rLNTiQ=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMTuJSS4Yzlho3b+
+# nQ3w0HPfpH5eMA0GCSqGSIb3DQEBAQUABIIBAEsZ7M+BrlWv6/sMe/RCBsLfRNoJ
+# BTO47MHYP4qGEVKwR6ocxG0f6h+nIsNhGIiRq7ExT7pZ6s/gTlTDWTSsFK7i/M8q
+# XWjRqQjd/93qyR6fGts9GhQ1vas7DRc2hEzXCTUpalP3b2RSxNYMOIZKL6YpbDE9
+# 80J6zx2OEchtsEwsWfOqloFzzJMGhnZWqh+mGT48XQDimgHFCamHAlio9mqdSwu7
+# xFDa5NWX6mVJvRjvJZtk2/KYFzFxKFHm4Tilqt/Q5KS1B8oMILDWv3WKyyCqk5Vk
+# azxtfypu7OTUYYa7ZGHoyE0BNRfByI3ggrxUSpRoacri1G1guZkEiv10D5o=
 # SIG # End signature block
