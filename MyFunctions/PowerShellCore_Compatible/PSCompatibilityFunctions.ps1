@@ -1,3 +1,60 @@
+function AddWinRMTrustLocalHost {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$False)]
+        [string]$NewRemoteHost = "localhost"
+    )
+
+    # Make sure WinRM in Enabled and Running on $env:ComputerName
+    try {
+        $null = Enable-PSRemoting -Force -ErrorAction Stop
+    }
+    catch {
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            Import-WinModule NetConnection
+        }
+
+        $NICsWPublicProfile = @(Get-NetConnectionProfile | Where-Object {$_.NetworkCategory -eq 0})
+        if ($NICsWPublicProfile.Count -gt 0) {
+            foreach ($Nic in $NICsWPublicProfile) {
+                Set-NetConnectionProfile -InterfaceIndex $Nic.InterfaceIndex -NetworkCategory 'Private'
+            }
+        }
+
+        try {
+            $null = Enable-PSRemoting -Force
+        }
+        catch {
+            Write-Error $_
+            Write-Error "Problem with Enable-PSRemoting WinRM Quick Config! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+
+    # If $env:ComputerName is not part of a Domain, we need to add this registry entry to make sure WinRM works as expected
+    if (!$(Get-CimInstance Win32_Computersystem).PartOfDomain) {
+        $null = reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f
+    }
+
+    # Add the New Server's IP Addresses to $env:ComputerName's TrustedHosts
+    $CurrentTrustedHosts = $(Get-Item WSMan:\localhost\Client\TrustedHosts).Value
+    [System.Collections.ArrayList][array]$CurrentTrustedHostsAsArray = $CurrentTrustedHosts -split ','
+
+    $HostsToAddToWSMANTrustedHosts = @($NewRemoteHost)
+    foreach ($HostItem in $HostsToAddToWSMANTrustedHosts) {
+        if ($CurrentTrustedHostsAsArray -notcontains $HostItem) {
+            $null = $CurrentTrustedHostsAsArray.Add($HostItem)
+        }
+        else {
+            Write-Warning "Current WinRM Trusted Hosts Config already includes $HostItem"
+            return
+        }
+    }
+    $UpdatedTrustedHostsString = $($CurrentTrustedHostsAsArray | Where-Object {![string]::IsNullOrWhiteSpace($_)}) -join ','
+    Set-Item WSMan:\localhost\Client\TrustedHosts $UpdatedTrustedHostsString -Force
+}
+
 function GetModuleDependencies {
     [CmdletBinding(DefaultParameterSetName="LoadedFunction")]
     Param (
@@ -83,6 +140,8 @@ function GetModuleDependencies {
     }
     $ModInfoFromGetCommand = Get-Command -CommandType Cmdlet,Function,Workflow
 
+    $CurrentlyLoadedModuleNames = $(Get-Module).Name
+
     [System.Collections.ArrayList]$AutoFunctionsInfo = @()
 
     foreach ($ModInfoObj in $ModInfoFromManifests) {
@@ -92,7 +151,22 @@ function GetModuleDependencies {
                 ManifestFileItem    = $ModInfoObj.ManifestFileItem
                 ExportedCommands    = $ModInfoObj.ExportedCommands
             }
-            $null = $AutoFunctionsInfo.Add($PSObj)
+            
+            if ($NameOfLoadedFunction) {
+                if ($PSObj.ModuleName -ne $NameOfLoadedFunction -and
+                $CurrentlyLoadedModuleNames -notcontains $PSObj.ModuleName
+                ) {
+                    $null = $AutoFunctionsInfo.Add($PSObj)
+                }
+            }
+            if ($PathToScriptFile) {
+                $ScriptFileItem = Get-Item $PathToScriptFile
+                if ($PSObj.ModuleName -ne $ScriptFileItem.BaseName -and
+                $CurrentlyLoadedModuleNames -notcontains $PSObj.ModuleName
+                ) {
+                    $null = $AutoFunctionsInfo.Add($PSObj)
+                }
+            }
         }
     }
     foreach ($ModInfoObj in $ModInfoFromGetCommand) {
@@ -100,10 +174,28 @@ function GetModuleDependencies {
             ModuleName          = $ModInfoObj.ModuleName
             ExportedCommands    = $ModInfoObj.Name
         }
-        $null = $AutoFunctionsInfo.Add($PSObj)
+
+        if ($NameOfLoadedFunction) {
+            if ($PSObj.ModuleName -ne $NameOfLoadedFunction -and
+            $CurrentlyLoadedModuleNames -notcontains $PSObj.ModuleName
+            ) {
+                $null = $AutoFunctionsInfo.Add($PSObj)
+            }
+        }
+        if ($PathToScriptFile) {
+            $ScriptFileItem = Get-Item $PathToScriptFile
+            if ($PSObj.ModuleName -ne $ScriptFileItem.BaseName -and
+            $CurrentlyLoadedModuleNames -notcontains $PSObj.ModuleName
+            ) {
+                $null = $AutoFunctionsInfo.Add($PSObj)
+            }
+        }
     }
     
-    $AutoFunctionsInfo = $AutoFunctionsInfo| Where-Object {![string]::IsNullOrWhiteSpace($_) -and $_.ManifestFileItem -ne $null}
+    $AutoFunctionsInfo = $AutoFunctionsInfo | Where-Object {
+        ![string]::IsNullOrWhiteSpace($_) -and
+        $_.ManifestFileItem -ne $null
+    }
 
     $FunctionRegex = "([a-zA-Z]|[0-9])+-([a-zA-Z]|[0-9])+"
     $LinesWithFunctions = $($FunctionOrScriptContent -split "`n") -match $FunctionRegex | Where-Object {![bool]$($_ -match "[\s]+#")}
@@ -194,6 +286,8 @@ function InvokePSCompatibility {
         $global:FunctionResult = "1"
         return
     }
+
+    AddWinRMTrustLocalHost
 
     if (!$InvocationMethod) {
         $MyInvParentScope = Get-Variable "MyInvocation" -Scope 1 -ValueOnly
@@ -360,7 +454,7 @@ function InvokePSCompatibility {
             foreach ($ModuleName in $ModulesNotFoundLocally) {
                 try {
                     if (![bool]$(Get-Module -ListAvailable $ModuleName) -and $InstallModulesNotAvailableLocally) {
-                        Install-Module $ModuleName -Force -ErrorAction Stop -WarningAction SilentlyContinue
+                        Install-Module $ModuleName -AllowClobber -Force -ErrorAction Stop -WarningAction SilentlyContinue
                         $null = $ModulesSuccessfullyInstalled.Add($ModuleName)
                     }
 
@@ -385,7 +479,7 @@ function InvokePSCompatibility {
 
                     $ManifestFileItem = Invoke-WinCommand -ComputerName localhost -ScriptBlock {
                         if (![bool]$(Get-Module -ListAvailable $args[0]) -and $args[1]) {
-                            Install-Module $args[0] -Force
+                            Install-Module $args[0] -AllowClobber -Force
                         }
                         $(Get-Item $(Get-Module -ListAvailable $args[0]).Path)
                     } -ArgumentList $ModuleName,$InstallModulesNotAvailableLocally -ErrorAction Stop -WarningAction SilentlyContinue
@@ -408,9 +502,9 @@ function InvokePSCompatibility {
             }
         }
 
-        if ($ModulesNotFoundLocally.Count -ne $ModulesSuccessfullyInstalled -and !$InstallModulesNotAvailableLocally) {
+        if ($ModulesNotFoundLocally.Count -ne $ModulesSuccessfullyInstalled.Count -and !$InstallModulesNotAvailableLocally) {
             $ErrMsg = "The following Modules were not found locally, and they will NOT be installed " +
-            "because the -InstallModulesNotAvailableLocally switch was not used:`n$($ModulesNotFOundLocally -join "`n")"
+            "because the -InstallModulesNotAvailableLocally switch was not used:`n$($ModulesNotFoundLocally -join "`n")"
             Write-Error $ErrMsg
             Write-Warning "No Modules have been Imported or Installed!"
             $global:FunctionResult = "1"
@@ -438,24 +532,7 @@ function InvokePSCompatibility {
             $_.ModuleName -eq $ModObj.ModuleName
         }
 
-        $AllVersionsPrep = $MatchingModObjs.ManifestFileItem.FullName | Split-Path -Parent
-        
-        $AllVersions = foreach ($PotentialVersionPath in $AllVersionsPrep) {
-            $PotentialVersionString = $PotentialVersionPath | Split-Path -Leaf
-
-            $VersionCheck = [bool]$(
-                try{
-                    [version]$PotentialVersionString
-                }
-                catch{
-                    Write-Verbose "'$PotentialVersionString' is not a version number..."
-                }
-            )
-
-            if ($VersionCheck) {
-                $PotentialVersionString
-            }
-        }
+        $AllVersions = $MatchingModObjs.ManifestFileItem.FullName | foreach {$(Import-PowerShellDataFile $_).ModuleVersion} | foreach {[version]$_}
 
         if ($AllVersions.Count -gt 1) {
             $VersionsSorted = $AllVersions | Sort-Object | Get-Unique
@@ -464,8 +541,8 @@ function InvokePSCompatibility {
             $VersionsToRemove = $VersionsSorted[0..$($VersionsSorted.Count-2)]
 
             foreach ($Version in $($VersionsToRemove | foreach {$_.ToString()})) {
-                [array]$ModObjsToRemove = $RequiredLocallyAvailableModulesScan.PSCoreModuleDependencies | Where-Object {
-                    $_.ManifestFileItem.FullName -match "\\$Version\\" -and $_.ModuleName -eq $ModObj.ModuleName
+                [array]$ModObjsToRemove = $MatchingModObjs | Where-Object {
+                    $(Import-PowerShellDataFile $_.ManifestFileItem.FullName).ModuleVersion -eq $Version -and $_.ModuleName -eq $ModObj.ModuleName
                 }
 
                 foreach ($obj in $ModObjsToRemove) {
@@ -481,24 +558,7 @@ function InvokePSCompatibility {
             $_.ModuleName -eq $ModObj.ModuleName
         }
 
-        $AllVersionsPrep = $MatchingModObjs.ManifestFileItem.FullName | Split-Path -Parent
-        
-        $AllVersions = foreach ($PotentialVersionPath in $AllVersionsPrep) {
-            $PotentialVersionString = $PotentialVersionPath | Split-Path -Leaf
-
-            $VersionCheck = [bool]$(
-                try{
-                    [version]$PotentialVersionString
-                }
-                catch{
-                    Write-Verbose "'$PotentialVersionString' is not a version number..."
-                }
-            )
-
-            if ($VersionCheck) {
-                $PotentialVersionString
-            }
-        }
+        $AllVersions = $MatchingModObjs.ManifestFileItem.FullName | foreach {$(Import-PowerShellDataFile $_).ModuleVersion} | foreach {[version]$_}
 
         if ($AllVersions.Count -gt 1) {
             $VersionsSorted = $AllVersions | Sort-Object | Get-Unique
@@ -507,8 +567,8 @@ function InvokePSCompatibility {
             $VersionsToRemove = $VersionsSorted[0..$($VersionsSorted.Count-2)]
 
             foreach ($Version in $($VersionsToRemove | foreach {$_.ToString()})) {
-                [array]$ModObjsToRemove = $RequiredLocallyAvailableModulesScan.WinPSModuleDependencies | Where-Object {
-                    $_.ManifestFileItem.FullName -match "\\$Version\\" -and $_.ModuleName -eq $ModObj.ModuleName
+                [array]$ModObjsToRemove = $MatchingModObjs | Where-Object {
+                    $(Import-PowerShellDataFile $_.ManifestFileItem.FullName).ModuleVersion -eq $Version -and $_.ModuleName -eq $ModObj.ModuleName
                 }
 
                 foreach ($obj in $ModObjsToRemove) {
@@ -520,6 +580,7 @@ function InvokePSCompatibility {
 
     #endregion >> Prep
 
+    $RequiredLocallyAvailableModulesScan
 
     #region >> Main
 
@@ -529,8 +590,9 @@ function InvokePSCompatibility {
     [System.Collections.ArrayList]$SuccessfulModuleImports = @()
     [System.Collections.ArrayList]$FailedModuleImports = @()
     foreach ($ModObj in $RequiredLocallyAvailableModulesScan.PSCoreModuleDependencies) {
+        Write-Verbose "Attempting import of $($ModObj.ModuleName)..."
         try {
-            Import-Module $ModObj.ModuleName -Scope Global -NoClobber -Force -ErrorAction Stop
+            Import-Module $ModObj.ModuleName -Scope Global -NoClobber -Force -ErrorAction Stop -WarningAction SilentlyContinue
 
             $ModuleInfo = [pscustomobject]@{
                 ModulePSCompatibility   = "PSCore"
@@ -547,7 +609,7 @@ function InvokePSCompatibility {
             Write-Verbose "Problem importing module '$($ModObj.ModuleName)'...trying via Manifest File..."
 
             try {
-                Import-Module $ModObj.ManifestFileItem.FullName -Scope Global -NoClobber -Force -ErrorAction Stop
+                Import-Module $ModObj.ManifestFileItem.FullName -Scope Global -NoClobber -Force -ErrorAction Stop -WarningAction SilentlyContinue
 
                 $ModuleInfo = [pscustomobject]@{
                     ModulePSCompatibility   = "PSCore"
@@ -593,7 +655,7 @@ function InvokePSCompatibility {
             }
             
             Invoke-WinCommand -ComputerName localhost -ScriptBlock {
-                Import-Module $args[0] -Scope Global -NoClobber -Force
+                Import-Module $args[0] -Scope Global -NoClobber -Force -WarningAction SilentlyContinue
             } -ArgumentList $ModObj.ModuleName -ErrorAction Stop
 
             $ModuleInfo = [pscustomobject]@{
@@ -640,7 +702,7 @@ function InvokePSCompatibility {
                 }
                 
                 Invoke-WinCommand -ComputerName localhost -ScriptBlock {
-                    Import-Module $args[0] -Scope Global -NoClobber -Force
+                    Import-Module $args[0] -Scope Global -NoClobber -Force -WarningAction SilentlyContinue
                 } -ArgumentList $ModObj.ManifestFileItem.FullName -ErrorAction Stop
 
                 $ModuleInfo = [pscustomobject]@{
@@ -865,7 +927,7 @@ function InvokeModuleDependencies {
             if (![bool]$(Get-Module -ListAvailable $ModuleName) -and $InstallModulesNotAvailableLocally) {
                 # Install the Module
                 try {
-                    $null = Install-Module $ModuleName -Force -ErrorAction Stop -WarningAction SilentlyContinue
+                    $null = Install-Module $ModuleName -AllowClobber -Force -ErrorAction Stop -WarningAction SilentlyContinue
                 }
                 catch {
                     Write-Error $_
@@ -910,8 +972,8 @@ function InvokeModuleDependencies {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVmxhqCLT0ej4/cdxf5UPkG4O
-# 9o2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU0ft8F2StAHKvZEH3xRfg0eIe
+# Plegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -968,11 +1030,11 @@ function InvokeModuleDependencies {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDaKC57oFZDELs5G
-# t32Xr2aKYNAFMA0GCSqGSIb3DQEBAQUABIIBAAfBhhnRJRcN1tZpvUh17Q5liJTy
-# a0RAZCTjM/qa6ZeEIUvx4RFFYHhIStE8wzvy/95frpK47cvYgGnz4tLm9Vk+bg45
-# C5d6KrYBvFWF5n53uOjlo46GyaRaI/aQ/G0UDXMt3iU9ESY2HAe3BExWKst2iNvP
-# VyRxbrop55EOx6Iojg7AfANMIUsjDK9z1EPRO3MZlIhPMxH0EsL463mXEwPHH+i3
-# igMPBo26I1n71ECw8J35MEc7ouk9HdXgHKsYo1txdHRXlDWvv1GMl/Dp4jRqzeu5
-# y7+/PRfrjUo0hc51zLiUtiJhP9+8xa9C3NRgcElrg50UQWvrXjXnO7BIGmo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMitP2lxEMl7N8rR
+# ruFsL9Knvq2gMA0GCSqGSIb3DQEBAQUABIIBAE69J2OC+UdfuTYP8AsOJMkHrr0i
+# 2b8UxBnzujnain9iK7nasDA57ui1if0RFLkCqMlD/4LT/BabjBa7LZ2kZdvZ9raQ
+# A5h3vCzGggoPVySz2w9PXXf64YgcUvG/k1anX2ejlxV+gRcSy2SsuemPX6JZPVy7
+# UfSG+Bn/pym4zL0k12HSjZLtSUtTSkE370cWrlBUEX8Kx0SUH+YFX/2f4mUc050R
+# A+vqKVqBsFxKMFvXko/ckllD9ST5orAiFW04VwCqtmYKGxRvQ7RYD40k52xawDLM
+# 3u/GBIe2AwfZeU0ejNwmaZZNpVRYyqNcHbrqd0WRSCJqg8eJAOTpewUu+z8=
 # SIG # End signature block
