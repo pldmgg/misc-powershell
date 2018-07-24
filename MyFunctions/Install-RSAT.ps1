@@ -5,12 +5,15 @@ function Install-RSAT {
         [string]$DownloadDirectory = "$HOME\Downloads",
 
         [Parameter(Mandatory=$False)]
-        [switch]$AllowRestart
+        [switch]$AllowRestart,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$Force
     )
 
     Write-Host "Please wait..."
 
-    if (!$(Get-Module -ListAvailable -Name ActiveDirectory)) {
+    if (!$(Get-Module -ListAvailable -Name ActiveDirectory) -or $Force) {
         $OSInfo = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
         $OSCimInfo = Get-CimInstance Win32_OperatingSystem
         $OSArchitecture = $OSCimInfo.OSArchitecture
@@ -22,7 +25,11 @@ function Install-RSAT {
         }
         
         if ($OSInfo.ProductName -notlike "*Server*") {
-            if (![bool]$(Get-WmiObject -query 'select * from win32_quickfixengineering' | Where-Object {$_.HotFixID -eq 'KB958830' -or $_.HotFixID -eq 'KB2693643'})) {
+            $KBCheck = [bool]$(Get-WmiObject -query 'select * from win32_quickfixengineering' | Where-Object {
+                $_.HotFixID -eq 'KB958830' -or $_.HotFixID -eq 'KB2693643'
+            })
+
+            if (!$KBCheck -or $Force) {
                 if ($([version]$OSCimInfo.Version).Major -lt 10 -and [version]$OSCimInfo.Version -ge [version]"6.3") {
                     if ($OSArchitecture -eq "64-bit") {
                         $OutFileName = "Windows8.1-KB2693643-x64.msu"
@@ -34,7 +41,15 @@ function Install-RSAT {
                     $DownloadUrl = "https://download.microsoft.com/download/1/8/E/18EA4843-C596-4542-9236-DE46F780806E/$OutFileName"
                 }
                 if ($([version]$OSCimInfo.Version).Major -ge 10) {
-                    if ([int]$OSInfo.ReleaseId -ge 1709) {
+                    if ([int]$OSInfo.ReleaseId -ge 1803) {
+                        if ($OSArchitecture -eq "64-bit") {
+                            $OutFileName = "WindowsTH-RSAT_WS_1803-x64.msu"
+                        }
+                        if ($OSArchitecture -eq "32-bit") {
+                            $OutFileName = "WindowsTH-RSAT_WS_1803-x86.msu"
+                        }
+                    }
+                    if ([int]$OSInfo.ReleaseId -ge 1709 -and [int]$OSInfo.ReleaseId -lt 1803) {
                         if ($OSArchitecture -eq "64-bit") {
                             $OutFileName = "WindowsTH-RSAT_WS_1709-x64.msu"
                         }
@@ -164,11 +179,15 @@ function Install-RSAT {
 
     $Output
 }
+
+
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUrE8JFZw3N7iV07aR4YOnKoMV
-# 1+agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUwiTlQ0TxzdhgBpKbXmxJNTNE
+# C/Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -225,11 +244,11 @@ function Install-RSAT {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGSJKLqaGUtQKOPm
-# AWglXYg7qSTFMA0GCSqGSIb3DQEBAQUABIIBAE/0MBEYlm7Yeq+Z3nqhI8F+MEAN
-# mH3FGjMNy0iWoWgDLyTynQ+bENcjEwLvLzdthSp+4wmtP7POz77xzeoE1AgfM/zJ
-# YXAW5nMvSL9zkWpzla5DNlzWphufWRlx6LM9UFDPSuYKNmlbqREr1Q7kLlb8l4XY
-# 662tCfLUP6UhfyD6iEmf7MkItmdClBOxXYoAJ7AgbaGCLcbBoBrU+wxlC4U4vTbT
-# BbPACZ9QcNY9xib4F+WprJnc0Azi2SD9HDrz8xFlBgRE8B/heODJhDudBaNpV0eP
-# hXuIpf/2PXDS+S+8bPKWnWEiQkAfgfn8wIfwWgHXQFw1wX1ALucHAYt1be8=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCPCH0kfwGabgI71
+# zMGcTSAm2/rHMA0GCSqGSIb3DQEBAQUABIIBAIhqqLqnSSZu/q6CWOHACp9hbHu6
+# jQlseRenv4xwvy6wsyp+uxOHyOtfO7S5q7zgq4JTKqeTY825GGkmtFFxUcNSYELF
+# l8PedBEJ/FHejOPF9PeKyT+fw2DlSwjO1Qj9spzKTKaogU/t4I7ed2WHsfeQriGg
+# G1muByYMiaGiwT68qL5vdAs10MAW4b4fRyv/C2UTphHhGOAHV0p/AF9oIkFBI/8v
+# YZR+hNwHUpqnYg3N1jvcTkfx0b91xGWU7YD8t62bSUYX71i8LNdaKDQD3Wc/4MJN
+# TwAiIgTjobp/GE5rLurDNWoJdDsfk79uxUUu/HVXAn+GtWsKfs/Xt13ZjSY=
 # SIG # End signature block
