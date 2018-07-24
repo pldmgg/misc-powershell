@@ -7,6 +7,68 @@ function Get-CustomPUD {
         [switch]$RemoveExistingPUD = $True
     )
 
+    ### BEGIN Helper Functions ###
+
+    # The below AddwinRMTrustLocalHost function is needed for PSCore Compatibility with the Resolve-DNSName cmdlet
+    function AddWinRMTrustLocalHost {
+        [CmdletBinding()]
+        Param (
+            [Parameter(Mandatory=$False)]
+            [string]$NewRemoteHost = "localhost"
+        )
+    
+        # Make sure WinRM in Enabled and Running on $env:ComputerName
+        try {
+            $null = Enable-PSRemoting -Force -ErrorAction Stop
+        }
+        catch {
+            if ($PSVersionTable.PSEdition -eq "Core") {
+                Import-WinModule NetConnection
+            }
+    
+            $NICsWPublicProfile = @(Get-NetConnectionProfile | Where-Object {$_.NetworkCategory -eq 0})
+            if ($NICsWPublicProfile.Count -gt 0) {
+                foreach ($Nic in $NICsWPublicProfile) {
+                    Set-NetConnectionProfile -InterfaceIndex $Nic.InterfaceIndex -NetworkCategory 'Private'
+                }
+            }
+    
+            try {
+                $null = Enable-PSRemoting -Force
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Problem with Enable-PSRemoting WinRM Quick Config! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    
+        # If $env:ComputerName is not part of a Domain, we need to add this registry entry to make sure WinRM works as expected
+        if (!$(Get-CimInstance Win32_Computersystem).PartOfDomain) {
+            $null = reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f
+        }
+    
+        # Add the New Server's IP Addresses to $env:ComputerName's TrustedHosts
+        $CurrentTrustedHosts = $(Get-Item WSMan:\localhost\Client\TrustedHosts).Value
+        [System.Collections.ArrayList][array]$CurrentTrustedHostsAsArray = $CurrentTrustedHosts -split ','
+    
+        $HostsToAddToWSMANTrustedHosts = @($NewRemoteHost)
+        foreach ($HostItem in $HostsToAddToWSMANTrustedHosts) {
+            if ($CurrentTrustedHostsAsArray -notcontains $HostItem) {
+                $null = $CurrentTrustedHostsAsArray.Add($HostItem)
+            }
+            else {
+                Write-Warning "Current WinRM Trusted Hosts Config already includes $HostItem"
+                return
+            }
+        }
+        $UpdatedTrustedHostsString = $($CurrentTrustedHostsAsArray | Where-Object {![string]::IsNullOrWhiteSpace($_)}) -join ','
+        Set-Item WSMan:\localhost\Client\TrustedHosts $UpdatedTrustedHostsString -Force
+    }
+
+    ### END Helper FUnctions ###
+
     # Remove all current running instances of PUD
     if ($RemoveExistingPUD) {
         Get-UDDashboard | Stop-UDDashboard
@@ -20,6 +82,13 @@ function Get-CustomPUD {
         Write-Error "Unable to resolve domain '$DomainName'! Halting!"
         $global:FunctionResult = "1"
         return
+    }
+
+    if ($PSVersionTable.PSEdition -eq "Core") {
+        if (![bool]$(Get-Module -ListAvailable WindowsCompatibility)) {Install-Module WindowsCompatibility}
+        if (![bool]$(Get-Module WindowsCompatibility)) {Import-Module WindowsCompatibility}
+        AddWinRMTrustLocalHost -WarningAction SilentlyContinue
+        Import-WinModule DnsClient
     }
 
     # Get all Computers in Active Directory without the ActiveDirectory Module
@@ -57,13 +126,10 @@ function Get-CustomPUD {
             [System.Collections.ArrayList]$SubmitButtonActions = @()
 
             # Output a Grid with the data from Resolve-DNSName
-            $DNSInfoProperties = @("HostName","IPAddress")
+            $DNSInfoProperties = @("Name","Type","TTL","Section","IPAddress")
             $ResolveDNSGrid = New-UdGrid -Title "DNSInfo" -Headers $DNSInfoProperties -Properties $DNSInfoProperties -Endpoint {
-                $ResultPrep = [System.Net.Dns]::Resolve($Server) | Select-Object -Property HostName,AddressList -ExcludeProperty PSComputerName,PSShowComputerName,RunspaceId
-                [PSCustomObject]@{
-                    HostName    = $ResultPrep.HostName
-                    IPAddress   = $ResultPrep.AddressList.IPAddressToString
-                } | Out-UDGridData
+                $ResultPrep = Resolve-DNSName $Server | Select-Object -Property $DNSInfoProperties -ExcludeProperty PSComputerName,PSShowComputerName,RunspaceId
+                $ResultPrep | Out-UDGridData
             }
             $SubmitButtonActions.Add($ResolveDNSGrid)
 
@@ -122,8 +188,8 @@ function Get-CustomPUD {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULIwYyP6bCSJhkfqCVhTojNiN
-# E9Ggggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV3V7vnFjA+TrMuQ5qYZdtfND
+# wtOgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -180,11 +246,11 @@ function Get-CustomPUD {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBg15MbspdQ+Kp3l
-# xioxiIdAQxcRMA0GCSqGSIb3DQEBAQUABIIBACZ6V+YOpMls7FdFWoFwg/Tvav4a
-# 57Hyue2Evfrd9VzL6sT6d10FsJSICU9MiRR1weSJfDEv0RsSjqmhXnJAiNj19UFo
-# xwOPYy2OitjRrtXa+enVJKlkMZjC53z2ox1co5XN6JpLuaq8fzA1FN05bkCKpYBT
-# pWr5QT7ovHmQ5mkMBZCyMrMqTgpKDCFG0QS6+resvGZMRuRT1CpCvCwWHcpHGmTX
-# k15hIUfbcvmkZpZ8BXdDRaFYXVI3K/Q1mM6oF19BDj9dSB1KTcfbUVhQ5dOPkPce
-# UjdWuctAxAVJotW9LVkS6d4zjS7I7eQKXM4HxpfHrU1+5Ow2GIhtUrpWkrw=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMIdh03cFtwbkXwb
+# sMnBsV+zZ8wpMA0GCSqGSIb3DQEBAQUABIIBAGUzUA5huHKon6RzUuaPlruwyrwS
+# XeKQQ4UwXmVCIBTI8yqlvaPCBw4BddyiClJiGI05BQ1qoyjW2yZohMG4OcV3YZyq
+# cLL5R4Xf4KVUXXKYR1hXdKE0DYT/wXKcytwDGOHF2MbjQHpLAVs9pJHHRdFaQ4NV
+# sR64DSFIVCDKwsxvQ5qSY2v7pWo3YOGLio29W3nuhraDl65dxBYgN3w9pCSXc2SX
+# 1RyTDCSfGZuW84WlsFyC2+VU47Nx8Xt6jOvHy7WVORHOqpF3sNo78BaIquzU05Jc
+# Tek19txLuY6i4a2uXBBnK9hP7Msc1dPY4kncgWmZHE4584rc9t1HdkbPGsM=
 # SIG # End signature block
