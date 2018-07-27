@@ -70,14 +70,24 @@ function Get-PUDNetworkMonitor {
         '                    [System.Collections.ArrayList]$LastFivePings = @()'
         '                    $PingResultProperties = @("Status","IPAddress","RoundtripTime","DateTime")'
         '                    $PingGrid = New-UdGrid -Title $kvpair.Value -Headers $PingResultProperties -AutoRefresh -Properties $PingResultProperties -Endpoint {'
-        '                        $ResultPrep =  [System.Net.NetworkInformation.Ping]::new().Send('
-        '                            $($kvpair.Value),1000'
-        '                        )| Select-Object -Property Address,Status,RoundtripTime -ExcludeProperty PSComputerName,PSShowComputerName,RunspaceId'
-        '                        $GridData = [PSCustomObject]@{'
-        '                             IPAddress       = $ResultPrep.Address.IPAddressToString'
-        '                             Status          = $ResultPrep.Status.ToString()'
-        '                             RoundtripTime   = $ResultPrep.RoundtripTime'
-        '                             DateTime        = Get-Date -Format MM-dd-yy_hh:mm:sstt'
+        '                        try {'
+        '                            $ResultPrep =  [System.Net.NetworkInformation.Ping]::new().Send('
+        '                                $($kvpair.Value),1000'
+        '                            )| Select-Object -Property Address,Status,RoundtripTime -ExcludeProperty PSComputerName,PSShowComputerName,RunspaceId'
+        '                            $GridData = [PSCustomObject]@{'
+        '                                 IPAddress       = $ResultPrep.Address.IPAddressToString'
+        '                                 Status          = $ResultPrep.Status.ToString()'
+        '                                 RoundtripTime   = $ResultPrep.RoundtripTime'
+        '                                 DateTime        = Get-Date -Format MM-dd-yy_hh:mm:sstt'
+        '                            }'
+        '                        }'
+        '                        catch {'
+        '                            $GridData = [PSCustomObject]@{'
+        '                                IPAddress       = "Unknown"'
+        '                                Status          = "Unknown"'
+        '                                RoundtripTime   = "Unknown"'
+        '                                DateTime        = Get-Date -Format MM-dd-yy_hh:mm:sstt'
+        '                            }'
         '                        }'
         '                        if ($LastFivePings.Count -eq 5) {'
         '                            $LastFivePings.RemoveAt($LastFivePings.Count-1)'
@@ -92,7 +102,12 @@ function Get-PUDNetworkMonitor {
         '                New-UDColumn -Size 6 {'
         '                    # Create New Monitor'
         '                    $PingMonitor = New-UdMonitor -Title $kvpair.Value -Type Line -DataPointHistory 20 -RefreshInterval 5 -ChartBackgroundColor "#80FF6B63" -ChartBorderColor "#FFFF6B63"  -Endpoint {'
-        '                        [bool]$([System.Net.NetworkInformation.Ping]::new().Send($($kvpair.Value),1000)) | Out-UDMonitorData'
+        '                        try {'
+        '                            [bool]$([System.Net.NetworkInformation.Ping]::new().Send($($kvpair.Value),1000)) | Out-UDMonitorData'
+        '                        }'
+        '                        catch {'
+        '                            $False | Out-UDMonitorData'
+        '                        }'
         '                    }'
         '                    $PingMonitor'
         '                    #$null = $SubmitButtonActions.Add($PingMonitor)'
@@ -121,8 +136,8 @@ function Get-PUDNetworkMonitor {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8e2koUzRmifOvseTllVZhbqG
-# T1ugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUw7syvTRdmPDhpAQg94f1AIwa
+# /Qygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -179,11 +194,11 @@ function Get-PUDNetworkMonitor {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFInDEdpOxfdOkLWm
-# RIPoDO6TYbDcMA0GCSqGSIb3DQEBAQUABIIBAGzqvQPNHAGK68Bn4JarNhQ9H/+A
-# 5fCbCP1ikg6Nt6PnXfBEzdfeUpzZlcsw55WKfcVdo5FKVYcK2azDM/H4BTqZX+MK
-# /N8dM4MSrf5HSJeypbBAWicQqa60RPjwQj3V5fLJdfYy3OShPQD+CYX0fuGwQV7X
-# 3Ra3RokEHOlNcobDegCnAsB1RCOhH6g7HSVj5H0pzEvzWdtMmSkjLlIbo3Ba/hQu
-# fqgUDh9gNz6l7FGp8KIxHcpMlaenzuWTRlCb+zThzpH6GgaCBuMUS/mPaPvWU7kd
-# cgzTHUQ+jfVOcGpiIlAqVNoHc9dtVl6dZhgu/TYcQ3T4CeWvIdNXcpYIEIo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLdOQ2wUCbZKvGco
+# 9IwiQJ/+LrJrMA0GCSqGSIb3DQEBAQUABIIBABtOOhbcvpacTSiyJ1hQSDKh68/Z
+# YXot2FKUb53SaFcUb1o0r6BpE3bRpybQe8Dt2PpamMpjoRw+kwm3DgRyXfDTnVy1
+# BOo6Bp24Ak4yub4QICa6aNw5CsvWUfzifTDl23q+eGosqbF/ess6fnsIZrOnFbMQ
+# OWQ0/EjEsHIcIMitPjXFvHcI47qmTG9ysllwsK2F0oIqtpSPLXOjm+Enu7nauz2K
+# Xvc3V2oDn79nQfGVhjSvwfKPNmRwa+mo+DgsXNcxYrbpx51M0h/8afLsULx4cWmf
+# ukVuzTvwB/Js7geJXOChyo7P7fbLXfrdfk26vh1PGxnPNYr8Ua7s8aGglz0=
 # SIG # End signature block
