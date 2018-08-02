@@ -1,4 +1,4 @@
-function Enable-WinRMRemotely {
+function Enable-WinRMViaRPC {
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$True)]
@@ -9,6 +9,12 @@ function Enable-WinRMRemotely {
     )
 
     #region >> Helper Functions
+
+    function TestIsValidIPAddress([string]$IPAddress) {
+        [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
+        [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
+        Return  ($Valid -and $Octets)
+    }
 
     function ResolveHost {
         [CmdletBinding()]
@@ -167,7 +173,7 @@ function Enable-WinRMRemotely {
         Credential          = $Credential
         Impersonation       = 3
         EnableAllPrivileges = $True
-        ArgumentList        = "powershell -Command `"Start-Process powershell -Verb RunAs -ArgumentList 'Enable-PSRemoting –Force'`""
+        ArgumentList        = "powershell -Command `"Start-Process powershell -Verb RunAs -ArgumentList 'Enable-PSRemoting -Force'`""
     }
     Invoke-WmiMethod @InvWmiMethodSplatParams
 
@@ -176,8 +182,8 @@ function Enable-WinRMRemotely {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULWcpMhiLqxPODRPCH+2V1W6O
-# uQCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU4lYvl8WJoV4ry/RDbjGLTHw4
+# 5X6gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -234,11 +240,11 @@ function Enable-WinRMRemotely {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFAJZ3uhzTkvTyjpH
-# vQhVrFAki1+GMA0GCSqGSIb3DQEBAQUABIIBAHudKz+WQ2NNNI1of6LL3U8Yx1zu
-# NjFLah7QWhr+x1R65noysEr//yPgqktyWW9Jo6T86CMz3upYHwpIZBbgQCqifKlL
-# B+CaasFEV2jwbAkpLwjRzZoSDnAEEnd2qMHEuP3EawJOGFR1y2J2mlEr76jjpaH4
-# oZgbBhpRFEx+f34rNKI9du3eY1Kd5mW2mIX3N7xxHgrIU+Vd3UjEiUD1pemXlLa5
-# YkB7FDyqJs8qxw2Ma6zqSiYilgbzTGxCSqnSAxDm8n+bkVQxdyFFyfCJfSe2rdtW
-# K/71gXsNFibuZiyeFuFXgmZEqLKKsIBh1MDYwJIP8IKq6P3ZAzRJG5aPm9E=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFIy+2wXQ1uVlJvC8
+# LJyGZ+6y3a4dMA0GCSqGSIb3DQEBAQUABIIBAIDUYDg/WjK4orCbTgMKr4QCotnL
+# 1cl4k4IzOEiNrM4Ah5VNenemFkNcbVAzKCQtIV5t5lev2R32uFWdKyKYky6Qd3IX
+# 4V/j8ufec9QRZHtUCq3P4UT23frOLb9/OTq15svJX3ueB2ItsUPy8DlHlu+ZT77W
+# Lu4WYouVykaDQ70xvDd+Wr4CI6FQVTcc8lFrLp5vcOSg/gNVZpMYPSpX0xbbS1vS
+# rDs6e9lBcvJWYgZPz8YdL1u3CQz18VVFpU1LqZGHZgO6n+FUDO8yKZs1MdUyYOEE
+# qxUAbZyzd+XqUrqJlvfzOb/2QQ9lC85B60XgeuHNNQXBPnmfSHymZk2lH0M=
 # SIG # End signature block
