@@ -1,3 +1,6 @@
+# Much of the C# Code was put together from the following links:
+# https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/file-system/how-to-iterate-through-a-directory-tree
+# https://stackoverflow.com/questions/26615480/how-to-transform-an-array-of-file-paths-into-a-hierarchical-json-structure
 function Get-FileSystemTreeAsJson {
     [CmdletBinding()]
     Param(
@@ -410,8 +413,8 @@ namespace MyCore.Utils
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUhk8t2ibZAlkqSPVMVm6jtY3T
-# +0agggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnzJ0B0jT9q3V0tBYK0AuzjuC
+# K+Kgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -468,11 +471,11 @@ namespace MyCore.Utils
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFPgu4ZzyCitREsvC
-# zAlLOtJiRnq3MA0GCSqGSIb3DQEBAQUABIIBAC1pK5PpsUOG+GZNBwYQMIEKxAmi
-# w0YqO/zGlzew3oP4pCufV7TSPF/zOpxYSUQHNw5K5Fjr3+s1UK5fhTQmqu1tGgRM
-# Zt6x7NNDoCnqrwSZ5SdI2gdhGm87SfNropTB0sZZkOVRmVj/i+SBLGGDwOgmj3Rk
-# lPIx89FLSG1moNrsXENZhTtO6O+ztSJeTAomY2Kj/AV+0kNAC/0GDTFsiH1S6uU7
-# U+Ldpj94UwAlLw4Icu+4H9Ol677INa6pbN152cvoX8E+psYcCDrco8Ma2kLjULSc
-# DejOv3hao/yTghXEwFO+GSy6YmYUr/NXwDEM2ufUWN3dOELqwSoQ0GXti1Y=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGQ+4JXXFzEqla2K
+# 9eSSfT/5T3PwMA0GCSqGSIb3DQEBAQUABIIBALPBpSyx9+sy+v1gtKnWs9gy8PK/
+# tefgyjOiQmK01lK3z+3ApNtbsoIK5vKaAdEUscJdwjQGsVHSGN3xdUb8YJI+uz0X
+# eaexMaqeXSSO5hEszNYaUogPSecy2aQ+B2ucGcTRGvZK6VLP7Ch0ndaGquT/nLwv
+# g6FvhVdAtOp2y8JmTFg9k3YTENC5iko4SJBWDcVfQW/kX4Zlkuqx1EBuT1fYxPfa
+# w1cxHX1Ju4S4m5wgjIFd0Tc2KJ6AtBF2f6uHib5mtIL+woflNm72cijyHUwOtZm0
+# roXX1aD5rd/vzL9JBw8uvPa9abIajHORCwUfS+cHTtaV1clP+qZkioJeWEw=
 # SIG # End signature block
