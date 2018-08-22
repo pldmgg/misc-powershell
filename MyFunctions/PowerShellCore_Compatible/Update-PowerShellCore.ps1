@@ -25,47 +25,52 @@
     *NOTE: This parameter becomes MANDATORY if you do NOT use the -DownloadDirectory parameter.
 
 .PARAMETER OS
-    OPTIONAL
+    This parameter is OPTIONAL.
 
     This parameter takes a string that indicates an OS.
     
-    If the parameter is NOT used, the function determines the OS that the function is currently running on.
+    This parameter takes a string that must be one of the following values:
+    "win", "macos", "linux", "ubuntu", "debian", "centos", "redhat"
 
-    If the parameter is used and you intend to do a Direct Download (as opposed to PackageManagement), you
-    may specify an OS other than the one the function is currently running on, in which case the function will
-    simply download the package for the specified OS (and obviously, no install will take place).
+    This parameter should only be used if you are downloading a PowerShell Core release that is NOT
+    meant for the Operating System that you are currently on.
 
 .Parameter ReleaseVersion
-    OPTIONAL
+    This parameter is OPTIONAL.
+
+    This parameter should only be used if you do NOT want the latest version.
 
     This parameter takes a string that indicates the PowerShell Core Release Version.
+    Example: 6.1.0
 
     If the parameter is not used, the function will default to using the latest Release Version.
 
 .Parameter Channel
-    OPTIONAL
+    This parameter is OPTIONAL.
 
-    This parameter takes a string (i.e. 'beta', 'rc', or 'stable') that indicates the Channel
-    of the PowerShell Core Release that you would like to install.
+    This parameter should only be used if you do NOT want the latest version.
+
+    This parameter takes a string that can be one of 4 values:
+    "beta", "rc", "stable", "preview"
 
     If the parameter is not used, the function will default to using the latest Channel for the
     given ReleaseVersion.
 
 .Parameter Iteration
-    OPTIONAL
+    This parameter is OPTIONAL.
+    
+    This parameter should only be used if you do NOT want the latest version.
 
-    This parameter takes an integer that indicates the iteration number for the given PowerShell Core
-    Release and Channel that you would like to install. For example, in 'PowerShell-6.0.0-beta.7-win-x64.msi',
-    the Iteration number would be '7'.
-
-    If this parameter is not used, the function will default to using the latest Iteration number for the
-    given ReleaseVersion/Channel.
+    This parameter takes an integer. For example, in the release "powershell-6.1.0-preview.2-1.rhel.7.x86_64.rpm",
+    iteration is 2.
 
 .PARAMETER Latest
-    OPTIONAL
+    This parameter is OPTIONAL.
 
-    This parameter is a switch. If it is used, then the latest release of PowerShell Core available
-    will be installed. This switch overrides the -ReleaseVersion, -Channel, and -Iteration parameters
+    This parameter is a switch. It is used by default. Using this switch installs the latest release of
+    PowerShell Core.
+        
+    This switch overrides the -ReleaseVersion, -Channel, and -Iteration parameters
     (i.e. it will be as if they were not used at all). By the same token, if you do not use any of the
     -ReleaseVersion, -Channel, and -Iteration parameters, it will be as if this switch is used.
 
@@ -901,6 +906,8 @@ function Update-PowerShellCore {
 
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
 
     if (!$(Check-Elevation)) {
         Write-Error "Please run PowerShell with elevated privileges and try again. Halting!"
@@ -1873,8 +1880,8 @@ function Update-PowerShellCore {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUzedWxIFOeRQDzZo5d5ZabH/s
-# Yxagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpNGZ4OAIwCO14CUnX5CnT7UY
+# 3U+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1931,11 +1938,11 @@ function Update-PowerShellCore {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHYXUPHvLQ/LuSSc
-# XEDpOlzWyxZ0MA0GCSqGSIb3DQEBAQUABIIBAFsD9dD3sZerV83Iz7fWqkxCIFJx
-# 3WORlH2NzqYSwBg/XY89kD7KcpgLSDWclAlFWeshJITxEtFWUs2c8GEeUl+Ls2bF
-# bnObEPIXK8ZtJcS2kMqJhkVT9SnqD66OAQ+pqtnATAiqoYDAA4BogJT/96x30QMl
-# Rq7qz9eQLMoGDk3/GImynrLmIaXlVDkhQltKBF4gN1vDYDddibDIarkvuDp9mqj5
-# ZTi6finH1lryE5Eygn7AD9pAeGvHo0s+rz8dt8o9IQnixpA7aIyv10zrQKtx05lY
-# yFnjttF2FlJYeAlN4OUXHRlVJrOvGLvy+iUd88jvLLjKX44H286IfBhBU5w=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKSmR/RNR0Nv3DLe
+# YvmzWhSKag12MA0GCSqGSIb3DQEBAQUABIIBAFVZy4+o46O+i7EHyNa7kIbZiZu0
+# NdbK0xcrSLcj7ghDsjnIH3hw7L0TxRJlhzqvAjt3HHotMoQSo1CtoyYU4wBgRqjK
+# QHeJYf9S61U+VwFKRxzaYO9qW+KMuGCgFoxOnK08rHUqtXd6nzhThVsqY3MKuZ3k
+# ihBxius99mMFQbTLsju4Mhu2yZNtc2qbhGbTOMEYhRb8SV9pwXHgwIeBxm6Gau/o
+# ZqXmfo4F7Fe8UTmY7TCmdudJGyHAfxpu6JiMW6pRfXSHrJ2drRQmco/XKAvtoW6m
+# VRYY/5mJ14tQlnCbkCA1tngUH+6edX9IXQks9TSicN72uxGVK8vEuWscXI4=
 # SIG # End signature block
