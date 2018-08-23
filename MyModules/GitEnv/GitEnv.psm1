@@ -2186,9 +2186,10 @@ public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 
 <#
     .Synopsis
-        Refactored From: https://gallery.technet.microsoft.com/scriptcenter/PowerShell-Credentials-d44c3cde
+        Provides access to Windows Credential Manager basic functionality for client scripts. Allows the user
+        to add, delete, and show credentials within the Windows Credential Manager.
 
-        Provides access to Windows CredMan basic functionality for client scripts
+        Refactored From: https://gallery.technet.microsoft.com/scriptcenter/PowerShell-Credentials-d44c3cde
 
         ****************** IMPORTANT ******************
         *
@@ -2196,7 +2197,7 @@ public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
         * should ALWAYS pass the Target, User and Password
         * parameters using single quotes:
         * 
-        *   .\CredMan.ps1 -AddCred -Target 'http://server' -User 'JoeSchmuckatelli' -Pass 'P@55w0rd!'
+        *  .\CredMan.ps1 -AddCred -Target 'http://server' -User 'JoeSchmuckatelli' -Pass 'P@55w0rd!'
         * 
         * to prevent PS misinterpreting special characters 
         * you might use as PS reserved characters
@@ -2204,73 +2205,41 @@ public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
         ****************** IMPORTANT ******************
 
     .Description
-        Provides the following API when dot-sourced
-        Del-Cred
-        Enum-Creds
-        Read-Cred
-        Write-Cred
-
-        Supports the following cmd-line actions
-        AddCred (requires -User, -Pass; -Target is optional)
-        DelCred (requires -Target)
-        GetCred (requires -Target)
-        RunTests (no cmd-line opts)
-        ShoCred (optional -All parameter to dump cred objects to console)
-
-    .INPUTS
-        See function-level notes
-
-    .OUTPUTS
-        Cmd-line usage: console output relative to success or failure state
-        Dot-sourced usage:
-        ** Successful Action **
-        * Del-Cred   : Int = 0
-        * Enum-Cred  : PsUtils.CredMan+Credential[]
-        * Read-Cred  : PsUtils.CredMan+Credential
-        * Write-Cred : Int = 0
-        ** Failure **
-        * All API    : Management.Automation.ErrorRecord
+        See .SYNOPSIS
 
     .NOTES
-        Author: Jim Harrison (jim@isatools.org)
+        Original Author: Jim Harrison (jim@isatools.org)
         Date  : 2012/05/20
         Vers  : 1.5
 
-        Updates:
-        2012/10/13
-                - Fixed a bug where the script would only read, write or delete GENERIC 
-                credentials types. 
-                    - Added #region blocks to clarify internal functionality
-                    - Added 'CredType' param to specify what sort of credential is to be read, 
-                    created or deleted (not used for -ShoCred or Enum-Creds)
-                    - Added 'CredPersist' param to specify how the credential is to be stored;
-                    only used in Write-Cred
-                    - Added 'All' param for -ShoCreds to differentiate between creds summary
-                    list and detailed creds dump
-                    - Added CRED_FLAGS enum to make the credential struct flags values clearer
-                    - Improved parameter validation
-                    - Expanded internal help (used with Get-Help cmdlet)
-                    - Cmd-line functions better illustrate how to interpret the results when 
-                    dot-sourcing the script
-
     .PARAMETER AddCred
-        Specifies that you wish to add a new credential or update an existing credentials
-        -Target, -User and -Pass parameters are required for this action
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. Use it in conjunction with -Target, -User, and -Pass
+        parameters to add a new credential or update existing credentials.
 
     .PARAMETER Comment
-        Specifies the information you wish to place in the credentials comment field
+        This parameter is OPTIONAL.
+
+        This parameter takes a string that represents additional information that you wish
+        to place in the credentials comment field. Use with the -AddCred switch.
 
     .PARAMETER CredPersist
-        Specifies the credentials storage persistence you wish to use
-        Valid values are: "SESSION", "LOCAL_MACHINE", "ENTERPRISE"
-        NOTE: if not specified, defaults to "ENTERPRISE"
+        This parameter is OPTIONAL, however, it has a default value of "ENTERPRISE".
+
+        This parameter takes a string. Valid values are:
+        "SESSION", "LOCAL_MACHINE", "ENTERPRISE"
+        
+        ENTERPRISE persistance means that the credentials will survive logoff and reboot.
         
     .PARAMETER CredType
-        Specifies the type of credential object you want to store
-        Valid values are: "GENERIC", "DOMAIN_PASSWORD", "DOMAIN_CERTIFICATE",
+        This parameter is OPTIONAL, however, it has a default value of "GENERIC".
+
+        This parameter takes a string. Valid values are:
+        "GENERIC", "DOMAIN_PASSWORD", "DOMAIN_CERTIFICATE",
         "DOMAIN_VISIBLE_PASSWORD", "GENERIC_CERTIFICATE", "DOMAIN_EXTENDED",
         "MAXIMUM", "MAXIMUM_EX"
-        NOTE: if not specified, defaults to "GENERIC"
+        
         ****************** IMPORTANT ******************
         *
         * I STRONGLY recommend that you become familiar 
@@ -2280,32 +2249,46 @@ public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
         ****************** IMPORTANT ******************
 
     .PARAMETER DelCred
-        Specifies that you wish to remove an existing credential
-        -CredType may be required to remove the correct credential if more than one is
-        specified for a target
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. Use it to remove existing credentials. If more than one
+        credential sets have the same -Target, you must use this switch in conjunction with the
+        -CredType parameter.
 
     .PARAMETER GetCred
-        Specifies that you wish to retrieve an existing credential
-        -CredType may be required to access the correct credential if more than one is
-        specified for a target
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. Use it to retrieve an existing credential. The
+        -CredType parameter may be required to access the correct credential if more set
+        of credentials have the same -Target.
 
     .PARAMETER Pass
-        Specifies the credentials password
+        This parameter is OPTIONAL, however, it is MANDATORY if the -AddCred switch is used.
+
+        This parameter takes a string that represents tha secret/password that you would like to store.
 
     .PARAMETER RunTests
-        Specifies that you wish to run built-in Win32 CredMan functionality tests
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. If used, the function will run built-in Win32 CredMan
+        functionality tests.
 
     .PARAMETER ShoCred
-        Specifies that you wish to retrieve all credential stored for the interactive user
-        -All parameter may be used to indicate that you wish to view all credentials properties
-        (default display is a summary list)
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. If used, the function will retrieve all credentials stored for
+        the interactive user.
 
     .PARAMETER Target
-        Specifies the authentication target for the specified credentials
-        If not specified, the -User information is used
+        This parameter is OPTIONAL, however, it is MANDATORY unless the -ShoCred switch is used.
+
+        This parameter takes a string that specifies the authentication target for the specified credentials
+        If not specified, the value provided to the -User parameter is used.
 
     .PARAMETER User
-        Specifies the credentials username
+        This parameter is OPTIONAL.
+
+        This parameter takes a string that represents the credential's UserName.
         
 
     .LINK
@@ -2315,70 +2298,66 @@ public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
         http://blogs.msdn.com/b/peerchan/archive/2005/11/01/487834.aspx
 
     .EXAMPLE
-        .\CredMan.ps1 -AddCred -Target 'http://aserver' -User 'UserName' -Password 'P@55w0rd!' -Comment 'cuziwanna'
-        Stores the credential for 'UserName' with a password of 'P@55w0rd!' for authentication against 'http://aserver' and adds a comment of 'cuziwanna'
+        # Stores the credential for 'UserName' with a password of 'P@55w0rd!' for authentication against 'http://aserver' and adds a comment of 'cuziwanna'
+        Manage-WinCreds -AddCred -Target 'http://aserver' -User 'UserName' -Password 'P@55w0rd!' -Comment 'cuziwanna'
 
     .EXAMPLE
-        .\CredMan.ps1 -DelCred -Target 'http://aserver' -CredType 'DOMAIN_PASSWORD'
-        Removes the credential used for the target 'http://aserver' as credentials type 'DOMAIN_PASSWORD'
+        # Removes the credential used for the target 'http://aserver' as credentials type 'DOMAIN_PASSWORD'
+        Manage-WinCreds -DelCred -Target 'http://aserver' -CredType 'DOMAIN_PASSWORD'
 
     .EXAMPLE
-        .\CredMan.ps1 -GetCred -Target 'http://aserver'
-        Retreives the credential used for the target 'http://aserver'
+        # Retreives the credential used for the target 'http://aserver'
+        Manage-WinCreds -GetCred -Target 'http://aserver'
 
     .EXAMPLE
-        .\CredMan.ps1 -ShoCred
-        Retrieves a summary list of all credentials stored for the interactive user
+        # Retrieves a summary list of all credentials stored for the interactive user
+        Manage-WinCreds -ShoCred
 
     .EXAMPLE
-        .\CredMan.ps1 -ShoCred -All
-        Retrieves a detailed list of all credentials stored for the interactive user
+        # Retrieves a detailed list of all credentials stored for the interactive user
+        Manage-WinCreds -ShoCred -All
 
 #>
-#requires -version 2
-function Manage-StoredCredentials {
+function Manage-WinCreds {
     [CmdletBinding()]
     Param (
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [Switch] $AddCred,
 
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [Switch]$DelCred,
-        
+     
         [Parameter(Mandatory=$false)]
         [Switch]$GetCred,
-        
+     
         [Parameter(Mandatory=$false)]
         [Switch]$ShoCred,
 
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [Switch]$RunTests,
-        
+     
         [Parameter(Mandatory=$false)]
         [ValidateLength(1,32767) <# CRED_MAX_GENERIC_TARGET_NAME_LENGTH #>]
         [String]$Target,
 
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [ValidateLength(1,512) <# CRED_MAX_USERNAME_LENGTH #>]
         [String]$User,
 
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [ValidateLength(1,512) <# CRED_MAX_CREDENTIAL_BLOB_SIZE #>]
         [String]$Pass,
 
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [ValidateLength(1,256) <# CRED_MAX_STRING_LENGTH #>]
         [String]$Comment,
 
-        [Parameter(Mandatory=$false)]
-        [Switch]$All,
-
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
         "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
         [String]$CredType = "GENERIC",
 
-        [Parameter(Mandatory=$false)]
+     [Parameter(Mandatory=$false)]
         [ValidateSet("SESSION","LOCAL_MACHINE","ENTERPRISE")]
         [String]$CredPersist = "ENTERPRISE"
     )
@@ -2699,16 +2678,17 @@ function Manage-StoredCredentials {
     $PsCredMan = $null
     try
     {
-        $PsCredMan = [PsUtils.CredMan]
+     $PsCredMan = [PsUtils.CredMan]
     }
     catch
     {
-        #only remove the error we generate
-        #$Error.RemoveAt($Error.Count-1)
+     #only remove the error we generate
+     try {$Error.RemoveAt($Error.Count-1)} catch {Write-Verbose "No past errors yet..."}
+    
     }
     if($null -eq $PsCredMan)
     {
-        Add-Type $PsCredmanUtils
+     Add-Type $PsCredmanUtils
     }
     #endregion
 
@@ -2720,37 +2700,37 @@ function Manage-StoredCredentials {
                                    0x8007089A = "SecurityError"}
 
     function Get-CredType {
-        Param (
-            [Parameter(Mandatory=$true)]
+     Param (
+      [Parameter(Mandatory=$true)]
             [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
-            "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
             [String]$CredType
-        )
-        
-        switch($CredType) {
-            "GENERIC" {return [PsUtils.CredMan+CRED_TYPE]::GENERIC}
-            "DOMAIN_PASSWORD" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_PASSWORD}
-            "DOMAIN_CERTIFICATE" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_CERTIFICATE}
-            "DOMAIN_VISIBLE_PASSWORD" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_VISIBLE_PASSWORD}
-            "GENERIC_CERTIFICATE" {return [PsUtils.CredMan+CRED_TYPE]::GENERIC_CERTIFICATE}
-            "DOMAIN_EXTENDED" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_EXTENDED}
-            "MAXIMUM" {return [PsUtils.CredMan+CRED_TYPE]::MAXIMUM}
-            "MAXIMUM_EX" {return [PsUtils.CredMan+CRED_TYPE]::MAXIMUM_EX}
-        }
+     )
+     
+     switch($CredType) {
+      "GENERIC" {return [PsUtils.CredMan+CRED_TYPE]::GENERIC}
+      "DOMAIN_PASSWORD" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_PASSWORD}
+      "DOMAIN_CERTIFICATE" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_CERTIFICATE}
+      "DOMAIN_VISIBLE_PASSWORD" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_VISIBLE_PASSWORD}
+      "GENERIC_CERTIFICATE" {return [PsUtils.CredMan+CRED_TYPE]::GENERIC_CERTIFICATE}
+      "DOMAIN_EXTENDED" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_EXTENDED}
+      "MAXIMUM" {return [PsUtils.CredMan+CRED_TYPE]::MAXIMUM}
+      "MAXIMUM_EX" {return [PsUtils.CredMan+CRED_TYPE]::MAXIMUM_EX}
+     }
     }
 
     function Get-CredPersist {
-        Param (
-            [Parameter(Mandatory=$true)]
+     Param (
+      [Parameter(Mandatory=$true)]
             [ValidateSet("SESSION","LOCAL_MACHINE","ENTERPRISE")]
             [String] $CredPersist
-        )
-        
-        switch($CredPersist) {
-            "SESSION" {return [PsUtils.CredMan+CRED_PERSIST]::SESSION}
-            "LOCAL_MACHINE" {return [PsUtils.CredMan+CRED_PERSIST]::LOCAL_MACHINE}
-            "ENTERPRISE" {return [PsUtils.CredMan+CRED_PERSIST]::ENTERPRISE}
-        }
+     )
+     
+     switch($CredPersist) {
+      "SESSION" {return [PsUtils.CredMan+CRED_PERSIST]::SESSION}
+      "LOCAL_MACHINE" {return [PsUtils.CredMan+CRED_PERSIST]::LOCAL_MACHINE}
+      "ENTERPRISE" {return [PsUtils.CredMan+CRED_PERSIST]::ENTERPRISE}
+     }
     }
     #endregion
 
@@ -2778,31 +2758,31 @@ function Manage-StoredCredentials {
             "CRED_TYPE_GENERIC"
         #>
 
-        Param (
-            [Parameter(Mandatory=$true)]
+     Param (
+      [Parameter(Mandatory=$true)]
             [ValidateLength(1,32767)]
             [String] $Target,
 
-            [Parameter(Mandatory=$false)]
+      [Parameter(Mandatory=$false)]
             [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
-            "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
             [String] $CredType = "GENERIC"
-        )
-        
-        [Int]$Results = 0
-        try {
-            $Results = [PsUtils.CredMan]::CredDelete($Target, $(Get-CredType $CredType))
-        }
-        catch {
-            return $_
-        }
-        if(0 -ne $Results) {
-            [String]$Msg = "Failed to delete credentials store for target '$Target'"
-            [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
-            [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
-            return $ErrRcd
-        }
-        return $Results
+     )
+     
+     [Int]$Results = 0
+     try {
+      $Results = [PsUtils.CredMan]::CredDelete($Target, $(Get-CredType $CredType))
+     }
+     catch {
+      return $_
+     }
+     if(0 -ne $Results) {
+      [String]$Msg = "Failed to delete credentials store for target '$Target'"
+      [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+      return $ErrRcd
+     }
+     return $Results
     }
 
     function Enum-Creds {
@@ -2825,31 +2805,31 @@ function Manage-StoredCredentials {
           
         #>
 
-        Param (
-            [Parameter(Mandatory=$false)]
+     Param (
+      [Parameter(Mandatory=$false)]
             [AllowEmptyString()]
             [String]$Filter = [String]::Empty
-        )
-        
-        [PsUtils.CredMan+Credential[]]$Creds = [Array]::CreateInstance([PsUtils.CredMan+Credential], 0)
-        [Int]$Results = 0
-        try {
-            $Results = [PsUtils.CredMan]::CredEnum($Filter, [Ref]$Creds)
-        }
-        catch {
-            return $_
-        }
-        switch($Results) {
+     )
+     
+     [PsUtils.CredMan+Credential[]]$Creds = [Array]::CreateInstance([PsUtils.CredMan+Credential], 0)
+     [Int]$Results = 0
+     try {
+      $Results = [PsUtils.CredMan]::CredEnum($Filter, [Ref]$Creds)
+     }
+     catch {
+      return $_
+     }
+     switch($Results) {
             0 {break}
             0x80070490 {break} #ERROR_NOT_FOUND
             default {
-                [String]$Msg = "Failed to enumerate credentials store for user '$Env:UserName'"
-                [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
-                [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
-                return $ErrRcd
+          [String]$Msg = "Failed to enumerate credentials store for user '$Env:UserName'"
+          [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+          [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+          return $ErrRcd
             }
-        }
-        return $Creds
+     }
+     return $Creds
     }
 
     function Read-Creds {
@@ -2875,44 +2855,44 @@ function Manage-StoredCredentials {
             "CRED_TYPE_GENERIC"
         #>
 
-        Param (
-            [Parameter(Mandatory=$true)]
+     Param (
+      [Parameter(Mandatory=$true)]
             [ValidateLength(1,32767)]
             [String]$Target,
 
-            [Parameter(Mandatory=$false)]
+      [Parameter(Mandatory=$false)]
             [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
-            "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
             [String]$CredType = "GENERIC"
-        )
-        
+     )
+     
         #CRED_MAX_DOMAIN_TARGET_NAME_LENGTH
-        if ("GENERIC" -ne $CredType -and 337 -lt $Target.Length) { 
-            [String]$Msg = "Target field is longer ($($Target.Length)) than allowed (max 337 characters)"
-            [Management.ManagementException]$MgmtException = New-Object Management.ManagementException($Msg)
-            [Management.Automation.ErrorRecord]$ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, 666, 'LimitsExceeded', $null)
-            return $ErrRcd
-        }
-        [PsUtils.CredMan+Credential]$Cred = New-Object PsUtils.CredMan+Credential
+     if ("GENERIC" -ne $CredType -and 337 -lt $Target.Length) { 
+      [String]$Msg = "Target field is longer ($($Target.Length)) than allowed (max 337 characters)"
+      [Management.ManagementException]$MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord]$ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, 666, 'LimitsExceeded', $null)
+      return $ErrRcd
+     }
+     [PsUtils.CredMan+Credential]$Cred = New-Object PsUtils.CredMan+Credential
         [Int]$Results = 0
-        try {
-            $Results = [PsUtils.CredMan]::CredRead($Target, $(Get-CredType $CredType), [Ref]$Cred)
-        }
-        catch {
-            return $_
-        }
-        
-        switch($Results) {
+     try {
+      $Results = [PsUtils.CredMan]::CredRead($Target, $(Get-CredType $CredType), [Ref]$Cred)
+     }
+     catch {
+      return $_
+     }
+     
+     switch($Results) {
             0 {break}
             0x80070490 {return $null} #ERROR_NOT_FOUND
             default {
-                [String] $Msg = "Error reading credentials for target '$Target' from '$Env:UserName' credentials store"
-                [Management.ManagementException]$MgmtException = New-Object Management.ManagementException($Msg)
-                [Management.Automation.ErrorRecord]$ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
-                return $ErrRcd
+          [String] $Msg = "Error reading credentials for target '$Target' from '$Env:UserName' credentials store"
+          [Management.ManagementException]$MgmtException = New-Object Management.ManagementException($Msg)
+          [Management.Automation.ErrorRecord]$ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+          return $ErrRcd
             }
-        }
-        return $Cred
+     }
+     return $Cred
     }
 
     function Write-Creds {
@@ -2952,78 +2932,78 @@ function Manage-StoredCredentials {
           defaults to "CRED_PERSIST_ENTERPRISE"
         #>
 
-        Param (
-            [Parameter(Mandatory=$false)]
+     Param (
+      [Parameter(Mandatory=$false)]
             [ValidateLength(0,32676)]
             [String]$Target,
 
-            [Parameter(Mandatory=$true)]
+      [Parameter(Mandatory=$true)]
             [ValidateLength(1,512)]
             [String]$UserName,
 
-            [Parameter(Mandatory=$true)]
+      [Parameter(Mandatory=$true)]
             [ValidateLength(1,512)]
             [String]$Password,
 
-            [Parameter(Mandatory=$false)]
+      [Parameter(Mandatory=$false)]
             [ValidateLength(0,256)]
             [String]$Comment = [String]::Empty,
 
-            [Parameter(Mandatory=$false)]
+      [Parameter(Mandatory=$false)]
             [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
-            "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
             [String]$CredType = "GENERIC",
 
-            [Parameter(Mandatory=$false)]
+      [Parameter(Mandatory=$false)]
             [ValidateSet("SESSION","LOCAL_MACHINE","ENTERPRISE")]
             [String]$CredPersist = "ENTERPRISE"
-        )
+     )
 
-        if ([String]::IsNullOrEmpty($Target)) {
-            $Target = $UserName
-        }
+     if ([String]::IsNullOrEmpty($Target)) {
+      $Target = $UserName
+     }
         #CRED_MAX_DOMAIN_TARGET_NAME_LENGTH
-        if ("GENERIC" -ne $CredType -and 337 -lt $Target.Length) {
-            [String] $Msg = "Target field is longer ($($Target.Length)) than allowed (max 337 characters)"
-            [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
-            [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, 666, 'LimitsExceeded', $null)
-            return $ErrRcd
-        }
+     if ("GENERIC" -ne $CredType -and 337 -lt $Target.Length) {
+      [String] $Msg = "Target field is longer ($($Target.Length)) than allowed (max 337 characters)"
+      [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, 666, 'LimitsExceeded', $null)
+      return $ErrRcd
+     }
         if ([String]::IsNullOrEmpty($Comment)) {
             $Comment = [String]::Format("Last edited by {0}\{1} on {2}",$Env:UserDomain,$Env:UserName,$Env:ComputerName)
         }
-        [String]$DomainName = [Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
-        [PsUtils.CredMan+Credential]$Cred = New-Object PsUtils.CredMan+Credential
-        
+     [String]$DomainName = [Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+     [PsUtils.CredMan+Credential]$Cred = New-Object PsUtils.CredMan+Credential
+     
         switch($Target -eq $UserName -and 
         $("CRED_TYPE_DOMAIN_PASSWORD" -eq $CredType -or "CRED_TYPE_DOMAIN_CERTIFICATE" -eq $CredType)) {
-            $true  {$Cred.Flags = [PsUtils.CredMan+CRED_FLAGS]::USERNAME_TARGET}
-            $false  {$Cred.Flags = [PsUtils.CredMan+CRED_FLAGS]::NONE}
-        }
-        $Cred.Type = Get-CredType $CredType
-        $Cred.TargetName = $Target
-        $Cred.UserName = $UserName
-        $Cred.AttributeCount = 0
-        $Cred.Persist = Get-CredPersist $CredPersist
-        $Cred.CredentialBlobSize = [Text.Encoding]::Unicode.GetBytes($Password).Length
-        $Cred.CredentialBlob = $Password
-        $Cred.Comment = $Comment
+      $true  {$Cred.Flags = [PsUtils.CredMan+CRED_FLAGS]::USERNAME_TARGET}
+      $false  {$Cred.Flags = [PsUtils.CredMan+CRED_FLAGS]::NONE}
+     }
+     $Cred.Type = Get-CredType $CredType
+     $Cred.TargetName = $Target
+     $Cred.UserName = $UserName
+     $Cred.AttributeCount = 0
+     $Cred.Persist = Get-CredPersist $CredPersist
+     $Cred.CredentialBlobSize = [Text.Encoding]::Unicode.GetBytes($Password).Length
+     $Cred.CredentialBlob = $Password
+     $Cred.Comment = $Comment
 
-        [Int] $Results = 0
-        try {
-            $Results = [PsUtils.CredMan]::CredWrite($Cred)
-        }
-        catch {
-            return $_
-        }
+     [Int] $Results = 0
+     try {
+      $Results = [PsUtils.CredMan]::CredWrite($Cred)
+     }
+     catch {
+      return $_
+     }
 
-        if(0 -ne $Results) {
-            [String] $Msg = "Failed to write to credentials store for target '$Target' using '$UserName', '$Password', '$Comment'"
-            [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
-            [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
-            return $ErrRcd
-        }
-        return $Results
+     if(0 -ne $Results) {
+      [String] $Msg = "Failed to write to credentials store for target '$Target' using '$UserName', '$Password', '$Comment'"
+      [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+      return $ErrRcd
+     }
+     return $Results
     }
 
     #endregion
@@ -3031,22 +3011,22 @@ function Manage-StoredCredentials {
     #region Cmd-Line functionality
     function CredManMain {
     #region Adding credentials
-        if ($AddCred) {
-            if([String]::IsNullOrEmpty($User) -or [String]::IsNullOrEmpty($Pass)) {
-                Write-Host "You must supply a user name and password (target URI is optional)."
-                return
-            }
-            # may be [Int32] or [Management.Automation.ErrorRecord]
-            [Object]$Results = Write-Creds $Target $User $Pass $Comment $CredType $CredPersist
-            if (0 -eq $Results) {
-                [Object]$Cred = Read-Creds $Target $CredType
-                if ($null -eq $Cred) {
-                    Write-Host "Credentials for '$Target', '$User' was not found."
-                    return
-                }
-                if ($Cred -is [Management.Automation.ErrorRecord]) {
-                    return $Cred
-                }
+     if ($AddCred) {
+      if([String]::IsNullOrEmpty($User) -or [String]::IsNullOrEmpty($Pass)) {
+       Write-Host "You must supply a user name and password (target URI is optional)."
+       return
+      }
+      # may be [Int32] or [Management.Automation.ErrorRecord]
+      [Object]$Results = Write-Creds $Target $User $Pass $Comment $CredType $CredPersist
+      if (0 -eq $Results) {
+       [Object]$Cred = Read-Creds $Target $CredType
+       if ($null -eq $Cred) {
+        Write-Host "Credentials for '$Target', '$User' was not found."
+        return
+       }
+       if ($Cred -is [Management.Automation.ErrorRecord]) {
+        return $Cred
+       }
 
                 New-Variable -Name "AddedCredentialsObject" -Value $(
                     [pscustomobject][ordered]@{
@@ -3058,45 +3038,45 @@ function Manage-StoredCredentials {
                     }
                 )
 
-                return $AddedCredentialsObject
-            }
-            # will be a [Management.Automation.ErrorRecord]
-            return $Results
-        }
-    #endregion  
+       return $AddedCredentialsObject
+      }
+      # will be a [Management.Automation.ErrorRecord]
+      return $Results
+     }
+    #endregion 
 
     #region Removing credentials
-        if ($DelCred) {
-            if (-not $Target) {
-                Write-Host "You must supply a target URI."
-                return
-            }
-            # may be [Int32] or [Management.Automation.ErrorRecord]
-            [Object]$Results = Del-Creds $Target $CredType 
-            if (0 -eq $Results) {
-                Write-Host "Successfully deleted credentials for '$Target'"
-                return
-            }
-            # will be a [Management.Automation.ErrorRecord]
-            return $Results
-        }
+     if ($DelCred) {
+      if (-not $Target) {
+       Write-Host "You must supply a target URI."
+       return
+      }
+      # may be [Int32] or [Management.Automation.ErrorRecord]
+      [Object]$Results = Del-Creds $Target $CredType 
+      if (0 -eq $Results) {
+       Write-Host "Successfully deleted credentials for '$Target'"
+       return
+      }
+      # will be a [Management.Automation.ErrorRecord]
+      return $Results
+     }
     #endregion
 
     #region Reading selected credential
-        if ($GetCred) {
-            if(-not $Target) {
-                Write-Host "You must supply a target URI."
-                return
-            }
-            # may be [PsUtils.CredMan+Credential] or [Management.Automation.ErrorRecord]
-            [Object]$Cred = Read-Creds $Target $CredType
-            if ($null -eq $Cred) {
-                Write-Host "Credential for '$Target' as '$CredType' type was not found."
-                return
-            }
-            if ($Cred -is [Management.Automation.ErrorRecord]) {
-                return $Cred
-            }
+     if ($GetCred) {
+      if(-not $Target) {
+       Write-Host "You must supply a target URI."
+       return
+      }
+      # may be [PsUtils.CredMan+Credential] or [Management.Automation.ErrorRecord]
+      [Object]$Cred = Read-Creds $Target $CredType
+      if ($null -eq $Cred) {
+       Write-Host "Credential for '$Target' as '$CredType' type was not found."
+       return
+      }
+      if ($Cred -is [Management.Automation.ErrorRecord]) {
+       return $Cred
+      }
 
             New-Variable -Name "AddedCredentialsObject" -Value $(
                 [pscustomobject][ordered]@{
@@ -3109,23 +3089,23 @@ function Manage-StoredCredentials {
             )
 
             return $AddedCredentialsObject
-        }
+     }
     #endregion
 
     #region Reading all credentials
-        if ($ShoCred) {
-            # may be [PsUtils.CredMan+Credential[]] or [Management.Automation.ErrorRecord]
-            [Object]$Creds = Enum-Creds
-            if ($Creds -split [Array] -and 0 -eq $Creds.Length) {
-                Write-Host "No Credentials found for $($Env:UserName)"
-                return
-            }
-            if ($Creds -is [Management.Automation.ErrorRecord]) {
-                return $Creds
-            }
+     if ($ShoCred) {
+      # may be [PsUtils.CredMan+Credential[]] or [Management.Automation.ErrorRecord]
+      [Object]$Creds = Enum-Creds
+      if ($Creds -split [Array] -and 0 -eq $Creds.Length) {
+       Write-Host "No Credentials found for $($Env:UserName)"
+       return
+      }
+      if ($Creds -is [Management.Automation.ErrorRecord]) {
+       return $Creds
+      }
 
             $ArrayOfCredObjects = @()
-            foreach($Cred in $Creds) {
+      foreach($Cred in $Creds) {
                 New-Variable -Name "AddedCredentialsObject" -Value $(
                     [pscustomobject][ordered]@{
                         UserName    = $($Cred.UserName)
@@ -3136,32 +3116,31 @@ function Manage-StoredCredentials {
                     }
                 ) -Force
 
-                if ($All) {
-                    $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Alias" -Value "$($Cred.TargetAlias)"
-                    $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "AttribCnt" -Value "$($Cred.AttributeCount)"
-                    $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Attribs" -Value "$($Cred.Attributes)"
-                    $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Flags" -Value "$($Cred.Flags)"
-                    $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "PwdSize" -Value "$($Cred.CredentialBlobSize)"
-                    $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Storage" -Value "$($Cred.Persist)"
-                    $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Type" -Value "$($Cred.Type)"
-                }
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Alias" -Value "$($Cred.TargetAlias)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "AttribCnt" -Value "$($Cred.AttributeCount)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Attribs" -Value "$($Cred.Attributes)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Flags" -Value "$($Cred.Flags)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "PwdSize" -Value "$($Cred.CredentialBlobSize)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Storage" -Value "$($Cred.Persist)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Type" -Value "$($Cred.Type)"
 
                 $ArrayOfCredObjects +=, $AddedCredentialsObject
-            }
-            return $ArrayOfCredObjects
-        }
+      }
+      return $ArrayOfCredObjects
+     }
     #endregion
 
     #region Run basic diagnostics
-        if($RunTests) {
-            [PsUtils.CredMan]::Main()
-        }
+     if($RunTests) {
+      [PsUtils.CredMan]::Main()
+     }
     #endregion
     }
     #endregion
 
     CredManMain
 }
+
 
 function Install-GitCmdLine {
     [CmdletBinding()]
@@ -3324,16 +3303,16 @@ function Configure-GitCmdLine {
             Target  = "git:https://$PersonalAccessToken@github.com"
             User    = $PersonalAccessToken
             Pass    = 'x-oauth-basic'
-            Comment = "Saved By Manage-StoredCredentials.ps1"
+            Comment = "Saved By Manage-WinCreds.ps1"
         }
         #>
         $ManageStoredCredsParams = @{
             Target  = "git:https://$GitHubUserName@github.com"
             User    = $GitHubUserName
             Pass    = $PersonalAccessTokenPT
-            Comment = "Saved By Manage-StoredCredentials.ps1"
+            Comment = "Saved By Manage-WinCreds.ps1"
         }
-        $null = Manage-StoredCredentials -AddCred @ManageStoredCredsParams
+        $null = Manage-WinCreds -AddCred @ManageStoredCredsParams
 
         # Test https OAuth2 authentication
         # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
@@ -3664,6 +3643,9 @@ function New-GitRepo {
         [Parameter(Mandatory=$True)]
         [string]$NewRepoDescription,
 
+        [Parameter(Mandatory=$False)]
+        [string]$GitIgnoreContent,
+
         [Parameter(Mandatory=$True)]
         [ValidateSet("Public","Private")]
         [string]$PublicOrPrivate,
@@ -3817,6 +3799,10 @@ powershell code
 * PSGallery: 
 "@
     Set-Content -Value $ReadMeDefaultContent -Path .\README.md
+
+    if ($GitIgnoreContent) {
+        Set-Content -Value $GitIgnoreContent -Path .\.gitignore
+    }
 
     if ($AuthMethod -eq "https") {
         # More info on JSON Options: https://developer.github.com/v3/repos/#create
@@ -4002,7 +3988,7 @@ function Clone-GitRepo {
         if ($CloningOneOrMorePrivateRepos) {
             # Check the Windows Credential Store to see if we have appropriate credentials available already
             # If not, add them to the Windows Credential Store
-            $FindCachedCredentials = Manage-StoredCredentials -ShoCred | Where-Object {
+            $FindCachedCredentials = Manage-WinCreds -ShoCred | Where-Object {
                 $_.UserName -eq $GitHubUserName -and
                 $_.Target -match "git"
             }
@@ -4067,16 +4053,16 @@ function Clone-GitRepo {
                     Target  = "git:https://$PersonalAccessToken@github.com"
                     User    = $PersonalAccessToken
                     Pass    = 'x-oauth-basic'
-                    Comment = "Saved By Manage-StoredCredentials.ps1"
+                    Comment = "Saved By Manage-WinCreds.ps1"
                 }
                 #>
                 $ManageStoredCredsParams = @{
                     Target  = "git:https://$GitHubUserName@github.com"
                     User    = $GitHubUserName
                     Pass    = $PersonalAccessToken
-                    Comment = "Saved By Manage-StoredCredentials.ps1"
+                    Comment = "Saved By Manage-WinCreds.ps1"
                 }
-                Manage-StoredCredentials -AddCred @ManageStoredCredsParams
+                Manage-WinCreds -AddCred @ManageStoredCredsParams
             }
         }
 
@@ -4485,13 +4471,11 @@ function Publish-MyGitRepo {
 
 }
 
-
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUHEVOYPL8iV/yapC2GvPemo+Y
-# OzCgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUPDqqz3KH3gx2ooGRMY+/teF4
+# Eyegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4548,11 +4532,11 @@ function Publish-MyGitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFMCx41RlumhDTa3/
-# 8t9EI7QguD9wMA0GCSqGSIb3DQEBAQUABIIBAHtYNdBulTM4DYu0wV9hvPExweUR
-# Upu8sageOk1shS9QUwuUST+e2+7CtoWDZMq6yBFJROVzxFkbrqkxv39u0Jg3p5gA
-# 4sB4j+lAyavU33+ZADdmYRbsaOZTOorC9dfiEXE7fB5aBuSbCRq5sEHGAxyIJL0r
-# LQYxmepNa8NEWoO7BqGEhhHGOtJVKgHzkRROfJT937uj4VC4fnFUeiprzzj4VCO8
-# SWfYnAuvbh7WeNJGQe//8H7Bx5GQGIEAO3eYPo39WqbDEDDjPCfPDwkpmFlFQ2Wn
-# /P2YPfVFJfMU9YtcqhfNkYumL0AUjz6cSyz67aKIarVdqWcxvn68NSec/JE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFP04H9hod/pkKxto
+# 2oh0Z2uqFxfYMA0GCSqGSIb3DQEBAQUABIIBAEyAVB9h6IvLxt3xex/p8ZO7dlYj
+# xs3L2Ljz1BwbwoHXEKPOqzenq6RZ+cJOsELViYt+LyTmyRsxNv4n/8zxuEzmNoOD
+# 6Hxdtd9ejUHMknMJpCHs9JP7leWwc6asi06YCat7jPRlNLizgMm8hWTsAgMf6LXx
+# Y79+VI+NcJWGCWbYwpOM51hwXFoARuIFBcrZlMFVlKmDZk8KFwhDPDYtcVzmPAb5
+# uEPgMxBzwNolIeILgGMl+OvZSnbMnhAPc//PLhJZA+/Jbx1X2hK8FmyCBQic+Cv7
+# yK2yO5sKNRS4QHeIjHI+uL2hSri2eMno/DPrccQ8xH6IUty9OD4ozlD56Ig=
 # SIG # End signature block
