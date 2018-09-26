@@ -143,9 +143,14 @@ function Join-LinuxToAD {
     printf "$PTPasswd" | realm join $DomainName --user=$DomainUserName *> $null
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Error -Message "Could not join domain $DomainName. See error output"
+        Write-Error -Message "Could not join domain $DomainName."
         return
     }
+
+    # Add the Domain Admins Group to /etc/sudoers
+    $DomainNameShort = $($DomainUserName -split "\\")[0]
+    echo "%$DomainNameShort\\Domain\ Admins    ALL=(ALL)    ALL" | sudo EDITOR='tee -a' visudo
+
     if ($LASTEXITCODE -eq 0) {
         Write-Output 'Success'
     }
@@ -154,8 +159,8 @@ function Join-LinuxToAD {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU8T6Oq5o4E1NugFXyAI6yLTh3
-# hTigggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUYG2hVmPg6yN0jB6VT8zbm5r8
+# 7C+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -212,11 +217,11 @@ function Join-LinuxToAD {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFHgi9KkkqhNZwTtC
-# 5GashfmcM6pGMA0GCSqGSIb3DQEBAQUABIIBAEm53z9hK7SUJCXH6yHPmyc8rERg
-# /J528U24lpR74Wa8tHcu2NOz5XZYiAM+2RyRH0y7P1iK8dDkddLeawTGTwWBxWRW
-# ugo6SXqBYfGKWIA+mWFB6M2wWB1pNPysxgNkfnnAy70oJ1PUfKCeMU02XDI09LH+
-# 5X20zUcSSM3HZk8PzrK9DSeZrPIxhgbozmyUcEHBV04OY6O03HMi3UdH/uK8c/XU
-# d4i39gO4DO5VEXBLRePoF+PM0zXQ1kLi3p73Var1wKWxzTwnZ/f7u8SiJZ5IcP3a
-# htzsj2uKZz3uXGoDlGqb6+udERAFMgEws2Za/TFaQ3MRWz7f1hMqtjK0kCY=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBRRPMkc90D+8oco
+# hnBEsj/IHu/xMA0GCSqGSIb3DQEBAQUABIIBAGxMROAJuj9tdpJ+wTu4ELYI9scw
+# z+IBu5642o9cw7OFjOBcEkVpimKdfwWG+E6VWPz4VbrUKzeq4f7CfF9YoEB4GYZw
+# bTH6DACqkAcn0f8+nv2LzjMxTrVgy4r4YxJ0oX2AcF+FKn8MrBPze2PxAcSu2Qcu
+# lNNgZ8/CAZMqE+hQCEvjDuBBUVYmcGH5QVXiLEvHd1y7JYWjWzG+mKWsieTs4J0I
+# qwDRt43FYgnJe3G5FuyuIvsUsj20hDlOkWRRK7rAFRsMfO0i9+552/ftB+ZmjQTU
+# +ct6X7LjNf+65+G0xKYFsm9wLlYObu2Vt7uCxBQEFQsa3Tc4AhIWGoWqU5w=
 # SIG # End signature block

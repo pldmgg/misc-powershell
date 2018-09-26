@@ -8,7 +8,10 @@ function Download-NuGetPackage {
         [string]$NuGetPkgDownloadDirectory,
 
         [Parameter(Mandatory=$False)]
-        [switch]$AllowPreRelease
+        [switch]$AllowPreRelease,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$Silent
     )
 
     ##### BEGIN Helper Native Functions #####
@@ -334,9 +337,13 @@ function Download-NuGetPackage {
     if ($($PSVersionTable.Platform -ne $null -and $PSVersionTable.Platform -ne "Win32NT") -or $NuGetPkgDownloadDirectory) {
         try {
             # Download the NuGet Package
-            Write-Host "Downloading $AssemblyName NuGet Package to $NuGetPkgDownloadPath ..."
+            if (!$Silent) {
+                Write-Host "Downloading $AssemblyName NuGet Package to $NuGetPkgDownloadPath ..."
+            }
             Invoke-WebRequest -Uri $NuGetPackageUri -OutFile $NuGetPkgDownloadPath
-            Write-Host "NuGet Package has been downloaded to $NuGetPkgDownloadPath"
+            if (!$Silent) {
+                Write-Host "NuGet Package has been downloaded to $NuGetPkgDownloadPath"
+            }
         }
         catch {
             Write-Error "Unable to find $AssemblyName via the NuGet API! Halting!"
@@ -346,7 +353,9 @@ function Download-NuGetPackage {
 
         # Step through possble Zip File SubDirs and get the most highest available compatible version of the Assembly
         try {
-            Write-Host "Attempting to extract NuGet zip file $NuGetPkgDownloadPath to $NuGetPkgExtractionDirectory ..."
+            if (!$Silent) {
+                Write-Host "Attempting to extract NuGet zip file $NuGetPkgDownloadPath to $NuGetPkgExtractionDirectory ..."
+            }
             if ($(Get-ChildItem $NuGetPkgExtractionDirectory).Count -gt 1) {
                 foreach ($item in $(Get-ChildItem $NuGetPkgExtractionDirectory)) {
                     if ($item.Extension -ne ".zip") {
@@ -356,7 +365,9 @@ function Download-NuGetPackage {
             }
             Expand-Archive -Path $NuGetPkgDownloadPath -DestinationPath $NuGetPkgExtractionDirectory
             #Unzip-File -PathToZip $NuGetPkgDownloadPath -TargetDir $NuGetPkgExtractionDirectory
-            Write-Host "NuGet Package is available here: $NuGetPkgExtractionDirectory"
+            if (!$Silent) {
+                Write-Host "NuGet Package is available here: $NuGetPkgExtractionDirectory"
+            }
         }
         catch {
             Write-Warning "The Unzip-File function failed with the following error:"
@@ -414,20 +425,6 @@ function Download-NuGetPackage {
     ##### END Main Body #####
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
