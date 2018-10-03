@@ -1,222 +1,3 @@
-#region >> Helper Functions
-
-function TestIsValidIPAddress([string]$IPAddress) {
-    [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
-    [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
-    Return  ($Valid -and $Octets)
-}
-
-function ResolveHost {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [string]$HostNameOrIP
-    )
-
-    ##### BEGIN Main Body #####
-
-    $RemoteHostNetworkInfoArray = @()
-    if (!$(TestIsValidIPAddress -IPAddress $HostNameOrIP)) {
-        try {
-            $HostNamePrep = $HostNameOrIP
-            [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
-            $IPv4AddressFamily = "InterNetwork"
-            $IPv6AddressFamily = "InterNetworkV6"
-
-            $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
-            $ResolutionInfo.AddressList | Where-Object {
-                $_.AddressFamily -eq $IPv4AddressFamily
-            } | foreach {
-                if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
-                    $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
-                }
-            }
-        }
-        catch {
-            Write-Verbose "Unable to resolve $HostNameOrIP when treated as a Host Name (as opposed to IP Address)!"
-
-            if ($HostNameOrIP -match "\.") {
-                try {
-                    $HostNamePrep = $($HostNameOrIP -split "\.")[0]
-                    Write-Verbose "Trying to resolve $HostNameOrIP using only HostName: $HostNamePrep!"
-
-                    [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
-                    $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
-                    $ResolutionInfo.AddressList | Where-Object {
-                        $_.AddressFamily -eq $IPv4AddressFamily
-                    } | foreach {
-                        if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
-                            $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
-                        }
-                    }
-                }
-                catch {
-                    Write-Verbose "Unable to resolve $HostNamePrep!"
-                }
-            }
-        }
-    }
-    if (TestIsValidIPAddress -IPAddress $HostNameOrIP) {
-        try {
-            $HostIPPrep = $HostNameOrIP
-            [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
-            $null = $RemoteHostArrayOfIPAddresses.Add($HostIPPrep)
-
-            $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostIPPrep)
-
-            [System.Collections.ArrayList]$RemoteHostFQDNs = @() 
-            $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
-        }
-        catch {
-            Write-Verbose "Unable to resolve $HostNameOrIP when treated as an IP Address (as opposed to Host Name)!"
-        }
-    }
-
-    if ($RemoteHostArrayOfIPAddresses.Count -eq 0) {
-        Write-Error "Unable to determine IP Address of $HostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    # At this point, we have $RemoteHostArrayOfIPAddresses...
-    [System.Collections.ArrayList]$RemoteHostFQDNs = @()
-    foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
-        try {
-            $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
-        }
-        catch {
-            Write-Verbose "Unable to resolve $HostIP. No PTR Record? Please check your DNS config."
-            continue
-        }
-        if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
-            $null = $RemoteHostFQDNs.Add($FQDNPrep)
-        }
-    }
-
-    if ($RemoteHostFQDNs.Count -eq 0) {
-        $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
-    }
-
-    [System.Collections.ArrayList]$HostNameList = @()
-    [System.Collections.ArrayList]$DomainList = @()
-    foreach ($fqdn in $RemoteHostFQDNs) {
-        $PeriodCheck = $($fqdn | Select-String -Pattern "\.").Matches.Success
-        if ($PeriodCheck) {
-            $HostName = $($fqdn -split "\.")[0]
-            $Domain = $($fqdn -split "\.")[1..$($($fqdn -split "\.").Count-1)] -join '.'
-        }
-        else {
-            $HostName = $fqdn
-            $Domain = "Unknown"
-        }
-
-        $null = $HostNameList.Add($HostName)
-        $null = $DomainList.Add($Domain)
-    }
-
-    if ($RemoteHostFQDNs[0] -eq $null -and $HostNameList[0] -eq $null -and $DomainList -eq "Unknown" -and $RemoteHostArrayOfIPAddresses) {
-        [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
-        # Test to see if we can reach the IP Addresses
-        foreach ($ip in $RemoteHostArrayOfIPAddresses) {
-            try {
-                $null = [System.Net.NetworkInformation.Ping]::new().Send($ip,1000)
-                $null = $SuccessfullyPingedIPs.Add($ip)
-            }
-            catch {
-                Write-Verbose "Unable to ping $ip..."
-                continue
-            }
-        }
-    }
-
-    $FQDNPrep = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
-    if ($FQDNPrep -match ',') {
-        $FQDN = $($FQDNPrep -split ',')[0]
-    }
-    else {
-        $FQDN = $FQDNPrep
-    }
-
-    $DomainPrep = if ($DomainList) {$DomainList[0]} else {$null}
-    if ($DomainPrep -match ',') {
-        $Domain = $($DomainPrep -split ',')[0]
-    }
-    else {
-        $Domain = $DomainPrep
-    }
-
-    $IPAddressList = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
-    $HName = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
-
-    if ($SuccessfullyPingedIPs.Count -eq 0 -and !$FQDN -and !$HostName -and !$Domain) {
-        Write-Error "Unable to resolve $HostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    [pscustomobject]@{
-        IPAddressList   = $IPAddressList
-        PingSuccess     = $($SuccessfullyPingedIPs.Count -gt 0)
-        FQDN            = $FQDN
-        HostName        = $HName
-        Domain          = $Domain
-    }
-
-    ##### END Main Body #####
-
-}
-
-function InstallLinuxPackage {
-    [CmdletBinding()]
-    Param (
-        [Parameter(Mandatory=$True)]
-        [string[]]$PossiblePackageNames,
-
-        [Parameter(Mandatory=$True)]
-        [string]$CommandName
-    )
-
-    if (!$(command -v $CommandName)) {
-        foreach ($PackageName in $PossiblePackageNames) {
-            if ($(command -v pacman)) {
-                $null = pacman -S $PackageName --noconfirm *> $null
-            }
-            elseif ($(command -v yum)) {
-                $null = yum -y install $PackageName *> $null
-            }
-            elseif ($(command -v dnf)) {
-                $null = dnf -y install $PackageName *> $null
-            }
-            elseif ($(command -v apt)) {
-                $null = apt -y install $PackageName *> $null
-            }
-            elseif ($(command -v zypper)) {
-                $null = zypper install $PackageName --non-interactive *> $null
-            }
-
-            if ($(command -v $CommandName)) {
-                break
-            }
-        }
-
-        if (!$(command -v $CommandName)) {
-            Write-Error "Unable to find the command $CommandName! Install unsuccessful! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        else {
-            Write-Host "$PackageName was successfully installed!" -ForegroundColor Green
-        }
-    }
-    else {
-        Write-Warning "The command $CommandName is already available!"
-        return
-    }
-}
-
-#endregion >> Helper Functions
-
-
 function Get-SSHProbe {
     [CmdletBinding(DefaultParameterSetName='Domain')]
     Param (
@@ -254,7 +35,10 @@ function Get-SSHProbe {
         [securestring]$DomainPasswordSS,
 
         [Parameter(Mandatory=$False)]
-        [string]$KeyFilePath
+        [string]$KeyFilePath,
+
+        [Parameter(Mandatory=$False)]
+        [string]$OutputTracker
     )
 
     #region >> Prep
@@ -406,6 +190,7 @@ function Get-SSHProbe {
                 '    Output = "ConnectionSuccessful"'
                 '    Platform = $PSVersionTable.Platform'
                 '    DistroInfo = $PSVersionTable.OS'
+                '    Hostnamectl = hostnamectl'
                 '}'
             ) | foreach {"    $_"}
             $PwshRemoteScriptBlockString = $PwshRemoteScriptBlockStringArray -join "`n"
@@ -852,12 +637,24 @@ function Get-SSHProbe {
                 if ($SSHCheckAsJson.Platform -eq "Win32NT") {
                     $OSDetermination = "Windows"
                     $ShellDetermination = "pwsh"
-                    $OSVersionInfo = $SSHCheckAsJson.DistroInfo
+                    [System.Collections.ArrayList]$OSVersionInfo = @()
+                    if ($SSHCheckAsJson.DistroInfo) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.DistroInfo)
+                    }
+                    if ($SSHCheckAsJson.Hostnamectl) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.Hostnamectl)
+                    }
                 }
                 else {
                     $OSDetermination = "Linux"
                     $ShellDetermination = "pwsh"
-                    $OSVersionInfo = $SSHCheckAsJson.DistroInfo
+                    [System.Collections.ArrayList]$OSVersionInfo = @()
+                    if ($SSHCheckAsJson.DistroInfo) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.DistroInfo)
+                    }
+                    if ($SSHCheckAsJson.Hostnamectl) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.Hostnamectl)
+                    }
                 }
 
                 $FinalOutput = [pscustomobject]@{
@@ -886,7 +683,7 @@ function Get-SSHProbe {
             [System.Collections.ArrayList]$SSHCmdStringArray = @(
                 'ssh'
             )
-            if ($Preferred_PSRemotingCredType -eq "SSHCertificate") {
+            if ($KeyFilePath) {
                 $null = $SSHCmdStringArray.Add("-i")
                 $null = $SSHCmdStringArray.Add("'" + $KeyFilePath + "'")
             }
@@ -913,6 +710,8 @@ function Get-SSHProbe {
                 "powershell -NoProfile -EncodedCommand $EncodedCommandWinOSCim"
                 "echo 111UnameOutput111"
                 "uname -a"
+                "echo 111HostnamectlOutput111"
+                "hostnamectl"
             )
             $SSHScript = $SSHScript -join "; "
             $null = $SSHCmdStringArray.Add($('"' + $SSHScript + '"'))
@@ -1312,7 +1111,15 @@ function Get-SSHProbe {
                     if ($UnameOutputHeaderIndex -eq "-1") {
                         $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($UnameOutputHeader[0])
                     }
-                    $OSVersionInfo = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
+                    $UnameOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
+                    $HostnamectlOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 2)..$($($SSHOutputPrep -split "`n").Count-1)]
+                    [System.Collections.ArrayList]$OSVersionInfo = @()
+                    if ($UnameOutput) {
+                        $null = $OSVersionInfo.Add($UnameOutput)
+                    }
+                    if ($HostnamectlOutput) {
+                        $null = $OSVersionInfo.Add($HostnamectlOutput)
+                    }
                 }
 
                 $FinalOutput = [pscustomobject]@{
@@ -1354,6 +1161,7 @@ function Get-SSHProbe {
                 '    Output = \"ConnectionSuccessful\"'
                 '    Platform = (Get-Variable PSVersionTable -ValueOnly).Platform'
                 '    DistroInfo = (Get-Variable PSVersionTable -ValueOnly).OS'
+                '    Hostnamectl = hostnamectl'
                 '}'
             ) | foreach {"    $_"}
             $PwshRemoteScriptBlockString = $PwshRemoteScriptBlockStringArray -join "`n"
@@ -1441,12 +1249,24 @@ function Get-SSHProbe {
                 if ($SSHCheckAsJson.Platform -eq "Win32NT") {
                     $OSDetermination = "Windows"
                     $ShellDetermination = "pwsh"
-                    $OSVersionInfo = $SSHCheckAsJson.DistroInfo
+                    [System.Collections.ArrayList]$OSVersionInfo = @()
+                    if ($SSHCheckAsJson.DistroInfo) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.DistroInfo)
+                    }
+                    if ($SSHCheckAsJson.Hostnamectl) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.Hostnamectl)
+                    }
                 }
                 else {
                     $OSDetermination = "Linux"
                     $ShellDetermination = "pwsh"
-                    $OSVersionInfo = $SSHCheckAsJson.DistroInfo
+                    [System.Collections.ArrayList]$OSVersionInfo = @()
+                    if ($SSHCheckAsJson.DistroInfo) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.DistroInfo)
+                    }
+                    if ($SSHCheckAsJson.Hostnamectl) {
+                        $null = $OSVersionInfo.Add($SSHCheckAsJson.Hostnamectl)
+                    }
                 }
 
                 $FinalOutput = [pscustomobject]@{
@@ -1475,7 +1295,7 @@ function Get-SSHProbe {
             [System.Collections.ArrayList]$SSHCmdStringArray = @(
                 'ssh'
             )
-            if ($Preferred_PSRemotingCredType -eq "SSHCertificate") {
+            if ($KeyFilePath) {
                 $null = $SSHCmdStringArray.Add("-i")
                 $null = $SSHCmdStringArray.Add("'" + $KeyFilePath + "'")
             }
@@ -1502,6 +1322,8 @@ function Get-SSHProbe {
                 "powershell -NoProfile -EncodedCommand $EncodedCommandWinOSCim"
                 "echo 111UnameOutput111"
                 "uname -a"
+                "echo 111HostnamectlOutput111"
+                "hostnamectl"
             )
             #$SSHScript = $SSHScript -join "; "
             #$null = $SSHCmdStringArray.Add($($SSHScript))
@@ -1574,7 +1396,15 @@ function Get-SSHProbe {
                     }
 
                     $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($($($SSHOutputPrep -split "`n") -match "uname -a"))
-                    $OSVersionInfo = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
+                    $UnameOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
+                    $HostnamectlOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 2)..$($($SSHOutputPrep -split "`n").Count-1)]
+                    [System.Collections.ArrayList]$OSVersionInfo = @()
+                    if ($UnameOutput) {
+                        $null = $OSVersionInfo.Add($UnameOutput)
+                    }
+                    if ($HostnamectlOutput) {
+                        $null = $OSVersionInfo.Add($HostnamectlOutput)
+                    }
                 }
 
                 $FinalOutput = [pscustomobject]@{
@@ -1594,11 +1424,13 @@ function Get-SSHProbe {
     $FinalOutput
 }
 
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURrUgyVaQhK4FHZSyqB23oo7R
-# XGWgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv/V8jv6DV6jMfCWDOjbLToNi
+# 2kGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1655,11 +1487,11 @@ function Get-SSHProbe {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFLMcI9RsaW11+/mD
-# pBDtDjWDzCI1MA0GCSqGSIb3DQEBAQUABIIBAI0aMhKTb6V2PxXlx7KiLluOKWfu
-# tJEiWZt/4AmkoJTLuDs8eYgXVZ5JRNZ02DHjC0gxjA8PiAOIz+2HmEKHJA6G6hfF
-# HwjKzoz6eixt8L0jf5ycn6UKc6Xw+Y+uyuLqBYeDsSwDpFNeFgNdFKHQgFB7zJtj
-# wqrm9zqA6q6/xpE21DQU94YEkurjQwz3ZA6Hx5uQDVYcVyP4AA0YaqGonlJvnvoy
-# c7UF3WtAzE/BZfL990U+msgpuvRDmjic6/F1Bjz7XmRRNl+SJrb281pArpdn3+Bi
-# BULjnDg/hl/tyId708c5fWUCN1i/y4hFn4zBIFwdz8Dfz2JeIIGc91UjN4A=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFD4wpjUzO3AUgAPR
+# oBjq9PiV/d16MA0GCSqGSIb3DQEBAQUABIIBAFX3rRdCfPOh/VWsJWthfqXkUofV
+# wvKLC/2Ay1j6e4S70Wj0wX1ENuYj0A+6CRw41ro9x6bq457Rf4OEcY2hoMAKHHHR
+# fT47oRFOImu0qXpwT2HQkkjeL3SoeTKzKmWxboANzzrs8oeEi8BGZ9g99IMHaPDy
+# BSeO0AS1RJUsV99ltqqaP15D5FUfxYfpRWoR97o1K+QIZv9cDGn/bVDGNNBNEXLy
+# eHhSrc/O0When3uw8db5IK0sprUzMZ6ifiqHY3Jved1nF2Sw563xgjWNET3uMz4D
+# Yb9sPFu9NEmgqlzhEz5NlVwAviFOFI/nDSruLGc+J6CLO0ixXIB/ke5e0Ms=
 # SIG # End signature block
