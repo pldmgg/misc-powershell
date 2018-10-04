@@ -466,14 +466,14 @@ function Get-SSHProbe {
             ) {
                 $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
                 $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                if ($CheckResponsesOutput -match "must be greater than zero" -or $CheckResponsesOutput[-1] -notmatch "[a-zA-Z]") {
+                if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]") {
                     break
                 }
                 Start-Sleep -Seconds 1
                 $Counter++
             }
             if ($Counter -eq 31) {
-                Write-Warning "SSH via 'pwsh -c {Invoke-Command ...}' timed out!"
+                Write-Verbose "SSH via 'pwsh -c {Invoke-Command ...}' timed out!"
                 
                 if ($PSAwaitProcess.Id) {
                     try {
@@ -509,7 +509,7 @@ function Get-SSHProbe {
             
             # If $CheckResponsesOutput contains the string "must be greater than zero", then something broke with the Await Module.
             # Most of the time, just trying again resolves any issues
-            if ($CheckResponsesOutput -match "must be greater than zero" -or $CheckResponsesOutput[-1] -notmatch "[a-zA-Z]" -and
+            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -and
             ![bool]$($CheckResponsesOutput -match "background process reported an error")) {
                 if ($PSAwaitProcess.Id) {
                     try {
@@ -559,7 +559,7 @@ function Get-SSHProbe {
                     $Counter++
                 }
                 if ($Counter -eq 31) {
-                    Write-Warning "SSH via 'pwsh -c {Invoke-Command ...}' timed out!"
+                    Write-Verbose "SSH via 'pwsh -c {Invoke-Command ...}' timed out!"
                     
                     if ($PSAwaitProcess.Id) {
                         try {
@@ -594,7 +594,7 @@ function Get-SSHProbe {
             }
 
             # At this point, if we don't have the expected output, we need to fail
-            if ($CheckResponsesOutput -match "must be greater than zero" -or $CheckResponsesOutput[-1] -notmatch "[a-zA-Z]" -and
+            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -and
             ![bool]$($CheckResponsesOutput -match "background process reported an error")) {
                 Write-Error "Something went wrong with the PowerShell Await Module! Halting!"
                 $global:FunctionResult = "1"
@@ -967,15 +967,15 @@ function Get-SSHProbe {
             ) {
                 $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
                 $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                if ($CheckResponsesOutput -match "must be greater than zero" -or $CheckResponsesOutput[-1] -notmatch "[a-zA-Z]") {
+                if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]") {
                     break
                 }
                 Start-Sleep -Seconds 1
                 $Counter++
             }
             if ($Counter -eq 31) {
-                Write-Warning "SSH via 'ssh -t ...' timed out!"
-                
+                Write-Verbose "SSH via '$($SSHCmdStringArray -join " ")' timed out!"
+
                 if ($PSAwaitProcess.Id) {
                     try {
                         $null = Stop-AwaitSession
@@ -1006,7 +1006,7 @@ function Get-SSHProbe {
             
             # If $CheckResponsesOutput contains the string "must be greater than zero", then something broke with the Await Module.
             # Most of the time, just trying again resolves any issues
-            if ($CheckResponsesOutput -match "must be greater than zero" -or $CheckResponsesOutput[-1] -notmatch "[a-zA-Z]" -and
+            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -and
             ![bool]$($CheckResponsesOutput -match "background process reported an error")) {
                 if ($PSAwaitProcess.Id) {
                     try {
@@ -1056,8 +1056,9 @@ function Get-SSHProbe {
                     $Counter++
                 }
                 if ($Counter -eq 31) {
-                    Write-Warning "SSH via 'ssh -t ...' timed out!"
-                    
+                    Write-Error "SSH via '$($SSHCmdStringArray -join " ")' timed out!"
+                    $global:FunctionResult = "1"
+
                     if ($PSAwaitProcess.Id) {
                         try {
                             $null = Stop-AwaitSession
@@ -1079,6 +1080,8 @@ function Get-SSHProbe {
                             }
                         }
                     }
+
+                    return
                 }
             }
 
@@ -1087,7 +1090,7 @@ function Get-SSHProbe {
             $CheckResponsesOutput = $CheckForExpectedResponses | foreach {$_ -split "`n"}
 
             # At this point, if we don't have the expected output, we need to fail
-            if ($CheckResponsesOutput -match "must be greater than zero" -or $CheckResponsesOutput[-1] -notmatch "[a-zA-Z]" -and
+            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -and
             ![bool]$($CheckResponsesOutput -match "background process reported an error")) {
                 Write-Error "Something went wrong with the PowerShell Await Module! Halting!"
                 $global:FunctionResult = "1"
@@ -1643,16 +1646,65 @@ function Get-SSHProbe {
     else {
         Write-Error "Unable to test SSH! Halting!"
         $global:FunctionResult = "1"
+
+        if ($PSAwaitProcess.Id) {
+            try {
+                $null = Stop-AwaitSession
+            }
+            catch {
+                if ($PSAwaitProcess.Id -eq $PID) {
+                    Write-Error "The PSAwaitSession never spawned! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                else {
+                    if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
+                        Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
+                    }
+                    while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
+                        Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
+                        Start-Sleep -Seconds 1
+                    }
+                }
+            }
+        }
+
         return
+    }
+
+    if ($PSAwaitProcess.Id) {
+        try {
+            $null = Stop-AwaitSession
+        }
+        catch {
+            if ($PSAwaitProcess.Id -eq $PID) {
+                Write-Error "The PSAwaitSession never spawned! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+            else {
+                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
+                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
+                }
+                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
+                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
+                    Start-Sleep -Seconds 1
+                }
+            }
+        }
     }
 
     $FinalOutput
 }
+
+
+
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKlxyQOThHQ+ECBDSTHQ9D349
-# PJSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUBxibMucYH/5KBcgUzB+aDFt+
+# 51ugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1709,11 +1761,11 @@ function Get-SSHProbe {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFD6RTK1z9lnRuK5F
-# FT/5qO8DyfzMMA0GCSqGSIb3DQEBAQUABIIBALEl4gXPCjdDZkOK8I9eQ0qwzItK
-# yPLAJ1d7kCZQcv8+knqfWCa56nqtMSKDC8CxPhqsEeVtwwfdMlaJQ0yywxwGxNyV
-# VDdoiA2VxzsE99zJXA+lQy02oIBOwZWYrzY3oZumT1j0sgeAZ/G+/QrVYspI55kb
-# RWBZX6fMaudd1PLFdaBrfHXXdIg1PHdIoNjGaKPPkTvZsGejq+Ae+Q4mIcnA93OJ
-# 9/3bq/nIufowvP8yRYVque2syNp5mQLhnfiTv5AZF3JTmw3icAheEIewTTAJmjpR
-# ksjo0NpfYqmL0c+dF6BKtxLBLAxXw10X0AM2B3mZ5wOw5eqwb7Vk2WBawJA=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNkyRQcR7/V7OIp4
+# g9d73hFgfDMMMA0GCSqGSIb3DQEBAQUABIIBAKN+GQiWSoEWJa3OqlTOMZ0/Ibo8
+# Jo6dIPhgqjYAO9j5EF1a7IGolGWbBnXa+XuVMZ3ItRWNgxTLms9DlNKT4xr1CSkk
+# EWaTtZJz8W29DEHvGy33AFHBMB5xb09qDu/fct5DaIHcz3g8yl4+rr7hClN+Am4S
+# NGiQtzJ1X0MsvL5rXRTgCT1xW6oT360BQ+Ja5NStACQ5FvKD/ake+uCmzYeHKZLx
+# o4WVnaet8SWJ0pUHmPipp4P9V38nD+Xu2zQWgAmjZeUAXV+RawZrZ9mYwPytV/5u
+# VocX+HncmwODRFKbfIk3LEv/lvnuIbfKYkoG9AD4eIZxgPoN2jlTz/nIz4o=
 # SIG # End signature block
