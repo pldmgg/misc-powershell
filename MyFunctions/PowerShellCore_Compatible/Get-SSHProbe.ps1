@@ -53,6 +53,12 @@ function Get-SSHProbe {
         return
     }
 
+    if ($LocalPasswordSS -or $DomainPasswordSS -and $KeyFilePath) {
+        Write-Error "Please use EITHER -KeyFilePath OR -LocalPasswordSS/-DomainPasswordSS in order to ssh to $RemoteHostNameOrIP! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
     if ($LocalUserName) {
         if ($($LocalUserName -split "\\")[0] -ne $RemoteHostNetworkInfo.HostName) {
             $ErrMsg = "The HostName indicated by -LocalUserName (i.e. $($($LocalUserName -split "\\")[0]) is not the same as " +
@@ -1426,11 +1432,12 @@ function Get-SSHProbe {
 
 
 
+
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUv/V8jv6DV6jMfCWDOjbLToNi
-# 2kGgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOyPgxGVQ2e5w47rBFmRajJKO
+# Kuegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -1487,11 +1494,11 @@ function Get-SSHProbe {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFD4wpjUzO3AUgAPR
-# oBjq9PiV/d16MA0GCSqGSIb3DQEBAQUABIIBAFX3rRdCfPOh/VWsJWthfqXkUofV
-# wvKLC/2Ay1j6e4S70Wj0wX1ENuYj0A+6CRw41ro9x6bq457Rf4OEcY2hoMAKHHHR
-# fT47oRFOImu0qXpwT2HQkkjeL3SoeTKzKmWxboANzzrs8oeEi8BGZ9g99IMHaPDy
-# BSeO0AS1RJUsV99ltqqaP15D5FUfxYfpRWoR97o1K+QIZv9cDGn/bVDGNNBNEXLy
-# eHhSrc/O0When3uw8db5IK0sprUzMZ6ifiqHY3Jved1nF2Sw563xgjWNET3uMz4D
-# Yb9sPFu9NEmgqlzhEz5NlVwAviFOFI/nDSruLGc+J6CLO0ixXIB/ke5e0Ms=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBXBHIuzpm/BqWyE
+# hBgeQvG06cfdMA0GCSqGSIb3DQEBAQUABIIBAGzB0WkLuIBYsdqVZ8yuDeiWP5Sc
+# sfDEHU9YfiTskAk+/KY2i1Ai5siQoOQvL/xLaZhC9bUL21oJc9eDnA2jza5xSUS0
+# rKX3M1pYAy2Klp1uJqH1XXHDPdovZSwvZvibVqRMLC3qnCTvCe13sNem8mB7xk8I
+# uvQ1/qo8E38MZAh4jgH5VKTa/P2z1ibnBx0+iA0oP0QSc9gnlWu7oqD6FdTGJCKC
+# 4SQkR0LZ4BxVDWpsPwt1WME0XUfsd3Zn3DnwLLA/mXUpmxdI3YAhQPYGizxQ1rhy
+# pWYbiWIJ3gwTaU6x2AVUNNr9x9faz6uLN/qiT4oFEiVq9bmCmTGmT7Izzfg=
 # SIG # End signature block
