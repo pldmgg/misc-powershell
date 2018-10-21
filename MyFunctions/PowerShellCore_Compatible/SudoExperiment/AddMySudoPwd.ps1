@@ -8,7 +8,7 @@
     .EXAMPLE
         # Launch pwsh and...
 
-        Add-MySudoPwd
+        AddMySudoPwd
         
 #>
 function AddMySudoPwd {
@@ -26,8 +26,8 @@ function AddMySudoPwd {
     # 'Get-SudoStatus' cannnot be run as root...
     if (GetElevation) {
         $GetElevationAsString = ${Function:GetElevation}.Ast.Extent.Text
-        $GetMySudoStatusAsString = ${Function:Get-MySudoStatus}.Ast.Extent.Text
-        $FinalScript = $GetElevationAsString + "`n" + $GetMySudoStatusAsString + "`n" + "Get-MySudoStatus"
+        $GetMySudoStatusAsString = ${Function:GetMySudoStatus}.Ast.Extent.Text
+        $FinalScript = $GetElevationAsString + "`n" + $GetMySudoStatusAsString + "`n" + "GetMySudoStatus"
         $PwshScriptBytes = [System.Text.Encoding]::Unicode.GetBytes($FinalScript)
         $EncodedCommand = [Convert]::ToBase64String($PwshScriptBytes)
         $GetSudoStatusResult = su $env:SUDO_USER -c "pwsh -EncodedCommand $EncodedCommand" | ConvertFrom-Json
@@ -55,6 +55,58 @@ function AddMySudoPwd {
 
     #region >> Main
 
+    $PwshLocation = $(Get-Command pwsh).Source
+    $SudoConfPath = "/etc/sudoers.d/pwsh-nosudo.conf"
+    if ($DomainNameShort) {
+        $RegexDefinition = "`$UserStringRegex = [regex]::Escape(`"%$DomainNameShort\\$UserNameShort ALL=(ALL) NOPASSWD: SUDO_PWSH`")"
+    } else {
+        $RegexDefinition = "`$UserStringRegex = [regex]::Escape(`"$UserNameShort ALL=(ALL) NOPASSWD: SUDO_PWSH`")"
+    }
+    $EditSudoersdFilePrep = @(
+        $RegexDefinition
+        'try {'
+        "    `$SudoConfPath = '$SudoConfPath'"
+        '    if (!$(Test-Path $SudoConfPath)) {'
+        '        "sudoConfNotFound"'
+        '        return'
+        '    }'
+        '    [System.Collections.ArrayList][array]$PwshSudoConfContent = @(Get-Content $SudoConfPath)'
+        '    if ($PwshSudoConfContent.Count -gt 0) {'
+        '        $MatchingLine = $PwshSudoConfContent -match $UserStringRegex'
+        '        if ($MatchingLine) {'
+        '            $null = $PwshSudoConfContent.Remove($MatchingLine)'
+        '            Set-Content -Path $SudoConfPath -Force -Value $PwshSudoConfContent'
+        '            "Success"'
+        '        }'
+        '        else {'
+        '            "NoChanges"'
+        '        }'
+        '    }'
+        '    else {'
+        '        "NoChanges"'
+        '    }'
+        '}'
+        'catch {'
+        '    Write-Error $_'
+        '    $global:FunctionResult = "1"'
+        '    return'
+        '}'
+    )
+    $EditSudoersdFile = $EditSudoersdFilePrep -join "`n"
+
+    $Bytes = [System.Text.Encoding]::Unicode.GetBytes($EditSudoersdFile)
+    $EncodedCommand = [Convert]::ToBase64String($Bytes)
+    $Result = sudo pwsh -EncodedCommand $EncodedCommand
+
+    if (!$Result) {
+        Write-Error "There was an issue checking/updating writing '/etc/sudoers.d/pwsh-nosudo.conf'! Please review. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    $Result
+
+    <#
     # cat /etc/sudoers | grep -Eic 'Cmnd_Alias SUDO_PWSH = /bin/pwsh' > /dev/null && echo present || echo absent
     [System.Collections.Generic.List[PSObject]]$UpdateSudoersScriptPrep = @()
     if ($DomainNameShort) {
@@ -77,6 +129,7 @@ function AddMySudoPwd {
     }
 
     "Success"
+    #>
 
     #endregion >> Main
 }

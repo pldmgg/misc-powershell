@@ -4,13 +4,24 @@ function NewCronToAddSudoPwd {
 
     #region >> Prep
 
-    if (GetElevation) {
-        Write-Error "You cannot run this function as root! Halting!"
+    if ($PSVersionTable.Platform -ne "Unix") {
+        Write-Error "This function is meant for use on Linux! Halting!"
         $global:FunctionResult = "1"
         return
     }
 
-    $GetSudoStatusResult = GetMySudoStatus | ConvertFrom-Json
+    # 'Get-SudoStatus' cannnot be run as root...
+    if (GetElevation) {
+        $GetElevationAsString = ${Function:GetElevation}.Ast.Extent.Text
+        $GetMySudoStatusAsString = ${Function:GetMySudoStatus}.Ast.Extent.Text
+        $FinalScript = $GetElevationAsString + "`n" + $GetMySudoStatusAsString + "`n" + "GetMySudoStatus"
+        $PwshScriptBytes = [System.Text.Encoding]::Unicode.GetBytes($FinalScript)
+        $EncodedCommand = [Convert]::ToBase64String($PwshScriptBytes)
+        $GetSudoStatusResult = su $env:SUDO_USER -c "pwsh -EncodedCommand $EncodedCommand" | ConvertFrom-Json
+    }
+    else {
+        $GetSudoStatusResult = GetMySudoStatus | ConvertFrom-Json
+    }
     
     if (!$GetSudoStatusResult.HasSudoPrivileges) {
         Write-Error "The user does not appear to have sudo privileges on $env:HOSTNAME! Halting!"
@@ -40,32 +51,13 @@ function NewCronToAddSudoPwd {
         "/dev/null && sed -i '/$UserNameShort ALL.*SUDO_PWSH/d' /etc/sudoers"
     }
 
-    # $BashScript should look like:
-    <#
-        $BashScript = @'
-set -f; croncmd=\"sleep 30; ps aux | grep -Eic '121348.*pwsh' && echo pwshStillRunning || cat /etc/sudoers | grep -Eic 'pdadmin ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > /dev/null && sed -i '/pdadmin ALL.*SUDO_PWSH/d' /etc/sudoers && ( crontab -l | grep '^ps aux.*cat /etc/sudoers' ) | crontab -\"; cronjob=\"* * * * * $croncmd\"; ( crontab -l | grep '^ps aux.*cat /etc/sudoers'; echo \"$cronjob\" ) | crontab -
-'@
-
-    # Straight bash
-    set -f; croncmd="sleep 30; ps aux | grep -Eic '121348.*pwsh' && echo pwshStillRunning || cat /etc/sudoers | grep -Eic 'pdadmin ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > /dev/null && sed -i '/pdadmin ALL.*SUDO_PWSH/d' /etc/sudoers && ( crontab -l | grep '^ps aux.*cat /etc/sudoers' ) | crontab -"; cronjob="* * * * * $croncmd"; ( crontab -l | grep '^ps aux.*cat /etc/sudoers'; echo "$cronjob" ) | crontab -
-
-    # 
-    set -f; croncmd="sleep 30; ps aux | grep -v grep | grep -Eic '121348.*pwsh' && echo pwshStillRunning || cat /etc/sudoers | grep -Eic 'pdadmin ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > /dev/null && sed -i '/pdadmin ALL.*SUDO_PWSH/d' /etc/sudoers && ( crontab -l | grep '^ps aux.*cat /etc/sudoers' ) | crontab -"; cronjob="* * * * * $croncmd"; ( crontab -l | grep '^ps aux.*cat /etc/sudoers'; echo "$cronjob" ) | crontab -
-    
-    $BashScript = @'
-set -f; croncmd=\"sleep 30; ps aux | grep -v grep | grep -Eic '121348.*pwsh' && echo pwshStillRunning || cat /etc/sudoers | grep -Eic 'pdadmin ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > /dev/null && sed -i '/pdadmin ALL.*SUDO_PWSH/d' /etc/sudoers && ( crontab -l | grep '^ps aux.*cat /etc/sudoers' ) | crontab -\"; cronjob=\"* * * * * $croncmd\"; ( crontab -l | grep '^ps aux.*cat /etc/sudoers'; echo \"$cronjob\" ) | crontab -
-'@
-    #>
-
     $BashScriptPrep = @(
         'set -f'
-        "croncmd=\`"sleep 30; ps aux | grep -v grep | grep -Eic '$PID.*pwsh' && echo pwshStillRunning || cat /etc/sudoers | $RemoveUserString && ( crontab -l | grep '^ps aux.*cat /etc/sudoers' ) | crontab -\`""
+        "croncmd=\`"sleep 10; ps aux | grep -v grep | grep -Eic '$PID.*pwsh' && echo pwshStillRunning || cat /etc/sudoers.d/pwsh-nosudo.conf | $RemoveUserString && ( crontab -l | grep 'ps aux.*cat /etc/sudoers' ) | crontab -\`""
         'cronjob=\"* * * * * $croncmd\"'
-        "( crontab -l | grep '^ps aux.*cat /etc/sudoers'; echo \`"`$cronjob\`" ) | crontab -"
+        "( crontab -l | grep 'ps aux.*cat /etc/sudoers'; echo \`"`$cronjob\`" ) | crontab -"
     )
     $BashScript = $BashScriptPrep -join '; '
-
-    $BashScript
     
     sudo bash -c "$BashScript"
 
