@@ -111,7 +111,7 @@ function New-SSHKey {
 
     #region >> Helper Functions
 
-    function GetElevation {
+    function Get-Elevation {
         if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
             [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
                 [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -137,7 +137,7 @@ function New-SSHKey {
         }
     }
 
-    function InstallLinuxPackage {
+    function Install-LinuxPackage {
         [CmdletBinding()]
         Param (
             [Parameter(Mandatory=$True)]
@@ -150,19 +150,19 @@ function New-SSHKey {
         if (!$(command -v $CommandName)) {
             foreach ($PackageName in $PossiblePackageNames) {
                 if ($(command -v pacman)) {
-                    $null = pacman -S $PackageName --noconfirm *> $null
+                    $null = sudo pacman -S $PackageName --noconfirm *> $null
                 }
                 elseif ($(command -v yum)) {
-                    $null = yum -y install $PackageName *> $null
+                    $null = sudo yum -y install $PackageName *> $null
                 }
                 elseif ($(command -v dnf)) {
-                    $null = dnf -y install $PackageName *> $null
+                    $null = sudo dnf -y install $PackageName *> $null
                 }
                 elseif ($(command -v apt)) {
-                    $null = apt-get -y install $PackageName *> $null
+                    $null = sudo apt-get -y install $PackageName *> $null
                 }
                 elseif ($(command -v zypper)) {
-                    $null = zypper install $PackageName --non-interactive *> $null
+                    $null = sudo zypper install $PackageName --non-interactive *> $null
                 }
     
                 if ($(command -v $CommandName)) {
@@ -190,9 +190,9 @@ function New-SSHKey {
 
     #region >> Prep
 
-    if ($PSVersionTable.Platform -eq "Unix" -or $PSVersionTable.OS -match "Darwin" -and $env:SudoPwdPrompt) {
-        if (GetElevation) {
-            Write-Error "You should not be running this function as root! Halting!"
+    if ($PSVersionTable.Platform -eq "Unix" -or $PSVersionTable.OS -match "Darwin") {
+        if (Get-Elevation) {
+            Write-Error "You cannot run the $($PSCmdlet.MyInvocation.MyCommand) function as root! Halting!"
             $global:FunctionResult = "1"
             return
         }
@@ -236,7 +236,7 @@ function New-SSHKey {
             [System.Collections.ArrayList]$FailedInstalls = @()
             if ($CommandsNotPresent -contains "echo") {
                 try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "coreutils" -CommandName "echo"
+                    $null = Install-LinuxPackage -PossiblePackageNames "coreutils" -CommandName "echo"
                 }
                 catch {
                     $null = $FailedInstalls.Add("coreutils")
@@ -244,7 +244,7 @@ function New-SSHKey {
             }
             if ($CommandsNotPresent -contains "expect") {
                 try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "expect" -CommandName "expect"
+                    $null = Install-LinuxPackage -PossiblePackageNames "expect" -CommandName "expect"
                 }
                 catch {
                     $null = $FailedInstalls.Add("expect")
@@ -781,8 +781,8 @@ function New-SSHKey {
         
         $ExpectScript = $ExpectScriptPrep -join "`n"
 
-        Write-Host "`$ExpectScript is:`n$ExpectScript"
-        $ExpectScript | Export-CliXml "$HOME/ExpectScriptA.xml"
+        #Write-Host "`$ExpectScript is:`n$ExpectScript"
+        #$ExpectScript | Export-CliXml "$HOME/ExpectScriptA.xml"
         
         # The below $ExpectOutput is an array of strings
         $ExpectOutput = bash -c "$ExpectScript"
@@ -830,8 +830,9 @@ function New-SSHKey {
 
     if ($AddToSSHAgent) {
         # Add the New Private Key to the ssh-agent
-        $null = ssh-add $PrivKey.FullName
+        $null = [scriptblock]::Create("ssh-add $($PrivKey.FullName)").InvokeReturnAsIs()
         if ($LASTEXITCODE -ne 0) {
+            Write-Warning $Error[0].Exception.Message
             Write-Warning "There was a problem adding $($PrivKey.FullName) to the ssh-agent PID $env:SSH_AGENT_PID!"
         }
 
@@ -911,8 +912,8 @@ function New-SSHKey {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcCiUOC7yyfTG42efJLMzUiwq
-# Ehagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUaMr0H+D0yzNKBN4q3CEv+l6Z
+# 2t+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -969,11 +970,11 @@ function New-SSHKey {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCbbZfqs+UWzfAXg
-# HYPrmvNOG4sVMA0GCSqGSIb3DQEBAQUABIIBAFXm1PpPIKN4dNYdRZrRATzt0L5t
-# 1kI96qNj/5tH3odghTrXbQFqGuy3pNt73sJ7VNgl9ZZ+YLkXCL9UV/CbQQdHMtWH
-# XuzXtFTrGfbqzM1XwUgBk5bRE29dW+GUs3SDwS+dd33LVw1lJ1DmsWXMUhg7r4u6
-# SogtNhAfrXrox5SSxhyS8P7AUtnL1GpN0Rtlkb8PLf0daACASBKk3aMtpcmme1bu
-# omKjg8/2OazATOd7mfiis3nOL01QdvS6AhpfNMX/2FjQtgE0Aq7vTrOZN3ML5985
-# QCzzB3B/LU/uB0HJI77EkuiTuvQqg4+Q7tnk0ldLFe3UJv8xub3c60zRnQg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFOlDIU5PuQt/K4an
+# I4FKVJcTOfr0MA0GCSqGSIb3DQEBAQUABIIBAJsesWhJwKFwfAX+LR5uRGfLxApk
+# 6DMD6P7ds4CU5OwjieWZZ5zs08rvedVwsMRVXGrZ8lxmyxQhVzwf7EvJgOnUWQah
+# RX+Z34mrI2/AJm1bp/OPH1t0nTGoN2mRsG+v04gCVdqLFf/Eqc2i0r9ty2zoVVq5
+# Zx+4ReW0H/6BW0AVXtIpebGgTKg7Hj4YNDm7lGlo6VSaQEfpwqFbrxeOECZwy6at
+# tb5cw3HaszFQblWeyASTtN5ig4VGTQSRbFzscK5ZYXpBxek42CQFQy8RG10TIuxQ
+# ocW7jmowg9VSb0ueiDlSOufZzBN4ua83gnqcWCXqrEaNJjiGg5QB/y/NjJY=
 # SIG # End signature block
