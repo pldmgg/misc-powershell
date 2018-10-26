@@ -1,144 +1,3 @@
-<#
-    .SYNOPSIS
-        This function checks to see if the provided credentials are valid for the specified domain/logon server
-        and if those credentials can actually grant you access to the specified remote host.
-
-    .DESCRIPTION
-        See SYNOPSIS
-
-    .PARAMETER RemoteHostNameOrIP
-        This parameter is OPTIONAL.
-
-        This parameter takes a string that represents an IP, FQDN, or DNS-Resolvable HostName of a remote host.
-
-        If not provided, $RemoteHostNameOrIP will be the Local Host (i.e. $env:ComputerName).
-
-    .PARAMETER AltCredentials
-        This parameter is OPTIONAL.
-
-        This parameter takes a System.Management.Automation.PSCredential object. Use this parameter to specify
-        credentials other than the current user that you would like to test.
-
-    .PARAMETER UserName
-        This parameter is OPTIONAL.
-
-        This parameter takes a string in format <DomainPrefix>\<UserAcct> or (if using a Local Account on
-        the Remote Host) <RemoteHostName>\<UserAcct>.
-
-    .PARAMETER Password
-        This parameter is OPTIONAL.
-
-        This parameter takes a System.Security.SecureString.
-
-    .EXAMPLE
-        PS C:\Users\testadmin> Get-WorkingCredentials -RemoteHostNameOrIP ZeroTesting.zero.lab -UserName "zero\zeroadmin"
-        Please enter the password for zero\zeroadmin: 
-
-        LogonType                             : DomainAccount
-        DeterminedCredsThatWorkedOnRemoteHost : True
-        WorkingCredsAreValidOnDomain          : True
-        WorkingCredentials                    : System.Management.Automation.PSCredential
-        RemoteHostWorkingLocation             : ZeroTesting.zero.lab
-        CurrentLoggedInUserCredsWorked        : NotTested
-        ProvidedCredsAreValidOnDomain         : True
-
-    .EXAMPLE
-        PS C:\Users\testadmin> Get-WorkingCredentials -RemoteHostNameOrIP Win12Chef.test2.lab
-
-        LogonType                             : DomainAccount
-        DeterminedCredsThatWorkedOnRemoteHost : True
-        WorkingCredsAreValidOnDomain          : True
-        WorkingCredentials                    : test2\testadmin
-        RemoteHostWorkingLocation             : Win12Chef.test2.lab
-        CurrentLoggedInUserCredsWorked        : True
-        
-
-    .EXAMPLE
-        PS C:\Users\testadmin> $Creds = Get-Credential
-
-        cmdlet Get-Credential at command pipeline position 1
-        Supply values for the following parameters:
-        Credential
-        PS C:\Users\testadmin> Get-WorkingCredentials -RemoteHostNameOrIP 192.168.2.46 -AltCredentials $Creds
-
-        LogonType                             : DomainAccount
-        DeterminedCredsThatWorkedOnRemoteHost : True
-        WorkingCredsAreValidOnDomain          : True
-        WorkingCredentials                    : System.Management.Automation.PSCredential
-        RemoteHostWorkingLocation             : win16zerows.zero.lab
-        CurrentLoggedInUserCredsWorked        : NotTested
-        ProvidedCredsAreValidOnDomain         : True
-
-    .EXAMPLE
-        PS C:\Users\testadmin> Get-WorkingCredentials -RemoteHostNameOrIP win12chef -UserName "win12chef\pdadminbackup"
-        Please enter the password for win12chef\pdadminbackup: 
-
-
-        LogonType                             : LocalAccount
-        DeterminedCredsThatWorkedOnRemoteHost : True
-        WorkingCredsAreValidOnDomain          : False
-        WorkingCredentials                    : System.Management.Automation.PSCredential
-        RemoteHostWorkingLocation             : Win12Chef.test2.lab
-        CurrentLoggedInUserCredsWorked        : NotTested
-        ProvidedCredsAreValidOnDomain         : False
-
-
-    .NOTES
-        About the behavior of Invoke-Command:
-
-        If credentials are supplied, and if the username for those credentials is in format '<DomainPrefix>\<UserAcct>',
-        then the first thing that Invoke-Command does is check for logon servers on DomainPrefix. If it can't find
-        a logon server, then it yields an error message similar to:
-
-            Get-WorkingCredentials : [zerotesting] Connecting to remote server zerotesting failed with the following error message : WinRM cannot process the request. The
-            following error with errorcode 0x80090311 occurred while using Kerberos authentication: There are currently no logon servers available to service the logon
-            request.
-            Possible causes are:
-            -The user name or password specified are invalid.
-            -Kerberos is used when no authentication method and no user name are specified.
-            -Kerberos accepts domain user names, but not local user names.
-            -The Service Principal Name (SPN) for the remote computer name and port does not exist.
-            -The client and remote computers are in different domains and there is no trust between the two domains.
-            After checking for the above issues, try the following:
-            -Check the Event Viewer for events related to authentication.
-            -Change the authentication method; add the destination computer to the WinRM TrustedHosts configuration setting or use HTTPS transport.
-            Note that computers in the TrustedHosts list might not be authenticated.
-            -For more information about WinRM configuration, run the following command: winrm help config. For more information, see the about_Remote_Troubleshooting
-            Help topic.
-            At line:1 char:1
-            + Get-WorkingCredentials -RemoteHostNameOrIP ZeroTesting -AltCredentials AltCredentials ...
-            + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
-                + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Get-WorkingCredentials
-
-        Under the same circumstances (i.e. credentials provded in format '<DomainPrefix>\<UserAcct>'), if the
-        logon server IS FOUND, but -ComputerName CANNOT BE FOUND on the network, OR if the credentials supplied to
-        -Credential are legitimately bad, then Invoke-Command yields an error similar to the following:
-
-            [blep] Connecting to remote server blep failed with the following error message : The user name or password is incorrect. For more information, see the
-            about_Remote_Troubleshooting Help topic.
-                + CategoryInfo          : OpenError: (blep:String) [], PSRemotingTransportException
-                + FullyQualifiedErrorId : LogonFailure,PSSessionStateBroken
-            
-            
-        If credentials are supplied, and if the username for those credentials is in format '<UserAcct>', then
-        then the first thing that Invoke-Command does is try and find -ComputerName on the network. 
-        If Invoke-Command CANNOT find -ComputerName, OR if the credentials supplied to -Credential are
-        legitimately bad, then it yields an error similar to the following:
-
-            [blep] Connecting to remote server blep failed with the following error message : The user name or password is incorrect. For more information, see the
-            about_Remote_Troubleshooting Help topic.
-                + CategoryInfo          : OpenError: (blep:String) [], PSRemotingTransportException
-                + FullyQualifiedErrorId : LogonFailure,PSSessionStateBroken
-
-        This is a problem, because this error message could mean that either -ComputerName can't be found on the network
-        or that -ComputerName WAS found but the credentials were actually bad.
-
-        This function checks all of these things in advance so that we can easily determine why Invoke-Command failed.
-
-    .OUTPUTS
-        PSCustomObject
-#>
 function Get-WorkingCredentials {
     [CmdletBinding(DefaultParameterSetName='PSCredential')]
     Param(
@@ -234,6 +93,225 @@ function Get-WorkingCredentials {
         [pscustomobject]$Output
     }
 
+    function ResolveHost {
+        [CmdletBinding()]
+        Param(
+            [Parameter(Mandatory=$True)]
+            [string]$HostNameOrIP
+        )
+    
+        ##### BEGIN Main Body #####
+    
+        $RemoteHostNetworkInfoArray = @()
+        if (!$(TestIsValidIPAddress -IPAddress $HostNameOrIP)) {
+            try {
+                $HostNamePrep = $HostNameOrIP
+                [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
+                $IPv4AddressFamily = "InterNetwork"
+                $IPv6AddressFamily = "InterNetworkV6"
+    
+                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
+                $ResolutionInfo.AddressList | Where-Object {
+                    $_.AddressFamily -eq $IPv4AddressFamily
+                } | foreach {
+                    if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
+                        $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
+                    }
+                }
+            }
+            catch {
+                Write-Verbose "Unable to resolve $HostNameOrIP when treated as a Host Name (as opposed to IP Address)!"
+    
+                if ($HostNameOrIP -match "\.") {
+                    try {
+                        $HostNamePrep = $($HostNameOrIP -split "\.")[0]
+                        Write-Verbose "Trying to resolve $HostNameOrIP using only HostName: $HostNamePrep!"
+    
+                        [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
+                        $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostNamePrep)
+                        $ResolutionInfo.AddressList | Where-Object {
+                            $_.AddressFamily -eq $IPv4AddressFamily
+                        } | foreach {
+                            if ($RemoteHostArrayOfIPAddresses -notcontains $_.IPAddressToString) {
+                                $null = $RemoteHostArrayOfIPAddresses.Add($_.IPAddressToString)
+                            }
+                        }
+                    }
+                    catch {
+                        Write-Verbose "Unable to resolve $HostNamePrep!"
+                    }
+                }
+            }
+        }
+        if (TestIsValidIPAddress -IPAddress $HostNameOrIP) {
+            try {
+                $HostIPPrep = $HostNameOrIP
+                [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
+                $null = $RemoteHostArrayOfIPAddresses.Add($HostIPPrep)
+    
+                $ResolutionInfo = [System.Net.Dns]::GetHostEntry($HostIPPrep)
+    
+                [System.Collections.ArrayList]$RemoteHostFQDNs = @() 
+                $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
+            }
+            catch {
+                Write-Verbose "Unable to resolve $HostNameOrIP when treated as an IP Address (as opposed to Host Name)!"
+            }
+        }
+    
+        if ($RemoteHostArrayOfIPAddresses.Count -eq 0) {
+            Write-Error "Unable to determine IP Address of $HostNameOrIP! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    
+        # At this point, we have $RemoteHostArrayOfIPAddresses...
+        [System.Collections.ArrayList]$RemoteHostFQDNs = @()
+        foreach ($HostIP in $RemoteHostArrayOfIPAddresses) {
+            try {
+                $FQDNPrep = [System.Net.Dns]::GetHostEntry($HostIP).HostName
+            }
+            catch {
+                Write-Verbose "Unable to resolve $HostIP. No PTR Record? Please check your DNS config."
+                continue
+            }
+            if ($RemoteHostFQDNs -notcontains $FQDNPrep) {
+                $null = $RemoteHostFQDNs.Add($FQDNPrep)
+            }
+        }
+    
+        if ($RemoteHostFQDNs.Count -eq 0) {
+            $null = $RemoteHostFQDNs.Add($ResolutionInfo.HostName)
+        }
+    
+        [System.Collections.ArrayList]$HostNameList = @()
+        [System.Collections.ArrayList]$DomainList = @()
+        foreach ($fqdn in $RemoteHostFQDNs) {
+            $PeriodCheck = $($fqdn | Select-String -Pattern "\.").Matches.Success
+            if ($PeriodCheck) {
+                $HostName = $($fqdn -split "\.")[0]
+                $Domain = $($fqdn -split "\.")[1..$($($fqdn -split "\.").Count-1)] -join '.'
+            }
+            else {
+                $HostName = $fqdn
+                $Domain = "Unknown"
+            }
+    
+            $null = $HostNameList.Add($HostName)
+            $null = $DomainList.Add($Domain)
+        }
+    
+        if ($RemoteHostFQDNs[0] -eq $null -and $HostNameList[0] -eq $null -and $DomainList -eq "Unknown" -and $RemoteHostArrayOfIPAddresses) {
+            [System.Collections.ArrayList]$SuccessfullyPingedIPs = @()
+            # Test to see if we can reach the IP Addresses
+            foreach ($ip in $RemoteHostArrayOfIPAddresses) {
+                try {
+                    $null = [System.Net.NetworkInformation.Ping]::new().Send($ip,1000)
+                    $null = $SuccessfullyPingedIPs.Add($ip)
+                }
+                catch {
+                    Write-Verbose "Unable to ping $ip..."
+                    continue
+                }
+            }
+        }
+    
+        $FQDNPrep = if ($RemoteHostFQDNs) {$RemoteHostFQDNs[0]} else {$null}
+        if ($FQDNPrep -match ',') {
+            $FQDN = $($FQDNPrep -split ',')[0]
+        }
+        else {
+            $FQDN = $FQDNPrep
+        }
+    
+        $DomainPrep = if ($DomainList) {$DomainList[0]} else {$null}
+        if ($DomainPrep -match ',') {
+            $Domain = $($DomainPrep -split ',')[0]
+        }
+        else {
+            $Domain = $DomainPrep
+        }
+    
+        $IPAddressList = [System.Collections.ArrayList]@($(if ($SuccessfullyPingedIPs) {$SuccessfullyPingedIPs} else {$RemoteHostArrayOfIPAddresses}))
+        $HName = if ($HostNameList) {$HostNameList[0].ToLowerInvariant()} else {$null}
+    
+        if ($SuccessfullyPingedIPs.Count -eq 0 -and !$FQDN -and !$HostName -and !$Domain) {
+            Write-Error "Unable to resolve $HostNameOrIP! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    
+        [pscustomobject]@{
+            IPAddressList   = $IPAddressList
+            PingSuccess     = $($SuccessfullyPingedIPs.Count -gt 0)
+            FQDN            = $FQDN
+            HostName        = $HName
+            Domain          = $Domain
+        }
+    
+        ##### END Main Body #####
+    
+    }
+    
+    function TestIsValidIPAddress([string]$IPAddress) {
+        [boolean]$Octets = (($IPAddress.Split(".") | Measure-Object).Count -eq 4) 
+        [boolean]$Valid  =  ($IPAddress -as [ipaddress]) -as [boolean]
+        Return  ($Valid -and $Octets)
+    }
+    
+    function AddWinRMTrustedHost {
+        [CmdletBinding()]
+        Param (
+            [Parameter(Mandatory=$True)]
+            [string[]]$NewRemoteHost
+        )
+    
+        # Make sure WinRM in Enabled and Running on $env:ComputerName
+        try {
+            $null = Enable-PSRemoting -Force -ErrorAction Stop
+        }
+        catch {
+            $NICsWPublicProfile = @(Get-NetConnectionProfile | Where-Object {$_.NetworkCategory -eq 0})
+            if ($NICsWPublicProfile.Count -gt 0) {
+                foreach ($Nic in $NICsWPublicProfile) {
+                    Set-NetConnectionProfile -InterfaceIndex $Nic.InterfaceIndex -NetworkCategory 'Private'
+                }
+            }
+    
+            try {
+                $null = Enable-PSRemoting -Force
+            }
+            catch {
+                Write-Error $_
+                Write-Error "Problem with Enabble-PSRemoting WinRM Quick Config! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+    
+        # If $env:ComputerName is not part of a Domain, we need to add this registry entry to make sure WinRM works as expected
+        if (!$(Get-CimInstance Win32_Computersystem).PartOfDomain) {
+            $null = reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f
+        }
+    
+        # Add the New Server's IP Addresses to $env:ComputerName's TrustedHosts
+        $CurrentTrustedHosts = $(Get-Item WSMan:\localhost\Client\TrustedHosts).Value
+        [System.Collections.ArrayList][array]$CurrentTrustedHostsAsArray = $CurrentTrustedHosts -split ','
+    
+        $HostsToAddToWSMANTrustedHosts = @($NewRemoteHost)
+        foreach ($HostItem in $HostsToAddToWSMANTrustedHosts) {
+            if ($CurrentTrustedHostsAsArray -notcontains $HostItem) {
+                $null = $CurrentTrustedHostsAsArray.Add($HostItem)
+            }
+            else {
+                Write-Warning "Current WinRM Trusted Hosts Config already includes $HostItem"
+                continue
+            }
+        }
+        $UpdatedTrustedHostsString = $($CurrentTrustedHostsAsArray | Where-Object {![string]::IsNullOrWhiteSpace($_)}) -join ','
+        Set-Item WSMan:\localhost\Client\TrustedHosts $UpdatedTrustedHostsString -Force
+    }
+    
     #endregion >> Helper Functions
 
 
@@ -279,6 +357,12 @@ function Get-WorkingCredentials {
             return
         }
     }
+
+    [System.Collections.ArrayList]$WinRMEntriesToAdd = @()
+    $null = $WinRMEntriesToAdd.Add($RemoteHostNetworkInfo.HostName)
+    $null = $WinRMEntriesToAdd.Add($RemoteHostNetworkInfo.FQDN)
+    $RemoteHostNetworkInfo.IPAddressList | foreach {$null = $WinRMEntriesToAdd.Add($_)}
+    AddWinRMTrustedHost -NewRemoteHost $WinRMEntriesToAdd
 
     if (!$Username -and !$AltCredentials -and $RemoteHostNetworkInfo.HostName -eq $env:ComputerName) {
         #Write-Warning "The Remote Host is actually the Local Host (i.e. $env:ComputerName)!"
@@ -427,7 +511,7 @@ function Get-WorkingCredentials {
         }
     }
 
-    if ($AltCredentialsAreValid -or $AltCredentialsUncertain) {
+    if ($AltCredentialsAreValid -or $AltCredentialsUncertain -or $AltCredentials) {
         # NOTE: For some reason, there are situations where FQDN works over HostName or visa versa. So we use
         # logic to try FQDN, and if that fails, try HostName
         try {
@@ -556,37 +640,11 @@ function Get-WorkingCredentials {
     #endregion >> Main Body
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5sCATwJwY+ralJ8F1gDX2Ian
-# MJagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUttaBhEOkix1LC1J0AZgoMfO6
+# dMSgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -643,11 +701,11 @@ function Get-WorkingCredentials {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDHhc6VucRoeKezp
-# w03Y01bA44TvMA0GCSqGSIb3DQEBAQUABIIBACsbgFqYeIaNpdaTzV/ilTGOpVdG
-# c67OCmNEj9Mz01rmDTtfRENVfEaZpHXR4+rmad8vLWGLgbYJH/Pdgt2ueG31z0mZ
-# FKuttNwmzExtESwQxECrqBFTmCpmrDdWMsPyuJ95RdNRBD7AmoqdkawvlK3hktYL
-# XCZ6uRfpY4dLHrfctnCmYwdPdToYR6+ZzdJiKC0w7tq80/wRkhYmOveC7J1au7/M
-# jjj4C/fdH1KBIBwfzK6LMxgH/VSAJcD9AFFW6GeGIvGPSxYMQDl2OgmF1/bY0JTH
-# cwkM5ab8x0znrIIJRQLFBrqOY6FUvjoLMKx48Nk4CGfVWoMO5SjKAni56zE=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFGioAHZ8fzQV4oRU
+# 68Q+iS0nKvVuMA0GCSqGSIb3DQEBAQUABIIBAATyjgxlDHDtMNvgJkHuiiDfYlsv
+# nVeAy2h0PiE20fqciZnJxdZJK6ybmGCBrb8dLwwtMu+RqjcMpvfxaJ3+5d0WAmmb
+# DcbBeKlDvK0rhvuUXuWheo+oisIjT6Nc6hZHEUgcI/e4xy4h5+oprCG7G+NAa6EM
+# UpVWYOx/tJHSFlwlleUrYwOh5gWgSMhjCvnPW6NJCm7BWvNcd6Vk0qn814iEM/Uw
+# aCQnVH1ziothWF6epKPpoqJ3TvnH+4EEF0JPdbQW7/KlwlQaaOi4ofcnj/yT/k7L
+# qat68zP4VWG84dcdy299+byTAxMqRjMEWboV7SFHzPGz3SxmWG5VPkS29AI=
 # SIG # End signature block
