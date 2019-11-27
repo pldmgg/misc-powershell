@@ -15,6 +15,17 @@
         See .SYNOPSIS
 
     .NOTES
+        If you receive an error like...
+        
+            ERROR: "adb push" returned with value 1
+            Press any key to continue...
+        
+        ...then temporarily connect your android device to your Windows machine via USB, select the appropriate
+        prompts on your Android device to have it trust your Windows machine, and then from Windows, run...
+        
+            C:\Users\zeroadmin\Downloads\scrcpy-win64-v1.11> .\adb tcpip 5555
+        
+        ...then feel free to disconnect the USB cable and use this function as normal.
 
     .PARAMETER IPOfAndroidDevice
         This parameter is MANDATORY.
