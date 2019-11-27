@@ -86,10 +86,88 @@ function New-RemoteAndroidSession {
         [switch]$DownloadLatestScrcpy
     )
 
+    #region >> Helper Functions
+
+    function GetElevation {
+        if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+            [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+                [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            )
+    
+            [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    
+            if($currentPrincipal.IsInRole($administratorsRole)) {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+        
+        if ($PSVersionTable.Platform -eq "Unix") {
+            if ($(whoami) -eq "root") {
+                return $true
+            }
+            else {
+                return $false
+            }
+        }
+    }    
+
+    #endregion >> Helper Functions
+
+
+    #region >> Prep
+
     if ($PSVersionTable.Platform -ne 'Win32NT') {
-        Write-Error "This function is meant to be used on Windows! Halting!"
-        $global:FunctionResult = "1"
-        return
+        if ($PathToScrcpyBinaries) {
+            Write-Error "The -PathToScrcpyBinaries parameter should only be used on Windows systems. Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            $AptResult = Get-Command apt -ErrorAction Stop
+        }
+        catch {
+            Write-Error "Unable to find package manager 'apt'! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        try {
+            $SnapResult = Get-Command snap -ErrorAction Stop
+        }
+        catch {
+            Write-Error "Unable to find package manager 'snap'! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        # If we need to install/update adb or scrcpy, we need to be running this function as root
+        $NeedPackages = $False
+
+        try {
+            $ADBPackageCheck = Get-Command adb -ErrorAction Stop
+        }
+        catch {
+            $NeedPackages = $True
+        }
+
+        try {
+            $ScrcpyPackageCheck = Get-Command scrcpy -ErrorAction Stop
+        }
+        catch {
+            $NeedPackages = $True
+        }
+
+        if ($DownloadLatestScrcpy -or $NeedPackages) {
+            if (!$(GetElevation)) {
+                Write-Error "You must run PowerShell from an elevated prompt (i.e. 'sudo pwsh') in order to install/update adb and/or scrcpy! Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+        }
     }
 
     try {
@@ -107,113 +185,138 @@ function New-RemoteAndroidSession {
         return
     }
 
-    if ($DownloadLatestScrcpy) {
-        $releaseInfo = Invoke-RestMethod 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'
-        $target = $releaseInfo.assets | Where-Object {$_.Name.Contains('win64')}
-        $destination = Join-Path "$HOME\Downloads" -ChildPath $target.Name
-        $ExpansionDirectory = "$HOME\Downloads" + '\' + $($target.Name -replace '.zip')
-
-        if (Test-Path $destination) {
-            #$null = Remove-Item $destination -Recurse -Force -ErrorAction Stop
-            Write-Error "The download destination path '$destination' already exists! Please delete it and try again. Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        try {
-            $IWRResult = Invoke-WebRequest -Uri $target.browser_download_url -OutFile $destination -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
-        }
-
-        try {
-            $ExpandArchiveResult = Expand-Archive -Path $destination -DestinationPath $ExpansionDirectory -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
-        }
-
-        $PathToScrcpyBinaries = $ExpansionDirectory
-    }
-
-    if ($PathToScrcpyBinaries) {
-        if (! $(Test-Path $PathToScrcpyBinaries)) {
-            Write-Error "The path '$PathToScrcpyBinaries' was not found! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        if (! $(Test-Path "$PathToScrcpyBinaries\adb.exe")) {
-            Write-Error "The path '$PathToScrcpyBinaries\adb.exe' was not found! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-        
-        if (! $(Test-Path "$PathToScrcpyBinaries\scrcpy.exe")) {
-            Write-Error "The path '$PathToScrcpyBinaries\scrcpy.exe' was not found! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        #Set-Location $PathToScrcpyBinaries
-        $ADBPath = "$PathToScrcpyBinaries\adb.exe"
-        $ScrcpyPath = "$PathToScrcpyBinaries\scrcpy.exe"
-    }
-    else {
-        try {
-            $ADBCheck = Get-Command adb -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
-        }
-
-        try {
-            $ScrcpyCheck = Get-Command scrcpy -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
-        }
-
-        $ADBPath = $ADBCheck.Source
-        $ScrcpyPath = $ScrcpyCheck.Source
-    }
-
-
-    # At this point, we should have $ADBPath and $ScrcpyPath
-    if (!$ScrcpyPath) {
-        Write-Error "Failed to identify `$ScrcpyPath! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    if (!$ADBPath) {
-        Write-Error "Failed to identify `$ADBPath! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    # Disconnect any existing adb connections
-    # NOTE: $ADBDisconnectResult should contain the string 'disconnected everything'
-    $ADBDisconnectResult = & $ADBPath disconnect
-    
-    # Create an adb connection to the Android Device
-    # NOTE: $ADBConnectResult should contain the string 'connected to $IPAndPortString'
     $IPAndPortString = $IPOfAndroidDevice + ':' + $ScrcpyPort
-    $ADBConnectResult = & $ADBPath connect $IPAndPortString
 
-    # Fire Up scrcpy
-    $ScrcpyResult = & $ScrcpyPath --bit-rate 2M --max-size 800
+    #endregion >> Prep
+
+    #region >> Main
+
+    if ($PSVersionTable.Platform -eq 'Win32NT') {
+        if ($DownloadLatestScrcpy) {
+            $releaseInfo = Invoke-RestMethod 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'
+            $target = $releaseInfo.assets | Where-Object {$_.Name.Contains('win64')}
+            $destination = Join-Path "$HOME\Downloads" -ChildPath $target.Name
+            $ExpansionDirectory = "$HOME\Downloads" + '\' + $($target.Name -replace '.zip')
+
+            if (Test-Path $destination) {
+                #$null = Remove-Item $destination -Recurse -Force -ErrorAction Stop
+                Write-Error "The download destination path '$destination' already exists! Please delete it and try again. Halting!"
+                $global:FunctionResult = "1"
+                return
+            }
+
+            try {
+                $IWRResult = Invoke-WebRequest -Uri $target.browser_download_url -OutFile $destination -ErrorAction Stop
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+
+            try {
+                $ExpandArchiveResult = Expand-Archive -Path $destination -DestinationPath $ExpansionDirectory -ErrorAction Stop
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+
+            $PathToScrcpyBinaries = $ExpansionDirectory
+        }
+        else {
+            if ($PathToScrcpyBinaries) {
+                if (! $(Test-Path $PathToScrcpyBinaries)) {
+                    Write-Error "The path '$PathToScrcpyBinaries' was not found! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+        
+                if (! $(Test-Path "$PathToScrcpyBinaries\adb.exe")) {
+                    Write-Error "The path '$PathToScrcpyBinaries\adb.exe' was not found! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                
+                if (! $(Test-Path "$PathToScrcpyBinaries\scrcpy.exe")) {
+                    Write-Error "The path '$PathToScrcpyBinaries\scrcpy.exe' was not found! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+        
+                #Set-Location $PathToScrcpyBinaries
+                $ADBPath = "$PathToScrcpyBinaries\adb.exe"
+                $ScrcpyPath = "$PathToScrcpyBinaries\scrcpy.exe"
+            }
+            else {
+                try {
+                    $ADBCheck = Get-Command adb -ErrorAction Stop
+                }
+                catch {
+                    Write-Error $_
+                    $global:FunctionResult = "1"
+                    return
+                }
+        
+                try {
+                    $ScrcpyCheck = Get-Command scrcpy -ErrorAction Stop
+                }
+                catch {
+                    Write-Error $_
+                    $global:FunctionResult = "1"
+                    return
+                }
+        
+                $ADBPath = $ADBCheck.Source
+                $ScrcpyPath = $ScrcpyCheck.Source
+            }
+        }
+
+        # At this point, we should have $ADBPath and $ScrcpyPath
+        if (!$ScrcpyPath) {
+            Write-Error "Failed to identify `$ScrcpyPath! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+        if (!$ADBPath) {
+            Write-Error "Failed to identify `$ADBPath! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+
+        # Disconnect any existing adb connections
+        # NOTE: $ADBDisconnectResult should contain the string 'disconnected everything'
+        $ADBDisconnectResult = & $ADBPath disconnect
+        
+        # Create an adb connection to the Android Device
+        # NOTE: $ADBConnectResult should contain the string 'connected to $IPAndPortString'
+        $ADBConnectResult = & $ADBPath connect $IPAndPortString
+
+        # Fire Up scrcpy
+        $ScrcpyResult = & $ScrcpyPath --bit-rate 2M --max-size 800
+    }
+
+    if ($PSVersionTable.Platform -ne 'Win32NT') {
+        if ($DownloadLatestScrcpy -or $NeedPackages) {
+            $null = snap install scrcpy
+            $null = apt install adb
+        }
+
+        # Disconnect any existing adb connections
+        # NOTE: $ADBDisconnectResult should contain the string 'disconnected everything'
+        $ADBDisconnectResult = adb disconnect
+
+        # Create an adb connection to the Android Device
+        # NOTE: $ADBConnectResult should contain the string 'connected to $IPAndPortString'
+        $ADBConnectResult = adb connect $IPAndPortString
+
+        # Fire Up scrcpy
+        $ScrcpyResult = scrcpy --bit-rate 2M --max-size 800
+    }
+
+    $ScrcpyResult
+    
+    #endregion >> Main
 
 }
-
-
-
-
