@@ -4,7 +4,7 @@ function Test-IsValidIPAddress([string]$IPAddress) {
     Return  ($Valid -and $Octets)
 }
 
-function ResolveHost {
+function Resolve-Host {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$True)]
@@ -14,7 +14,7 @@ function ResolveHost {
     ##### BEGIN Main Body #####
 
     $RemoteHostNetworkInfoArray = @()
-    if (!$(TestIsValidIPAddress -IPAddress $HostNameOrIP)) {
+    if (!$(Test-IsValidIPAddress -IPAddress $HostNameOrIP)) {
         try {
             $HostNamePrep = $HostNameOrIP
             [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
@@ -54,7 +54,7 @@ function ResolveHost {
             }
         }
     }
-    if (TestIsValidIPAddress -IPAddress $HostNameOrIP) {
+    if (Test-IsValidIPAddress -IPAddress $HostNameOrIP) {
         try {
             $HostIPPrep = $HostNameOrIP
             [System.Collections.ArrayList]$RemoteHostArrayOfIPAddresses = @()
@@ -154,6 +154,17 @@ function ResolveHost {
 
 }
 
+function Format-XML {
+    [CmdletBinding()]
+    Param ([Parameter(ValueFromPipeline=$true,Mandatory=$true)][string]$xmlcontent)
+    $xmldoc = New-Object -TypeName System.Xml.XmlDocument
+    $xmldoc.LoadXml($xmlcontent)
+    $sw = New-Object System.IO.StringWriter
+    $writer = New-Object System.Xml.XmlTextwriter($sw)
+    $writer.Formatting = [System.XML.Formatting]::Indented
+    $xmldoc.WriteContentTo($writer)
+    $sw.ToString()
+}
 
 Function Check-InstalledPrograms {
     [CmdletBinding(
@@ -557,16 +568,8 @@ function Invoke-PSTrace {
 .PARAMETER CaptureOutput
     This parameter is OPTIONAL.
 
-    This parameter takes a boolean $true/$false value that indicates whether or not the output of this function
-    can be saved to a variable in PowerShell. The default value for this parameter is $true. If it is $false,
-    output will still be sent to STDOUT, but will NOT be able to be saved to a variable
-
-    In the below, $test will contain the results of Start-Sniffer as an Array of PSCustomObjects. No STDOUT will
-    be seen by the user.
-        PS C:\Users\testadmin> $test = Start-Sniffer -RemotePort 3128 -OutputFile 'C:\Users\testadmin\Downloads\PacketTrace_WIN16CHEF.xml'
-
-    In the below, $test will be $null, however, all of the packets captured by Start-Sniffer will be written to STDOUT.
-        PS C:\Users\testadmin> $test = Start-Sniffer -CaptureOutput $false -RemotePort 3128 -OutputFile 'C:\Users\testadmin\Downloads\PacketTrace_WIN16CHEF.xml'
+    This parameter is a switch. If NOT used output of this function is written to STDOUT using Write-Host. If it
+    IS used output can be captured in a variable and is also written to a file (see the -OutputFile parameter).
 
 .PARAMETER OutputFile
     This parameter is MANDATORY.
@@ -579,6 +582,9 @@ function Invoke-PSTrace {
 
     This parameter takes an integer that represents the number of packet capture logs that will be available for
     review as output from this function (be it saved in a variable or written to a .xml or .json file).
+
+.EXAMPLE
+    Start-Sniffer -CaptureOutput
 
 .EXAMPLE
     Start-Sniffer -RemotePort 3128 -ScanIP 192.168.7.129 -OutputFile 'C:\Users\testadmin\Downloads\PacketTrace_WIN16CHEF.json' -ResolveHosts
@@ -614,11 +620,11 @@ function Start-Sniffer {
         [switch]$ResolveHosts,
         
         [Parameter(Mandatory=$False)]
-        [bool]$CaptureOutput = $True,
+        [switch]$CaptureOutput,
 
         [Parameter(Mandatory=$False)]
         [ValidateScript({[System.IO.Path]::GetExtension($_) -match "\.xml|\.json"})]
-        [string]$OutputFile,
+        [string]$OutputFile = "$HOME\Downloads\PacketCapture_$(Get-Date -Format MMddyy_hhmmss)",
 
         [Parameter(Mandatory=$False)]
         [int]$MaxEntries = 10000,
@@ -704,6 +710,13 @@ function Start-Sniffer {
 
 
     ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+
+    # Make sure $OutputFile doesn't exist
+    if (Test-Path $OutputFile) {
+        Write-Error "The path $OutputFile already exists! Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
 
     if ($CaptureOutput -and !$OutputFile) {
         $OutputFile = Read-Host -Prompt "Please enter a full path to a .xml or .json file that will contain the trace output data in the form of an array of PSCustomObjects."
@@ -1171,17 +1184,17 @@ function Start-Sniffer {
 
             if ($($PSCustomObjOutput.PSObject.Properties) -ne $null) {
                 if ([System.IO.Path]::GetExtension($OutputFile) -eq ".json") {
-                    $PSCustomObjOutput | ConvertTo-JSON -Compress
+                    $OutputContent = $PSCustomObjOutput | ConvertTo-JSON
                 }
                 if ([System.IO.Path]::GetExtension($OutputFile) -eq ".xml") {
-                    $PSCustomObjOutput
+                    $OutputContent = $($PSCustomObjOutput | ConvertTo-XML).OuterXml | Format-Xml
                 }
                 if ($PacketCustomObjects.Count -gt $MaxEntries) {
                     $PacketCustomObjects.RemoveAt(0)
                 }
                 try {
-                    $SetContentFilePath = "$($OutputFile | Split-Path -Parent)\Latest_Packet.txt"
-                    Set-Content -Path $SetContentFilePath -Value $PSCustomObjOutput -Force -ErrorAction SilentlyContinue
+                    $SetContentFilePath = $OutputFile
+                    Add-Content -Path $SetContentFilePath -Value $OutputContent -Force -ErrorAction SilentlyContinue
                     
                     if (!$?) {
                         throw
@@ -1241,6 +1254,10 @@ function Start-Sniffer {
         else {
             $JsonObjects = $PacketCustomObjects | foreach {$_ | ConvertTo-Json -Compress}
             $JsonObjects | Out-File $OutputFile
+        }
+
+        if ($CaptureOutput) {
+            $PacketCustomObjects
         }
         
         Remove-Item "$($OutputFile | Split-Path -Parent)\Latest_Packet.txt" -Force -ErrorAction SilentlyContinue
@@ -1609,7 +1626,6 @@ function Watch-BadProgramConnection {
     $OtherPSProcessId = $(Get-Process -Name powershell | Sort-Object -Property StartTime)[-1].Id
 
     Write-Host "Sniffer is ready to receive network activity regarding $RemoteIP on Port $RemotePort ..."
-    $LatestPacketLogFile = "$SnifferOutputFileParentDir\Latest_Packet.txt"
 
 
     # Determine the TCP Connection that we will watch..
@@ -1962,8 +1978,8 @@ function Watch-BadProgramConnection {
 # SIG # Begin signature block
 # MIIMaAYJKoZIhvcNAQcCoIIMWTCCDFUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUc9eF9HmyYDRjOJsra4ubHXML
-# Oz6gggndMIIEJjCCAw6gAwIBAgITawAAADqEP46TDmc/hQAAAAAAOjANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUpfcSr6seoh3xvC0q7PKf62iz
+# KFegggndMIIEJjCCAw6gAwIBAgITawAAADqEP46TDmc/hQAAAAAAOjANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE4MTAxNzIwMTEyNVoXDTIwMTAxNzIwMjEyNVowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2020,11 +2036,11 @@ function Watch-BadProgramConnection {
 # DgYDVQQDEwdaZXJvU0NBAhNYAAACUMNtmJ+qKf6TAAMAAAJQMAkGBSsOAwIaBQCg
 # eDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEE
 # AYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJ
-# BDEWBBSlZTKdCx+R3u5+r20i3iCdxclsijANBgkqhkiG9w0BAQEFAASCAQAKcdbb
-# GVyNAWJbQLNiZpn+K4u4R4GRbGJdI0vCM74wP9RQtAeR0mLRLlSB8b0ttnf9UnaH
-# oJxkZQW6PHuC7ISHsLd/y6/jUHO4OZsjr1VNfxuk+Slndz3MjGh9QMKJZ6sQD4+q
-# BJz+yAAulWxyQr/ktN8Nm8890EywaYSTxLToxBKfqDx6ogxNdCDQnVLb572g/fFf
-# oNZstzamKKNtYodHppRyLNwSWn5ZUue8r2jZOmLgCj9yaAH3YfnsCTv6ir5kCZqf
-# tgYEF/sletKApu6MKqqq/5qSEkDR9361rUx3G0s/3vycml18iHOm0eqAW2eagfRS
-# w9Q0mhFihcmybLjT
+# BDEWBBRBvosYJx4TiS0EIpoHjDx6++aZNzANBgkqhkiG9w0BAQEFAASCAQA0WZoT
+# Rw0MgdbVFjz6Utpru7xEchbTPSKzPwVVQRmEm2Se356jeuH5G7VUR0yRN8zP9DVU
+# H/ZC5belXIbUpWmrZowPm5ZF/42BMjywT/cj+khXJrG5saZVhcv9ZSaJ+TP2j1Vo
+# 7Ie9yETbapigfjS4jpJlOSsoR9jpE1xZsi2UoOXi6aIAZV9g8fwFDvBr3QUfn4N5
+# OWKLffggDXsIJz3j3EabFNaVtd2LwfjrR+vPAlHdXBzT8SJOt0ixh8T899uS0g+w
+# mrh1KaUreLx76YNoxbQUq0OftxZwYTK9LI/IrnGBF12gS86FRVhV55Z0hW98ZBgP
+# vP6pquFLmpnaWbLy
 # SIG # End signature block
