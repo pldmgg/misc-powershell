@@ -1593,7 +1593,6 @@ $GUIPSInstance.AddScript({
     #>
 
     $($syncHash.Window).Add_GotFocus({
-        $($syncHash.Window).PreviewKeyUp = $True
         $($syncHash.Window).Add_KeyUp({
             if ($_.KeyCode -eq "Enter") {
                 $($syncHash.WPFxamlOKButton).PerformClick()
