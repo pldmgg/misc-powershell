@@ -639,14 +639,14 @@ function New-RunSpace {
     ##### END Generic Runspace
 }
 
-function New-FileScan {
+function Get-CallMetrics {
     [CmdletBinding()]
     Param( 
         [Parameter(Mandatory=$False)]
         $DirectoryToScan = "C:\"
     )
 
-    Write-Host "This is a placeholder function to illustrate OK Button functionality"
+    Write-Host "This is a placeholder function to illustrate OK Button functionality. It doesn't have anything to do with Call Metrics"
     
     Get-ChildItem $DirectoryToScan
 }
@@ -663,7 +663,7 @@ $global:syncHash = [hashtable]::Synchronized(@{})
 # Add the helper functions as strings into the sycnHash so it is easy to load them with form control scriptblocks
 $syncHash.Add("FuncUpdateWindow",${Function:Update-Window}.Ast.Extent.Text)
 $syncHash.Add("FuncNewRunspace",${Function:New-Runspace}.Ast.Extent.Text)
-$syncHash.Add("FuncGetCallMetrics",${Function:New-Runspace}.Ast.Extent.Text)
+$syncHash.Add("FuncGetCallMetrics",${Function:Get-CallMetrics}.Ast.Extent.Text)
 
 #endregion >> The Main SyncHash
 
@@ -771,7 +771,7 @@ if (!$Form) {
     return
 }
 
-#endrgion >> Create and Scrub the XAML
+#endregion >> Create and Scrub the XAML
 
 
 #region >> Add the XAML Objects to the $syncHash
@@ -900,7 +900,7 @@ $($syncHash.WPFxamlOKButton).Add_Click({
         $syncHash.CompleteFlag = "Working"
 
         try {
-            $ScanItems = New-FileScan -DirectoryToScan "C:\"
+            $ScanItems = Get-CallMetrics -DirectoryToScan "C:\"
         }
         catch {
             # Need to see the error message visually in a GUI, so just use a pop-up
@@ -992,6 +992,8 @@ $($syncHash.Window).Add_GotFocus({
 #endregion >> Create Form Controls
 
 
+#region >> Fire Up The GUI
+
 # Actually Show the GUI
 $syncHash.Window.ShowDialog()
 Start-Sleep -Seconds 2
@@ -1007,3 +1009,4 @@ if (!$($syncHash.Window).IsVisible) {
     Stop-Process -Id $($syncHash.ParentThreadPID)
 }
 
+#endregion >> Fire Up The GUI
