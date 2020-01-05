@@ -119,7 +119,7 @@ function New-RemoteAndroidSession {
 
     #region >> Prep
 
-    if ($PSVersionTable.Platform -ne 'Win32NT') {
+    if ($PSVersionTable.Platform -ne 'Win32NT' -and $PSVersionTable.PSEdition -ne 'Desktop') {
         if ($PathToScrcpyBinaries) {
             Write-Error "The -PathToScrcpyBinaries parameter should only be used on Windows systems. Halting!"
             $global:FunctionResult = "1"
