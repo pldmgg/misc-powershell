@@ -191,7 +191,7 @@ function New-RemoteAndroidSession {
 
     #region >> Main
 
-    if ($PSVersionTable.Platform -eq 'Win32NT') {
+    if ($PSVersionTable.Platform -eq 'Win32NT' -or $PSVersionTable.PSEdition -eq 'Desktop') {
         if ($DownloadLatestScrcpy) {
             $releaseInfo = Invoke-RestMethod 'https://api.github.com/repos/Genymobile/scrcpy/releases/latest'
             $target = $releaseInfo.assets | Where-Object {$_.Name.Contains('win64')}
@@ -299,7 +299,7 @@ function New-RemoteAndroidSession {
         $ScrcpyResult = & $ScrcpyPath --bit-rate 2M --max-size 800
     }
 
-    if ($PSVersionTable.Platform -ne 'Win32NT') {
+    if ($PSVersionTable.Platform -ne 'Win32NT' -and $PSVersionTable.PSEdition -ne 'Desktop') {
         if ($DownloadLatestScrcpy -or $NeedPackages) {
             $null = snap install scrcpy
             $null = apt install adb
