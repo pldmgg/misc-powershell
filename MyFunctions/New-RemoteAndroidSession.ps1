@@ -224,6 +224,8 @@ function New-RemoteAndroidSession {
             }
 
             $PathToScrcpyBinaries = $ExpansionDirectory
+            $ScrcpyPath = "$PathToScrcpyBinaries\scrcpy.exe"
+            $ADBPath = "$PathToScrcpyBinaries\adb.exe"
         }
         else {
             if ($PathToScrcpyBinaries) {
