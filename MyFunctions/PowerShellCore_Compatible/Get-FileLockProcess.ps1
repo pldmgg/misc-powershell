@@ -69,7 +69,9 @@ function Get-FileLockProcess {
             $_.GetName().Name -eq "mscorlib" -or
             $_.GetName().Name -eq "System" -or
             $_.GetName().Name -eq "System.Collections" -or
+            $_.GetName().Name -eq "System.ComponentModel.Primitives" -or
             $_.GetName().Name -eq "System.Core" -or
+            $_.GetName().Name -eq "System.Diagnostics.Process" -or
             $_.GetName().Name -eq "System.IO" -or
             $_.GetName().Name -eq "System.Linq" -or
             $_.GetName().Name -eq "System.Runtime" -or
