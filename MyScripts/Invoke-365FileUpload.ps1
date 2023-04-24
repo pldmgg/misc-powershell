@@ -46,48 +46,26 @@ Take not that "Value" = $AppClientSecretValue
 Click "Application permissions" -> Search for "Site.ReadWrite.All" -> Select the checkbox and click "Add permissions"
 
 ##### END Azure App Instructions #####
+
+#### BEGIN Right-Click SendTo Menu Config #####
+
+1) Create a .lnk file under C:\Users\ttadmin\AppData\Roaming\Microsoft\Windows\SendTo called 'SyncWithOneDrive'
+2) Open the properties of SyncWithOneDrive.lnk and configure the following:
+    - The "Target" Field should read: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NoExit -NoProfile -File C:\Scripts\powershell\Invoke-365FileUpload.ps1
+    - The "Start In" Field should read: C:\Scripts\powershell
+
+#### BEGIN Right-Click SendTo Menu Config #####
 #>
-function Invoke-365FileUpload {
+
+function Get-365AccessToken {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$True)]
         [string]$AppClientID,
         
         [Parameter(Mandatory=$True)]
-        [string]$TenantID,
-
-        [Parameter(Mandatory=$True)]
-        [string]$SharePointDomain,
-
-        [Parameter(Mandatory=$True)]
-        [string]$LocalFilePathToUpload,
-
-        [Parameter(Mandatory=$True)]
-        [string]$PathToDocumentLibrary,
-
-        [Parameter(Mandatory=$True)]
-        [string]$DestinationPath
+        [string]$TenantID
     )
-
-    #region >> Prep
-
-    $PathToTeamSite = $PathToDocumentLibrary | Split-Path -Parent
-    $FileName = $LocalFilePathToUpload | Split-Path -Leaf
-
-    # Make sure $LocalFilePathToUpload actually exists
-    if (!$(Test-Path -Path $LocalFilePathToUpload)) {
-        Write-Error "$LocalFilePathToUpload does not exist! Check the path and try again. Halting!"
-        $global:FunctionResult = 1
-        return
-    }
-
-    # Make sure $LocalFilePathToUpload is a Full Path
-    $LocalFilePathToUpload = $(Get-Item -Path $LocalFilePathToUpload).FullName
-
-    #endregion >> Prep
-
-
-    #region >> Main
 
     # Get the user-specific access token via MSAL.PS Module
     try {
@@ -131,9 +109,62 @@ function Invoke-365FileUpload {
         return
     }
 
+    # Output
+    $AccessToken
+}
 
-    ##### Upload File to SharePoint Document Library #####
+function Invoke-365FileUpload {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$AppClientID,
+        
+        [Parameter(Mandatory=$True)]
+        [string]$TenantID,
 
+        [Parameter(Mandatory=$True)]
+        [string]$AccessToken,
+
+        [Parameter(Mandatory=$True)]
+        [string]$SharePointDomain,
+
+        [Parameter(Mandatory=$True)]
+        [string[]]$LocalFilesToUpload,
+
+        [Parameter(Mandatory=$True)]
+        [string]$PathToDocumentLibrary,
+
+        [Parameter(Mandatory=$True)]
+        [string]$DestinationDirectoryPath
+    )
+
+    #region >> Prep
+
+    $PathToTeamSite = $PathToDocumentLibrary | Split-Path -Parent
+
+    # Validate all paths in $LocalFilesToUpload
+    [System.Collections.Generic.List[string]]$ValidatedLocalFilesToUpload = @()
+    foreach ($FilePath in $LocalFilesToUpload) {
+        # Make sure $FilePath actually exists
+        if (!$(Test-Path -Path $FilePath)) {
+            Write-Error "$FilePath does not exist! Check the path and try again. Halting!"
+            $global:FunctionResult = 1
+            return
+        }
+
+        # Make sure $FilePath is a Full Path   
+        $FilePath = $(Get-Item -Path $FilePath).FullName
+
+        # Add the Validated Full Path to the $ValidatedLocalFilesToUpload array
+        $null = $ValidatedLocalFilesToUpload.Add($FilePath)
+    }
+
+    #endregion >> Prep
+
+
+    #region >> Main
+
+    # Get the DriveID
     $UrlForDriveID = "https://graph.microsoft.com/v1.0/sites/{0}:{1}:\drive" -f $SharePointDomain,$PathToTeamSite
 
     $SmallIRMParams = @{
@@ -157,77 +188,148 @@ function Invoke-365FileUpload {
         return
     }
 
-    $UrlForFileDestination = "https://graph.microsoft.com/v1.0/drives/{0}/items/root:{1}:/content" -f $driveID,$DestinationPath
-    #$UrlToCreateUploadSession = "https://graph.microsoft.com/v1.0/drives/root:{0}:/createUploadSession" -f $PathToDocumentLibrary
-    $UrlToCreateUploadSession = "https://graph.microsoft.com/v1.0/drives/{0}/items/root:{1}:/createUploadSession" -f $driveID,$DestinationPath
+    # Loop through all files in $ValidatedLocalFilesToUpload and upload each one at a time
+    foreach ($LocalFile in $ValidatedLocalFilesToUpload) {
+        $FileName = $LocalFile | Split-Path -Leaf
+        $DestinationPath = $DestinationDirectoryPath + '/' + $FileName
 
-    ### For files less than 4MB, you can use the below: ###
-    # Do the upload
-    #$UploadResponse = Invoke-RestMethod -Uri $UrlForFileDestination @SmallIRMParams -Method Put -InFile $LocalFilePathToUpload
+        $UrlForFileDestination = "https://graph.microsoft.com/v1.0/drives/{0}/items/root:{1}:/content" -f $driveID,$DestinationPath
+        #$UrlToCreateUploadSession = "https://graph.microsoft.com/v1.0/drives/root:{0}:/createUploadSession" -f $PathToDocumentLibrary
+        $UrlToCreateUploadSession = "https://graph.microsoft.com/v1.0/drives/{0}/items/root:{1}:/createUploadSession" -f $driveID,$DestinationPath
 
-    ### For files larger than 4MB, you must use the below: ###
-    # Create the session
-    $SessionIRMParams = @{
-        Method      = "Post"
-        Uri         = $UrlToCreateUploadSession
-        Headers     = @{"Authorization" = "Bearer $AccessToken"}
-        ContentType = 'application/json'
-        Body        = "{'@microsoft.graph.conflictBehavior': 'replace', 'name': '$FileName'}"
-    }
-    $SessionInfo = Invoke-RestMethod @SessionIRMParams
+        #Write-Host "UrlForFileDestination is $UrlForFileDestination"
+        #Write-Host "UrlToCreateUploadSession is $UrlToCreateUploadSession"
 
-    # Do the Upload
-    # NOTE: This was tested for files up to 100MB in size
-    $FileInBytes = [System.IO.File]::ReadAllBytes($LocalFilePathToUpload)
-    $FileLength = $FileInBytes.Length
+        ### For files less than 4MB, you can use the below: ###
+        # Do the upload
+        #$UploadResponse = Invoke-RestMethod -Uri $UrlForFileDestination @SmallIRMParams -Method Put -InFile $LocalFile
 
-    $LargeIRMParams = @{
-        Uri     = $SessionInfo.uploadUrl
-        Method  = "PUT"
-        Body    = $FileInBytes
-        Headers = @{
-            'Content-Range' = "bytes 0-$($FileLength-1)/$FileLength"
+        ### For files larger than 4MB, you must use the below: ###
+        # Create the session
+        $SessionIRMParams = @{
+            Method      = "Post"
+            Uri         = $UrlToCreateUploadSession
+            Headers     = @{"Authorization" = "Bearer $AccessToken"}
+            ContentType = 'application/json'
+            Body        = "{'@microsoft.graph.conflictBehavior': 'replace', 'name': '$FileName'}"
         }
-    }
-    $UploadResponse = Invoke-RestMethod @LargeIRMParams
+        $SessionInfo = Invoke-RestMethod @SessionIRMParams
 
-    $itemID = $UploadResponse.id
-    $UrlForFileItemCheck = "https://graph.microsoft.com/v1.0/drives/{0}/items/{1}" -f $driveID,$itemID
-    $FileCheckIRMParams = @{
-        Uri         = $UrlForFileItemCheck
-        Headers     = @{Authorization  = "Bearer $AccessToken"}
-        ContentType = 'application/json'
-        ErrorAction = "Stop"
-    }
-    $SharePointFileItem = Invoke-RestMethod @FileCheckIRMParams
+        # Do the Upload
+        # NOTE: This was tested for files up to 100MB in size
+        $FileInBytes = [System.IO.File]::ReadAllBytes($LocalFile)
+        $FileLength = $FileInBytes.Length
 
-    # Output
-    $SharePointFileItem
+        $LargeIRMParams = @{
+            Uri     = $SessionInfo.uploadUrl
+            Method  = "PUT"
+            Body    = $FileInBytes
+            Headers = @{
+                'Content-Range' = "bytes 0-$($FileLength-1)/$FileLength"
+            }
+        }
+        $UploadResponse = Invoke-RestMethod @LargeIRMParams
+
+        $itemID = $UploadResponse.id
+        $UrlForFileItemCheck = "https://graph.microsoft.com/v1.0/drives/{0}/items/{1}" -f $driveID,$itemID
+        $FileCheckIRMParams = @{
+            Uri         = $UrlForFileItemCheck
+            Headers     = @{Authorization  = "Bearer $AccessToken"}
+            ContentType = 'application/json'
+            ErrorAction = "Stop"
+        }
+        $SharePointFileItem = Invoke-RestMethod @FileCheckIRMParams
+
+        # Output
+        $SharePointFileItem
+    }
 
     #endregion >> Main
 }
 
-#Write-Host $("args0 is {0}" -f $args[0])
-# NOTE: The below $LocalPathEquivalentForSharePointLocation is usually something like...
-# ... "$HOME\{OrgName}\{TeamsiteName} - {DocumentLibraryName}", for example "$HOME\Contoso\Contoso Data - Documents"
-$LocalPathEquivalentForSharePointLocation = "{placeholder}"
-$LocalPathRegexString = $LocalPathEquivalentForSharePointLocation -replace '\\','\\'  
-$DataLocationCheck = $(Get-Item $args[0]).FullName -match $LocalPathRegexString
-if (-not $DataLocationCheck) {
-    $ErrMsg = "Only files under '$LocalPathEquivalentForSharePointLocation' can use this function. Halting!"
-    Write-Error $ErrMsg
-    return
+
+function Invoke-Upload {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$AppClientID,
+        
+        [Parameter(Mandatory=$True)]
+        [string]$TenantID,
+
+        [Parameter(Mandatory=$True)]
+        [string[]]$LocalFilesToUpload,
+
+        [Parameter(Mandatory=$True)]
+        [string]$LocalPathEquivalentForSharePointLocation,
+
+        [Parameter(Mandatory=$True)]
+        [string]$SharePointDomain,
+
+        [Parameter(Mandatory=$True)]
+        [string]$PathToDocumentLibrary,
+
+        [Parameter(Mandatory=$True)]
+        [switch]$LocalToSharePointPathCheck
+    )
+
+    #Write-Host $("args0 is {0}" -f $args[0])
+    #Write-Host $("args1 is {0}" -f $args[1])
+    Write-Host "Uploading the following files: $($LocalFilesToUpload | Split-Path -Leaf)"
+
+    # Make sure the user is trying to upload file(s) that *SHOULD IN FACT* be uploaded to SharePoint
+    if ($LocalToSharePointPathCheck) {
+        $LocalPathRegexString = $LocalPathEquivalentForSharePointLocation -replace '\\','\\'
+        foreach ($FilePath in $args) {
+            $DataLocationCheck = $(Get-Item $FilePath).FullName -match $LocalPathRegexString
+            if (-not $DataLocationCheck) {
+                $ErrMsg = "Only files under '$LocalPathEquivalentForSharePointLocation' can use this function. Halting!"
+                Write-Error $ErrMsg
+                return
+            }
+        }
+    }
+
+    # Figure out Destination Directory/Folder Path
+    $DestinationDirPathPrep1 = $LocalPathEquivalentForSharePointLocation | Split-Path -Leaf
+    $DestinationDirPathPrep2 =  $($args[0] -split $DestinationDirPathPrep1)[-1]
+    $DestinationDirPath = $DestinationDirPathPrep2 -replace '\\','/'
+    $DestinationDirPathCheck = $($DestinationDirPath | Select-String -Pattern '\/' -AllMatches).Matches.Count
+    if ($DestinationDirPathCheck -eq 1) {
+        $DestinationDirPath = '/'
+    }
+    Write-Host "DestinationDirPath is $DestinationDirPath"
+
+    try {
+        $AccessToken = Get-365AccessToken -AppClientID $AppClientID -TenantID $TenantID -ErrorAction Stop
+        if (!$AccessToken) {throw "Unable to get AccessToken! Halting!"}
+    } catch {
+        Write-Error $_
+        $global:FunctionResult = 1
+        return
+    }
+
+    $Invoke365Params = @{
+        AppClientID                 = $AppClientID
+        TenantID                    = $TenantID
+        AccessToken                 = $AccessToken
+        SharePointDomain            = $SharePointDomain
+        LocalFilesToUpload          = $LocalFilesToUpload
+        PathToDocumentLibrary       = $PathToDocumentLibrary
+        DestinationDirectoryPath    = $DestinationDirPath
+    }
+    Invoke-365FileUpload @Invoke365Params
 }
 
-$DestinationPathPrep1 = $LocalPathEquivalentForSharePointLocation | Split-Path -Leaf
-$DestinationPathPrep2 =  $($args[0] -split $DestinationPathPrep1)[-1]
-$DestinationPath = $DestinationPathPrep2 -replace '\\','/'
-$Invoke365Params = @{
-    AppClientID             = "{placeholder}" # Some GUID from your Azure App
-    TenantID                = "{placeholder}" # Some GUID from Azure Tenant Properties
-    SharePointDomain        = "{placeholder}" # Your Org's SharePoint Domain, for example: contoso.sharepoint.com
-    LocalFilePathToUpload   = $args[0]
-    PathToDocumentLibrary   = "{placeholder}" # Something like "/sites/{TeamSiteName}/{DocumentLibraryName}", for example: "/sites/Contoso Data/Documents"
-    DestinationPath         = $DestinationPath # Should end up being something like "/{FolderWithinDocumentLibrary}/{FileName}"
+
+$InvokeUploadParams = @{
+    AppClientID                                 = '{placeholder}' # Some GUID from your Azure App
+    TenantID                                    = '{placeholder}' # Some GUID from Azure Tenant Properties
+    SharePointDomain                            = '{placeholder}' # Your Org's SharePoint Domain, for example: contoso.sharepoint.com
+    LocalFilesToUpload                          = $args
+    LocalPathEquivalentForSharePointLocation    = '{placeholder}' # Usually something like: "$HOME\{OrgName}\{TeamsiteName} - {DocumentLibraryName}", for example "$HOME\Contoso\Contoso Data - Documents"
+    PathToDocumentLibrary                       = '{placeholder}' # For example: "/sites/ContosoData/Documents"
+    LocalToSharePointPathCheck                  = $False
+    #DestinationDirectoryPath                    = '{placeholder}' # For example "/IT Department/Subfolder" or, if you just want it in the root of the Document Library "/"
 }
-Invoke-365FileUpload @Invoke365Params
+Invoke-Upload @InvokeUploadParams

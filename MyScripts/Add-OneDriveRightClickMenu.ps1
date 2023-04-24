@@ -47,8 +47,16 @@ function Add-OneDriveRightClickMenu {
         return
     }
 
+    <#
     if (!$(Get-Elevation)) {
         Write-Error "You must run this script/function as Administrator! Halting!"
+        $global:FunctionResult = 1
+        return
+    }
+    #>
+
+    if (Get-Elevation) {
+        Write-Error "You must NOT run this script/function as Administrator! Halting!"
         $global:FunctionResult = 1
         return
     }
@@ -59,12 +67,11 @@ function Add-OneDriveRightClickMenu {
         return
     }
 
-    #New-PSDrive -Name "HKCR" -PSProvider "Registry" -PSPath 'Registry::HKEY_CLASSES_ROOT'
-
     #endregion >> Prep
 
     #region >> Main
 
+    <#
     # Create the following Registry Keys if they don't already exist
     # HKEY_CLASSES_ROOT\*\shell\SyncWithOneDrive\command
     # Everything up to Computer\HKEY_CLASSES_ROOT\*\shell should already exist by default
@@ -94,12 +101,21 @@ function Add-OneDriveRightClickMenu {
         
         Pop-Location
     }
+    #>
+
+    #$FileName = $($PathTo365FileUploadScript | Split-Path -Leaf) -replace '\.ps1','.lnk'
+    $LnkShortcutPath = "$HOME\AppData\Roaming\Microsoft\Windows\SendTo\{0}.lnk" -f $MenuOptionTitle
+    $WshShell = New-Object -comObject WScript.Shell
+    $Shortcut = $WshShell.CreateShortcut($LnkShortcutPath)
+    $Shortcut.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+    $Shortcut.Arguments = "-ExecutionPolicy Bypass -NoExit -NoProfile -File $PathTo365FileUploadScript"
+    $Shortcut.Save()
 
     #endregion >> Main
 }
 
 $AddRightClickParams = @{
-    MenuOptionTitle             = '{placeholder}' # Some string that can fit in the mouse right-click menu
-    PathTo365FileUploadScript   = '{placeholder}' # Full Path to Invoke-365FileUpload.ps1, for example 'C:\Scripts\powershell\Invoke-365FileUpload.ps1'
+    MenuOptionTitle             = 'SyncWithOneDrive' # Some string that can fit in the mouse right-click menu
+    PathTo365FileUploadScript   = 'C:\Scripts\powershell\Invoke-365FileUpload.ps1' # Full Path to Invoke-365FileUpload.ps1, for example 'C:\Scripts\powershell\Invoke-365FileUpload.ps1'
 }
 Add-OneDriveRightClickMenu @AddRightClickParams
