@@ -293,7 +293,7 @@ function Invoke-Upload {
     # Figure out Destination Directory/Folder Path
     $DestinationDirPathPrep1 = $LocalPathEquivalentForSharePointLocation | Split-Path -Leaf
     $DestinationDirPathPrep2 =  $($args[0] -split $DestinationDirPathPrep1)[-1]
-    $DestinationDirPath = $DestinationDirPathPrep2 -replace '\\','/'
+    $DestinationDirPath = $($DestinationDirPathPrep2 | Split-Path -Parent) -replace '\\','/'
     $DestinationDirPathCheck = $($DestinationDirPath | Select-String -Pattern '\/' -AllMatches).Matches.Count
     if ($DestinationDirPathCheck -eq 1) {
         $DestinationDirPath = '/'
