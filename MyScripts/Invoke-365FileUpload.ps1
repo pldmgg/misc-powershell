@@ -5,7 +5,7 @@
 # How to Authenticate Reference: https://learn.microsoft.com/en-us/onedrive/developer/rest-api/getting-started/graph-oauth?view=odsp-graph-online
 # About Authentication Scopes (subset of above link): https://learn.microsoft.com/en-us/onedrive/developer/rest-api/getting-started/graph-oauth?view=odsp-graph-online
 # Expose an API, Define Scope(s) and Authorize the Application: https://stackoverflow.com/questions/62438643/azure-expose-an-api-vs-api-permissions
-# AND https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/ProtectAnAPI/quickStartType~/null/sourceType/Microsoft_AAD_IAM/appId/e3707594-e16e-40e9-835f-51457df5f3c5/objectId/ba3989d5-4af4-4b25-b427-41808d851fde/isMSAApp~/false/defaultBlade/Overview/appSignInAudience/AzureADMyOrg/servicePrincipalCreated~/true
+# AND https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/ProtectAnAPI/quickStartType~/null/sourceType/Microsoft_AAD_IAM/appId/{GUID}/objectId/{GUID}/isMSAApp~/false/defaultBlade/Overview/appSignInAudience/AzureADMyOrg/servicePrincipalCreated~/true
 # More on Authentication: https://stackoverflow.com/a/67806539
 #
 # Required PowerShell Module: https://morgantechspace.com/2022/03/azure-ad-get-access-token-for-delegated-permissions-using-powershell.html
