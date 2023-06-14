@@ -164,7 +164,7 @@ function Install-ZeroTier {
             if (Test-Path $ZTCLI) {
                 $DumpResult = cmd /c $ZTCLI dump
                 if ($DumpResult -match "Error") {
-                    Write-Warning "Error dumping ZeroTier config."
+                    Write-Host "Error dumping ZeroTier config."
                 }
                 if ($DumpResult -and !$($DumpResult -match "Error")) {
                     $DumpOutputFilePath = $($DumpResult -split '[\s]')[-1]
@@ -192,7 +192,7 @@ function Install-ZeroTier {
                 
                 # Restart Install-ZeroTier.ps1 script in PowerShell 7
                 $null = Add-Content -Path $LogFilePath -Value "Restarting Install-ZeroTier.ps1 in Pwsh..." -ErrorAction Stop
-                Write-Host "Restarting Install-ZeroTier.ps1 in Pwsh..."
+                Write-Output "Restarting Install-ZeroTier.ps1 in Pwsh. Check $LogFilePath for details."
                 pwsh -File "`"$PSCommandPath`"" @PSBoundParameters
                 return
             } catch {
@@ -330,8 +330,15 @@ function Install-ZeroTier {
         if ($DefaultRoute) { cmd /c $ZTCLI set $NetworkID allowDefault=1 | Out-Null }
 
         # Output
-        cmd /c $ZTCLI status
-        cmd /c $ZTCLI listnetworks
+        $ZTInstallTimeStamp = "ZeroTier_Install_" + $(Get-Date -Format MMddyy_hhmmss)
+        $ZTStatusResult = cmd /c $ZTCLI status
+        $ZTListNetworksResult = cmd /c $ZTCLI listnetworks
+        $ZTInstallTimeStamp >> $LogFilePath
+        $ZTStatusResult >> $LogFilePath
+        $ZTListNetworksResult >> $LogFilePath
+        $ZTInstallTimeStamp
+        $ZTStatusResult
+        $ZTListNetworksResult
     } catch {
         $ErrMsg = $_.Exception.Message
         $null = Add-Content -Path $LogFilePath -Value $ErrMsg
