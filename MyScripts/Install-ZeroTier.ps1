@@ -168,7 +168,7 @@ function Install-ZeroTier {
                 }
                 if ($DumpResult) {
                     $DumpOutputFilePath = $($DumpResult -split '[\s]')[-1]
-                    $null = Move-Item -Path $DumpOutputFilePath -Destination "$ZTConfigDir\zerotier_dump.txt" -ErrorAction Stop
+                    $null = Move-Item -Path $DumpOutputFilePath -Destination "$ZTConfigDir\zerotier_dump.txt" -Force -ErrorAction Stop
                 }
             }
         } catch {
