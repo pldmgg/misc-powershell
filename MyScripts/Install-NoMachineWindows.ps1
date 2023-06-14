@@ -148,9 +148,22 @@ function Install-NoMachineWindows {
             return
         }
 
+        # Make sure the NoMachine service is running
+        try {
+            if ($(Get-Service -Name nxservice).Status -ne "Running") {
+                $null = Restart-Service -Name nxservice -ErrorAction Stop
+            }
+        } catch {
+            $ErrMsg = $_.Exception.Message
+            $null = Add-Content -Path $LogFilePath -Value $ErrMsg
+            Write-Error $ErrMsg
+            return
+        }
+
         # Output
         $Output = Get-Item $NxPlayerPath -ErrorAction Stop
         $Output >> $LogFilePath
+        $Output
     } catch {
         $ErrMsg = $_.Exception.Message
         $null = Add-Content -Path $LogFilePath -Value $ErrMsg
