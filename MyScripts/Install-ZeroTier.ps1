@@ -164,9 +164,9 @@ function Install-ZeroTier {
             if (Test-Path $ZTCLI) {
                 $DumpResult = cmd /c $ZTCLI dump
                 if ($DumpResult -match "Error") {
-                    throw "Error dumping ZeroTier config."
+                    Write-Warning "Error dumping ZeroTier config."
                 }
-                if ($DumpResult) {
+                if ($DumpResult -and !$($DumpResult -match "Error")) {
                     $DumpOutputFilePath = $($DumpResult -split '[\s]')[-1]
                     $null = Move-Item -Path $DumpOutputFilePath -Destination "$ZTConfigDir\zerotier_dump.txt" -Force -ErrorAction Stop
                 }
