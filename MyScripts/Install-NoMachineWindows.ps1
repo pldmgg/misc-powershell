@@ -127,6 +127,29 @@ function Install-NoMachineWindows {
         }
     }
 
+    # Kill any existing NoMachine processes
+    $NoMachineServiceCheck = Get-Service -Name nxservice -ErrorAction SilentlyContinue
+    if ($NoMachineServiceCheck.Status -eq "Running") {
+        $null = Stop-Service -Name nxservice -ErrorAction SilentlyContinue
+    }
+
+    [System.Collections.Generic.List[PSObject]]$NoMachineProcesses = Get-Process | Where-Object {
+        $_.Company -match "NoMachine" -or $_.Name -match "nomachine\.tmp"
+    }
+    
+    if ($NoMachineProcesses.Count -gt 0) {
+        $NoMachineProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+
+    # Uninstall NoMachine is it's installed
+    $NoMachineUninstallCheck = Get-ChildItem -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue | Where-Object {
+        $_.GetValue("DisplayName") -match "NoMachine"
+    }
+    if ($NoMachineUninstallCheck) {
+        $NoMachineUninstallString = $NoMachineUninstallCheck.GetValue("UninstallString")
+        $null = Start-Process -FilePath $NoMachineUninstallString -ArgumentList "/VERYSILENT /NORESTART" -Wait -ErrorAction SilentlyContinue
+    }
+
     # Install NoMachine
     try {
         $UriPrep = "https://downloads.nomachine.com/download/?id=9"
@@ -137,11 +160,11 @@ function Install-NoMachineWindows {
 
         $NxPlayerPath = "C:\Program Files\NoMachine\bin\nxplayer.exe"
         $counter = 0
-        while (!$(Test-Path $NxPlayerPath) -and $counter -lt 5) {
+        while (!$(Get-Service -Name nxservice -ErrorAction SilentlyContinue) -and $counter -lt 15) {
             Start-Sleep -Seconds 5
             $counter++
         }
-        if (!$(Test-Path $NxPlayerPath)) {
+        if (!$(Get-Service -Name nxservice -ErrorAction SilentlyContinue)) {
             $ErrMsg = "Unable to find '$NxPlayerPath'...NoMachine installation failed."
             $null = Add-Content -Path $LogFilePath -Value $ErrMsg
             Write-Error $ErrMsg
@@ -149,15 +172,9 @@ function Install-NoMachineWindows {
         }
 
         # Make sure the NoMachine service is running
-        try {
-            if ($(Get-Service -Name nxservice).Status -ne "Running") {
-                $null = Restart-Service -Name nxservice -ErrorAction Stop
-            }
-        } catch {
-            $ErrMsg = $_.Exception.Message
-            $null = Add-Content -Path $LogFilePath -Value $ErrMsg
-            Write-Error $ErrMsg
-            return
+        if ($(Get-Service -Name nxservice -ErrorAction SilentlyContinue).Status -ne "Running") {
+            Write-Host "Restarting NoMachine service..."
+            $null = Restart-Service -Name nxservice -ErrorAction Stop
         }
 
         # Output
