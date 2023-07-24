@@ -1,3 +1,8 @@
+param (
+    [string]$NetworkID, # ZeroTier Network ID
+    [string]$Token # ZeroTier API Token
+)
+
 ##### BEGIN Helper Functions #####
 function Install-Pwsh {
     [CmdletBinding()]
@@ -348,3 +353,8 @@ function Install-ZeroTier {
         #$null = Remove-Item $Installer -Force -ErrorAction SilentlyContinue
     }
 }
+
+# compassionate_cerf
+Install-ZeroTier -NetworkID $NetworkID -Token $Token -BackupExistingConfig
+Start-Sleep -Seconds 10
+& 'C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat' join $NetworkID
