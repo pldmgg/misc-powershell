@@ -40,6 +40,20 @@ $SendKeyParams = @{
 }
 Send-SSHKeyToRemoteHost @SendKeyParams
 
+# Set Execution Policy to RemoteSigned so that scripts created locally can run
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`""
+
+# Set profle.ps1
+# The below line at the top of profile.ps1 ensures that $env:Path does not have any repeated entries
+#The final line within profile.ps1 looks like - $env:Path = ($env:Path -split ';' | Sort-Object | Get-Unique) -join ';'
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "cmd /c echo `"```$env:Path = (```$env:Path -split ';' | Sort-Object | Get-Unique) -join ';'`" > C:\Windows\System32\WindowsPowerShell\v1.0\profile.ps1; (Get-Content C:\Windows\System32\WindowsPowerShell\v1.0\profile.ps1).Trim('`"') | Out-File C:\Windows\System32\WindowsPowerShell\v1.0\profile.ps1"
+
+# Enable ICMP Ping
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-NetFirewallRule -DisplayName 'File and Printer Sharing (Echo Request - ICMPv4-In)' -Enabled True`""
+
+# Set Timezone
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Get-TimeZone -Id 'Eastern Standard Time' | Set-TimeZone`""
+
 # Install ZeroTier
 $ZTScriptPath = "$ScriptsDir\powershell\Install-ZeroTier.ps1"
 $ZTNetworkID = '8bkp1rxn07zvy5tfh'
@@ -52,32 +66,88 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 #Disable-BitLocker -MountPoint (Get-BitLockerVolume) -Confirm:$false
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Disable-BitLocker -MountPoint (Get-BitLockerVolume) -Confirm:```$false`""
 
+# Since we are using winget below, we need to login manually and run winget to accept the EULA
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost
+winget search Microsoft.PowerShell
+
 # Use winget to install pwsh, chrome, nomachine, vmware player, and hyper-v
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install Microsoft.PowerShell`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install Google.Chrome`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install NoMachine.NoMachine`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install VMware.WorkstationPlayer`""
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -NoRestart; Restart-Computer -Force`""
+
+# Get LastBootTime to ensure that the machine has rebooted after enabling Hyper-V
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`""
 
 # Install Chocolatey
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))`""
 # Update Environment Variables to access Chocolatey bin path
 #[Environment]::SetEnvironmentVariable('Path', ([Environment]::GetEnvironmentVariable('Path', 'Machine') + ';C:\ProgramData\chocolatey\bin'), 'Machine')
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', ([Environment]::GetEnvironmentVariable('Path', 'Machine') + ';C:\ProgramData\chocolatey\bin'), 'Machine')`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'Machine')).Trim(';') + ';C:\ProgramData\chocolatey\bin'), 'Machine'); [Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'Machine')).Trim(';') + ';C:\ProgramData\chocolatey\lib'), 'Machine')`""
 #[Environment]::SetEnvironmentVariable('Path', ([Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\ProgramData\chocolatey\bin'), 'User')
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', ([Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\ProgramData\chocolatey\bin'), 'User')`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'User')).Trim(';') + ';C:\ProgramData\chocolatey\bin'), 'User'); [Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'User')).Trim(';') + ';C:\ProgramData\chocolatey\lib'), 'User')`""
 
 # Use Chocolatey to install VSCode, nano and veeam-agent
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install vscode`""
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install nano`""
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install veeam-agent`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install lockhunter -y`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install vscode -y`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install nano -y`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install veeam-agent -y`""
 
 # Restart the machine because a few of the above installs require a reboot
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Restart-Computer -Force`""
 
-# Use NoMachine to login to the remote host and install Canonical.Ubuntu.2204 (wsl2 environment) via winget
-# IMPORTANT NOTE: For some reason the installer fails unless it thinks you're logged into console session
-winget install -e --id Canonical.Ubuntu.2204
+# Get LastBootTime to ensure that the machine has rebooted after installing veeam-agent
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`""
+
+# Enable RDP
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0`""
+# Disable RDP via
+# ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 1`""
+
+# IMPORTANT NOTE: For some reason the installer fails unless it thinks you're logged into a GUI session
+mstsc /v:$RemoteIPAddress
+wsl --install
+Restart-Computer -Force
+#winget install -e --id Canonical.Ubuntu.2204
+mstsc /v:$RemoteIPAddress
+# Just wait for wsl to pop open a window to finish the install
+wsl
+sudo apt update && sudo apt upgrade -y
+sudo apt install openssh-server -y
+sudo sed -i -E 's,^#?Port.*$,Port 2222,' /etc/ssh/sshd_config
+sudo service ssh restart
+sudo sh -c "echo '${USER} ALL=(root) NOPASSWD: /usr/sbin/service ssh start' >/etc/sudoers.d/service-ssh-start"
+exit
+# Now you should be back in powershell on the remote host within an RDP session
+# Allow ssh traffic on port 2222
+New-NetFirewallRule -Name wsl_sshd -DisplayName 'OpenSSH Server (sshd) for WSL' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 2222
+# Now we want to create a scheduled task that will start WSL AND ssh within WSL on boot
+$ScriptOutputPath = "C:\Scripts\bin\wsl_sshd.ps1"
+$ScriptContentAsString = @'
+# Start SSH service in WSL
+bash.exe -c "sudo /usr/sbin/service ssh start"
+
+# Remove port proxy rule
+netsh.exe interface portproxy delete v4tov4 listenport=2222 listenaddress=0.0.0.0 protocol=tcp
+
+# Get IP address from WSL
+$IP = (wsl.exe hostname -I).Trim()
+
+# Add port proxy rule with the obtained IP address
+netsh.exe interface portproxy add v4tov4 listenport=2222 listenaddress=0.0.0.0 connectport=2222 connectaddress=$IP
+
+'@
+$TaskName = "Start WSL SSHD on Boot"
+$TaskUser = "ttadmin"
+$ScriptContentAsString | Out-File -FilePath $ScriptOutputPath -Encoding ascii -Force
+$TenSecondsFromNow = $(Get-Date).Add($(New-TimeSpan -Seconds 10))
+$TaskTrigger = New-ScheduledTaskTrigger -AtStartup
+$Options = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit $(New-TimeSpan -Hours 1)
+$Passwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR((Read-Host -Prompt "Enter password" -AsSecureString)))
+$Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"& $ScriptOutputPath`""
+Register-ScheduledTask -TaskName $TaskName -Trigger $TaskTrigger -Settings $Options -User $TaskUser -Password $Passwd -Action $Action -ErrorAction Stop
+
 
 # Optionally Install Windows Subsystem for Android
 # DOESN'T WORK: ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install --silent --exact --id=9P3395VX91NR -e --accept-package-agreements --accept-source-agreements`""
@@ -92,11 +162,24 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "pwsh.exe -ExecutionPolicy Bypass -Com
 $CreateRemoteSchdTaskParams = @{
   RemoteUserName = $RemoteUserName
   RemoteIPAddress = $RemoteIPAddress
-  ModuleDir = "$ScriptsDir\powershell"
+  ModuleDir = "C:\Scripts\powershell"
   SSHPrivateKeyPath = $SSHPrivateKeyPath
-  NetworkInterfaceAlias = "ZeroTier One [8bkp1rxn07zvy5tfh]"
-  TaskUser = "otheruser"
+  NetworkInterfaceAlias = "ZeroTier One [$ZTNetworkID]"
+  TaskUser = "ttadminbackup"
   TTYDWebUser = "ttydadmin"
-  TTYDWebPassword = "ttydadmin_P@ssword123!"
+  TTYDWebPassword = "MyP@ssword123!"
 }
 Create-RemoteTTYDScheduledTask @CreateRemoteSchdTaskParams
+
+Import-Module "$ScriptsDir\powershell\MiniServeModule.psm1"
+# Make sure you have miniserve.exe on the local workstation
+$NetworkInterfaceAlias = "ZeroTier One [$ZTNetworkID]"
+Install-MiniServe -NetworkInterfaceAlias $NetworkInterfaceAlias
+$PromptSSParams = @{
+    RemoteUserName = $RemoteUserName
+    RemoteIPAddress = $RemoteIPAddress
+    SSHPrivateKeyPath = $SSHPrivateKeyPath
+    MiniServeNetworkInterfaceAlias = $NetworkInterfaceAlias
+    RemovePwdFile = $False
+}
+$UserString = Prompt-ActiveUserForSecureString @PromptSSParams
