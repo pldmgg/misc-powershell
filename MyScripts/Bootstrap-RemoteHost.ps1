@@ -43,7 +43,7 @@ Send-SSHKeyToRemoteHost @SendKeyParams
 # Set Execution Policy to RemoteSigned so that scripts created locally can run
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`""
 
-# Set profle.ps1
+# Set profile.ps1
 # The below line at the top of profile.ps1 ensures that $env:Path does not have any repeated entries
 #The final line within profile.ps1 looks like - $env:Path = ($env:Path -split ';' | Sort-Object | Get-Unique) -join ';'
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "cmd /c echo `"```$env:Path = (```$env:Path -split ';' | Sort-Object | Get-Unique) -join ';'`" > C:\Windows\System32\WindowsPowerShell\v1.0\profile.ps1; (Get-Content C:\Windows\System32\WindowsPowerShell\v1.0\profile.ps1).Trim('`"') | Out-File C:\Windows\System32\WindowsPowerShell\v1.0\profile.ps1"
@@ -84,9 +84,9 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))`""
 # Update Environment Variables to access Chocolatey bin path
 #[Environment]::SetEnvironmentVariable('Path', ([Environment]::GetEnvironmentVariable('Path', 'Machine') + ';C:\ProgramData\chocolatey\bin'), 'Machine')
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'Machine')).Trim(';') + ';C:\ProgramData\chocolatey\bin'), 'Machine'); [Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'Machine')).Trim(';') + ';C:\ProgramData\chocolatey\lib'), 'Machine')`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'Machine')).Trim(';') + ';C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib'), 'Machine')`""
 #[Environment]::SetEnvironmentVariable('Path', ([Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\ProgramData\chocolatey\bin'), 'User')
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'User')).Trim(';') + ';C:\ProgramData\chocolatey\bin'), 'User'); [Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'User')).Trim(';') + ';C:\ProgramData\chocolatey\lib'), 'User')`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'User')).Trim(';') + ';C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib'), 'User')`""
 
 # Use Chocolatey to install VSCode, nano and veeam-agent
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install lockhunter -y`""
