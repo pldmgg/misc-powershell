@@ -9,7 +9,7 @@ function Install-Pwsh {
     Param()
 
     # Setup bin and log paths
-    $LogFileDir = "C:\Scripts\logs\TacticalPwshInstall"
+    $LogFileDir = "C:\Scripts\logs\PwshInstall"
     $LogFilePath = $LogFileDir + '\' + 'pwsh_install_' + $(Get-Date -Format MMddyy_hhmmss) + '.log'
     $BinFileDir = "C:\Scripts\bin"
     $BinFilePath = $BinFileDir + '\' + 'pwsh.exe'
