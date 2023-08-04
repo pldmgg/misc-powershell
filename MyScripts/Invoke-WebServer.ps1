@@ -3,10 +3,85 @@ param (
     [string]$DirectoryPath,
 
     [Parameter(Mandatory=$false)]
-    [int]$Port = '8888'
+    [int]$Port = '8888',
+
+    [Parameter(Mandatory=$false)]
+    [System.Collections.ArrayList]$AllowedInterfaceAliases = @()
 )
 
-# Example Usage: .\Invoke-WebServer.ps1 -DirectoryPath "C:\MyFiles" -Port 8080
+# Windows Example Usage: .\Invoke-WebServer.ps1 -DirectoryPath "C:\MyFiles" -Port 8080 -AllowedInterfaceAliases @("ZeroTier One [8bkp1rxn07zvy5tfh]", "Ethernet", "Wi-Fi", "Loopback Pseudo-Interface 1")
+# Linux Example Usage: .\Invoke-WebServer.ps1 -DirectoryPath "/home/ttadmin/Scripts/powershell" -Port 8080 -AllowedInterfaceAliases @("ztc3q44bii", "enp6s18", "wlp2s0", "lo")
+
+#region >> Helper Functions
+
+function Get-NetIPAddressForLinux {
+    [CmdletBinding()]
+    $source = @"
+using System;
+using System.Collections.Generic;
+using System.Management.Automation;
+using System.Net;
+using System.Net.NetworkInformation;
+
+public class NetworkInfo
+{
+    public class InterfaceInfo
+    {
+        public string Interface { get; set; }
+        public string InterfaceAlias { get; set; }
+        public string Status { get; set; }
+        public string IPv4Address { get; set; }
+        public string IPv4SubnetMask { get; set; }
+        public string IPv6Address { get; set; }
+        public int IPv6PrefixLength { get; set; }
+    }
+
+    public static InterfaceInfo[] GetNetworkInformation()
+    {
+        List<InterfaceInfo> result = new List<InterfaceInfo>();
+
+        // Get all network interfaces on the system
+        NetworkInterface[] networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+
+        foreach (NetworkInterface netInterface in networkInterfaces)
+        {
+            InterfaceInfo info = new InterfaceInfo();
+            info.Interface = netInterface.Name;
+            info.InterfaceAlias = netInterface.Description;
+            info.Status = netInterface.OperationalStatus.ToString();
+
+            // Get IP properties for each interface
+            IPInterfaceProperties ipProperties = netInterface.GetIPProperties();
+
+            // Get Unicast IP Addresses (IPv4 and IPv6)
+            foreach (UnicastIPAddressInformation ip in ipProperties.UnicastAddresses)
+            {
+                if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) // IPv4
+                {
+                    info.IPv4Address = ip.Address.ToString();
+                    info.IPv4SubnetMask = ip.IPv4Mask.ToString();
+                }
+                else if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6) // IPv6
+                {
+                    info.IPv6Address = ip.Address.ToString();
+                    info.IPv6PrefixLength = ip.PrefixLength;
+                }
+            }
+
+            result.Add(info);
+        }
+
+        return result.ToArray();
+    }
+}
+"@
+
+    # Compile the C# code and load the assembly using Add-Type
+    try {Add-Type -TypeDefinition $source} catch { Write-Host $_.Exception.Message }
+
+    # Output the result of the GetNetworkInformation method
+    [NetworkInfo]::GetNetworkInformation()
+}
 
 function Get-ContentTypeFromExtension {
     [CmdletBinding()]
@@ -101,20 +176,47 @@ function Get-ContentTypeFromExtension {
     }
 }
 
-$listener = New-Object System.Net.HttpListener
+#endregion >> Helper Functions
 
-# Specify the desired InterfaceAliases where this webserver will be reachable
-$allowedInterfaceAliases = @("ZeroTier One [8bkp1rxn07zvy5tfh]", "Ethernet", "Wi-Fi", "Loopback Pseudo-Interface 1")
+$OSSeparator = [System.IO.Path]::DirectorySeparatorChar
+
+if ($PSVersionTable.PSEdition -ne "Core") {
+    Write-Error "This script must be run using PowerShell Core (version 7 or higher)! Halting!"
+    return
+}
+
+if (!(Test-Path -Path $DirectoryPath)) {
+    Write-Error "The directory path '$DirectoryPath' does not exist! Halting!"
+    return
+} else {
+    $DirectoryPath = $DirectoryPath.TrimEnd($OSSeparator)
+}
+
 
 # Get the network interfaces
-$networkInterfaceIPs = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $allowedInterfaceAliases -contains $_.InterfaceAlias }).IPAddress
-$netshOutput = netsh http show iplisten
-$IPsThatAreListening = $netshOutput.Trim() | foreach { try {([ipaddress]$_).IPAddressToString} catch {} }
+if ($PSVersionTable.Platform -eq "Win32NT") {
+    if ($AllowedInterfaceAliases.Count -gt 0) {
+        $networkInterfaceIPs = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $allowedInterfaceAliases -contains $_.InterfaceAlias }).IPAddress
+    } else {
+        $networkInterfaceIPs = (Get-NetIPAddress -AddressFamily IPv4).IPAddress
+    }
+    $netshOutput = netsh http show iplisten
+    $IPsThatAreListening = $netshOutput.Trim() | foreach { try {([ipaddress]$_).IPAddressToString} catch {} }
+} else {
+    if ($AllowedInterfaceAliases.Count -gt 0) {
+        $networkInterfaceIPs = (Get-NetIPAddressForLinux | Where-Object { $allowedInterfaceAliases -contains $_.InterfaceAlias }).IPv4Address
+    } else {
+        $networkInterfaceIPs = (Get-NetIPAddressForLinux).IPv4Address
+    }
+}
+
+# Prepare the web server
+$listener = New-Object System.Net.HttpListener
 
 # Add prefixes for the allowed network interfaces
 foreach ($IPAddr in $networkInterfaceIPs) {
     if ($IPAddr -notmatch '^169') {
-        if ($IPsThatAreListening -notcontains $IPAddr) {
+        if ($IPsThatAreListening -notcontains $IPAddr -and $PSVersionTable.Platform -eq "Win32NT") {
             $null = netsh http add iplisten $IPAddr
         }
         $listener.Prefixes.Add("http://$IPAddr`:$Port/")
@@ -123,12 +225,13 @@ foreach ($IPAddr in $networkInterfaceIPs) {
     }
 }
 
+# Start the web server
 $listener.Start()
-
 
 Write-Host "Web server started. Listening on the allowed network interfaces."
 Write-Host "PowerShell process ID: $PID"
 
+# Main loop
 while ($listener.IsListening) {
     try {
         $context = $listener.GetContext()
@@ -144,8 +247,16 @@ while ($listener.IsListening) {
         $request.InputStream.Read($fileBuffer, 0, $request.ContentLength64)
         $bytes = [System.Collections.Generic.List[byte]]$fileBuffer
         $fileName = [System.Text.Encoding]::UTF8.GetString($bytes).Split("`r`n")[1].Split("filename=")[1].Replace('"', '')
-        $currentDirectory = ($request.UrlReferrer.AbsoluteUri -split $Port)[-1] -replace [regex]::Escape('/'),'\'
-        $filePath = $directoryPath + '\' + $currentDirectory + '\' + $fileName
+        $currentDirectory = ($request.UrlReferrer.AbsoluteUri -split $Port)[-1]
+        if ($currentDirectory -eq '/') {
+            $filePath = $directoryPath + $OSSeparator + $fileName
+        } else {
+            $filePath = $directoryPath + $OSSeparator + $currentDirectory + $OSSeparator + $fileName
+        }
+
+        Write-Host "fileName: $fileName"
+        Write-Host "currentDirectory: $currentDirectory"
+        Write-Host "filePath: $filePath"
 
         $stringBuffer = [System.Text.Encoding]::UTF8.GetString($fileBuffer)
         $splitString = $stringBuffer.Split("`n")
@@ -174,16 +285,16 @@ while ($listener.IsListening) {
         $reader.Close()
         [System.Collections.ArrayList]$filesToDelete = @($requestBody | ConvertFrom-Json)
 
-        $currentDirectory = ($request.UrlReferrer.AbsoluteUri -split $Port)[-1] -replace [regex]::Escape('/'),'\'
+        $currentDirectory = ($request.UrlReferrer.AbsoluteUri -split $Port)[-1]
         Write-Host "Absolute URI: $($request.UrlReferrer.AbsoluteUri)"
         Write-Host "Current directory: $currentDirectory"
         
 
         foreach ($fileName in $filesToDelete) {
-            if ($currentDirectory -eq '\') {
-                $filePathToDelete = $directoryPath + '\' + $fileName
+            if ($currentDirectory -eq '/') {
+                $filePathToDelete = $directoryPath + $OSSeparator + $fileName
             } else {
-                $filePathToDelete = $directoryPath + $currentDirectory + '\' + $fileName
+                $filePathToDelete = $directoryPath + $currentDirectory + $OSSeparator + $fileName
             }
             Write-Host "Deleting $filePathToDelete"
             if (Test-Path $filePathToDelete) {
