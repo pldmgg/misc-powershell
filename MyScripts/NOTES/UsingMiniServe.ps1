@@ -16,6 +16,7 @@ wget2 -rcnHp -R 'index.html*' --cut-dirs=2 'http://192.168.2.203:8080/temp/?raw=
 # For some reason winget2 doesn't honor -R parameter, so we need to cleanup after...
 Get-ChildItem -Path $destinationDir -Recurse -File -Filter 'index.html*' | Remove-Item -Force
 Pop-Location
+
 # ...OR if you want pure PowerShell:
 $OSSeparator = [System.IO.Path]::DirectorySeparatorChar
 $baseUrl = 'http://localhost:8080'
