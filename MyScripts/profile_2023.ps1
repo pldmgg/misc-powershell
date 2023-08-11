@@ -36,3 +36,21 @@ foreach ($key in $finalHashtable.Keys) {
     $value = $finalHashtable[$key]
     [System.Environment]::SetEnvironmentVariable($key,$value)
 }
+
+# Set Aliases
+function hist {(Get-Content (Get-PSReadLineOption).HistorySavePath)}
+
+function grep {
+  [CmdletBinding()]
+  Param(
+    [Parameter(ValueFromPipeline)]
+    $item,
+
+    [Parameter(Position = 0)]
+    [string]$Pattern
+  )
+
+  process {
+    $item | Select-String -Pattern $Pattern
+  }
+}
