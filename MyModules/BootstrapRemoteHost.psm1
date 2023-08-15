@@ -64,6 +64,8 @@ function Invoke-ScaffoldingOnRemoteHost {
         "$ScriptsPath\powershell"
         "$ScriptsPath\configs"
         "$ScriptsPath\temp"
+        "C:\Users\$RemoteUserName\Documents\WindowsPowerShell"
+        "C:\Users\$RemoteUserName\Documents\PowerShell"
     )
     $RemotePathsArrayString = "@('" + $($RemotePaths -join "','") + "') | "
     $CreateDirsCommandString = 'foreach {if (!(Test-Path ```$_)) {New-Item -Path ```$_ -ItemType Directory -Force}}'
