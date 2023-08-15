@@ -3,6 +3,11 @@ $env:Path = ($env:Path -split ';' | Sort-Object | Get-Unique) -join ';'
 $FinalPath = $env:Path.TrimEnd(';') + ';' + [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine).TrimEnd(';') + ';' + [System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::User).TrimEnd(';')
 $env:Path = ($FinalPath -split ';' | Sort-Object | Get-Unique) -join ';'
 
+$machinePath = ([System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::Machine).TrimEnd(';') -split ';' | Sort-Object | Get-Unique) -join ';'
+$userPath = ([System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::User).TrimEnd(';') -split ';' | Sort-Object | Get-Unique) -join ';'
+$processPath = ($env:Path.TrimEnd(';') -split ';' | Sort-Object | Get-Unique) -join ';'
+
+
 # Clean up environment variables loading (or not) from various sources
 $userEnvironmentVariables = [System.Environment]::GetEnvironmentVariables([System.EnvironmentVariableTarget]::User)
 $machineEnvironmentVariables = [System.Environment]::GetEnvironmentVariables([System.EnvironmentVariableTarget]::Machine)
@@ -41,19 +46,38 @@ foreach ($key in $finalHashtable.Keys) {
 function hist {(Get-Content (Get-PSReadLineOption).HistorySavePath)}
 
 function grep {
-  [CmdletBinding()]
-  Param(
-    [Parameter(ValueFromPipeline)]
-    $item,
+    [CmdletBinding()]
+    Param(
+        [Parameter(ValueFromPipeline)]
+        $item,
 
-    [Parameter(Position = 0)]
-    [string]$Pattern
-  )
+        [Parameter(Position = 0)]
+        [string]$Pattern
+    )
 
-  process {
-    $item | Select-String -Pattern $Pattern
-  }
+    process {
+        $item | Select-String -Pattern $Pattern
+    }
 }
+
+# Set Helper Functions
+function Update-Path {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$PathString,
+    
+        [Parameter(Mandatory=$true, Position=1)]
+        [ValidateSet('User', 'Machine', 'Process')]
+        [string]$Type
+    )
+
+    $PathString = $PathString.Trim(';')
+    $originalPath = Invoke-Expression "([System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::$Type).TrimEnd(';') -split ';' | Sort-Object | Get-Unique) -join ';'"
+    $newPath = (($originalPath + ';' + $PathString).TrimEnd(';') -split ';' | Sort-Object | Get-Unique) -join ';'
+    [System.Environment]::SetEnvironmentVariable('PATH', $newPath, $Type)
+}
+
 
 # Import the Chocolatey Profile that contains the necessary code to enable
 # tab-completions to function for `choco`.
@@ -62,5 +86,5 @@ function grep {
 # See https://ch0.co/tab-completion for details.
 $ChocolateyProfile = "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
 if (Test-Path($ChocolateyProfile)) {
-  Import-Module "$ChocolateyProfile"
+    Import-Module "$ChocolateyProfile"
 }
