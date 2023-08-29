@@ -384,7 +384,7 @@ $TTYDCredString = $TTYDWebUser + ':' + $TTYDWebPassword
         $TaskTrigger = New-ScheduledTaskTrigger -Once -At $TenSecondsFromNow
         $Options = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit $(New-TimeSpan -Hours 1)
         $Passwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($TaskUserCreds.Password))
-        $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"& $ScriptOutputPath`""
+        $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"& '$ScriptOutputPath'`""
         Register-ScheduledTask -TaskName $TaskName -Trigger $TaskTrigger -Settings $Options -User $TaskUserCreds.UserName -Password $Passwd -Action $Action -ErrorAction Stop
 
         Write-Host "Please wait 20 seconds..."        
