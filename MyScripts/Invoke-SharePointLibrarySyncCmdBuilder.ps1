@@ -39,14 +39,6 @@ try {
     $Session = Get-PnPConnection -ErrorAction Stop
     $TenantId = Get-PnPTenantId -Connection $Session -ErrorAction Stop
     $ConnectionData = Get-PnPSite -ErrorAction Stop
-
-    # Output
-    $Output = [pscustomobject]@{
-        Session         = $Session
-        ConnectionData  = $ConnectionData
-    }
-
-    $Output
 }
 catch {
     Write-Warning $_.Exception.Message
