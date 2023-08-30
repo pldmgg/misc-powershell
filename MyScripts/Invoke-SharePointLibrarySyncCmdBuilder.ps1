@@ -42,7 +42,7 @@ try {
 }
 catch {
     Write-Warning $_.Exception.Message
-    Write-Error "Unable to connect to SharePoint Online via Connect-PNPOnline cmdlet! Is -ConnectionUri in the correct format (for example, 'https://ttargetsdefoutlook.sharepoint.com/')? Halting!"
+    Write-Error "Unable to connect to SharePoint Online via Connect-PNPOnline cmdlet! Is -ConnectionUri in the correct format (for example, 'https://contoso.sharepoint.com/')? Halting!"
     $global:FunctionResult = "1"
     return
 }
