@@ -360,7 +360,7 @@ if (!$(Test-Path $BinFilePath)) {
 $RunLogFile = $LogFileDir + '\' + 'ttyd_schdtask_run_' + $(Get-Date -Format MMddyy_hhmmss) + '.log'
 $null = Add-Content -Path $RunLogFile -Value "Running ttyd as $TaskUser on port 7681..."
 $TTYDCredString = $TTYDWebUser + ':' + $TTYDWebPassword
-& $BinFilePath --port $TTYDPort --writable --max-clients 1 --credential $TTYDCredString --once --reconnect powershell
+& $BinFilePath --port $TTYDPort --writable --once --max-clients 1 --credential $TTYDCredString --cwd C:\Scripts pwsh
 '@
     $ScriptBlockAsString = $ScriptBlockAsStringPart1 + "`n" + $ScriptBlockAsStringPart2
 
