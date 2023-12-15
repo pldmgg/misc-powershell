@@ -2,7 +2,7 @@
 .SYNOPSIS
     PowerShell function wrapper for the command
 
-    code --folder-uri vscode-remote://ssh-remote+ttadmin@192.168.2.81/C:/Users/ttadmin
+    code --folder-uri vscode-remote://ssh-remote+adminuser@192.168.1.2/C:/Users/adminuser
 
 .DESCRIPTION
     See Synopsis
