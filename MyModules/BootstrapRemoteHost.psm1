@@ -153,9 +153,9 @@ function Send-SSHKeyToRemoteHost {
     $SSHRemoteLocationString = $RemoteUserName + '@' + $RemoteIPAddress
 
     $SSHPublicKey = Get-Content -Raw $SSHPublicKeyPath
-    #[System.IO.File]::WriteAllLines($SSHAuthorizedKeysPath, $SSHPublicKey, [System.Text.UTF8Encoding]::new())
+    #[System.IO.File]::AppendAllLines($SSHAuthorizedKeysPath, $SSHPublicKey, [System.Text.UTF8Encoding]::new())
     $SSHCommandString = @"
-powershell.exe -ExecutionPolicy Bypass -Command "if (!(Test-Path '$RemoteHostDotSSHDir')) {New-Item -Path '$RemoteHostDotSSHDir' -ItemType Directory -Force}; [System.IO.File]::WriteAllLines('$SSHAuthorizedKeysPath', '$SSHPublicKey', [System.Text.UTF8Encoding]::new()); [System.IO.File]::WriteAllLines('$SSHAuthorizedKeysPath2', '$SSHPublicKey', [System.Text.UTF8Encoding]::new())"
+powershell.exe -ExecutionPolicy Bypass -Command "if (!(Test-Path '$RemoteHostDotSSHDir')) {New-Item -Path '$RemoteHostDotSSHDir' -ItemType Directory -Force}; [System.IO.File]::AppendAllLines('$SSHAuthorizedKeysPath', '$SSHPublicKey', [System.Text.UTF8Encoding]::new()); [System.IO.File]::AppendAllLines('$SSHAuthorizedKeysPath2', '$SSHPublicKey', [System.Text.UTF8Encoding]::new())"
 "@
     
     # Send the public key to the remote host
