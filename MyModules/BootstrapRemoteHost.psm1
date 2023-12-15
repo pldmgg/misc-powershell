@@ -168,6 +168,79 @@ powershell.exe -ExecutionPolicy Bypass -Command "if (!(Test-Path '$RemoteHostDot
 
 <#
 .SYNOPSIS
+    Adds the following to .ssh/config on the local machine
+
+        Host $RemoteIPAddress
+            HostName $RemoteIPAddress
+            User $RemoteUserName
+            IdentityFile $SSHPrivateKeyPath
+
+.DESCRIPTION
+    See Synopsis
+
+.NOTES
+    DEPENDENCEIES
+        ssh.exe
+.PARAMETER
+    N parameter
+.PARAMETER
+    N+1 parameter
+.EXAMPLE
+    Add-ToSSHConfigFile -RemoteUserName "adminuser" -RemoteIPAddress "192.168.2.250" -SSHPrivateKeyPath "C:\Users\adminuser\.ssh\id_rsa_for_remote_commands"
+.EXAMPLE
+    Another example of how to use this cmdlet
+.INPUTS
+    Inputs to this cmdlet (if any)
+.OUTPUTS
+    Output from this cmdlet (if any)
+#>
+function Add-ToSSHConfigFile {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$RemoteUserName, # Example: "adminuser"
+
+        [Parameter(Mandatory=$True)]
+        [string]$RemoteIPAddress, # Example: "192.168.2.250"
+
+        [Parameter(Mandatory=$True)]
+        [string]$SSHPrivateKeyPath # Example: "C:\Users\adminuser\.ssh\id_rsa_for_remote_commands"
+    )
+
+    # Make sure we have all of the necessary binaries on the local machine
+    try {
+        $null = Get-Command ssh -ErrorAction Stop
+    } catch {
+        Write-Error $_
+        return
+    }
+
+    if (!$(Test-Path $SSHPrivateKeyPath)) {
+        Write-Error "The path $SSHPrivateKeyPath was not found! Halting!"
+        return
+    }
+
+    # Check to make sure there isn't already an entry for this host
+    $SSHConfigPath = "$env:USERPROFILE\.ssh\config"
+    if (Test-Path $SSHConfigPath) {
+        if ($(Get-Content -Raw $SSHConfigPath) -match "^Host $RemoteIPAddress") {
+            Write-Error "There is already an entry for $RemoteIPAddress in $SSHConfigPath! Halting!"
+            return
+        }
+    }
+
+@"
+Host $RemoteIPAddress
+  HostName $RemoteIPAddress
+  User $RemoteUserName
+  IdentityFile $SSHPrivateKeyPath
+"@ | Out-File -Append -FilePath $SSHConfigPath
+
+}
+
+
+<#
+.SYNOPSIS
     Creates a webserver on a remote host that runs a powershell terminal as the specified user ($TaskUser).
     Site can be accessed via http://$RemoteIPAddress:7681 and can be password protected (Basic Auth).
 
