@@ -88,3 +88,15 @@ $ChocolateyProfile = "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
 if (Test-Path($ChocolateyProfile)) {
     Import-Module "$ChocolateyProfile"
 }
+
+# Install/Import PowerShellAI module
+if (!$(Get-Module -ListAvailable 'PowerShellAI' -ErrorAction SilentlyContinue)) {
+    try {
+        $InstallModuleResult = Install-Module 'PowerShellAI' -AllowClobber -Force -ErrorAction Stop -WarningAction SilentlyContinue
+        Import-Module $ModuleName -ErrorAction Stop
+        Set-ChatSessionOption -model 'gpt-4' -ErrorAction Stop
+        Write-Host "PowerShellAI loaded with GPT-4 model."
+    } catch {
+        Write-Warning $_.Exception.Message
+    }
+}
