@@ -73,6 +73,15 @@ function Update-Path {
     )
 
     $PathString = $PathString.Trim(';')
+    if (!(Test-Path $PathString -ErrorAction SilentlyContinue)) {
+        Write-Error "Path '$PathString' does not exist! Halting!"
+        return
+    }
+    if (!(Get-Item $PathString -ErrorAction SilentlyContinue).PSIsContainer) {
+        Write-Error "Path must be a directory! Halting!"
+        return
+    }
+    
     $originalPath = Invoke-Expression "([System.Environment]::GetEnvironmentVariable('PATH', [System.EnvironmentVariableTarget]::$Type).TrimEnd(';') -split ';' | Sort-Object | Get-Unique) -join ';'"
     $newPath = (($originalPath + ';' + $PathString).TrimEnd(';') -split ';' | Sort-Object | Get-Unique) -join ';'
     [System.Environment]::SetEnvironmentVariable('PATH', $newPath, $Type)
