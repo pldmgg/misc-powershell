@@ -109,3 +109,42 @@ if (!$(Get-Module -ListAvailable 'PowerShellAI' -ErrorAction SilentlyContinue)) 
         Write-Warning $_.Exception.Message
     }
 }
+
+
+# For dealing with using "sudo" in PSSessions on Remote Linux machines
+function Cache-SudoPwd {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [securestring]$SudoPass,
+
+        [Parameter(Mandatory=$False)]
+        [System.Management.Automation.Runspaces.PSSession]$PSSession
+    )
+
+    if ($PSSession) {
+        if ($PSVersionTable.PSVersion -ge [version]'7.1') {
+            Invoke-Command $PSSession -ScriptBlock {
+                param([securestring]$SudoPassSS)
+                $null = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SudoPassSS))) | sudo -S whoami 2>&1
+                if ($LastExitCode -ne 0) {Write-Error -Message "Failed to cache sudo password"; return}
+            } -ArgumentList @($SudoPass)
+        } else {
+            Invoke-Command $PSSession -ScriptBlock {
+                param([String]$SudoPassPT)
+                $null = $SudoPassPT | sudo -S whoami 2>&1
+                if ($LastExitCode -ne 0) {Write-Error -Message "Failed to cache sudo password"; return}
+            } -ArgumentList @([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SudoPass)))
+        }
+    } else {
+        if (!$PSSenderInfo) {
+            Write-Error -Message "You must be running this function from within a PSSession or provide a PSSession object via the -PSSession parameter! Halting!"
+            return
+        }
+        $null = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SudoPass))) | sudo -S whoami 2>&1
+        if ($LastExitCode -ne 0) {Write-Error -Message "Failed to cache sudo password"; return}
+    }
+}
+Set-Alias -Name "presudo" -Value Cache-SudoPwd
+function secureprompt {Read-Host 'Enter sudo password' -AsSecureString}
+function presudo {Cache-SudoPwd -SudoPass $(Read-Host 'Enter sudo password' -AsSecureString)}
