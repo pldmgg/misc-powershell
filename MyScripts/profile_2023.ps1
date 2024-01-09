@@ -195,8 +195,9 @@ function Process-ICM {
         #if ($ErrsThatICareAbout.Count -gt 0) {$ErrsThatICareAbout | foreach {Write-Error $_}}
         $OutputThatICareAbout = @($icmAllOutput) | Where-Object {$_ -isnot [System.Management.Automation.ErrorRecord]}
         #if ($OutputThatICareAbout.Count -gt 0) {$OutputThatICareAbout | foreach {$_}}
-        if ($OutputThatICareAbout -contains 'SuccessOutput') {
-            $OutputThatICareAbout = $OutputThatICareAbout[($OutputThatICareAbout.IndexOf('SuccessOutput') + 1)..$OutputThatICareAbout.Count]
+        if ($OutputThatICareAbout -match 'SuccessOutput') {
+            $LineContent = $OutputThatICareAbout | Where-Object {$_ -match 'SuccessOutput'}
+            $OutputThatICareAbout = $OutputThatICareAbout[($OutputThatICareAbout.IndexOf($LineContent) + 1)..$OutputThatICareAbout.Count]
         }
 
         [pscustomobject]@{
@@ -206,7 +207,13 @@ function Process-ICM {
             RealOutput = $OutputThatICareAbout
         }
 
-        $objectTypes = $OutputThatICareAbout | foreach {$_.GetType().FullName}
-        Write-Host "`$_.RealOutput.Count is $($_.RealOutput.Count) and it contains these types of objects (in order): $($objectTypes -join ', ')`n"
+        if ($OutputThatICareAbout.Count -gt 0) {
+            $objectTypes = $OutputThatICareAbout | foreach {$_.GetType().FullName}
+            Write-Host "`$_.RealOutput.Count is $($OutputThatICareAbout.Count) and it contains these types of objects (in order): $($objectTypes -join ', ')`n"
+        } elseif (!$icmAllOutput) {
+            Write-Host "You received *no* output at all...including no errors. This might be okay."
+        } else {
+            Write-Host "You received *no* relevant output. Check the contents of `$_.RealErrors and `$_.Output to see what happened."
+        }
     }
 }
