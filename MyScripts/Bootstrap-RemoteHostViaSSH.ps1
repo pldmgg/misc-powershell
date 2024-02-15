@@ -46,11 +46,11 @@ $ScriptsBaseUri = "https://raw.githubusercontent.com/pldmgg/misc-powershell/mast
 
 $ScriptsDir = "C:\Scripts"
 Import-Module "$ScriptsDir\powershell\BootstrapRemoteHost.psm1"
-$NewComputerName = "HelenGym" # Kitchen NUC
-$RemoteIPAddress = "192.168.2.82"
+$NewComputerName = "ldfamnas" # Kitchen NUC
+$RemoteIPAddress = "192.168.2.11"
 $RemoteUserName = "ttadmin"
 $SSHUserAndHost = $RemoteUserName + "@" + $RemoteIPAddress
-$SSHPrivateKeyPath = "C:\Users\ttadmin\.ssh\id_rsa_elukpc_to_helengym"
+$SSHPrivateKeyPath = "C:\Users\ttadmin\.ssh\id_rsa_elukpc_to_ldfamnas"
 $SSHPublicKeyPath = $SSHPrivateKeyPath + ".pub"
 Invoke-ScaffoldingOnRemoteHost -RemoteUserName $RemoteUserName -RemoteIPAddress $RemoteIPAddress
 
@@ -124,11 +124,11 @@ $PSProfilePath1 = "C:\Users\$RemoteUserName\Documents\WindowsPowerShell\Microsof
 $SCPRemoteLocationStringPSProfile = $RemoteUserName + '@' + $RemoteIPAddress + ':' + $PSProfilePath
 $SCPRemoteLocationStringPSProfile1 = $RemoteUserName + '@' + $RemoteIPAddress + ':' + $PSProfilePath1
 scp.exe -i $SSHPrivateKeyPath $tempFileForProfile $SCPRemoteLocationStringPSProfile
-scp.exe -i $SSHPrivateKeyPath $tempFileForProfile $SCPRemoteLocationStringPSProfile1
-
 # At this point, run ssh -i $SSHPrivateKeyPath $SSHUserAndHost at least once and accept the agreement
 # This is because there's code in profile.ps1 that Install a Module from PSGallery
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost
+exit
+scp.exe -i $SSHPrivateKeyPath $tempFileForProfile $SCPRemoteLocationStringPSProfile1
 
 # Enable ICMP Ping
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-NetFirewallRule -DisplayName 'File and Printer Sharing (Echo Request - ICMPv4-In)' -Enabled True`""
@@ -204,15 +204,15 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 # IMPORTANT NOTE: If it's still not working, or if winget ever gives you an error about "Data source", do the following:
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Invoke-WebRequest -Uri 'https://cdn.winget.microsoft.com/cache/source.msix' -OutFile 'C:\Scripts\bin\source.msix'; Add-AppxPackage 'C:\Scripts\bin\source.msix'; winget search nmap; winget --version`""
 # IMPORTANT NOTE: To upgrade winget itself, do the following from Elevated PowerShell:
-Invoke-RestMethod "https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyScripts/Upgrade-Winget.ps1" | Invoke-Expression
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Invoke-RestMethod 'https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyScripts/Upgrade-Winget.ps1' | Invoke-Expression`""
 
 
 # Use winget to install pwsh, nmap, chrome, nomachine, vmware player, and hyper-v
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install Microsoft.PowerShell`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install nmap`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install miniserve`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install Google.Chrome`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install NoMachine.NoMachine`""
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install VMware.WorkstationPlayer`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All; Restart-Computer -Force`""
 
 # Get LastBootTime to ensure that the machine has rebooted after enabling Hyper-V
@@ -231,6 +231,7 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install vscode -y`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install nano -y`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install veeam-agent -y`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install vmwareworkstation -y`""
 
 # Restart the machine because a few of the above installs require a reboot
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Restart-Computer -Force`""
@@ -242,6 +243,10 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0; Enable-NetFirewallRule -DisplayName 'Remote Desktop*'`""
 # Disable RDP via
 # ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 1; Disable-NetFirewallRule -DisplayName 'Remote Desktop*'`""
+
+# Install PSWindowsUpdate Module
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command 'Install-Module PSWindowsUpdate -Force -SkipPublisherCheck -AllowClobber -Scope AllUsers -Confirm:`$false'"
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "Get-WindowsUpdate"
 
 # IMPORTANT NOTE: For some reason the installer fails unless it thinks you're logged into a GUI session
 # NOTE: If you haven't install Hyper-V features, do it NOW
@@ -352,7 +357,7 @@ ssh ttadmin@$RemoteIPAddress -p 2222
 $AppxUri = 'http://tlu.dl.delivery.mp.microsoft.com/filestreamingservice/files/16f3fac4-75ab-484d-8e8a-fcbc560cd6df?P1=1697670694&P2=404&P3=2&P4=Ga0XxY8EJDPWIghjDv7XAVoN1mGMZORbpsHBpLzwUS032OvgcSa8nNRWELa5bzch%2fwg3oJFPlQ2iuoCJbrMERQ%3d%3d'
 $OutFilePath = 'C:\Users\ttadmin\Downloads\windows_subsystem_for_android.msixbundle'
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "pwsh.exe -ExecutionPolicy Bypass -Command `"Invoke-WebRequest -uri '$AppxUri' -OutFile '$OutFilePath'; dism.exe /Online /Add-ProvisionedAppxPackage /PackagePath:$OutFilePath /SkipLicense`""
-# IMPORTANT NOTE: If none of the above works, just get it from here:
+# IMPORTANT NOTE: If none of the above works, just get it from here, unzip to C:\wsa and double-click Run.bat:
 https://github.com/MustardChef/WSABuilds
 # Launch Windows Subsystem for Android, go to "Advanced settings", turn on "Developer mode", click "Manage developer settings". This will launch...
 # a GUI for the Android VM in the Settings menu called "Developer options". In "Developer options", turn on "USB debugging."
@@ -391,11 +396,14 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"Stop-ScheduledTask -TaskName '$TaskName'; Stop-Process -Name ttyd -Force -ErrorAction SilentlyContinue`""
 
 
-# Optionally, prompt the remote user for a secure string
+# Optionally, prompt the remote user for a secure string (requires miniserve via winget install miniserve)
+#$ModuleOutputPath = "C:\Scripts\powershell\MiniServeModule.psm1"
+#((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/pldmgg/misc-powershell/master/MyModules/MiniServeModule.psm1')) | Out-File $ModuleOutputPath
+#Import-Module $ModuleOutputPath
 Import-Module "$ScriptsDir\powershell\MiniServeModule.psm1"
 # Make sure you have miniserve.exe on the local workstation
 $NetworkInterfaceAlias = "ZeroTier One [$ZTNetworkID]"
-Install-MiniServe -NetworkInterfaceAlias $NetworkInterfaceAlias
+#Install-MiniServe -NetworkInterfaceAlias $NetworkInterfaceAlias
 $PromptSSParams = @{
     RemoteUserName = $RemoteUserName
     RemoteIPAddress = $RemoteIPAddress
