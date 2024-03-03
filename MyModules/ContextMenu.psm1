@@ -92,7 +92,7 @@ Windows Registry Editor Version 5.00
     $PSExecCommand = @"
 & $AdvancedRunExePath /EXEFilename $PowerShellPath /CommandLine '$SetRegistryPermsOutFilePath' /RunAs 8 /Run
 "@
-    & PsExec.exe -i -s powershell.exe -ExecutionPolicy Bypass -Command "$PSExecCommand"
+    & PsExec.exe -accepteula -i -s powershell.exe -ExecutionPolicy Bypass -Command "$PSExecCommand"
     #& $AdvancedRunExePath /EXEFilename $(Get-Command powershell.exe).Source /CommandLine 'C:\Scripts\powershell\Set-RegistryPermsForWin11ContextMenuModifications.ps1' /RunAs 8 /Run
 
     #reg import $OutFilePath
@@ -205,7 +205,7 @@ Windows Registry Editor Version 5.00
     $PSExecCommand = @"
 & $AdvancedRunExePath /EXEFilename $PowerShellPath /CommandLine '$SetRegistryPermsOutFilePath' /RunAs 8 /Run
 "@
-    & PsExec.exe -i -s powershell.exe -ExecutionPolicy Bypass -Command "$PSExecCommand"
+    & PsExec.exe -accepteula -i -s powershell.exe -ExecutionPolicy Bypass -Command "$PSExecCommand"
     #& $AdvancedRunExePath /EXEFilename $(Get-Command powershell.exe).Source /CommandLine 'C:\Scripts\powershell\Set-RegistryPermsForWin11ContextMenuModifications.ps1' /RunAs 8 /Run
 
     #reg import $OutFilePath
@@ -241,44 +241,48 @@ function Set-RegistryPermsForWin11ContextMenuModifications {
     # Owner = Administrators
     # Administrators = Full Control
     # Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}
-    $keyPath = "HKLM:\SOFTWARE\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"
+    $parentKeyPath = "HKLM:\SOFTWARE\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"
+    $subKeyPath = $parentKeyPath + '\' + "InProcServer32"
+    $keyPathArray = @($parentKeyPath, $subKeyPath)
 
-    # Check Owner and update if necessary
-    $acl = Get-Acl -Path $keyPath
-    $currentOwner = $acl.Owner
-    $LocalAdministratorsGroupSID = $(Get-LocalGroup Administrators).SID.Value
-    $administratorsSid = New-Object System.Security.Principal.SecurityIdentifier($LocalAdministratorsGroupSID)
-    $administrators = $administratorsSid.Translate([System.Security.Principal.NTAccount])
-
-    try { 
-        if ($currentOwner -ne $administrators.Value) {
-            # Owner is not Administrators, proceed to set the owner
-            $acl.SetOwner($administrators)
-            Set-Acl -Path $keyPath -AclObject $acl
-            Write-Host "Owner set to Administrators."
-        } else {
-            Write-Host "Owner is already set to Administrators."
-        }
-
-        # Check Administrators have Full Control
+    foreach ($keyPath in $keyPathArray) {
+        # Check Owner and update if necessary
         $acl = Get-Acl -Path $keyPath
-        $adminFullControl = $acl.Access | Where-Object {
-            $_.IdentityReference -eq $administrators.Value -and
-            $_.RegistryRights -eq "FullControl" -and
-            $_.AccessControlType -eq "Allow"
+        $currentOwner = $acl.Owner
+        $LocalAdministratorsGroupSID = $(Get-LocalGroup Administrators).SID.Value
+        $administratorsSid = New-Object System.Security.Principal.SecurityIdentifier($LocalAdministratorsGroupSID)
+        $administrators = $administratorsSid.Translate([System.Security.Principal.NTAccount])
+
+        try { 
+            if ($currentOwner -ne $administrators.Value) {
+                # Owner is not Administrators, proceed to set the owner
+                $acl.SetOwner($administrators)
+                Set-Acl -Path $keyPath -AclObject $acl
+                Write-Host "Owner set to Administrators."
+            } else {
+                Write-Host "Owner is already set to Administrators."
+            }
+
+            # Check Administrators have Full Control
+            $acl = Get-Acl -Path $keyPath
+            $adminFullControl = $acl.Access | Where-Object {
+                $_.IdentityReference -eq $administrators.Value -and
+                $_.RegistryRights -eq "FullControl" -and
+                $_.AccessControlType -eq "Allow"
+            }
+            if ($adminFullControl -eq $null) {
+                # Full Control permission for Administrators is not set, proceed to add it
+                $rule = New-Object System.Security.AccessControl.RegistryAccessRule("Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+                $acl.AddAccessRule($rule)
+                Set-Acl -Path $keyPath -AclObject $acl
+                Write-Host "Full Control permission for Administrators has been added."
+            } else {
+                Write-Host "Administrators already have Full Control permission."
+            }
+        } catch {
+            Write-Error $_
+            return
         }
-        if ($adminFullControl -eq $null) {
-            # Full Control permission for Administrators is not set, proceed to add it
-            $rule = New-Object System.Security.AccessControl.RegistryAccessRule("Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-            $acl.AddAccessRule($rule)
-            Set-Acl -Path $keyPath -AclObject $acl
-            Write-Host "Full Control permission for Administrators has been added."
-        } else {
-            Write-Host "Administrators already have Full Control permission."
-        }
-    } catch {
-        Write-Error $_
-        return
     }
 }
 
@@ -338,7 +342,7 @@ param (
 
 '@ + @"
 
-`$OnlineRootFolder = '$OnlineRootFolder'
+`$OnlineRootFolder = "$OnlineRootFolder"
 `$SharePointBaseUrl = '$SharePointBaseUrl'
 # Get the below `$libraryFodlerID by opening in browser and exploring several different folders in the Document Library and observing what comes after &viewid= in the URL
 `$LibraryFolderID = '$LibraryFolderID'
@@ -380,7 +384,7 @@ $sharePointUrl = $SharePointBaseUrl + ($finalPathString -join '')
 # to make sure that the local path is accessible to the recipient...
 $finalLocalPath = '%UserProfile%' + '\' + ($localPathArray[3..($localPathArray.Count - 1)] -join '\')
 # Combine both links with a newline
-$bothLinks = "$sharePointUrl`nOR`n$finalLocalPath"
+$bothLinks = "Web Browser Link: $sharePointUrl`nOR`nWindows File Explorer Link: $finalLocalPath"
 
 # Copy to clipboard
 $bothLinks | Set-Clipboard
