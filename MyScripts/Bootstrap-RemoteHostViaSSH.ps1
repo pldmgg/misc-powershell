@@ -173,8 +173,8 @@ $ArrayOfCimInstances = Invoke-Command $PSSession -ScriptBlock {Get-NetIPAddress 
 
 # Install ZeroTier
 $ZTScriptPath = "$ScriptsDir\powershell\Install-ZeroTier.ps1"
-$ZTNetworkID = 'id'
-$ZTToken = 'token'
+$ZTNetworkID = 'null'
+$ZTToken = 'null'
 $SCPRemoteLocationString = $RemoteUserName + '@' + $RemoteIPAddress + ':' + $ZTScriptPath
 scp.exe -i $SSHPrivateKeyPath $ZTScriptPath $SCPRemoteLocationString
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"& $ZTScriptPath -NetworkID $ZTNetworkID -Token $ZTToken`""
