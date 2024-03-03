@@ -384,7 +384,7 @@ $sharePointUrl = $SharePointBaseUrl + ($finalPathString -join '')
 # to make sure that the local path is accessible to the recipient...
 $finalLocalPath = '%UserProfile%' + '\' + ($localPathArray[3..($localPathArray.Count - 1)] -join '\')
 # Combine both links with a newline
-$bothLinks = "Web Browser Link: $sharePointUrl`nOR`nWindows File Explorer Link: $finalLocalPath"
+$bothLinks = "Web Browser Link:`n$sharePointUrl`n`nOR`n`nWindows File Explorer Link:`n$finalLocalPath"
 
 # Copy to clipboard
 $bothLinks | Set-Clipboard
