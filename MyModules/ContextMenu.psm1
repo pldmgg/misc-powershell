@@ -109,6 +109,7 @@ Windows Registry Editor Version 5.00
     if (-NOT $(Test-Path $SetRegistryPermsFileOutputDir)) {$null = New-Item -Path $SetRegistryPermsFileOutputDir -ItemType Directory -Force}
     $FuncName = "Set-RegistryPermsForWin11ContextMenuModifications"
     $SetRegistryPermsOutFilePath = $SetRegistryPermsFileOutputDir + '\' + $FuncName + '.ps1'
+    Write-Host "Creating $SetRegistryPermsOutFilePath ..."
     ${Function:Set-RegistryPermsForWin11ContextMenuModifications}.Ast.Extent.Text + "`n" + $FuncName | Out-File -FilePath $SetRegistryPermsOutFilePath -Force
     
     Write-Host "Setting registry permissions for Enable-NewWin11ContextMenuForAllUsers ..."
@@ -428,7 +429,7 @@ if (-not $Item.PSIsContainer) {
     $GetLinksScriptContent | Out-File -FilePath $GetLinksScriptPath -Force
 
     $commandForRegAdd = @"
-$RunHiddenExePath powershell.exe -File ""$GetLinksScriptPath"" ""%1""
+$RunHiddenExePath powershell.exe -File "$GetLinksScriptPath" "%1"
 "@
 
     try {
@@ -444,22 +445,22 @@ $RunHiddenExePath powershell.exe -File ""$GetLinksScriptPath"" ""%1""
         Write-Host "Creating Registry keys for $ContextMenuName ..."
         # NOTE: Test-Path does not work reliably with the Registry provider...sometimes it just hangs
         #if (-not (Test-Path $registryPathForFile)) {$null = New-Item -Path $registryPathForFile -Force}
-        & reg add "HKCR\*\shell\$ContextMenuName" /f
+        $null = & reg add "HKCR\*\shell\$ContextMenuName" /f
         #if (-not (Test-Path $registryPathForDir)) {$null = New-Item -Path $registryPathForDir -Force}
-        & reg add "HKCR\Directory\shell\$ContextMenuName" /f
+        $null = & reg add "HKCR\Directory\shell\$ContextMenuName" /f
         #if (-not (Test-Path $registryPathForDirBack)) {$null = New-Item -Path $registryPathForDirBack -Force}
-        & reg add "HKCR\Directory\Background\shell\$ContextMenuName" /f
+        $null = & reg add "HKCR\Directory\Background\shell\$ContextMenuName" /f
 
         Write-Host "Adding Registry keys for $ContextMenuName \command ..."
         #if (-not (Test-Path $commandPathForFile)) {$null = New-Item -Path $commandPathForFile -Force}
         #& reg add "HKCR\*\shell\$ContextMenuName\command" /f
-        & reg add "HKCR\*\shell\$ContextMenuName\command" /t REG_SZ /d "$commandForRegAdd" /f
+        $null = & reg add "HKCR\*\shell\$ContextMenuName\command" /t REG_SZ /d "$commandForRegAdd" /f
         #if (-not (Test-Path $commandPathForDir)) {$null = New-Item -Path $commandPathForDir -Force}
         #& reg add "HKCR\Directory\shell\$ContextMenuName\command" /f
-        & reg add "HKCR\Directory\shell\$ContextMenuName\command" /t REG_SZ /d "$commandForRegAdd" /f
+        $null = & reg add "HKCR\Directory\shell\$ContextMenuName\command" /t REG_SZ /d "$commandForRegAdd" /f
         #if (-not (Test-Path $commandPathForDirBack)) {$null = New-Item -Path $commandPathForDirBack -Force}
         #& reg add "HKCR\Directory\Background\shell\$ContextMenuName\command" /f
-        & reg add "HKCR\Directory\Background\shell\$ContextMenuName\command" /t REG_SZ /d "$commandForRegAdd" /f
+        $null = & reg add "HKCR\Directory\Background\shell\$ContextMenuName\command" /t REG_SZ /d "$commandForRegAdd" /f
     } catch {
         Write-Error $_
         return
@@ -687,7 +688,7 @@ param (
 `$certificateThumbprint = '$certificateThumbprint'
 `$siteName = '$siteName'
 `$TargetDocumentLibrary = '$TargetDocumentLibrary'
-`$LocalDirEquivalentToDocumentLibraryRoot = '$LocalDirEquivalentToDocumentLibraryRoot'
+`$LocalDirEquivalentToDocumentLibraryRoot = "$LocalDirEquivalentToDocumentLibraryRoot"
 
 "@ + @'
 
@@ -721,11 +722,16 @@ foreach ($FilePath in $LocalFilesToUpload) {
     $FileItemToUpload = Get-Item -Path $FilePath 
     $FileToUpload = $FileItemToUpload.FullName
     $FileName = $FileItemToUpload.Name
-    $DirPath = $FilePath -replace [regex]::Escape($LocalDirEquivalentToDocumentLibraryRoot),'' -replace $FileName,'' -replace '\\','/'
-    $UploadUrl = 'https://graph.microsoft.com/v1.0/sites/' + $siteId + '/drives/' + $driveId + '/root:' + $DirPath + $FileName + ':/content'
+    $FilePathChunkCount = ($FilePath -split '\\').Count
+    $LocalDirEquivChunkCount = ($LocalDirEquivalentToDocumentLibraryRoot -split '\\').Count
+    $FinalPath = '/' + (($FilePath -split '\\')[$LocalDirEquivChunkCount..$FilePathChunkCount] -join '/')
+    $UploadUrl = 'https://graph.microsoft.com/v1.0/sites/' + $siteId + '/drives/' + $driveId + '/root:' + $FinalPath + ':/content'
+    Write-Host "FilePath is $FilePath"
+    Write-Host "LocalDirEquivalentToDocumentLibraryRoot is $LocalDirEquivalentToDocumentLibraryRoot"
+    Write-Host "UploadUrl is $UploadUrl"
     #https://graph.microsoft.com/v1.0/sites/{site-id}/drives/{drive-id}/root:/ProjectDocuments/Report.pdf:/content
     $FileContent = Get-Content -Path $FileToUpload -Raw
-    Invoke-MgGraphRequest -Uri $UploadUrl -Method PUT -Body $FileContent -ContentType "text/plain"
+    #Invoke-MgGraphRequest -Uri $UploadUrl -Method PUT -Body $FileContent -ContentType "text/plain"
 }
 '@
 
