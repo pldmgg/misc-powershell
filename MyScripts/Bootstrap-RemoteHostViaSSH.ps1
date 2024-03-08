@@ -208,7 +208,8 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 
 
 # Use winget to install pwsh, nmap, chrome, nomachine, vmware player, and hyper-v
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install Microsoft.PowerShell`""
+# Don't use winget for pwsh install...it causes problems...just trust me...
+#ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install Microsoft.PowerShell`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install nmap`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install miniserve`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"winget install Google.Chrome`""
@@ -227,6 +228,7 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"[Environment]::SetEnvironmentVariable('Path', (([Environment]::GetEnvironmentVariable('Path', 'User')).Trim(';') + ';C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib'), 'User')`""
 
 # Use Chocolatey to install VSCode, nano and veeam-agent
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install powershell-core -y`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install lockhunter -y`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install vscode -y`""
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install nano -y`""
@@ -377,6 +379,8 @@ https://github.com/MustardChef/WSABuilds
 
 # Install TTYD and create scheduled task to run it as a specific user (i.e. the person who uses the PC most often)
 $TaskUser = "ttadmin"
+$TaskName = "Run TTYD as $TaskUser"
+$ZTNetworkID = 'null'
 $CreateRemoteSchdTaskParams = @{
     RemoteUserName = $RemoteUserName
     RemoteIPAddress = $RemoteIPAddress
@@ -384,9 +388,9 @@ $CreateRemoteSchdTaskParams = @{
     SSHPrivateKeyPath = $SSHPrivateKeyPath
     NetworkInterfaceAlias = "ZeroTier One [$ZTNetworkID]"
     TaskUser = $TaskUser # Windows Account Username
-    TaskUserPasswd = 'Unsecure321!' # Windows Account Password for the TaskUser account
+    TaskUserPasswd = 'mypwd!!' # Windows Account Password for the TaskUser account
     TTYDWebUser = "ttydadmin" # Basic Auth Username for TTYD Website
-    TTYDWebPassword = "Unsecure321!" # Basic Auth Password for TTYD Website
+    TTYDWebPassword = "myotherpws!!" # Basic Auth Password for TTYD Website
 }
 Create-RemoteTTYDScheduledTask @CreateRemoteSchdTaskParams
 # Run TTYD via running the Scheduled Task
