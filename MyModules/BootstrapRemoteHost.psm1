@@ -64,6 +64,7 @@ function Invoke-ScaffoldingOnRemoteHost {
         "$ScriptsPath\powershell"
         "$ScriptsPath\configs"
         "$ScriptsPath\temp"
+        "$ScriptsPath\certs"
         "C:\Users\$RemoteUserName\Documents\WindowsPowerShell"
         "C:\Users\$RemoteUserName\Documents\PowerShell"
     )
