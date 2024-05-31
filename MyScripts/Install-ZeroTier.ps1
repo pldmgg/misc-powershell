@@ -1,6 +1,6 @@
 param (
-    [string]$NetworkID, # ZeroTier Network ID
-    [string]$Token # ZeroTier API Token
+    [string]$NetId,
+    [string]$NetToken
 )
 
 ##### BEGIN Helper Functions #####
@@ -354,7 +354,7 @@ function Install-ZeroTier {
     }
 }
 
-# compassionate_cerf
-Install-ZeroTier -NetworkID $NetworkID -Token $Token -BackupExistingConfig
+# Install ZeroTier
+Install-ZeroTier -NetworkID $NetID -Token $NetToken -BackupExistingConfig
 Start-Sleep -Seconds 10
-& 'C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat' join $NetworkID
+& 'C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat' join $NetID
