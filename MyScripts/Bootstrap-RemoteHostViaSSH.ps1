@@ -143,10 +143,11 @@ ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypas
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`""
 
 # Install Pwsh
-$PwshScriptPath = "$ScriptsDir\powershell\Install-Pwsh.ps1"
-$SCPPwshRemoteLocationString = $RemoteUserName + '@' + $RemoteIPAddress + ':' + $PwshScriptPath
-scp.exe -i $SSHPrivateKeyPath $PwshScriptPath $SCPPwshRemoteLocationString
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"& $PwshScriptPath`""
+#$PwshScriptPath = "$ScriptsDir\powershell\Install-Pwsh.ps1"
+#$SCPPwshRemoteLocationString = $RemoteUserName + '@' + $RemoteIPAddress + ':' + $PwshScriptPath
+#scp.exe -i $SSHPrivateKeyPath $PwshScriptPath $SCPPwshRemoteLocationString
+#ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"& $PwshScriptPath`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"choco install powershell-core -y`""
 # Set Pwsh profile.ps1
 $Pwsh7ProfilePath = 'C:\Program Files\PowerShell\7\profile.ps1'
 $Pwsh7ProfilePath1 = "C:\Users\$RemoteUserName\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
@@ -177,7 +178,7 @@ $ZTNetworkID = 'null'
 $ZTToken = 'null'
 $SCPRemoteLocationString = $RemoteUserName + '@' + $RemoteIPAddress + ':' + $ZTScriptPath
 scp.exe -i $SSHPrivateKeyPath $ZTScriptPath $SCPRemoteLocationString
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"& $ZTScriptPath -NetworkID $ZTNetworkID -Token $ZTToken`""
+ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"& $ZTScriptPath -NetID $ZTNetworkID -NetToken $ZTToken`""
 
 # Disable Bitlocker and Decrypt on ALL Volumes
 #Disable-BitLocker -MountPoint (Get-BitLockerVolume) -Confirm:$false

@@ -198,7 +198,7 @@ function Install-ZeroTier {
                 # Restart Install-ZeroTier.ps1 script in PowerShell 7
                 $null = Add-Content -Path $LogFilePath -Value "Restarting Install-ZeroTier.ps1 in Pwsh..." -ErrorAction Stop
                 Write-Output "Restarting Install-ZeroTier.ps1 in Pwsh. Check $LogFilePath for details."
-                pwsh -File "`"$PSCommandPath`"" @PSBoundParameters
+                pwsh -File "`"$PSCommandPath`"" -NetId $NetworkID -NetToken $Token
                 return
             } catch {
                 $ErrMsg = $_.Exception.Message
