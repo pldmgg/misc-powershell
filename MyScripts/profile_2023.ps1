@@ -99,6 +99,7 @@ if (Test-Path($ChocolateyProfile)) {
 }
 
 # Install/Import PowerShellAI module
+<#
 if (!$(Get-Module -ListAvailable 'PowerShellAI' -ErrorAction SilentlyContinue)) {
     try {
         $InstallModuleResult = Install-Module 'PowerShellAI' -AllowClobber -Force -ErrorAction Stop -WarningAction SilentlyContinue
@@ -109,6 +110,7 @@ if (!$(Get-Module -ListAvailable 'PowerShellAI' -ErrorAction SilentlyContinue)) 
         Write-Warning $_.Exception.Message
     }
 }
+#>
 
 
 # For dealing with using "sudo" in PSSessions on Remote Linux machines
