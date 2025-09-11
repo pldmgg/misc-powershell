@@ -323,6 +323,8 @@ docker compose --env-file $EnvPath -f $ComposeYml down
 
 Write-Host "docker compose up -d --build (with --env-file docker\.env + override)" -ForegroundColor Cyan
 docker compose --env-file $EnvPath -f $ComposeYml -f $ComposeOverride up -d --build
+# Patch VS Code desktop launcher to suppress WSL nag
+docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-desktop sh -lc "sed -i 's|^Exec=.*|Exec=env DONT_PROMPT_WSL_INSTALL=1 /usr/bin/code --password-store=basic %F|' /usr/share/applications/code.desktop"
 Pop-Location
 
 # --- Finalizing Prisma inside bytebot-agent (paste directly below your Write-Host line) ---
