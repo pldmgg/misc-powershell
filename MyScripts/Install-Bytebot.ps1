@@ -52,6 +52,7 @@ function Ensure-WSL2 {
   if ($feat1.State -ne "Enabled") { Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart | Out-Null }
   if ($feat2.State -ne "Enabled") { Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart | Out-Null }
   try { wsl --set-default-version 2 | Out-Null } catch { }
+  try { wsl --update | Out-Null } catch { }
   if (($feat1.State -ne "Enabled") -or ($feat2.State -ne "Enabled")) {
     Write-Warning "Windows features were just enabled. A reboot is recommended before continuing."
     $resp = Read-Host "Reboot now? (Y/N)"
