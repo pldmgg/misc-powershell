@@ -1,23 +1,24 @@
-<# 
-InstallByteBotDockerDesktop.ps1 — Full Installer (with your original functions + fixes)
+<#
+InstallByteBotDockerDesktop.ps1 — Full Installer (with fixes & your original helper functions)
 
 Flow:
 1) Assert-Admin, Check-SystemResources, Ensure-WSL2, Ensure-Choco, Ensure-Package (git, docker-desktop), Wait-ForDocker
-2) (Optional) Nuke-Bytebot previous setup; Clone-Fresh-Bytebot to C:\Scripts\gitrepos\bytebot
-3) Ensure docker\.env: prompt for ANTHROPIC_API_KEY, keep OPENAI/GEMINI as placeholders unless you set them; generate BYTEBOT_ENCRYPTION_KEY if missing
+2) Optional wipe/clone with a 10s timeout defaulting to Yes
+3) Ensure docker\.env: prompt for ANTHROPIC_API_KEY; keep OPENAI/GEMINI placeholders; generate BYTEBOT_ENCRYPTION_KEY if missing
 4) Write docker\docker-compose.override.yml to force Prisma native library engines + pass encryption key
-5) Pin Prisma CLI in packages\bytebot-agent\package.json to match @prisma/client
-6) docker compose down; up -d --build using --env-file docker\.env and override
-7) Inside bytebot-agent: pin prisma CLI, add WASM stub, prisma generate + migrate
+5) Pin Prisma CLI in packages\bytebot-agent\package.json to match @prisma/client (writes JSON as UTF-8 **without BOM**)
+6) docker compose down; up -d --build using **--env-file docker\.env** and the override file
+7) Inside bytebot-agent (single-line sh commands to avoid CRLF issues): pin prisma CLI, add WASM stub, prisma generate + migrate
+8) Verify envs inside the container
 #>
 
 param(
-  [switch]$Fresh = $true  # set -Fresh:$false to skip nuking the previous repo
+  [switch]$Fresh = $true
 )
 
 $ErrorActionPreference = 'Stop'
 
-# -------------------- Your original helper functions --------------------
+# -------------------- Helper functions (original and new) --------------------
 
 function Assert-Admin {
   $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -39,8 +40,8 @@ function Check-SystemResources {
   $diskGB = [math]::Round((Get-PSDrive -Name C).Free/1GB, 2)
   Write-Host "Detected RAM: $ramGB GB; Free on C:: $diskGB GB"
   $ok = $true
-  if ($ramGB -lt 15)  { Write-Warning "This machine has < 16 GB RAM."; $ok = $false }
-  if ($diskGB -lt 30) { Write-Warning "Less than 50 GB free on C: drive."; $ok = $false }
+  if ($ramGB -lt 16)  { Write-Warning "This machine has < 16 GB RAM."; $ok = $false }
+  if ($diskGB -lt 50) { Write-Warning "Less than 50 GB free on C: drive."; $ok = $false }
   if (-not $ok) { throw "Minimum requirements not met." }
 }
 
@@ -95,7 +96,6 @@ function Wait-ForDocker {
   try { docker compose version | Out-Null } catch { throw "Docker Compose v2 not available." }
 }
 
-# Robust directory removal w/ retries (handles file locks/RO attrs)
 function Remove-DirForce {
   param([Parameter(Mandatory=$true)][string]$Path, [int]$Retries = 6, [int]$DelayMs = 500)
   if (-not (Test-Path $Path)) { return }
@@ -122,12 +122,15 @@ function Remove-DirForce {
 }
 
 function Nuke-Bytebot {
-  param([string]$RepoPath)
+  param(
+    [string]$RepoPath,
+    [string]$EnvPath
+  )
   Write-Host "Cleaning any previous Bytebot containers/images/volumes/networks..." -ForegroundColor Cyan
   if ($RepoPath -and (Test-Path $RepoPath)) {
     $composeFile = Join-Path $RepoPath "docker\docker-compose.yml"
     if (Test-Path $composeFile) {
-      try { docker compose -f $composeFile down -v } catch { }
+      try { docker compose --env-file $EnvPath -f $composeFile down -v } catch { }
     }
   }
   $ctr = $(docker ps -a --filter "name=bytebot" -q) 2>$null
@@ -154,6 +157,7 @@ function Clone-Fresh-Bytebot {
   return (Resolve-Path $target).Path
 }
 
+# UTF-8 no BOM writer (works on PS5 & PS7)
 function Write-Utf8NoBom {
   param([Parameter(Mandatory=$true)][string]$Path,
         [Parameter(Mandatory=$true)][string]$Content)
@@ -174,28 +178,26 @@ Ensure-Package docker-desktop
 Wait-ForDocker
 
 $repoPath = "C:\Scripts\gitrepos\bytebot"
+$DockerDir       = Join-Path $repoPath 'docker'
+$ComposeYml      = Join-Path $DockerDir 'docker-compose.yml'
+$ComposeOverride = Join-Path $DockerDir 'docker-compose.override.yml'
+$EnvPath         = Join-Path $DockerDir '.env'
+$AgentPkgJson    = Join-Path $repoPath 'packages\bytebot-agent\package.json'
+
+# Fresh clone prompt with 10s timeout (default = Y)
 if ($Fresh) {
   Write-Host "Do you want to wipe any previous ByteBot setup and clone fresh? (Y/N) [Default=Y in 10s]" -ForegroundColor Yellow
   $resp = $null
   try {
-    # PowerShell 7+ supports -Timeout
     $resp = Read-Host -Timeout 10
   } catch {
-    # Fallback for Windows PowerShell: manual timeout loop
     $end = (Get-Date).AddSeconds(10)
-    while ((Get-Date) -lt $end -and -not $host.UI.RawUI.KeyAvailable) {
-      Start-Sleep -Milliseconds 200
-    }
-    if ($host.UI.RawUI.KeyAvailable) {
-      $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-      $resp = $key.Character
-    }
+    while ((Get-Date) -lt $end -and -not $host.UI.RawUI.KeyAvailable) { Start-Sleep -Milliseconds 200 }
+    if ($host.UI.RawUI.KeyAvailable) { $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown"); $resp = $key.Character }
   }
-
   if ([string]::IsNullOrWhiteSpace($resp)) { $resp = "Y" }
-
   if ($resp -match '^[Yy]') {
-    Nuke-Bytebot -RepoPath $repoPath
+    Nuke-Bytebot -RepoPath $repoPath -EnvPath $EnvPath
     $repoPath = Clone-Fresh-Bytebot
   } else {
     if (-not (Test-Path $repoPath)) { $repoPath = Clone-Fresh-Bytebot }
@@ -204,14 +206,12 @@ if ($Fresh) {
   if (-not (Test-Path $repoPath)) { $repoPath = Clone-Fresh-Bytebot }
 }
 
-
-# Paths
+# Refresh paths (repo may have been re-cloned)
 $DockerDir       = Join-Path $repoPath 'docker'
 $ComposeYml      = Join-Path $DockerDir 'docker-compose.yml'
 $ComposeOverride = Join-Path $DockerDir 'docker-compose.override.yml'
 $EnvPath         = Join-Path $DockerDir '.env'
 $AgentPkgJson    = Join-Path $repoPath 'packages\bytebot-agent\package.json'
-
 
 # --- Patch bytebot-desktop Dockerfile to use Code OSS instead of Microsoft VS Code ---
 $desktopDockerfile = Join-Path $repoPath 'docker\bytebot-desktop\Dockerfile'
@@ -241,7 +241,6 @@ RUN apt-get update && \
     Write-Warning "Could not find docker/bytebot-desktop/Dockerfile; skipping Code OSS patch."
 }
 
-
 # Ensure docker\.env exists and prompt for Anthropic key
 New-Item -ItemType Directory -Force -Path $DockerDir | Out-Null
 if (-not (Test-Path $EnvPath)) { New-Item -ItemType File -Path $EnvPath | Out-Null }
@@ -254,23 +253,20 @@ function Ensure-LineInFile {
   }
 }
 
-# OPENAI/GEMINI placeholder unless you provide real ones later
+# OPENAI/GEMINI placeholders unless user replaces later
 Ensure-LineInFile -Path $EnvPath -Key "OPENAI_API_KEY"    -Value "placeholder"
 Ensure-LineInFile -Path $EnvPath -Key "GEMINI_API_KEY"    -Value "placeholder"
 
-# Prompt for ANTHROPIC_API_KEY (masked). If blank, keep existing line or write placeholder.
+# Prompt for ANTHROPIC_API_KEY (optional)
 $existingEnv = Get-Content -Raw $EnvPath
 $existingAnth = $null
 if ($existingEnv -match 'ANTHROPIC_API_KEY=(.+)') { $existingAnth = $Matches[1] }
-
-Write-Host "You need an ANTHROPIC_API_KEY from https://console.anthropic.com/settings/keys in order to use Anthropic AI models." -ForegroundColor Yellow
 $anthInput = Read-Host "Enter your ANTHROPIC_API_KEY (press Enter to keep existing or set later)"
 if ([string]::IsNullOrWhiteSpace($anthInput)) {
   if (-not $existingAnth) {
     Ensure-LineInFile -Path $EnvPath -Key "ANTHROPIC_API_KEY" -Value "placeholder"
   }
 } else {
-  # Update or append the line
   $lines = Get-Content $EnvPath
   $updated = $false
   for ($i=0; $i -lt $lines.Count; $i++) {
@@ -299,10 +295,11 @@ services:
       - PRISMA_CLIENT_ENGINE_TYPE=library
       - BYTEBOT_ENCRYPTION_KEY=\${BYTEBOT_ENCRYPTION_KEY}
 "@
+# YAML is fine with BOM, but we'll still write cleanly
 Set-Content -Path $ComposeOverride -Value $overrideYml -Encoding UTF8
-Write-Host "Wrote docker/docker-compose.override.yml" -ForegroundColor Green
+Write-Host "Wrote docker\docker-compose.override.yml" -ForegroundColor Green
 
-# Pin prisma CLI in package.json to match @prisma/client
+# Pin prisma CLI in package.json to match @prisma/client (write JSON as UTF-8 no BOM)
 if (Test-Path $AgentPkgJson) {
   $pkg = Get-Content -Raw -Path $AgentPkgJson | ConvertFrom-Json
   $clientVer = $null
@@ -319,38 +316,61 @@ if (Test-Path $AgentPkgJson) {
   Write-Warning "Could not find packages\bytebot-agent\package.json; continuing without pin."
 }
 
-# Bring the stack down/up with env-file + override
+# Bring the stack down/up with --env-file and override
 Push-Location $repoPath
 Write-Host "docker compose down" -ForegroundColor Cyan
-docker compose -f $ComposeYml down
+docker compose --env-file $EnvPath -f $ComposeYml down
 
 Write-Host "docker compose up -d --build (with --env-file docker\.env + override)" -ForegroundColor Cyan
 docker compose --env-file $EnvPath -f $ComposeYml -f $ComposeOverride up -d --build
 Pop-Location
 
-# Finalize inside the agent container (pin CLI, stub wasm, generate/migrate)
+# --- Finalizing Prisma inside bytebot-agent (paste directly below your Write-Host line) ---
 Write-Host "Finalizing Prisma inside bytebot-agent..." -ForegroundColor Cyan
-docker compose -f $ComposeYml exec bytebot-agent sh -lc '
-  set -e
-  PRISMA_VER="$(node -p "require(\"@prisma/client/package.json\").version")"
-  npm i -D --silent prisma@"$PRISMA_VER"
-  export PRISMA_CLI_QUERY_ENGINE_TYPE=library
-  export PRISMA_CLIENT_ENGINE_TYPE=library
-  mkdir -p node_modules/@prisma/client/runtime
-  printf "module.exports = \"\";\n" > node_modules/@prisma/client/runtime/query_engine_bg.postgresql.wasm-base64.js
-  rm -rf node_modules/.prisma
-  npx prisma -v
-  npx prisma generate
-  npx prisma migrate deploy
-  node -e "require(\"@prisma/client\"); console.log(\"Prisma client OK (library engine)\")"
-'
+$tmpDir = Join-Path $env:TEMP "bytebot-setup"
+New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+$prismaFile = Join-Path $tmpDir "prisma_finalize.sh"
 
-# Sanity: print key envs inside container
+$prismaScript = @'
+set -e
+PRISMA_VER=$(node -p '(()=>{try{return require("@prisma/client/package.json").version}catch(e){try{const p=require("./package.json");return (p.dependencies&&p.dependencies["@prisma/client"])||(p.devDependencies&&p.devDependencies["@prisma/client"])||"6.6.0"}catch(_){return "6.6.0"}}})()')
+npm i -D --silent prisma="$PRISMA_VER"
+export PRISMA_CLI_QUERY_ENGINE_TYPE=library
+export PRISMA_CLIENT_ENGINE_TYPE=library
+mkdir -p node_modules/@prisma/client/runtime
+printf 'module.exports = "";\n' > node_modules/@prisma/client/runtime/query_engine_bg.postgresql.wasm-base64.js
+rm -rf node_modules/.prisma
+npx prisma -v
+npx prisma generate
+npx prisma migrate deploy
+node -e 'require("@prisma/client"); console.log("Prisma client OK (library engine)")'
+'@ -replace "`r`n","`n"
+
+Write-Utf8NoBom -Path $prismaFile -Content $prismaScript
+docker cp $prismaFile bytebot-agent:/tmp/prisma_finalize.sh
+docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-agent sh -lc 'chmod +x /tmp/prisma_finalize.sh && /tmp/prisma_finalize.sh'
+
+# --- Verifying envs inside bytebot-agent (paste directly below your Write-Host line) ---
 Write-Host "Verifying envs inside bytebot-agent..." -ForegroundColor Cyan
-docker compose -f $ComposeYml exec bytebot-agent sh -lc '
-  for k in OPENAI_API_KEY GEMINI_API_KEY ANTHROPIC_API_KEY BYTEBOT_ENCRYPTION_KEY PRISMA_CLI_QUERY_ENGINE_TYPE PRISMA_CLIENT_ENGINE_TYPE; do
-    v="$(printenv "$k")"; [ -n "$v" ] && echo "$k=set (len=${#v})" || echo "$k=MISSING";
-  done
-'
+$tmpDir = Join-Path $env:TEMP "bytebot-setup"
+New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+$envCheckFile = Join-Path $tmpDir "env_check.sh"
+
+$envCheckScript = @'
+for k in OPENAI_API_KEY GEMINI_API_KEY ANTHROPIC_API_KEY BYTEBOT_ENCRYPTION_KEY PRISMA_CLI_QUERY_ENGINE_TYPE PRISMA_CLIENT_ENGINE_TYPE
+do
+  if [ -n "$(printenv "$k")" ]; then
+    echo "$k=set"
+  else
+    echo "$k=MISSING"
+  fi
+done
+'@ -replace "`r`n","`n"
+
+Write-Utf8NoBom -Path $envCheckFile -Content $envCheckScript
+docker cp $envCheckFile bytebot-agent:/tmp/env_check.sh
+docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-agent sh -lc 'sh /tmp/env_check.sh'
 
 Write-Host "`nDone. ByteBot should now come up clean with native Prisma engine and proper envs." -ForegroundColor Green
+
+Write-Host "`nPLease visit http://localhost:9992 in your web browser." -ForegroundColor Green
