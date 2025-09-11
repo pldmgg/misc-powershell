@@ -185,25 +185,27 @@ $EnvPath         = Join-Path $DockerDir '.env'
 $AgentPkgJson    = Join-Path $repoPath 'packages\bytebot-agent\package.json'
 
 # Fresh clone prompt with 10s timeout (default = Y)
-if ($Fresh) {
-  Write-Host "Do you want to wipe any previous ByteBot setup and clone fresh? (Y/N) [Default=Y in 10s]" -ForegroundColor Yellow
-  $resp = $null
-  try {
-    $resp = Read-Host -Timeout 10
-  } catch {
-    $end = (Get-Date).AddSeconds(10)
-    while ((Get-Date) -lt $end -and -not $host.UI.RawUI.KeyAvailable) { Start-Sleep -Milliseconds 200 }
-    if ($host.UI.RawUI.KeyAvailable) { $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown"); $resp = $key.Character }
-  }
-  if ([string]::IsNullOrWhiteSpace($resp)) { $resp = "Y" }
-  if ($resp -match '^[Yy]') {
+Write-Host "Do you want to wipe any previous ByteBot setup and clone fresh? (Y/N) [Default=Y in 10s]" -ForegroundColor Yellow
+
+$resp = $null
+$end  = (Get-Date).AddSeconds(10)
+
+while ((Get-Date) -lt $end -and -not $host.UI.RawUI.KeyAvailable) {
+    Start-Sleep -Milliseconds 200
+}
+
+if ($host.UI.RawUI.KeyAvailable) {
+    $key  = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    $resp = $key.Character
+}
+
+if ([string]::IsNullOrWhiteSpace($resp)) { $resp = "Y" }
+
+if ($resp -match '^[Yy]') {
     Nuke-Bytebot -RepoPath $repoPath -EnvPath $EnvPath
     $repoPath = Clone-Fresh-Bytebot
-  } else {
-    if (-not (Test-Path $repoPath)) { $repoPath = Clone-Fresh-Bytebot }
-  }
 } else {
-  if (-not (Test-Path $repoPath)) { $repoPath = Clone-Fresh-Bytebot }
+    if (-not (Test-Path $repoPath)) { $repoPath = Clone-Fresh-Bytebot }
 }
 
 # Refresh paths (repo may have been re-cloned)
@@ -324,7 +326,7 @@ docker compose --env-file $EnvPath -f $ComposeYml down
 Write-Host "docker compose up -d --build (with --env-file docker\.env + override)" -ForegroundColor Cyan
 docker compose --env-file $EnvPath -f $ComposeYml -f $ComposeOverride up -d --build
 # Patch VS Code desktop launcher to suppress WSL nag
-docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-desktop sh -lc "sed -i 's|^Exec=.*|Exec=env DONT_PROMPT_WSL_INSTALL=1 /usr/bin/code --password-store=basic %F|' /usr/share/applications/code.desktop"
+docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-desktop sh -lc "sed -i 's|^Exec=.*|Exec=env DONT_PROMPT_WSL_INSTALL=1 /usr/bin/code --password-store=basic %F|' /home/user/Desktop/code.desktop"
 Pop-Location
 
 # --- Finalizing Prisma inside bytebot-agent (paste directly below your Write-Host line) ---
