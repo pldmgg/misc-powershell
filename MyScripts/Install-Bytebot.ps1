@@ -188,18 +188,27 @@ $AgentPkgJson    = Join-Path $repoPath 'packages\bytebot-agent\package.json'
 Write-Host "Do you want to wipe any previous ByteBot setup and clone fresh? (Y/N) [Default=Y in 10s]" -ForegroundColor Yellow
 
 $resp = $null
-$end  = (Get-Date).AddSeconds(10)
+$deadline = (Get-Date).AddSeconds(10)
 
-while ((Get-Date) -lt $end -and -not $host.UI.RawUI.KeyAvailable) {
-    Start-Sleep -Milliseconds 200
+# Detect if a real console is available (some hosts don't expose one)
+$haveConsole = $false
+try { $null = [Console]::KeyAvailable; $haveConsole = $true } catch { $haveConsole = $false }
+
+if ($haveConsole) {
+    while ((Get-Date) -lt $deadline) {
+        if ([Console]::KeyAvailable) {
+            $key = [Console]::ReadKey($true)
+            $resp = $key.KeyChar
+            break
+        }
+        Start-Sleep -Milliseconds 100
+    }
+} else {
+    # No console available; just wait out the timeout
+    Start-Sleep -Seconds 10
 }
 
-if ($host.UI.RawUI.KeyAvailable) {
-    $key  = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    $resp = $key.Character
-}
-
-if ([string]::IsNullOrWhiteSpace($resp)) { $resp = "Y" }
+if ([string]::IsNullOrWhiteSpace($resp)) { $resp = 'Y' }
 
 if ($resp -match '^[Yy]') {
     Nuke-Bytebot -RepoPath $repoPath -EnvPath $EnvPath
@@ -207,6 +216,7 @@ if ($resp -match '^[Yy]') {
 } else {
     if (-not (Test-Path $repoPath)) { $repoPath = Clone-Fresh-Bytebot }
 }
+
 
 # Refresh paths (repo may have been re-cloned)
 $DockerDir       = Join-Path $repoPath 'docker'
