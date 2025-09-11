@@ -297,13 +297,51 @@ Write-Host "docker compose up -d --build (with --env-file docker\.env + override
 docker compose --env-file $EnvPath -f $ComposeYml -f $ComposeOverride up -d --build
 Pop-Location
 
-# Finalize Prisma inside the agent container (single-line to avoid CRLF)
+# --- Finalizing Prisma inside bytebot-agent (paste directly below your Write-Host line) ---
 Write-Host "Finalizing Prisma inside bytebot-agent..." -ForegroundColor Cyan
-docker compose --env-file $EnvPath -f $ComposeYml exec bytebot-agent sh -lc "set -e; PRISMA_VER=\$(node -p 'require(\"@prisma/client/package.json\").version'); npm i -D --silent prisma@\"\$PRISMA_VER\"; export PRISMA_CLI_QUERY_ENGINE_TYPE=library PRISMA_CLIENT_ENGINE_TYPE=library; mkdir -p node_modules/@prisma/client/runtime; printf 'module.exports = \"\";\n' > node_modules/@prisma/client/runtime/query_engine_bg.postgresql.wasm-base64.js; rm -rf node_modules/.prisma; npx prisma -v; npx prisma generate; npx prisma migrate deploy; node -e 'require(\"@prisma/client\"); console.log(\"Prisma client OK (library engine)\")'"
+$tmpDir = Join-Path $env:TEMP "bytebot-setup"
+New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+$prismaFile = Join-Path $tmpDir "prisma_finalize.sh"
 
-# Verify envs inside container (single-line)
+$prismaScript = @'
+set -e
+PRISMA_VER=$(node -p '(()=>{try{return require("@prisma/client/package.json").version}catch(e){try{const p=require("./package.json");return (p.dependencies&&p.dependencies["@prisma/client"])||(p.devDependencies&&p.devDependencies["@prisma/client"])||"6.6.0"}catch(_){return "6.6.0"}}})()')
+npm i -D --silent prisma="$PRISMA_VER"
+export PRISMA_CLI_QUERY_ENGINE_TYPE=library
+export PRISMA_CLIENT_ENGINE_TYPE=library
+mkdir -p node_modules/@prisma/client/runtime
+printf 'module.exports = "";\n' > node_modules/@prisma/client/runtime/query_engine_bg.postgresql.wasm-base64.js
+rm -rf node_modules/.prisma
+npx prisma -v
+npx prisma generate
+npx prisma migrate deploy
+node -e 'require("@prisma/client"); console.log("Prisma client OK (library engine)")'
+'@ -replace "`r`n","`n"
+
+Write-Utf8NoBom -Path $prismaFile -Content $prismaScript
+docker cp $prismaFile bytebot-agent:/tmp/prisma_finalize.sh
+docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-agent sh -lc 'chmod +x /tmp/prisma_finalize.sh && /tmp/prisma_finalize.sh'
+
+# --- Verifying envs inside bytebot-agent (paste directly below your Write-Host line) ---
 Write-Host "Verifying envs inside bytebot-agent..." -ForegroundColor Cyan
-docker compose --env-file $EnvPath -f $ComposeYml exec bytebot-agent sh -lc "for k in OPENAI_API_KEY GEMINI_API_KEY ANTHROPIC_API_KEY BYTEBOT_ENCRYPTION_KEY PRISMA_CLI_QUERY_ENGINE_TYPE PRISMA_CLIENT_ENGINE_TYPE; do if [ -n \"\$(printenv \"$k\")\" ]; then echo \"$k=set\"; else echo \"$k=MISSING\"; fi; done"
+$tmpDir = Join-Path $env:TEMP "bytebot-setup"
+New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+$envCheckFile = Join-Path $tmpDir "env_check.sh"
+
+$envCheckScript = @'
+for k in OPENAI_API_KEY GEMINI_API_KEY ANTHROPIC_API_KEY BYTEBOT_ENCRYPTION_KEY PRISMA_CLI_QUERY_ENGINE_TYPE PRISMA_CLIENT_ENGINE_TYPE
+do
+  if [ -n "$(printenv "$k")" ]; then
+    echo "$k=set"
+  else
+    echo "$k=MISSING"
+  fi
+done
+'@ -replace "`r`n","`n"
+
+Write-Utf8NoBom -Path $envCheckFile -Content $envCheckScript
+docker cp $envCheckFile bytebot-agent:/tmp/env_check.sh
+docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-agent sh -lc 'sh /tmp/env_check.sh'
 
 Write-Host "`nDone. ByteBot should now come up clean with native Prisma engine and proper envs." -ForegroundColor Green
 
