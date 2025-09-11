@@ -154,6 +154,15 @@ function Clone-Fresh-Bytebot {
   return (Resolve-Path $target).Path
 }
 
+function Write-Utf8NoBom {
+  param([Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$true)][string]$Content)
+  $enc = New-Object System.Text.UTF8Encoding($false)
+  $sw  = New-Object System.IO.StreamWriter($Path, $false, $enc)
+  $sw.Write($Content)
+  $sw.Close()
+}
+
 # -------------------- Script starts here --------------------
 
 Assert-Admin
@@ -274,7 +283,7 @@ if (Test-Path $AgentPkgJson) {
     $pkg | Add-Member -NotePropertyName devDependencies -NotePropertyValue (@{}) -Force
   }
   $pkg.devDependencies.prisma = $clientVer
-  ($pkg | ConvertTo-Json -Depth 100) | Set-Content -Path $AgentPkgJson -Encoding UTF8
+  Write-Utf8NoBom -Path $AgentPkgJson -Content ($pkg | ConvertTo-Json -Depth 100)
   Write-Host "Pinned prisma devDependency to version $clientVer" -ForegroundColor Green
 } else {
   Write-Warning "Could not find packages\bytebot-agent\package.json; continuing without pin."
