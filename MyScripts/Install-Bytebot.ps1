@@ -47,18 +47,54 @@ function Check-SystemResources {
 
 function Ensure-WSL2 {
   Write-Host "Ensuring WSL + VirtualMachinePlatform are enabled..." -ForegroundColor Cyan
-  $feat1 = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
-  $feat2 = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
-  if ($feat1.State -ne "Enabled") { Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart | Out-Null }
-  if ($feat2.State -ne "Enabled") { Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart | Out-Null }
-  try { wsl --set-default-version 2 | Out-Null } catch { }
-  try { wsl --update | Out-Null } catch { }
-  if (($feat1.State -ne "Enabled") -or ($feat2.State -ne "Enabled")) {
-    Write-Warning "Windows features were just enabled. A reboot is recommended before continuing."
-    $resp = Read-Host "Reboot now? (Y/N)"
-    if ($resp -match '^[Yy]') { Restart-Computer -Force }
+
+  # Query current state
+  $featWSL = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+  $featVMP = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
+
+  # Enable features if needed (no restart yet)
+  if ($featWSL.State -ne 'Enabled') {
+    Write-Host "Enabling Microsoft-Windows-Subsystem-Linux..." -ForegroundColor Yellow
+    Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart | Out-Null
+  }
+  if ($featVMP.State -ne 'Enabled') {
+    Write-Host "Enabling VirtualMachinePlatform..." -ForegroundColor Yellow
+    Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart | Out-Null
+  }
+
+  # Re-query to see if anything changed
+  $featWSL = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+  $featVMP = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
+
+  # Best-effort WSL configuration; ignore benign failures on older builds
+  try {
+    # Set WSL2 as default backend when supported
+    wsl --set-default-version 2 | Out-Null
+  } catch { }
+
+  try {
+    # Update WSL kernel if supported (newer Windows only)
+    wsl --update | Out-Null
+  } catch { }
+
+  # Check pending reboot using common markers
+  $pending = $false
+  if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $pending = $true }
+  if (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue) { $pending = $true }
+
+  # If features were just enabled or a reboot is pending, offer reboot with 10s default = Yes
+  if ($pending -or $featWSL.State -ne 'Enabled' -or $featVMP.State -ne 'Enabled') {
+    Write-Warning "Windows features were just enabled or a reboot is pending. A reboot is recommended before continuing."
+    Write-Host "Reboot now? (Y/N) [Default=Y in 10s]" -ForegroundColor Yellow
+    choice /C YN /N /T 10 /D Y | Out-Null
+    switch ($LASTEXITCODE) {
+      1 { Restart-Computer -Force }  # Y or timeout → reboot
+      2 { Write-Host "Continuing without reboot (may require manual reboot later)..." -ForegroundColor Yellow }
+      default { Restart-Computer -Force }
+    }
   }
 }
+
 
 function Ensure-Choco {
   if (Get-Command choco -ErrorAction SilentlyContinue) { return }
