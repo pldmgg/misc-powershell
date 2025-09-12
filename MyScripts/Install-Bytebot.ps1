@@ -251,34 +251,6 @@ $ComposeOverride = Join-Path $DockerDir 'docker-compose.override.yml'
 $EnvPath         = Join-Path $DockerDir '.env'
 $AgentPkgJson    = Join-Path $repoPath 'packages\bytebot-agent\package.json'
 
-# --- Patch bytebot-desktop Dockerfile to use Code OSS instead of Microsoft VS Code ---
-$desktopDockerfile = Join-Path $repoPath 'docker\bytebot-desktop\Dockerfile'
-if (Test-Path $desktopDockerfile) {
-    $dockerfileText = Get-Content -Raw $desktopDockerfile
-
-    # Replace the block that installs Microsoft VS Code with Code OSS
-    $pattern = '(?ms)^# Install VS Code.*?rm -f microsoft\.gpg\s*'
-    $replacement = @"
-# Install Code OSS (pure Linux build, no WSL hooks)
-RUN apt-get update && \
-    apt-get remove -y code || true && \
-    apt-get install -y code-oss
-"@
-
-    if ($dockerfileText -match $pattern) {
-        $dockerfileText = [regex]::Replace($dockerfileText, $pattern, $replacement)
-        Write-Host "Patched bytebot-desktop Dockerfile to use Code OSS." -ForegroundColor Green
-    } elseif ($dockerfileText -notmatch 'code-oss') {
-        # If the expected block isn’t found, just append Code OSS install
-        $dockerfileText += "`n$replacement`n"
-        Write-Host "Appended Code OSS install to bytebot-desktop Dockerfile." -ForegroundColor Yellow
-    }
-
-    Write-Utf8NoBom -Path $desktopDockerfile -Content $dockerfileText
-} else {
-    Write-Warning "Could not find docker/bytebot-desktop/Dockerfile; skipping Code OSS patch."
-}
-
 # Ensure docker\.env exists and prompt for Anthropic key
 New-Item -ItemType Directory -Force -Path $DockerDir | Out-Null
 if (-not (Test-Path $EnvPath)) { New-Item -ItemType File -Path $EnvPath | Out-Null }
@@ -292,8 +264,8 @@ function Ensure-LineInFile {
 }
 
 # OPENAI/GEMINI placeholders unless user replaces later
-Ensure-LineInFile -Path $EnvPath -Key "OPENAI_API_KEY"    -Value "placeholder"
-Ensure-LineInFile -Path $EnvPath -Key "GEMINI_API_KEY"    -Value "placeholder"
+Ensure-LineInFile -Path $EnvPath -Key "OPENAI_API_KEY" -Value "placeholder"
+Ensure-LineInFile -Path $EnvPath -Key "GEMINI_API_KEY" -Value "placeholder"
 
 # Prompt for ANTHROPIC_API_KEY (optional)
 $existingEnv = Get-Content -Raw $EnvPath
@@ -365,7 +337,7 @@ docker compose --env-file $EnvPath -f $ComposeYml -f $ComposeOverride up -d --bu
 docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-desktop sh -lc "sed -i 's|^Exec=.*|Exec=env DONT_PROMPT_WSL_INSTALL=1 /usr/bin/code --password-store=basic %F|' /home/user/Desktop/code.desktop"
 Pop-Location
 
-# --- Finalizing Prisma inside bytebot-agent (paste directly below your Write-Host line) ---
+# --- Finalizing Prisma inside bytebot-agent ---
 Write-Host "Finalizing Prisma inside bytebot-agent..." -ForegroundColor Cyan
 $tmpDir = Join-Path $env:TEMP "bytebot-setup"
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
@@ -390,7 +362,7 @@ Write-Utf8NoBom -Path $prismaFile -Content $prismaScript
 docker cp $prismaFile bytebot-agent:/tmp/prisma_finalize.sh
 docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-agent sh -lc 'chmod +x /tmp/prisma_finalize.sh && /tmp/prisma_finalize.sh'
 
-# --- Verifying envs inside bytebot-agent (paste directly below your Write-Host line) ---
+# --- Verifying envs inside bytebot-agent ---
 Write-Host "Verifying envs inside bytebot-agent..." -ForegroundColor Cyan
 $tmpDir = Join-Path $env:TEMP "bytebot-setup"
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
