@@ -325,8 +325,8 @@ docker cp $envCheckFile bytebot-agent:/tmp/env_check.sh
 docker compose --env-file $EnvPath -f $ComposeYml exec -T bytebot-agent sh -lc 'sh /tmp/env_check.sh'
 
 # Launch browser UI
-Write-Host "Waiting 10 seconds to launch Bytebot UI in your default browser..." -ForegroundColor Cyan
-Start-Sleep -Seconds 10
+Write-Host "Waiting 20 seconds to launch Bytebot UI in your default browser..." -ForegroundColor Cyan
+Start-Sleep -Seconds 20
 $ui = "http://localhost:9992"
 Start-Process $ui
 
