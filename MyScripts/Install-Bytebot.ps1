@@ -37,8 +37,8 @@ function Check-SystemResources {
   $diskGB = [math]::Round((Get-PSDrive -Name C).Free/1GB, 2)
   Write-Host "Detected RAM: $ramGB GB; Free on C:: $diskGB GB"
   $ok = $true
-  if ($ramGB -lt 15)  { Write-Warning "This machine has < 16 GB RAM."; $ok = $false }
-  if ($diskGB -lt 30) { Write-Warning "Less than 50 GB free on C: drive."; $ok = $false }
+  if ($ramGB -lt 15)  { Write-Warning "This machine has < 15 GB RAM. ($ramGB)"; $ok = $false }
+  if ($diskGB -lt 30) { Write-Warning "Less than 50 GB free on C: drive. ($diskGB)"; $ok = $false }
   if (-not $ok) { throw "Minimum requirements not met." }
 }
 
