@@ -471,7 +471,7 @@ $b64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
 vagrant winrm -c "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $b64"
 
 # Test Key Authentication - This should return the name of the remote host
-ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"'`$env:ComputerName'`""
+ssh -i $SSHPrivateKeyPath -o StrictHostKeyChecking=accept-new $SSHUserAndHost "powershell.exe -ExecutionPolicy Bypass -Command `"'`$env:ComputerName'`""
 
 # The below should now work:
 #ssh -i $SSHPrivateKeyPath $SSHUserAndHost
