@@ -802,6 +802,8 @@ the AI to control your Computer.
 Write-Host @"
 
 IMPORTANT NOTE: Please run Microsoft Edge Browser and Google Chrome browser at least once to complete their setup before using UI-TARS to control your Computer.
+
+IMPORTANT NOTE: To pause Hugging Face billing, navigate to your endpoint and click the "Pause" button at the top.
 "@ -ForegroundColor Red
 
 '@ | Set-Content -Path (Join-Path $powershellDir "Install-TARS.ps1") -Encoding UTF8 -Force
