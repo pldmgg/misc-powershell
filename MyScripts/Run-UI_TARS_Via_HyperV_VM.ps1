@@ -794,7 +794,9 @@ When UI-TARS opens, click the "Local Computer" button and then set...
   VLM API Key:      $HF_TOKEN
   VLM Model Name:   ByteDance-Seed/UI-TARS-1.5-7B
 
-...and then click the "Check Model Availability" button. It may throw an error the first time, but wait a minute and try again. Once it returns green, you can start chatting with the AI to control your Computer.
+...and then click the "Check Model Availability" button. It may throw an error the first couple of times you click it,
+but wait a minute and try again. Once it returns green, click the "Get Start" button and you can start chatting with
+the AI to control your Computer.
 "@ -ForegroundColor Yellow
 
 '@ | Set-Content -Path (Join-Path $powershellDir "Install-TARS.ps1") -Encoding UTF8 -Force
