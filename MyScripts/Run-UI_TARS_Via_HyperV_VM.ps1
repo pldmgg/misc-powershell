@@ -301,6 +301,25 @@ function Invoke-HfEndpointTools {
 
 
 #-------------------- Main --------------------
+
+# Gather Hugging Face info for UI-TARS
+Write-Host @"
+To use the HuggingFace endpoint for UI-TARS-1.5, you need to create a HuggingFace account (if you don't have one) and set up an Inference Endpoint for the UI-TARS-1.5-7B model.
+1. Sign up or log in to your HuggingFace account at https://huggingface.co/join
+2. Go to the Inference Endpoints page: https://endpoints.huggingface.co/
+3. Click on "+ New".
+4. In the "Model" field, enter "ByteDance-Seed/UI-TARS-1.5-7B", select it from the dropdown, and click Configure
+5. In the right-hand pane, select "Amazon Web Services" -> GPU -> East US us-east -> Nvidia A100 -> Scroll down and expand the Container Configuration section -> Max Input Length (per Query): 65536 -> Max Batch Prefill Tokens: 65536 -> Max Number of Tokens (per Query): 65537 -> Scroll down and expand the Environment Variable section -> Under Default Env add these 2 variables: CUDA_GRAPHS = 0 -> PAYLOAD_LIMIT = 8000000
+6. Click "Create Endpoint" at the bottom of the page.
+7. Once the endpoint is created, go to the "Settings" tab of your endpoint and make sure Container URI says something like: ghcr.io/huggingface/text-generation-inference:3.3.4
+8. Go to your endpoint's Overview tab -> Look at the "Playground" section towards the bottom of the page -> Click on the "API" tab -> take note of the value for "base_url" which should look like https://{unique-id}.us-east-1.aws.endpoints.huggingface.cloud/v1/
+9. Go to https://huggingface.co/settings/tokens -> Create new token -> Token type = Read -> Give it an arbitrary name -> click Create token -> take note of the value
+"@ -ForegroundColor Cyan
+
+$HF_TOKEN = Read-Host "Enter your huggingface.co API Token (see https://huggingface.co/settings/tokens)"
+$HF_BaseURL = Read-Host "Enter your huggingface.co base_url (see https://endpoints.huggingface.co/)"
+$HF_Username = Read-Host "Enter your huggingface.co username (see https://huggingface.co/settings/account)"
+
 Assert-Admin
 Assert-Edition
 Enable-HyperV
@@ -581,9 +600,14 @@ Read-host -Prompt "Press Enter when you have started the RDP session in order to
 
 # Install-TARS.ps1
 # Purpose: Install agent-tars, set up HF endpoint, and install UI-TARS Desktop (latest stable)
-@'
-$ErrorActionPreference = 'Stop'
+@"
+`$ErrorActionPreference = 'Stop'
 
+`$HF_TOKEN = '$HF_TOKEN'
+`$HF_BaseURL = '$HF_BaseURL'
+`$HF_Username = '$HF_Username'
+
+"@ + @'
 # --- Prereqs ---
 Write-Host "Installing prerequisites via Chocolatey..." -ForegroundColor Cyan
 if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
@@ -625,22 +649,6 @@ agent-tars --version
 )
 
 # --- Hugging Face Endpoint config prompts ---
-Write-Host @"
-To use the HuggingFace endpoint for UI-TARS-1.5, you need to create a HuggingFace account (if you don't have one) and set up an Inference Endpoint for the UI-TARS-1.5-7B model.
-1. Sign up or log in to your HuggingFace account at https://huggingface.co/join
-2. Go to the Inference Endpoints page: https://endpoints.huggingface.co/
-3. Click on "+ New".
-4. In the "Model" field, enter "ByteDance-Seed/UI-TARS-1.5-7B", select it from the dropdown, and click Configure
-5. In the right-hand pane, select "Amazon Web Services" -> GPU -> East US us-east -> Nvidia A100 -> Scroll down and expand the Container Configuration section -> Max Input Length (per Query): 65536 -> Max Batch Prefill Tokens: 65536 -> Max Number of Tokens (per Query): 65537 -> Scroll down and expand the Environment Variable section -> Under Default Env add these 2 variables: CUDA_GRAPHS = 0 -> PAYLOAD_LIMIT = 8000000
-6. Click "Create Endpoint" at the bottom of the page.
-7. Once the endpoint is created, go to the "Settings" tab of your endpoint and make sure Container URI says something like: ghcr.io/huggingface/text-generation-inference:3.3.4
-8. Go to your endpoint's Overview tab -> Look at the "Playground" section towards the bottom of the page -> Click on the "API" tab -> take note of the value for "base_url" which should look like https://{unique-id}.us-east-1.aws.endpoints.huggingface.cloud/v1/
-9. Go to https://huggingface.co/settings/tokens -> Create new token -> Token type = Read -> Give it an arbitrary name -> click Create token -> take note of the value
-"@ -ForegroundColor Cyan
-
-$HF_TOKEN = Read-Host "Enter your huggingface.co API Token (see https://huggingface.co/settings/tokens -> Create new token -> Token type = Read -> Give it an arbitrary name -> click Create token -> copy the value)"
-$HF_BaseURL = Read-Host "Enter your huggingface.co base_url (see https://endpoints.huggingface.co/ -> click on your endpoint -> Playground section, click API -> copy the value for base_url)"
-$HF_Username = Read-Host "Enter your huggingface.co username (see https://huggingface.co/settings/account -> Username field)"
 
 if ([string]::IsNullOrWhiteSpace($HF_TOKEN)) {
     Write-Error "HUGGINGFACE_API_KEY is required for the HF endpoint. Halting!"
@@ -737,15 +745,23 @@ if (-not (Test-Path $ShortcutPath)) {
 Write-Host "`nDone. Launching UI-TARS Desktop..." -ForegroundColor Green
 #Start-Process -FilePath $TargetPath
 Write-Host @"
-When UI-TARS opens, set:
+When UI-TARS opens, click the "Local Computer" button and then set...
+
   VLM Provider:     Hugging Face for UI-TARS-1.5
   VLM Base URL:     $HF_BaseURL
   VLM API Key:      $HF_TOKEN
   VLM Model Name:   ByteDance-Seed/UI-TARS-1.5-7B
+
+...and then click the "Check Model Availability" button. It may throw an error the first time, but wait a minute and try again. Once it returns green, you can start chatting with the AI to control your Computer.
 "@ -ForegroundColor Yellow
 
-Stop-Process -Id $proc.Id -Force | Out-Null
-Write-Host "Stopped agent-tars (PID $($proc.Id) to allow for UI-TARS Desktop run)."
+Write-Host "Stopping powershell running agent-tars (PID $($proc.Id) to allow for UI-TARS Desktop run)."
+try {
+  Stop-Process -Id $proc.Id -Force
+  if (Get-Process powershell -ErrorAction SilentlyContinue) {
+    Get-Process powershell | Stop-Process -Force
+  }
+} catch {}
 
 '@ | Set-Content -Path (Join-Path $powershellDir "Install-TARS.ps1") -Encoding UTF8 -Force
 
