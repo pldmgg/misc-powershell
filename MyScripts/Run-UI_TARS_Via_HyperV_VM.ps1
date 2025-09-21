@@ -303,7 +303,9 @@ function Invoke-HfEndpointTools {
 #-------------------- Main --------------------
 
 # Gather Hugging Face info for UI-TARS
-$hfInfoPath = "C:\Scripts\powershell\hf_info.xml"
+$powershellDir = "C:\Scripts\powershell"
+$hfInfoPath = "$powershellDir\hf_info.xml"
+if (-not (Test-Path $powershellDir)) {New-Item -ItemType Directory -Path $powershellDir -Force | Out-Null}
 if (Test-Path $hfInfoPath) {
   try {
     $hf = Import-Clixml -Path $hfInfoPath
