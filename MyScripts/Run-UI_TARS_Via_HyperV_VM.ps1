@@ -791,10 +791,10 @@ When UI-TARS opens, click the "Local Computer" button and then set...
 Write-Host "Stopping powershell running agent-tars (PID $($proc.Id) to allow for UI-TARS Desktop run)."
 try {
   Stop-Process -Id $proc.Id -Force
-  if (Get-Process powershell -ErrorAction SilentlyContinue) {
-    Get-Process powershell | Stop-Process -Force
-  }
-} catch {}
+  Get-Process node | Stop-Process -Force
+} catch {
+  try {Get-Process node | Stop-Process -Force} catch {}
+}
 
 '@ | Set-Content -Path (Join-Path $powershellDir "Install-TARS.ps1") -Encoding UTF8 -Force
 
