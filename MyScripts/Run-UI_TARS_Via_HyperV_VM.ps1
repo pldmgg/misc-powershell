@@ -861,4 +861,4 @@ Write-Host "`nRun-Install-TARS-Interactively.ps1 copied to $SCPRemoteLocationStr
 
 # Run it interactively in the current active RDP session
 ssh -i $SSHPrivateKeyPath $SSHUserAndHost "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Scripts\powershell\Run-Install-TARS-Interactively.ps1'"
-Write-Host "`nRun-Install-TARS-Interactively.ps1 launched. Switch to the RDP session to complete the TARS installation." -ForegroundColor Green
+Write-Host "`nRun-Install-TARS-Interactively.ps1 launched. Switch to the RDP session and wait for the TARS installation to finish. Follow any additional instructions in the RDP session." -ForegroundColor Green
