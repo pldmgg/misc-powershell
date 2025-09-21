@@ -627,7 +627,7 @@ winposstr:s:0,1,$left,$top,$winW,$winH
 Unblock-File $RdpFile
 Start-Process mstsc.exe $RdpFile
 
-Read-host -Prompt "Press Enter when you have started the RDP session in order to continue."
+Read-host -Prompt "Press Enter when you have started the RDP session in order to continue. Password is: vagrant"
 
 ### RUN THE BELOW IN THE RDP GUI SESSION ###
 
