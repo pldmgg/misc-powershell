@@ -304,21 +304,52 @@ function Invoke-HfEndpointTools {
 
 # Gather Hugging Face info for UI-TARS
 Write-Host @"
-To use the HuggingFace endpoint for UI-TARS-1.5, you need to create a HuggingFace account (if you don't have one) and set up an Inference Endpoint for the UI-TARS-1.5-7B model.
+To use the HuggingFace endpoint for UI-TARS-1.5, you need to create a HuggingFace account
+(if you don't have one)and set up an Inference Endpoint for the UI-TARS-1.5-7B model.
+
 1. Sign up or log in to your HuggingFace account at https://huggingface.co/join
+
 2. Go to the Inference Endpoints page: https://endpoints.huggingface.co/
+
 3. Click on "+ New".
+
 4. In the "Model" field, enter "ByteDance-Seed/UI-TARS-1.5-7B", select it from the dropdown, and click Configure
+
 5. In the right-hand pane, select "Amazon Web Services" -> GPU -> East US us-east -> Nvidia A100 -> Scroll down and expand the Container Configuration section -> Max Input Length (per Query): 65536 -> Max Batch Prefill Tokens: 65536 -> Max Number of Tokens (per Query): 65537 -> Scroll down and expand the Environment Variable section -> Under Default Env add these 2 variables: CUDA_GRAPHS = 0 -> PAYLOAD_LIMIT = 8000000
+
 6. Click "Create Endpoint" at the bottom of the page.
+
 7. Once the endpoint is created, go to the "Settings" tab of your endpoint and make sure Container URI says something like: ghcr.io/huggingface/text-generation-inference:3.3.4
+
 8. Go to your endpoint's Overview tab -> Look at the "Playground" section towards the bottom of the page -> Click on the "API" tab -> take note of the value for "base_url" which should look like https://{unique-id}.us-east-1.aws.endpoints.huggingface.cloud/v1/
+
 9. Go to https://huggingface.co/settings/tokens -> Create new token -> Token type = Read -> Give it an arbitrary name -> click Create token -> take note of the value
 "@ -ForegroundColor Cyan
 
-$HF_TOKEN = Read-Host "Enter your huggingface.co API Token (see https://huggingface.co/settings/tokens)"
-$HF_BaseURL = Read-Host "Enter your huggingface.co base_url (see https://endpoints.huggingface.co/)"
-$HF_Username = Read-Host "Enter your huggingface.co username (see https://huggingface.co/settings/account)"
+$hfInfoPath = "C:\Scripts\powershell\hf_info.xml"
+if (Test-Path $hfInfoPath) {
+  try {
+    $hf = Import-Clixml -Path $hfInfoPath
+    if (-not $hf.HF_TOKEN -or -not $hf.HF_BaseURL -or -not $hf.HF_Username) {throw "Missing fields"}
+    $HF_TOKEN    = $hf.HF_TOKEN
+    $HF_BaseURL  = $hf.HF_BaseURL
+    $HF_Username = $hf.HF_Username
+  } catch {
+    Write-Warning $_.Exception.Message
+    $hf = $null
+  }
+}
+if (-not $hf) {
+  $HF_TOKEN = Read-Host "Enter your huggingface.co API Token (see https://huggingface.co/settings/tokens)"
+  $HF_BaseURL = Read-Host "Enter your huggingface.co base_url (see https://endpoints.huggingface.co/)"
+  $HF_Username = Read-Host "Enter your huggingface.co username (see https://huggingface.co/settings/account)"
+  $hf = [pscustomobject]@{
+    HF_TOKEN    = $HF_TOKEN
+    HF_BaseURL  = $HF_BaseURL
+    HF_Username = $HF_Username
+  }
+  $hf | Export-Clixml -Path $hfInfoPath -Force
+}
 
 Assert-Admin
 Assert-Edition
