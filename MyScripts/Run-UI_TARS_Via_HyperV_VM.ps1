@@ -740,6 +740,15 @@ $proc = Start-Process -FilePath (Get-Command 'powershell.exe').Source -ArgumentL
 #$proc = Start-Process -FilePath $cmdPath -ArgumentList $agentArgs -WindowStyle Minimized -PassThru # THIS DOES NOT WORK
 #agent-tars --model.provider openai-compatible --model.id ui-tars-1-5-7b-clt --model.apiKey $HF_TOKEN --model.baseUrl $HF_BaseURL --port 8888 # THIS BLOCKS
 Write-Host "agent-tars launched with PID $($proc.Id)" -ForegroundColor Green
+Start-Sleep -Seconds 10
+# Kill it
+Write-Host "Stopping node process running agent-tars (PID $($proc.Id) to allow for UI-TARS Desktop run)."
+try {
+  Stop-Process -Id $proc.Id -Force
+  Get-Process node | Stop-Process -Force
+} catch {
+  try {Get-Process node | Stop-Process -Force} catch {}
+}
 
 # --- UI-TARS Desktop (latest stable) ---
 Write-Host "Downloading UI-TARS Desktop (latest stable)..." -ForegroundColor Cyan
@@ -787,14 +796,6 @@ When UI-TARS opens, click the "Local Computer" button and then set...
 
 ...and then click the "Check Model Availability" button. It may throw an error the first time, but wait a minute and try again. Once it returns green, you can start chatting with the AI to control your Computer.
 "@ -ForegroundColor Yellow
-
-Write-Host "Stopping powershell running agent-tars (PID $($proc.Id) to allow for UI-TARS Desktop run)."
-try {
-  Stop-Process -Id $proc.Id -Force
-  Get-Process node | Stop-Process -Force
-} catch {
-  try {Get-Process node | Stop-Process -Force} catch {}
-}
 
 '@ | Set-Content -Path (Join-Path $powershellDir "Install-TARS.ps1") -Encoding UTF8 -Force
 
