@@ -303,7 +303,21 @@ function Invoke-HfEndpointTools {
 #-------------------- Main --------------------
 
 # Gather Hugging Face info for UI-TARS
-Write-Host @"
+$hfInfoPath = "C:\Scripts\powershell\hf_info.xml"
+if (Test-Path $hfInfoPath) {
+  try {
+    $hf = Import-Clixml -Path $hfInfoPath
+    if (-not $hf.HF_TOKEN -or -not $hf.HF_BaseURL -or -not $hf.HF_Username) {throw "Missing fields"}
+    $HF_TOKEN    = $hf.HF_TOKEN
+    $HF_BaseURL  = $hf.HF_BaseURL
+    $HF_Username = $hf.HF_Username
+  } catch {
+    Write-Warning $_.Exception.Message
+    $hf = $null
+  }
+}
+if (-not $hf) {
+  Write-Host @"
 To use the HuggingFace endpoint for UI-TARS-1.5, you need to create a HuggingFace account
 (if you don't have one)and set up an Inference Endpoint for the UI-TARS-1.5-7B model.
 
@@ -324,22 +338,8 @@ To use the HuggingFace endpoint for UI-TARS-1.5, you need to create a HuggingFac
 8. Go to your endpoint's Overview tab -> Look at the "Playground" section towards the bottom of the page -> Click on the "API" tab -> take note of the value for "base_url" which should look like https://{unique-id}.us-east-1.aws.endpoints.huggingface.cloud/v1/
 
 9. Go to https://huggingface.co/settings/tokens -> Create new token -> Token type = Read -> Give it an arbitrary name -> click Create token -> take note of the value
-"@ -ForegroundColor Cyan
+"@ -ForegroundColor Yellow
 
-$hfInfoPath = "C:\Scripts\powershell\hf_info.xml"
-if (Test-Path $hfInfoPath) {
-  try {
-    $hf = Import-Clixml -Path $hfInfoPath
-    if (-not $hf.HF_TOKEN -or -not $hf.HF_BaseURL -or -not $hf.HF_Username) {throw "Missing fields"}
-    $HF_TOKEN    = $hf.HF_TOKEN
-    $HF_BaseURL  = $hf.HF_BaseURL
-    $HF_Username = $hf.HF_Username
-  } catch {
-    Write-Warning $_.Exception.Message
-    $hf = $null
-  }
-}
-if (-not $hf) {
   $HF_TOKEN = Read-Host "Enter your huggingface.co API Token (see https://huggingface.co/settings/tokens)"
   $HF_BaseURL = Read-Host "Enter your huggingface.co base_url (see https://endpoints.huggingface.co/)"
   $HF_Username = Read-Host "Enter your huggingface.co username (see https://huggingface.co/settings/account)"
