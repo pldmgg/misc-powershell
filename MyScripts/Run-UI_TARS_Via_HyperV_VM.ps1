@@ -799,6 +799,11 @@ but wait a minute and try again. Once it returns green, click the "Get Start" bu
 the AI to control your Computer.
 "@ -ForegroundColor Yellow
 
+Write-Host @"
+
+IMPORTANT NOTE: Please run Microsoft Edge Browser and Google Chrome browser at least once to complete their setup before using UI-TARS to control your Computer.
+"@ -ForegroundColor Red
+
 '@ | Set-Content -Path (Join-Path $powershellDir "Install-TARS.ps1") -Encoding UTF8 -Force
 
 # scp Install-TARS.ps1 to remote host
