@@ -119,6 +119,30 @@ ensure_python_stack() {
   fi
 }
 
+# --- Make `python` resolve to python3 ---
+ensure_python_alias() {
+  if has python; then
+    # If python already exists, do nothing
+    log "python already present: $(python --version 2>&1 || true)"
+    return
+  fi
+  log "Ensuring 'python' points to python3"
+  require_sudo
+  update_apt_once
+  # Preferred: Ubuntu meta-package that symlinks python -> python3
+  if apt-cache show python-is-python3 >/dev/null 2>&1; then
+    sudo apt-get install -y python-is-python3
+  else
+    # Fallback: create a system-wide symlink
+    if [[ -x /usr/bin/python3 ]]; then
+      sudo ln -sf /usr/bin/python3 /usr/local/bin/python
+      log "Created /usr/local/bin/python -> /usr/bin/python3"
+    else
+      err "python3 not found at /usr/bin/python3; cannot create alias."
+    fi
+  fi
+}
+
 # --- Node.js (npm + npx) via NodeSource ---
 ensure_node() {
   if has npm; then
@@ -210,6 +234,7 @@ ensure_stripe() {
 ensure_docker
 ensure_nvidia_container_toolkit
 ensure_python_stack
+ensure_python_alias
 ensure_node
 ensure_uv
 ensure_supabase
@@ -219,6 +244,7 @@ ensure_stripe
 printf "\n\033[1;34m=== Versions Summary ===\033[0m\n"
 { docker --version || true; }
 { docker compose version || true; }
+{ python --version || true; }
 { python3 --version || true; }
 { pip3 --version || true; }
 { pipx --version || true; }
@@ -232,4 +258,3 @@ printf "\n\033[1;34m=== Versions Summary ===\033[0m\n"
 
 printf "\nNote: If you were just added to the 'docker' group, log out/in (or reboot) before using Docker without sudo.\n"
 printf "GPU test (optional): docker run --rm --gpus all nvidia/cuda:12.6.2-base-ubuntu24.04 nvidia-smi\n"
-printf "Stripe: run 'stripe login' to auth, or 'stripe login --interactive' for headless.\n"
