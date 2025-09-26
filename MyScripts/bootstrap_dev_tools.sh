@@ -183,6 +183,41 @@ ensure_git() {
   fi
 }
 
+# --- GitHub CLI (gh) ---
+ensure_github_cli() {
+  if has gh; then
+    log "gh already installed: $(gh --version | head -n1)"
+    return
+  fi
+
+  log "Installing GitHub CLI (gh) from official APT repo"
+  require_sudo
+  update_apt_once
+  sudo apt-get install -y curl gpg || true
+  sudo install -m 0755 -d /etc/apt/keyrings
+  # Newer keyring path uses githubcli-archive-keyring.gpg
+  if curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null; then
+    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+    sudo apt-get update -y || true
+    if sudo apt-get install -y gh; then
+      log "gh installed: $(gh --version | head -n1)"
+      return
+    fi
+  fi
+
+  # Fallback to Snap if apt path fails (e.g., key URL change/network issues)
+  warn "Falling back to Snap install for gh"
+  if sudo snap install gh --classic; then
+    log "gh installed via Snap: $(gh --version | head -n1)"
+  else
+    err "Failed to install gh via APT and Snap."
+    return 1
+  fi
+}
+
 # --- Supabase CLI (.deb from latest GitHub release) ---
 ensure_supabase() {
   if has supabase; then
@@ -247,6 +282,7 @@ ensure_python_alias
 ensure_node
 ensure_uv
 ensure_git
+ensure_github_cli
 ensure_supabase
 ensure_stripe
 
@@ -264,6 +300,7 @@ printf "\n\033[1;34m=== Versions Summary ===\033[0m\n"
 { uv --version || true; }
 { uvx --version || true; }
 { git --version || true; }
+{ gh --version || true; }
 { supabase --version || true; }
 { stripe version || true; }
 
