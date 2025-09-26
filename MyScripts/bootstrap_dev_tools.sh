@@ -122,18 +122,15 @@ ensure_python_stack() {
 # --- Make `python` resolve to python3 ---
 ensure_python_alias() {
   if has python; then
-    # If python already exists, do nothing
     log "python already present: $(python --version 2>&1 || true)"
     return
   fi
   log "Ensuring 'python' points to python3"
   require_sudo
   update_apt_once
-  # Preferred: Ubuntu meta-package that symlinks python -> python3
   if apt-cache show python-is-python3 >/dev/null 2>&1; then
     sudo apt-get install -y python-is-python3
   else
-    # Fallback: create a system-wide symlink
     if [[ -x /usr/bin/python3 ]]; then
       sudo ln -sf /usr/bin/python3 /usr/local/bin/python
       log "Created /usr/local/bin/python -> /usr/bin/python3"
@@ -174,6 +171,18 @@ ensure_uv() {
   fi
 }
 
+# --- Git ---
+ensure_git() {
+  if has git; then
+    log "git already installed: $(git --version)"
+  else
+    log "Installing git"
+    update_apt_once
+    require_sudo
+    sudo apt-get install -y git
+  fi
+}
+
 # --- Supabase CLI (.deb from latest GitHub release) ---
 ensure_supabase() {
   if has supabase; then
@@ -202,7 +211,7 @@ ensure_supabase() {
 # --- Stripe CLI (Linux tarball from latest GitHub release) ---
 ensure_stripe() {
   if has stripe; then
-    log "stripe already installed: $(stripe --version)"
+    log "stripe already installed: $(stripe version | head -n1)"
     return
   fi
   log "Installing Stripe CLI from latest GitHub tarball"
@@ -237,6 +246,7 @@ ensure_python_stack
 ensure_python_alias
 ensure_node
 ensure_uv
+ensure_git
 ensure_supabase
 ensure_stripe
 
@@ -253,6 +263,7 @@ printf "\n\033[1;34m=== Versions Summary ===\033[0m\n"
 { npx --version || true; }
 { uv --version || true; }
 { uvx --version || true; }
+{ git --version || true; }
 { supabase --version || true; }
 { stripe version || true; }
 
