@@ -161,6 +161,25 @@ ensure_node() {
   fi
 }
 
+# --- Configure npm to a per-user global prefix (avoid EACCES) ---
+configure_npm_user_prefix() {
+  local prefix; prefix="$(npm config get prefix 2>/dev/null || true)"
+  [[ -z "$prefix" ]] && prefix="$(npm prefix -g 2>/dev/null || echo /usr)"
+  if [[ "$EUID" -ne 0 && ( "$prefix" = "/usr" || "$prefix" = "/usr/local" || "$prefix" = "/usr/lib" || ! -w "$prefix" ) ]]; then
+    log "Configuring npm to use per-user global prefix (~/.npm-global)"
+    mkdir -p "$HOME/.npm-global"
+    npm config set prefix "$HOME/.npm-global"
+    ensure_path_line 'export PATH="$HOME/.npm-global/bin:$PATH"'
+    export PATH="$HOME/.npm-global/bin:$PATH"
+  fi
+  local NPM_BIN; NPM_BIN="$(npm bin -g 2>/dev/null || true)"
+  if [[ -n "$NPM_BIN" && ":$PATH:" != *":$NPM_BIN:"* ]]; then
+    warn "Adding npm global bin to PATH in ~/.bashrc: $NPM_BIN"
+    ensure_path_line "export PATH=\"$NPM_BIN:\$PATH\""
+    export PATH="$NPM_BIN:$PATH"
+  fi
+}
+
 # --- uv (Astral) + uvx ---
 ensure_uv() {
   if has uv && has uvx; then
@@ -224,7 +243,6 @@ ensure_psql() {
     log "Installing PostgreSQL client (psql)"
     update_apt_once
     require_sudo
-    # Generic client metapackage; pulls current default client (Ubuntu 24.04 → 16)
     sudo apt-get install -y postgresql-client
   fi
 }
@@ -285,18 +303,31 @@ ensure_stripe() {
   log "Stripe installed: $(stripe version | head -n1)"
 }
 
+# --- Vercel CLI (npm global with user prefix) ---
+ensure_vercel() {
+  if has vercel; then
+    log "vercel already installed: $(vercel --version 2>/dev/null || vercel -v 2>/dev/null || echo present)"
+    return
+  fi
+  log "Installing Vercel CLI via npm -g (user prefix)"
+  npm install -g vercel
+  log "vercel installed: $(vercel --version 2>/dev/null || vercel -v 2>/dev/null || echo installed)"
+}
+
 # --- Run all ---
 ensure_docker
 ensure_nvidia_container_toolkit
 ensure_python_stack
 ensure_python_alias
 ensure_node
+configure_npm_user_prefix
 ensure_uv
 ensure_git
 ensure_github_cli
 ensure_psql
 ensure_supabase
 ensure_stripe
+ensure_vercel
 
 # --- Versions summary ---
 printf "\n\033[1;34m=== Versions Summary ===\033[0m\n"
@@ -316,6 +347,8 @@ printf "\n\033[1;34m=== Versions Summary ===\033[0m\n"
 { psql --version || true; }
 { supabase --version || true; }
 { stripe version || true; }
+{ vercel --version 2>/dev/null || vercel -v 2>/dev/null || true; }
 
 printf "\nNote: If you were just added to the 'docker' group, log out/in (or reboot) before using Docker without sudo.\n"
 printf "GPU test (optional): docker run --rm --gpus all nvidia/cuda:12.6.2-base-ubuntu24.04 nvidia-smi\n"
+printf "Vercel: run 'vercel login' to authenticate.\n"
