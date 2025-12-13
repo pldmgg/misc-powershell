@@ -82,10 +82,10 @@ if (-not (Test-Path $DesktopPath)) {
     New-Item -ItemType Directory -Path $DesktopPath -Force | Out-Null
 }
 
-$RdpFileName = "SaintChristophers - 10.147.17.9.rdp"
+$RdpFileName = "parishsec1.rdp"
 $RdpPath = Join-Path $DesktopPath $RdpFileName
 
-$RdpTarget = "10.147.17.9"
+$RdpTarget = "10.147.17.179"
 $RdpUser   = "saintchristophe\shawnaminnucci"
 
 # Template based on your attached .rdp file style
