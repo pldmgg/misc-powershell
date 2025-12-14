@@ -4,7 +4,7 @@ set -euo pipefail
 ZT_NET="1d7193940464cb98"
 RDP_IP="10.147.17.179"
 RDP_USER="saintchristophe\\shawnaminnucci"
-RDP_NAME="SaintChristophe - Shawna (10.147.17.179).rdp"
+RDP_NAME="parishsec1.rdp"
 
 echo "Starting setup..."
 
@@ -16,7 +16,7 @@ USER_HOME="$(/usr/bin/dscl . -read "/Users/${CONSOLE_USER}" NFSHomeDirectory | /
 DESKTOP="${USER_HOME}/Desktop"
 
 # -----------------------------
-# Sudo helpers (works even when script is run via: curl | bash)
+# Sudo helpers (works with: curl | bash)
 # -----------------------------
 require_sudo() {
   # Already have sudo?
@@ -24,15 +24,13 @@ require_sudo() {
     return 0
   fi
 
-  echo "Admin password required for system-level steps (ZeroTier join)."
-
-  # Ensure we have a real TTY to prompt on
+  # Must have a real TTY to prompt on
   if [[ ! -r /dev/tty ]]; then
-    echo "ERROR: No TTY available for sudo prompt (are you running from a non-interactive context?)." >&2
+    echo "ERROR: No TTY available for sudo prompt. Run this from the Terminal app (interactive)." >&2
     exit 1
   fi
 
-  # Force sudo to prompt on the controlling terminal
+  echo "Admin password required for system-level steps."
   if ! /usr/bin/sudo -v </dev/tty; then
     echo "ERROR: sudo authentication failed (wrong password or user not allowed to sudo)." >&2
     exit 1
@@ -46,42 +44,59 @@ keep_sudo_alive() {
 }
 
 # -----------------------------
-# Homebrew
+# Install Homebrew (if missing) - allow prompts
 # -----------------------------
 if ! command -v brew >/dev/null 2>&1; then
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  echo "Homebrew not found. Installing (may prompt for admin password)..."
+  require_sudo
+  keep_sudo_alive
+
+  # IMPORTANT: Do NOT set NONINTERACTIVE=1; it prevents prompting and causes exit.
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/tty
 fi
 
+# Ensure brew is on PATH for this script (Apple Silicon + Intel)
 if [[ -x /opt/homebrew/bin/brew ]]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 elif [[ -x /usr/local/bin/brew ]]; then
   eval "$(/usr/local/bin/brew shellenv)"
 fi
 
+echo "Using brew: $(command -v brew)"
+
 # -----------------------------
-# ZeroTier
+# Install + start ZeroTier
 # -----------------------------
+echo "Installing ZeroTier..."
 brew list zerotier-one >/dev/null 2>&1 || brew install zerotier-one
+
+echo "Starting ZeroTier service..."
 brew services start zerotier-one >/dev/null || true
 sleep 2
 
+echo "Joining ZeroTier network: ${ZT_NET}"
 require_sudo
 keep_sudo_alive
 /usr/bin/sudo zerotier-cli join "${ZT_NET}" </dev/tty || true
+echo "NOTE: Your controller may still need to authorize this device in ZeroTier Central."
 
 # -----------------------------
-# Microsoft Remote Desktop
+# Install Microsoft Remote Desktop
 # -----------------------------
+echo "Installing Microsoft Remote Desktop..."
 brew list --cask microsoft-remote-desktop >/dev/null 2>&1 || brew install --cask microsoft-remote-desktop
 
 # -----------------------------
-# .rdp association
+# Ensure .rdp → Microsoft Remote Desktop
 # -----------------------------
+echo "Installing duti (for file associations) if needed..."
 brew list duti >/dev/null 2>&1 || brew install duti
+
+echo "Associating .rdp files with Microsoft Remote Desktop..."
 duti -s com.microsoft.rdc.mac rdp all
 
 # -----------------------------
-# Create .rdp file
+# Create .rdp file on Desktop
 # -----------------------------
 /bin/mkdir -p "${DESKTOP}"
 RDP_PATH="${DESKTOP}/${RDP_NAME}"
@@ -115,4 +130,5 @@ touch "${RDP_PATH}"
 # -----------------------------
 /usr/bin/killall Finder || true
 
-echo "Done. Finder refreshed and RDP shortcut ready."
+echo "Created RDP shortcut: ${RDP_PATH}"
+echo "Done."
