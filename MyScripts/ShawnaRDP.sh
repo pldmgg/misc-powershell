@@ -4,7 +4,7 @@ set -euo pipefail
 ZT_NET="1d7193940464cb98"
 RDP_IP="10.147.17.179"
 RDP_USER="saintchristophe\\shawnaminnucci"
-RDP_NAME="parishsec1.rdp"
+RDP_NAME="SaintChristophe - Shawna (10.147.17.179).rdp"
 
 echo "Starting setup..."
 
@@ -16,12 +16,26 @@ USER_HOME="$(/usr/bin/dscl . -read "/Users/${CONSOLE_USER}" NFSHomeDirectory | /
 DESKTOP="${USER_HOME}/Desktop"
 
 # -----------------------------
-# Sudo helpers
+# Sudo helpers (works even when script is run via: curl | bash)
 # -----------------------------
 require_sudo() {
-  if ! /usr/bin/sudo -n true 2>/dev/null; then
-    echo "Admin password required for system-level steps (ZeroTier join)."
-    /usr/bin/sudo -v
+  # Already have sudo?
+  if /usr/bin/sudo -n true 2>/dev/null; then
+    return 0
+  fi
+
+  echo "Admin password required for system-level steps (ZeroTier join)."
+
+  # Ensure we have a real TTY to prompt on
+  if [[ ! -r /dev/tty ]]; then
+    echo "ERROR: No TTY available for sudo prompt (are you running from a non-interactive context?)." >&2
+    exit 1
+  fi
+
+  # Force sudo to prompt on the controlling terminal
+  if ! /usr/bin/sudo -v </dev/tty; then
+    echo "ERROR: sudo authentication failed (wrong password or user not allowed to sudo)." >&2
+    exit 1
   fi
 }
 
@@ -53,7 +67,7 @@ sleep 2
 
 require_sudo
 keep_sudo_alive
-/usr/bin/sudo zerotier-cli join "${ZT_NET}" || true
+/usr/bin/sudo zerotier-cli join "${ZT_NET}" </dev/tty || true
 
 # -----------------------------
 # Microsoft Remote Desktop
@@ -97,7 +111,7 @@ EOF
 touch "${RDP_PATH}"
 
 # -----------------------------
-# NEW: Refresh Finder
+# Refresh Finder
 # -----------------------------
 /usr/bin/killall Finder || true
 
