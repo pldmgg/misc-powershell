@@ -80,9 +80,9 @@ if (-not $pythonCheck) {
 }
 Write-Host "  $(& python --version 2>&1)" -ForegroundColor Green
 
-Write-Host "  Installing qrcode pip package..."
-& python -m pip install --quiet qrcode
-Write-Host "  qrcode package installed." -ForegroundColor Green
+Write-Host "  Installing qrcode and pillow pip packages..."
+& python -m pip install --quiet qrcode pillow
+Write-Host "  pip packages installed." -ForegroundColor Green
 
 # ── 3. Determine latest signal-cli version ─────────────────────────────────────
 
@@ -146,15 +146,24 @@ Set-Content -Path $qrPyPath -Value @'
 import subprocess
 import sys
 import io
+import os
+import tempfile
 import qrcode
+import shutil
 
 device_name = sys.argv[1] if len(sys.argv) > 1 else "signal-cli"
 
+signal_cli = shutil.which("signal-cli")
+if not signal_cli:
+    print("Error: signal-cli not found on PATH", file=sys.stderr)
+    sys.exit(1)
+
 proc = subprocess.Popen(
-    ["signal-cli", "link", "-n", device_name],
+    [signal_cli, "link", "-n", device_name],
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
     text=True,
+    shell=True,
 )
 
 # signal-cli prints the sgnl:// URI as the first line of stdout, then blocks
@@ -173,14 +182,29 @@ if not uri.startswith("sgnl://"):
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 print()
+print(f"URI: {uri}")
+print()
 print("Scan this QR code with Signal on your phone:")
 print("  Settings > Linked Devices > Link New Device")
 print()
 
-q = qrcode.QRCode()
+q = qrcode.QRCode(border=4)
 q.add_data(uri)
 q.make()
-q.print_ascii()
+
+# Print inverted for dark terminal backgrounds
+q.print_ascii(invert=True)
+
+# Also save a proper PNG image and open it as a reliable fallback
+try:
+    img = qrcode.make(uri)
+    qr_path = os.path.join(tempfile.gettempdir(), "signal-cli-qr.png")
+    img.save(qr_path)
+    print()
+    print(f"QR code also saved to: {qr_path}")
+    os.startfile(qr_path)
+except Exception:
+    pass
 
 print()
 print("Waiting for you to scan...")
