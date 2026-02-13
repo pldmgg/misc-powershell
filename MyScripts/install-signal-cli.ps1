@@ -53,6 +53,16 @@ Write-Host "  $(& java -version 2>&1 | Select-Object -First 1)" -ForegroundColor
 
 Write-Host "`n[2/6] Installing Python 3 and qrcode package..." -ForegroundColor Cyan
 
+# Remove Windows Store python stubs that shadow real Python installs
+$stubDir = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps'
+foreach ($stub in @('python.exe', 'python3.exe')) {
+    $stubPath = Join-Path $stubDir $stub
+    if (Test-Path $stubPath) {
+        Remove-Item $stubPath -Force -ErrorAction SilentlyContinue
+        Write-Host "  Removed Windows Store stub: $stub"
+    }
+}
+
 $pythonCheck = Get-Command python -ErrorAction SilentlyContinue
 if ($pythonCheck -and (& python --version 2>&1) -match 'Python 3') {
     Write-Host "  Python 3 already installed, skipping." -ForegroundColor Green
@@ -130,25 +140,70 @@ Set-Content -Path $wrapperPath -Value @'
 '@
 Write-Host "  Created wrapper at $wrapperPath"
 
-# Create QR helper script for linking
-$qrHelperPath = Join-Path $BinDir 'signal-cli-qr.cmd'
-Set-Content -Path $qrHelperPath -Value @'
-@echo off
-setlocal
-set "DEVICE_NAME=%~1"
-if "%DEVICE_NAME%"=="" set "DEVICE_NAME=signal-cli"
+# Create QR helper Python script
+$qrPyPath = Join-Path $LibDir 'signal-cli-qr.py'
+Set-Content -Path $qrPyPath -Value @'
+import subprocess
+import sys
+import io
+import qrcode
 
-echo Generating link URI and QR code...
-echo Scan the QR code below with Signal on your phone:
-echo   Settings ^> Linked Devices ^> Link New Device
-echo.
+device_name = sys.argv[1] if len(sys.argv) > 1 else "signal-cli"
 
-for /f "delims=" %%i in ('signal-cli link -n "%DEVICE_NAME%"') do (
-    python -c "import sys,io,qrcode; sys.stdout=io.TextIOWrapper(sys.stdout.buffer,encoding='utf-8'); q=qrcode.QRCode(); q.add_data(sys.argv[1]); q.make(); q.print_ascii()" "%%i"
+proc = subprocess.Popen(
+    ["signal-cli", "link", "-n", device_name],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True,
 )
-endlocal
+
+# signal-cli prints the sgnl:// URI as the first line of stdout, then blocks
+uri = proc.stdout.readline().strip()
+
+if not uri:
+    # Some versions write to stderr instead
+    uri = proc.stderr.readline().strip()
+
+if not uri.startswith("sgnl://"):
+    print(f"Unexpected output from signal-cli link: {uri}", file=sys.stderr)
+    proc.terminate()
+    sys.exit(1)
+
+# Force UTF-8 for the block characters
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+
+print()
+print("Scan this QR code with Signal on your phone:")
+print("  Settings > Linked Devices > Link New Device")
+print()
+
+q = qrcode.QRCode()
+q.add_data(uri)
+q.make()
+q.print_ascii()
+
+print()
+print("Waiting for you to scan...")
+
+# Wait for signal-cli to finish (completes once the phone confirms the link)
+proc.wait()
+
+if proc.returncode == 0:
+    print("Linked successfully!")
+else:
+    err = proc.stderr.read()
+    print(f"Linking failed (exit code {proc.returncode}): {err}", file=sys.stderr)
+    sys.exit(proc.returncode)
 '@
-Write-Host "  Created QR helper at $qrHelperPath"
+Write-Host "  Created QR helper at $qrPyPath"
+
+# Create wrapper cmd for the QR helper
+$qrCmdPath = Join-Path $BinDir 'signal-cli-qr.cmd'
+Set-Content -Path $qrCmdPath -Value @"
+@echo off
+python "%~dp0..\lib\signal-cli-qr.py" %*
+"@
+Write-Host "  Created wrapper at $qrCmdPath"
 
 # Clean up temp files
 Remove-Item $tempTar -Force -ErrorAction SilentlyContinue
